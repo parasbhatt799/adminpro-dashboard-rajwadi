@@ -232,8 +232,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     const serviceCharge = calculateBillCharge(billAmountNum);
     const totalDeduction = billAmountNum + serviceCharge;
 
-    if (userBalance - totalDeduction < 500) {
-      setError("Your balance is insufficient, make sure to keep more than 500 inr as a balance.");
+    if (userBalance - totalDeduction < 250) {
+      setError("Your balance is insufficient, make sure to keep more than 250 inr as a balance.");
       setSubmittingBill(false);
       return;
     }
