@@ -1,0 +1,265 @@
+import { 
+  ArrowLeft, 
+  Mail, 
+  Phone, 
+  Calendar, 
+  Building2, 
+  Percent, 
+  IndianRupee,
+  FileText,
+  Trash2,
+  Edit3,
+  AlertTriangle,
+  X,
+  MapPin,
+  CreditCard,
+  Download
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useState } from 'react';
+import { supabase } from '../lib/supabase';
+
+interface UserDetailsProps {
+  user: any;
+  onBack: () => void;
+  onEdit: (user: any) => void;
+  onDelete: () => void;
+}
+
+export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDetailsProps) {
+  const [activeTab, setActiveTab] = useState<'firm' | 'kyc'>('firm');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setError(null);
+    try {
+      const { error: deleteError } = await supabase
+        .from('users_profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (deleteError) throw deleteError;
+      onDelete();
+    } catch (err: any) {
+      console.error('Error deleting user:', err);
+      setError(err.message || 'Failed to delete user. This might be due to associated transaction records.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 relative">
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
+            >
+              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-6">
+                <AlertTriangle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Confirm Delete</h3>
+              <p className="text-slate-500 text-center mb-8">
+                Are you sure you want to delete <strong>{user.name}</strong>? This action cannot be undone and all associated data will be lost.
+              </p>
+              {error && (
+                <div className="mb-6 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold text-center">
+                  {error}
+                </div>
+              )}
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <div className="flex items-center gap-4">
+        <button 
+          onClick={onBack}
+          className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">User Profile</h2>
+          <p className="text-slate-500 text-sm">Detailed information for {user.name}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Profile Card */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 text-center">
+            <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-3xl border-4 border-white shadow-lg mx-auto mb-4 overflow-hidden">
+              {user.profile_photo_url ? (
+                <img src={user.profile_photo_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                user.name.charAt(0)
+              )}
+            </div>
+            <h3 className="text-xl font-bold text-slate-900">{user.name}</h3>
+            
+            <div className="mt-6 flex justify-center">
+              <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                user.status === 'Active' ? 'text-emerald-600 bg-emerald-50' : 
+                user.status === 'Suspended' ? 'text-rose-600 bg-rose-50' : 
+                'text-amber-600 bg-amber-50'
+              }`}>
+                {user.status}
+              </span>
+            </div>
+
+            <div className="mt-8 pt-8 border-t border-slate-50 space-y-4 text-left">
+              <div className="flex items-center gap-3 text-slate-600">
+                <Mail size={18} className="text-slate-400" />
+                <span className="text-sm">{user.email}</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-600">
+                <Phone size={18} className="text-slate-400" />
+                <span className="text-sm">{user.mobile_number}</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-600">
+                <Calendar size={18} className="text-slate-400" />
+                <span className="text-sm">Joined {new Date(user.created_at).toLocaleDateString()}</span>
+              </div>
+              <div className="flex items-center gap-3 text-slate-600">
+                <MapPin size={18} className="text-slate-400" />
+                <span className="text-sm">{user.home_address || 'No address provided'}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-100">
+            <h4 className="text-indigo-100 text-xs font-bold uppercase tracking-widest mb-4">Wallet Balance</h4>
+            <div className="flex items-end justify-between">
+              <p className="text-3xl font-bold">₹{Number(user.wallet_balance || 0).toLocaleString()}</p>
+              <CreditCard size={24} className="text-indigo-300" />
+            </div>
+          </div>
+        </div>
+
+        {/* Details Tabs/Content */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+            <div className="flex border-b border-slate-50">
+              <button 
+                onClick={() => setActiveTab('firm')}
+                className={`px-8 py-4 text-sm font-bold transition-colors ${activeTab === 'firm' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                Firm Details
+              </button>
+              <button 
+                onClick={() => setActiveTab('kyc')}
+                className={`px-8 py-4 text-sm font-bold transition-colors ${activeTab === 'kyc' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                KYC Documents
+              </button>
+            </div>
+            
+            <div className="p-8">
+              {activeTab === 'firm' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="md:col-span-2 p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Firm Name</p>
+                    <p className="text-lg font-bold text-slate-900">{user.firm_name || 'Not provided'}</p>
+                  </div>
+                  <div className="md:col-span-2 p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Firm Address</p>
+                    <p className="text-sm font-medium text-slate-600 leading-relaxed">{user.firm_address || 'Not provided'}</p>
+                  </div>
+                  <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">QR Service Charge (%)</p>
+                    <div className="flex items-center gap-2 text-indigo-600">
+                      <Percent size={20} />
+                      <p className="text-2xl font-bold">{user.charge_percentage}%</p>
+                    </div>
+                  </div>
+                  <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Service Charge On/Off</p>
+                    <div className="flex items-center gap-3">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.service_charge_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                        {user.service_charge_enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                      {user.service_charge_enabled && (
+                        <p className="text-lg font-bold text-slate-900">₹{user.custom_service_charge}</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {user.profile_photo_url ? (
+                    <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/50 border border-slate-100 group hover:bg-white hover:shadow-md transition-all">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 rounded-xl bg-white text-indigo-600 shadow-sm">
+                          <FileText size={24} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">Profile Photo</p>
+                          <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">Uploaded on {new Date(user.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                      <a 
+                        href={user.profile_photo_url} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        <Download size={20} />
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
+                        <FileText size={32} />
+                      </div>
+                      <p className="text-slate-500 font-medium">No KYC documents uploaded yet.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4 pt-6">
+            <button 
+              onClick={() => onEdit(user)}
+              className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
+            >
+              <Edit3 size={20} className="text-indigo-600" />
+              Update Information
+            </button>
+            <button 
+              onClick={() => setShowDeleteConfirm(true)}
+              className="flex-1 flex items-center justify-center gap-2 py-4 bg-rose-50 border border-rose-100 rounded-2xl font-bold text-rose-600 hover:bg-rose-100 transition-all shadow-sm active:scale-95"
+            >
+              <Trash2 size={20} />
+              Delete User Account
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

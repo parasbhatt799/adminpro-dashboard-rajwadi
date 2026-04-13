@@ -1,0 +1,5 @@
+{
+  "name": "AdminPro Dashboard",
+  "description": "A professional administrative panel for managing wallet balances, KYC requests, and service charges.",
+  "requestFramePermissions": []
+}
