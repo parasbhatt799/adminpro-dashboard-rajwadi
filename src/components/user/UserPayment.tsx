@@ -145,19 +145,21 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
     fetchData();
 
-    // even more robust real-time handling without server-side filters
+    // even more robust real-time handling with duplicate check
     const qrChannel = supabase
-      .channel('qr_submissions_realtime_v2')
+      .channel('qr_submissions_realtime_v3')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'payment_submissions'
       }, (payload: any) => {
-        // Filter manually in JavaScript to ensure it always works
         if (payload.new && payload.new.user_id === userId) {
-          console.log('Live QR Update for this user:', payload.eventType);
           if (payload.eventType === 'INSERT') {
-            setQrRequests(prev => [payload.new, ...prev]);
+            setQrRequests(prev => {
+              // Prevent duplicates
+              if (prev.some(req => req.id === payload.new.id)) return prev;
+              return [payload.new, ...prev];
+            });
           } else if (payload.eventType === 'UPDATE') {
             setQrRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
           }
@@ -169,17 +171,19 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       .subscribe();
 
     const billChannel = supabase
-      .channel('bill_submissions_realtime_v2')
+      .channel('bill_submissions_realtime_v3')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'bill_submissions'
       }, (payload: any) => {
-        // Filter manually in JavaScript
         if (payload.new && payload.new.user_id === userId) {
-          console.log('Live Bill Update for this user:', payload.eventType);
           if (payload.eventType === 'INSERT') {
-            setBillRequests(prev => [payload.new, ...prev]);
+            setBillRequests(prev => {
+              // Prevent duplicates
+              if (prev.some(req => req.id === payload.new.id)) return prev;
+              return [payload.new, ...prev];
+            });
           } else if (payload.eventType === 'UPDATE') {
             setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
           }
