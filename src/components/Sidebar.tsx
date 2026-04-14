@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { 
   LayoutDashboard, 
   UserPlus, 
@@ -8,10 +9,11 @@ import {
   FileBarChart,
   LogOut,
   ShieldCheck,
-  MessageSquare
+  MessageSquare,
+  ChevronDown
 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { NavLink } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 
 interface SidebarProps {
   onLogout: () => void;
@@ -28,11 +30,27 @@ const menuItems = [
   { id: 'bank-upload', label: 'Bank Upload', icon: Building2, path: '/bank-upload' },
   { id: 'reason-entry', label: 'Reason entry', icon: FileQuestion, path: '/reason-entry' },
   { id: 'service-charge', label: 'Service charge', icon: Receipt, path: '/service-charge' },
-  { id: 'report-generate', label: 'Report Generate', icon: FileBarChart, path: '/report-generate' },
+  { 
+    id: 'report-generate', 
+    label: 'Report Generate', 
+    icon: FileBarChart, 
+    path: '/reports/qr-payment',
+    subItems: [
+      { label: 'QR Payment Report', path: '/reports/qr-payment' },
+      { label: 'Bill Payment Report', path: '/reports/bill-payment' },
+      { label: 'Statement Report', path: '/reports/statement' }
+    ]
+  },
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
 ];
 
 export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [reportsExpanded, setReportsExpanded] = useState(() => {
+    return location.pathname.startsWith('/reports');
+  });
+
   return (
     <motion.div 
       initial={false}
@@ -56,11 +74,82 @@ export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 no-scrollbar">
         <nav className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
+            const isReports = item.id === 'report-generate';
+            const isActive = isReports 
+              ? location.pathname.startsWith('/reports')
+              : location.pathname === item.path;
             
+            if (isReports) {
+              return (
+                <div key={item.id} className="space-y-1">
+                  <button
+                    onClick={() => {
+                      if (isCollapsed) {
+                        navigate(item.path);
+                      } else {
+                        setReportsExpanded(!reportsExpanded);
+                        // Default navigate to QR report if not already in reports
+                        if (!location.pathname.startsWith('/reports')) {
+                          navigate(item.path);
+                        }
+                      }
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${
+                      isActive 
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20' 
+                        : 'hover:bg-slate-800 hover:text-white'
+                    }`}
+                  >
+                    <Icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                    {!isCollapsed && (
+                      <>
+                        <motion.span 
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className="font-medium text-sm whitespace-nowrap"
+                        >
+                          {item.label}
+                        </motion.span>
+                        <motion.div
+                          animate={{ rotate: reportsExpanded ? 180 : 0 }}
+                          className="ml-auto"
+                        >
+                          <ChevronDown size={16} />
+                        </motion.div>
+                      </>
+                    )}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {!isCollapsed && reportsExpanded && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden bg-slate-800/30 rounded-xl"
+                      >
+                        {item.subItems?.map((sub) => (
+                          <NavLink
+                            key={sub.path}
+                            to={sub.path}
+                            className={({ isActive }) => `block py-2.5 pl-11 pr-4 text-xs font-medium transition-colors ${
+                              isActive ? 'text-white bg-white/5' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                            }`}
+                          >
+                            {sub.label}
+                          </NavLink>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            }
+
             return (
               <NavLink
                 key={item.id}

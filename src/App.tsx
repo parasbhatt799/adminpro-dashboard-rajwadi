@@ -16,6 +16,9 @@ import QRPaymentRequests from './components/QRPaymentRequests';
 import BillPaymentRequests from './components/BillPaymentRequests';
 import KYCVerificationRequests from './components/KYCVerificationRequests';
 import ComplaintsManagement from './components/ComplaintsManagement';
+import QRPaymentReport from './components/QRPaymentReport';
+import BillPaymentReport from './components/BillPaymentReport';
+import StatementReport from './components/StatementReport';
 import Login from './components/Login';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
@@ -289,7 +292,11 @@ export default function App() {
           <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
           <Route path="reason-entry" element={<ReasonManagement />} />
           <Route path="complaints-management" element={<ComplaintsManagement />} />
-          <Route path="report-generate" element={<PageUnderConstruction tab="report-generate" />} />
+          <Route path="reports">
+            <Route path="qr-payment" element={<QRPaymentReport />} />
+            <Route path="bill-payment" element={<BillPaymentReport />} />
+            <Route path="statement" element={<StatementReport />} />
+          </Route>
         </Route>
         <Route 
           path="/user" 
