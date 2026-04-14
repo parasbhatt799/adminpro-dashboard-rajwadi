@@ -132,7 +132,7 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
       if (mError) throw mError;
 
       // 3. Create Notification for the admin
-      await supabase
+      const { error: nError } = await supabase
         .from('notifications')
         .insert([{
           target_role: 'admin',
@@ -140,6 +140,12 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
           message: `New ticket: "${subject}" from user #${userId}`,
           link: '/complaints-management'
         }]);
+
+      if (nError) {
+        console.error('Notification Error (Admin):', nError);
+      } else {
+        console.log('Notification sent to admin successfully!');
+      }
 
       setShowForm(false);
       fetchComplaints();

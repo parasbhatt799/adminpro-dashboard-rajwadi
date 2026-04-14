@@ -45,11 +45,17 @@ export default function App() {
         .order('created_at', { ascending: false })
         .limit(10);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching admin notifications:', error);
+        setAdminNotifications([]);
+        return;
+      }
+      
+      console.log('Fetched admin notifications:', data?.length);
       setAdminNotifications(data || []);
       setUnreadAdminCount(data?.filter(n => !n.is_read).length || 0);
     } catch (err) {
-      console.error('Error fetching admin notifications:', err);
+      console.error('Unexpected error fetching admin notifications:', err);
     }
   };
 
