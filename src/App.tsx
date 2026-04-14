@@ -30,154 +30,81 @@ import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 
-export default function App() {
-  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
-  const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
-  const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  // Admin Notification States
-  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
-  const [unreadAdminCount, setUnreadAdminCount] = useState(0);
-  const [showAdminNotifications, setShowAdminNotifications] = useState(false);
+// --- Layout Components ---
 
-  const fetchAdminNotifications = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('target_role', 'admin')
-        .order('created_at', { ascending: false })
-        .limit(10);
+const PageUnderConstruction = ({ tab }: { tab: string }) => (
+  <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400">
+    <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
+      <Search size={32} />
+    </div>
+    <h3 className="text-xl font-semibold text-slate-600">Page Under Construction</h3>
+    <p className="mt-2 text-center max-w-xs">
+      The <span className="font-bold text-indigo-600 capitalize">{tab.replace('-', ' ')}</span> page is currently being designed and will be available soon.
+    </p>
+  </div>
+);
+
+interface AdminLayoutProps {
+  handleLogout: () => void;
+  isSidebarCollapsed: boolean;
+  setIsSidebarCollapsed: (val: boolean) => void;
+  showAdminNotifications: boolean;
+  setShowAdminNotifications: (val: boolean) => void;
+  unreadAdminCount: number;
+  adminNotifications: any[];
+  handleDeleteAdminNotification: (e: React.MouseEvent, id: string) => void;
+  handleClearAllAdminNotifications: (e: React.MouseEvent) => void;
+  fetchAdminNotifications: () => void;
+  userId: string;
+}
+
+const AdminLayout = ({
+  handleLogout,
+  isSidebarCollapsed,
+  setIsSidebarCollapsed,
+  showAdminNotifications,
+  setShowAdminNotifications,
+  unreadAdminCount,
+  adminNotifications,
+  handleDeleteAdminNotification,
+  handleClearAllAdminNotifications,
+  fetchAdminNotifications,
+  userId
+}: AdminLayoutProps) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const currentTab = location.pathname.substring(1) || 'dashboard';
+
+  return (
+    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+      <Sidebar 
+        onLogout={handleLogout} 
+        isCollapsed={isSidebarCollapsed}
+      />
       
-      if (error) {
-        console.error('Error fetching admin notifications:', error);
-        setAdminNotifications([]);
-        return;
-      }
-      
-      console.log('Fetched admin notifications:', data?.length);
-      setAdminNotifications(data || []);
-      setUnreadAdminCount(data?.filter(n => !n.is_read).length || 0);
-    } catch (err) {
-      console.error('Unexpected error fetching admin notifications:', err);
-    }
-  };
-
-  const handleDeleteAdminNotification = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', id);
-      if (error) throw error;
-      setAdminNotifications(prev => prev.filter(n => n.id !== id));
-      setUnreadAdminCount(prev => prev - (adminNotifications.find(n => n.id === id)?.is_read ? 0 : 1));
-    } catch (err) {
-      console.error('Error deleting admin notification:', err);
-    }
-  };
-
-  const handleClearAllAdminNotifications = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('target_role', 'admin');
-      if (error) throw error;
-      setAdminNotifications([]);
-      setUnreadAdminCount(0);
-    } catch (err) {
-      console.error('Error clearing all admin notifications:', err);
-    }
-  };
-
-  useEffect(() => {
-    if (isAdmin) {
-      fetchAdminNotifications();
-
-      // Real-time subscription for admin notifications
-      const channel = supabase
-        .channel('admin_notifications_realtime')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'notifications'
-          // Removed filter and moving it to logic for better reliability
-        }, (payload: any) => {
-          // If the new/updated notification is for admin, refresh the list
-          const notification = payload.new;
-          if (notification && (notification.target_role === 'admin' || !notification.user_id)) {
-            console.log('New Admin Notification received via realtime!');
-            fetchAdminNotifications();
-          }
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [isAdmin]);
-
-  const handleLogin = (id: string, userType: 'admin' | 'user') => {
-    localStorage.setItem('userId', id);
-    localStorage.setItem('userType', userType);
-    
-    if (userType === 'admin') {
-      setIsAdmin(true);
-      setIsUser(false);
-    } else {
-      setIsUser(true);
-      setIsAdmin(false);
-    }
-    setUserId(id);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('userId');
-    localStorage.removeItem('userType');
-    setIsAdmin(false);
-    setIsUser(false);
-    setUserId('');
-  };
-
-  const AdminLayout = () => {
-    const location = useLocation();
-    const navigate = useNavigate();
-    const currentTab = location.pathname.substring(1) || 'dashboard';
-
-    return (
-      <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-        <Sidebar 
-          onLogout={handleLogout} 
-          isCollapsed={isSidebarCollapsed}
-        />
-        
-        <main className="flex-1 flex flex-col h-screen overflow-hidden">
-          {/* Top Header */}
-          <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-            <div className="flex items-center gap-6">
-              <button 
-                type="button"
-                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
-              >
-                <Menu size={20} />
-              </button>
-              <div className="relative w-96">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Search anything..." 
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                />
-              </div>
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+        {/* Top Header */}
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
+          <div className="flex items-center gap-6">
+            <button 
+              type="button"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="relative w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search anything..." 
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+              />
             </div>
+          </div>
 
-            <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4">
             <div className="relative">
               <button 
                 type="button"
@@ -286,41 +213,141 @@ export default function App() {
                 )}
               </AnimatePresence>
             </div>
-              <div className="h-8 w-px bg-slate-200 mx-2"></div>
-              <div className="flex items-center gap-3 pl-2">
-                <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-slate-900 leading-none">Admin #{userId}</p>
-                  <p className="text-xs text-slate-500 mt-1">Super Admin</p>
-                </div>
-                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
-                  <User size={20} />
-                </div>
+            <div className="h-8 w-px bg-slate-200 mx-2"></div>
+            <div className="flex items-center gap-3 pl-2">
+              <div className="text-right hidden sm:block">
+                <p className="text-sm font-bold text-slate-900 leading-none">Admin #{userId}</p>
+                <p className="text-xs text-slate-500 mt-1">Super Admin</p>
+              </div>
+              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
+                <User size={20} />
               </div>
             </div>
-          </header>
-
-          {/* Content Area */}
-          <div className="flex-1 overflow-y-auto p-8">
-            <div className="max-w-7xl mx-auto">
-              <Outlet />
-            </div>
           </div>
-        </main>
-      </div>
-    );
-  };
+        </header>
 
-  const PageUnderConstruction = ({ tab }: { tab: string }) => (
-    <div className="flex flex-col items-center justify-center h-[60vh] text-slate-400">
-      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-        <Search size={32} />
-      </div>
-      <h3 className="text-xl font-semibold text-slate-600">Page Under Construction</h3>
-      <p className="mt-2 text-center max-w-xs">
-        The <span className="font-bold text-indigo-600 capitalize">{tab.replace('-', ' ')}</span> page is currently being designed and will be available soon.
-      </p>
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-8">
+          <div className="max-w-7xl mx-auto">
+            <Outlet />
+          </div>
+        </div>
+      </main>
     </div>
   );
+};
+
+// --- Main App Component ---
+
+export default function App() {
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
+  const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
+  const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  
+  // Admin Notification States
+  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
+  const [unreadAdminCount, setUnreadAdminCount] = useState(0);
+  const [showAdminNotifications, setShowAdminNotifications] = useState(false);
+
+  const fetchAdminNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('target_role', 'admin')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        console.error('Error fetching admin notifications:', error);
+        setAdminNotifications([]);
+        return;
+      }
+      
+      setAdminNotifications(data || []);
+      setUnreadAdminCount(data?.filter(n => !n.is_read).length || 0);
+    } catch (err) {
+      console.error('Unexpected error fetching admin notifications:', err);
+    }
+  };
+
+  const handleDeleteAdminNotification = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      setAdminNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadAdminCount(prev => prev - (adminNotifications.find(n => n.id === id)?.is_read ? 0 : 1));
+    } catch (err) {
+      console.error('Error deleting admin notification:', err);
+    }
+  };
+
+  const handleClearAllAdminNotifications = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('target_role', 'admin');
+      if (error) throw error;
+      setAdminNotifications([]);
+      setUnreadAdminCount(0);
+    } catch (err) {
+      console.error('Error clearing all admin notifications:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isAdmin) {
+      fetchAdminNotifications();
+
+      const channel = supabase
+        .channel('admin_notifications_realtime')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'notifications'
+        }, (payload: any) => {
+          const notification = payload.new;
+          if (notification && (notification.target_role === 'admin' || !notification.user_id)) {
+            fetchAdminNotifications();
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [isAdmin]);
+
+  const handleLogin = (id: string, userType: 'admin' | 'user') => {
+    localStorage.setItem('userId', id);
+    localStorage.setItem('userType', userType);
+    
+    if (userType === 'admin') {
+      setIsAdmin(true);
+      setIsUser(false);
+    } else {
+      setIsUser(true);
+      setIsAdmin(false);
+    }
+    setUserId(id);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userType');
+    setIsAdmin(false);
+    setIsUser(false);
+    setUserId('');
+  };
 
   return (
     <Router>
@@ -331,7 +358,19 @@ export default function App() {
             !isAdmin ? (
               <Navigate to="/login" replace />
             ) : (
-              <AdminLayout />
+              <AdminLayout 
+                handleLogout={handleLogout}
+                isSidebarCollapsed={isSidebarCollapsed}
+                setIsSidebarCollapsed={setIsSidebarCollapsed}
+                showAdminNotifications={showAdminNotifications}
+                setShowAdminNotifications={setShowAdminNotifications}
+                unreadAdminCount={unreadAdminCount}
+                adminNotifications={adminNotifications}
+                handleDeleteAdminNotification={handleDeleteAdminNotification}
+                handleClearAllAdminNotifications={handleClearAllAdminNotifications}
+                fetchAdminNotifications={fetchAdminNotifications}
+                userId={userId}
+              />
             )
           } 
         >
@@ -384,4 +423,3 @@ export default function App() {
     </Router>
   );
 }
-

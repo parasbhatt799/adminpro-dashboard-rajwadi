@@ -19,34 +19,165 @@ import { useState, type MouseEvent, useEffect } from 'react';
 import UserDetails from './UserDetails';
 import AddUser from './AddUser';
 import { supabase } from '../lib/supabase';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { format } from 'date-fns';
 
 export default function UsersList() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  
+  // Advanced States
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const pageSize = 20;
 
-  const fetchUsers = async () => {
-    setLoading(true);
+  const fetchUsers = async (isLoadMore = false) => {
+    if (isLoadMore) setLoadingMore(true);
+    else {
+      setLoading(true);
+      setPage(0);
+    }
+
     try {
-      const { data, error } = await supabase
+      const currentPage = isLoadMore ? page + 1 : 0;
+      let query = supabase
         .from('users_profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*', { count: 'exact' });
+
+      // Search Filter
+      if (searchTerm) {
+        query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`);
+      }
+
+      // Status Filter
+      if (statusFilter !== 'All') {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(currentPage * pageSize, (currentPage + 1) * pageSize - 1);
 
       if (error) throw error;
-      setUsers(data || []);
+
+      if (isLoadMore) {
+        setUsers(prev => [...prev, ...(data || [])]);
+        setPage(currentPage);
+      } else {
+        setUsers(data || []);
+      }
+
+      setHasMore(count ? (isLoadMore ? users.length + (data?.length || 0) : (data?.length || 0)) < count : false);
     } catch (err) {
       console.error('Error fetching users:', err);
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
+  // Debounced search
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const timer = setTimeout(() => {
+      fetchUsers();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm, statusFilter]);
+
+  const handleExportExcel = async () => {
+    try {
+      let query = supabase
+        .from('users_profiles')
+        .select('*');
+
+      if (searchTerm) {
+        query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`);
+      }
+      if (statusFilter !== 'All') {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const exportData = data.map(u => ({
+        'Join Date': format(new Date(u.created_at), 'dd-MM-yyyy'),
+        'User Name': u.name,
+        'Mobile': u.mobile_number,
+        'Email': u.email,
+        'Wallet Balance': Number(u.wallet_balance || 0),
+        'Status': u.status,
+        'User ID': u.id
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Users');
+      XLSX.writeFile(wb, `Users_Report_${format(new Date(), 'ddMMyyyy_HHmm')}.xlsx`);
+    } catch (err) {
+      console.error('Excel Export Error:', err);
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      let query = supabase
+        .from('users_profiles')
+        .select('*');
+
+      if (searchTerm) {
+        query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`);
+      }
+      if (statusFilter !== 'All') {
+        query = query.eq('status', statusFilter);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+
+      const doc = new jsPDF('l', 'mm', 'a4');
+      doc.setFontSize(20);
+      doc.setTextColor(79, 70, 229); // Indigo-600
+      doc.text('RAJWADI PORTAL - USERS REPORT', 14, 22);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${format(new Date(), 'dd MMMM yyyy, HH:mm')}`, 14, 30);
+      doc.text(`Filter: ${statusFilter} | Search: ${searchTerm || 'None'}`, 14, 35);
+
+      const tableData = data.map((u, i) => [
+        i + 1,
+        format(new Date(u.created_at), 'dd-MM-yyyy'),
+        u.name,
+        u.mobile_number,
+        u.email,
+        u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString()}` : '0',
+        u.status
+      ]);
+
+      autoTable(doc, {
+        startY: 40,
+        head: [['#', 'Join Date', 'Name', 'Mobile', 'Email', 'Wallet', 'Status']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
+        styles: { fontSize: 8, cellPadding: 3 },
+        alternateRowStyles: { fillColor: [249, 250, 251] }
+      });
+
+      doc.save(`Users_Report_${format(new Date(), 'ddMMyyyy')}.pdf`);
+    } catch (err) {
+      console.error('PDF Export Error:', err);
+    }
+  };
 
   const toggleBlockStatus = async (e: MouseEvent, userId: string, currentStatus: string) => {
     e.stopPropagation();
@@ -150,18 +281,37 @@ export default function UsersList() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Search users by name, email or ID..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search users by name, email, mobile or ID..." 
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-            <Filter size={18} />
-            <span>Filters</span>
-          </button>
-          <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">
+          <select 
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer"
+          >
+            <option value="All">All Status</option>
+            <option value="Active">Active Only</option>
+            <option value="Suspended">Suspended Only</option>
+          </select>
+          <button 
+            type="button"
+            onClick={handleExportExcel}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+          >
             <Download size={18} />
-            <span>Export</span>
+            <span>Excel</span>
+          </button>
+          <button 
+            type="button"
+            onClick={handleExportPDF}
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-100 bg-indigo-50 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
+          >
+            <Download size={18} />
+            <span>PDF</span>
           </button>
         </div>
       </div>
@@ -290,10 +440,18 @@ export default function UsersList() {
         {!loading && users.length > 0 && (
           <div className="mt-auto p-4 bg-slate-50/50 border-t border-slate-50 flex items-center justify-between">
             <p className="text-xs text-slate-500 font-medium">Showing {users.length} users</p>
-            <div className="flex gap-2">
-              <button className="px-3 py-1 text-xs font-bold text-slate-400 cursor-not-allowed">Previous</button>
-              <button className="px-3 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">Next</button>
-            </div>
+            {hasMore ? (
+              <button 
+                onClick={() => fetchUsers(true)}
+                disabled={loadingMore}
+                className="flex items-center gap-2 px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"
+              >
+                {loadingMore ? <Loader2 size={14} className="animate-spin" /> : null}
+                {loadingMore ? 'Loading...' : 'Load More Users'}
+              </button>
+            ) : (
+              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">End of list</p>
+            )}
           </div>
         )}
       </div>
