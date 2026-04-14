@@ -69,10 +69,15 @@ export default function App() {
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
-          table: 'notifications',
-          filter: 'target_role=eq.admin'
-        }, () => {
-          fetchAdminNotifications();
+          table: 'notifications'
+          // Removed filter and moving it to logic for better reliability
+        }, (payload: any) => {
+          // If the new/updated notification is for admin, refresh the list
+          const notification = payload.new;
+          if (notification && (notification.target_role === 'admin' || !notification.user_id)) {
+            console.log('New Admin Notification received via realtime!');
+            fetchAdminNotifications();
+          }
         })
         .subscribe();
 
