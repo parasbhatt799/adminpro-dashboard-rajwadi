@@ -75,13 +75,6 @@ export default function Dashboard() {
           description: `Last update: ${todayStr}`
         },
         {
-          title: "Total Bill Payments",
-          value: `₹${dailyBillAmount.toLocaleString()}`,
-          icon: TrendingUp,
-          color: "bg-cyan-500",
-          description: `Last update: ${todayStr}`
-        },
-        {
           title: "Total CC Bill",
           value: `₹${dailyTotalCCBill.toLocaleString()}`,
           icon: TrendingUp,
