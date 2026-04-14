@@ -136,12 +136,6 @@ export default function BillPaymentRequests() {
           .update({ admin_balance: currentAdminBalance + requestCharges })
           .eq('id', 1);
 
-        // Refund the original bill amount to user (they already paid amount + charges)
-        await supabase
-          .from('users_profiles')
-          .update({ wallet_balance: currentUserBalance + amount })
-          .eq('id', targetRequest.user_id);
-
       } else {
         updateData.rejection_reason = targetReason;
         
@@ -576,8 +570,7 @@ export default function BillPaymentRequests() {
                   </div>
                 </div>
 
-                <p className="text-xs text-slate-500 text-center px-4">
-                  Approving this will credit <span className="font-bold text-emerald-600">₹{requests.find(r => r.id === showActionModal?.id)?.charges?.toLocaleString()}</span> to admin wallet and refund <span className="font-bold text-indigo-600">₹{requests.find(r => r.id === showActionModal?.id)?.amount.toLocaleString()}</span> to user wallet.
+                  Approving this will credit <span className="font-bold text-emerald-600">₹{requests.find(r => r.id === showActionModal?.id)?.charges?.toLocaleString()}</span> to the admin wallet.
                 </p>
               </div>
 
