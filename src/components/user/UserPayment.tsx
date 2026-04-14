@@ -307,8 +307,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       if (dbError) throw dbError;
 
       if (newBill) {
-        setBillRequests(prev => [newBill, ...prev]);
-        setUserBalance(prev => prev - totalDeduction);
+        // Real-time subscription will update the list and wallet balance
       }
 
       setSuccess('Bill payment submitted successfully! Total amount (including charges) has been debited from your wallet.');
@@ -405,7 +404,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       if (dbError) throw dbError;
 
       if (newPayment) {
-        setQrRequests(prev => [newPayment, ...prev]);
+        // Real-time subscription will handle adding this to the list
       }
 
       setSuccess('Payment submitted successfully! Our team will verify it soon.');
