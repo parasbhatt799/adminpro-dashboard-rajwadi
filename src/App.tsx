@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import UsersList from './components/UsersList';
@@ -21,37 +21,52 @@ import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
 import UserComplaints from './components/user/UserComplaints';
-import { Search, Bell, User, Menu } from 'lucide-react';
+import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck } from 'lucide-react';
 import { supabase } from './lib/supabase';
+import { formatDistanceToNow, parseISO } from 'date-fns';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
   const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [pendingKYCCount, setPendingKYCCount] = useState(0);
+  // Admin Notification States
+  const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
+  const [unreadAdminCount, setUnreadAdminCount] = useState(0);
+  const [showAdminNotifications, setShowAdminNotifications] = useState(false);
+
+  const fetchAdminNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('target_role', 'admin')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      setAdminNotifications(data || []);
+      setUnreadAdminCount(data?.filter(n => !n.is_read).length || 0);
+    } catch (err) {
+      console.error('Error fetching admin notifications:', err);
+    }
+  };
 
   useEffect(() => {
     if (isAdmin) {
-      const fetchPendingKYC = async () => {
-        const { count } = await supabase
-          .from('kyc_submissions')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending');
-        setPendingKYCCount(count || 0);
-      };
+      fetchAdminNotifications();
 
-      fetchPendingKYC();
-
-      // Real-time subscription for KYC requests
+      // Real-time subscription for admin notifications
       const channel = supabase
-        .channel('kyc_changes')
+        .channel('admin_notifications_realtime')
         .on('postgres_changes', { 
           event: '*', 
           schema: 'public', 
-          table: 'kyc_submissions' 
+          table: 'notifications',
+          filter: 'target_role=eq.admin'
         }, () => {
-          fetchPendingKYC();
+          fetchAdminNotifications();
         })
         .subscribe();
 
@@ -85,6 +100,7 @@ export default function App() {
 
   const AdminLayout = () => {
     const location = useLocation();
+    const navigate = useNavigate();
     const currentTab = location.pathname.substring(1) || 'dashboard';
 
     return (
@@ -115,16 +131,93 @@ export default function App() {
             </div>
 
             <div className="flex items-center gap-4">
+            <div className="relative">
               <button 
-                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors relative"
+                onClick={() => setShowAdminNotifications(!showAdminNotifications)}
+                className={`p-2 rounded-lg transition-all relative ${
+                  showAdminNotifications ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
+                }`}
               >
                 <Bell size={20} />
-                {pendingKYCCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                    {pendingKYCCount}
-                  </span>
+                {unreadAdminCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
                 )}
               </button>
+
+              <AnimatePresence>
+                {showAdminNotifications && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowAdminNotifications(false)}
+                    ></div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden"
+                    >
+                      <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+                        <h3 className="font-bold text-slate-900">Admin Alerts</h3>
+                        {unreadAdminCount > 0 && (
+                          <span className="text-[10px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-black uppercase">
+                            {unreadAdminCount} New
+                          </span>
+                        )}
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto no-scrollbar">
+                        {adminNotifications.length === 0 ? (
+                          <div className="p-8 text-center">
+                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-3">
+                              <Bell size={20} />
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium">No alerts yet</p>
+                          </div>
+                        ) : (
+                          adminNotifications.map((n) => (
+                            <div 
+                              key={n.id}
+                              onClick={async () => {
+                                // Mark as read
+                                if (!n.is_read) {
+                                  await supabase
+                                    .from('notifications')
+                                    .update({ is_read: true })
+                                    .eq('id', n.id);
+                                  fetchAdminNotifications();
+                                }
+                                setShowAdminNotifications(false);
+                                navigate(n.link || '/');
+                              }}
+                              className={`p-4 border-b border-slate-50 last:border-0 cursor-pointer transition-colors hover:bg-slate-50 relative group ${!n.is_read ? 'bg-indigo-50/30' : ''}`}
+                            >
+                              {!n.is_read && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-indigo-500"></div>
+                              )}
+                              <div className="flex gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${!n.is_read ? 'bg-indigo-100 text-indigo-600' : 'bg-slate-100 text-slate-400'}`}>
+                                  {n.title.toLowerCase().includes('kyc') ? <ShieldCheck size={14} /> : <MessageSquare size={14} />}
+                                </div>
+                                <div className="flex-1">
+                                  <p className={`text-xs ${!n.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
+                                    {n.title}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
+                                  <div className="flex items-center gap-1 mt-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                    <Clock size={10} />
+                                    {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
               <div className="h-8 w-px bg-slate-200 mx-2"></div>
               <div className="flex items-center gap-3 pl-2">
                 <div className="text-right hidden sm:block">

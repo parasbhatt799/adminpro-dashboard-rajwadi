@@ -131,6 +131,16 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
 
       if (mError) throw mError;
 
+      // 3. Create Notification for the admin
+      await supabase
+        .from('notifications')
+        .insert([{
+          target_role: 'admin',
+          title: 'New Support Ticket',
+          message: `New ticket: "${subject}" from user #${userId}`,
+          link: '/complaints-management'
+        }]);
+
       setShowForm(false);
       fetchComplaints();
     } catch (err) {
@@ -156,6 +166,16 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
 
       if (error) throw error;
       
+      // Notify admin about the user's reply
+      await supabase
+        .from('notifications')
+        .insert([{
+          target_role: 'admin',
+          title: 'New Reply',
+          message: `A user replied to ticket #${complaintId}`,
+          link: '/complaints-management'
+        }]);
+
       setReplyText(prev => ({ ...prev, [complaintId]: '' }));
       fetchMessages(complaintId);
     } catch (err) {

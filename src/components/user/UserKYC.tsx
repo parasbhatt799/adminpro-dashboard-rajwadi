@@ -142,6 +142,16 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
 
       if (profileError) throw profileError;
 
+      // 4. Create Notification for the admin
+      await supabase
+        .from('notifications')
+        .insert([{
+          target_role: 'admin',
+          title: 'New KYC Request',
+          message: `User ${userProfile?.name || userId} has submitted documents for verification.`,
+          link: '/kyc-verification-requests'
+        }]);
+
       await fetchKYCStatus();
       onStatusChange();
     } catch (err: any) {
