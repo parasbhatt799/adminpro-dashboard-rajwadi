@@ -10,8 +10,10 @@ import {
   ExternalLink,
   Table as TableIcon,
   FileSpreadsheet,
-  FileText
+  FileText,
+  ChevronRight
 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -40,12 +42,46 @@ export default function QRPaymentReport() {
   const [offset, setOffset] = useState(0);
   const limit = 10;
 
+  // Autocomplete state
+  const [allFirms, setAllFirms] = useState<string[]>([]);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
   // Filters
   const [firmName, setFirmName] = useState('');
   const [exactAmount, setExactAmount] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+
+  const fetchFirmNames = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users_profiles')
+        .select('firm_name')
+        .not('firm_name', 'is', null);
+      if (error) throw error;
+      const uniqueFirms = Array.from(new Set(data.map(d => d.firm_name))).sort();
+      setAllFirms(uniqueFirms);
+    } catch (err) {
+      console.error('Error fetching firm names:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchFirmNames();
+  }, []);
+
+  useEffect(() => {
+    if (firmName.trim().length > 0) {
+      const filtered = allFirms.filter(f => 
+        f.toLowerCase().includes(firmName.toLowerCase())
+      ).slice(0, 10);
+      setSuggestions(filtered);
+    } else {
+      setSuggestions([]);
+    }
+  }, [firmName, allFirms]);
 
   const fetchRequests = async (isLoadMore = false) => {
     if (isLoadMore) setLoadingMore(true);
@@ -224,7 +260,7 @@ export default function QRPaymentReport() {
       {/* Filter Bar */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 relative">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Firm Name</label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -232,10 +268,55 @@ export default function QRPaymentReport() {
                 type="text" 
                 placeholder="Search firm..."
                 value={firmName}
-                onChange={(e) => setFirmName(e.target.value)}
+                onChange={(e) => {
+                  setFirmName(e.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
                 className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
               />
             </div>
+
+            {/* Suggestions Dropdown */}
+            <AnimatePresence>
+              {showSuggestions && suggestions.length > 0 && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setShowSuggestions(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-20 overflow-hidden"
+                  >
+                    <div className="p-2 border-b border-slate-50 bg-slate-50/50">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase px-2">Suggestions</p>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto no-scrollbar">
+                      {suggestions.map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() => {
+                            setFirmName(s);
+                            setShowSuggestions(false);
+                            // Auto-trigger search when selecting a suggestion
+                            setTimeout(() => fetchRequests(), 0);
+                          }}
+                          className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 text-left transition-colors group"
+                        >
+                          <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 truncate">
+                            {s}
+                          </span>
+                          <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
 
           <div className="space-y-1.5">
