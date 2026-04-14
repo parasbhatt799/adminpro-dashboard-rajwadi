@@ -17,6 +17,8 @@ import BillPaymentRequests from './components/BillPaymentRequests';
 import KYCVerificationRequests from './components/KYCVerificationRequests';
 import Login from './components/Login';
 import UserPanel from './components/user/UserPanel';
+import UserPayment from './components/user/UserPayment';
+import UserReports from './components/user/UserReports';
 import { Search, Bell, User, Menu } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -191,7 +193,11 @@ export default function App() {
               <UserPanel onLogout={handleLogout} userId={userId} />
             )
           } 
-        />
+        >
+          <Route index element={<Navigate to="payment" replace />} />
+          <Route path="payment" element={<UserPayment userId={userId} />} />
+          <Route path="reports" element={<UserReports userId={userId} />} />
+        </Route>
         <Route 
           path="/login" 
           element={

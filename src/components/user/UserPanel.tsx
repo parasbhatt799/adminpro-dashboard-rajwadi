@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
-import UserPayment from './UserPayment';
-import UserReports from './UserReports';
-import UserKYC from './UserKYC';
-import ChangePassword from './ChangePassword';
 import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
+import { Outlet, useLocation } from 'react-router-dom';
 
 interface UserPanelProps {
   onLogout: () => void;
@@ -14,7 +11,8 @@ interface UserPanelProps {
 }
 
 export default function UserPanel({ onLogout, userId }: UserPanelProps) {
-  const [activeTab, setActiveTab] = useState('payment');
+  const location = useLocation();
+  const activeTab = location.pathname.split('/').pop() || 'payment';
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -105,17 +103,6 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     );
   }
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'payment':
-        return <UserPayment userId={userId} />;
-      case 'reports':
-        return <UserReports userId={userId} />;
-      default:
-        return <UserPayment userId={userId} />;
-    }
-  };
-
   const handleCloseWelcome = () => {
     setShowWelcome(false);
     localStorage.setItem(`welcome_dialog_shown_${userId}`, 'true');
@@ -169,7 +156,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         )}
       </AnimatePresence>
 
-      <UserSidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={onLogout} />
+      <UserSidebar onLogout={onLogout} />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
@@ -218,7 +205,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto">
-            {renderContent()}
+            <Outlet />
           </div>
         </div>
       </main>

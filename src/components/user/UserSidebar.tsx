@@ -5,19 +5,19 @@ import {
   LogOut
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { NavLink } from 'react-router-dom';
 
 interface UserSidebarProps {
   activeTab: string;
-  setActiveTab: (tab: string) => void;
   onLogout: () => void;
 }
 
 const menuItems = [
-  { id: 'payment', label: 'Payment', icon: CreditCard },
-  { id: 'reports', label: 'Reports', icon: FileText },
+  { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
+  { id: 'reports', label: 'Reports', icon: FileText, path: '/user/reports' },
 ];
 
-export default function UserSidebar({ activeTab, setActiveTab, onLogout }: UserSidebarProps) {
+export default function UserSidebar({ onLogout }: UserSidebarProps) {
   return (
     <div className="w-64 bg-slate-900 text-slate-300 h-screen flex flex-col border-r border-slate-800">
       <div className="p-6">
@@ -31,27 +31,30 @@ export default function UserSidebar({ activeTab, setActiveTab, onLogout }: UserS
         <nav className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = activeTab === item.id;
             
             return (
-              <button
+              <NavLink
                 key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
+                to={item.path}
+                className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                   isActive 
                     ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
                     : 'hover:bg-slate-800 hover:text-white'
                 }`}
               >
-                <Icon size={20} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
-                <span className="font-medium text-sm">{item.label}</span>
-                {isActive && (
-                  <motion.div
-                    layoutId="active-pill-user"
-                    className="ml-auto w-1.5 h-1.5 rounded-full bg-white"
-                  />
+                {({ isActive }) => (
+                  <>
+                    <Icon size={20} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'} />
+                    <span className="font-medium text-sm">{item.label}</span>
+                    {isActive && (
+                      <motion.div
+                        layoutId="active-pill-user"
+                        className="ml-auto w-1.5 h-1.5 rounded-full bg-white"
+                      />
+                    )}
+                  </>
                 )}
-              </button>
+              </NavLink>
             );
           })}
         </nav>
