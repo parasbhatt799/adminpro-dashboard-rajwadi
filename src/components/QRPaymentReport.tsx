@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 interface QRPaymentRequest {
   id: string;
@@ -194,42 +194,47 @@ export default function QRPaymentReport() {
   };
 
   const exportToPDF = () => {
-    const doc = new jsPDF({
-      orientation: 'landscape',
-      unit: 'mm',
-      format: 'a4'
-    });
+    try {
+      const doc = new jsPDF({
+        orientation: 'l',
+        unit: 'mm',
+        format: 'a4'
+      });
 
-    const totals = calculateTotals(requests);
-    const tableData = requests.map(req => [
-      new Date(req.created_at).toLocaleDateString(),
-      req.users_profiles?.firm_name || 'N/A',
-      req.utr_id,
-      req.status.toUpperCase(),
-      req.amount.toLocaleString(),
-      (req.charges || 0).toLocaleString(),
-      (Number(req.amount) - Number(req.charges || 0)).toLocaleString()
-    ]);
+      const totals = calculateTotals(requests);
+      const tableData = requests.map(req => [
+        new Date(req.created_at).toLocaleDateString(),
+        req.users_profiles?.firm_name || 'N/A',
+        req.utr_id,
+        req.status.toUpperCase(),
+        req.amount.toLocaleString(),
+        (req.charges || 0).toLocaleString(),
+        (Number(req.amount) - Number(req.charges || 0)).toLocaleString()
+      ]);
 
-    // Add footer
-    const footer = [
-      ['TOTAL', '', '', '', totals.amount.toLocaleString(), totals.charges.toLocaleString(), totals.final.toLocaleString()]
-    ];
+      // Add footer
+      const footer = [
+        ['TOTAL', '', '', '', totals.amount.toLocaleString(), totals.charges.toLocaleString(), totals.final.toLocaleString()]
+      ];
 
-    (doc as any).autoTable({
-      head: [['Date', 'Firm Name', 'UTR ID', 'Status', 'Amount', 'Service Charge', 'Final Total']],
-      body: tableData,
-      foot: footer,
-      theme: 'grid',
-      headStyles: { fillStyle: 'DF', fillColor: [79, 70, 229], textColor: [255, 255, 255] },
-      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' },
-      margin: { top: 20 },
-      didDrawPage: (data: any) => {
-        doc.text('QR Payment Report', data.settings.margin.left, 10);
-      }
-    });
+      autoTable(doc, {
+        head: [['Date', 'Firm Name', 'UTR ID', 'Status', 'Amount', 'Service Charge', 'Final Total']],
+        body: tableData,
+        foot: footer,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+        footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' },
+        margin: { top: 20 },
+        didDrawPage: (data: any) => {
+          doc.text('QR Payment Report', data.settings.margin.left, 12);
+        }
+      });
 
-    doc.save(`QR_Payment_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+      doc.save(`QR_Payment_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('PDF Export Error:', err);
+      alert('Failed to generate PDF. Please check the console for details.');
+    }
   };
 
   return (
