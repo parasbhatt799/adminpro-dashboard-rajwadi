@@ -48,7 +48,7 @@ export default function NewsTicker() {
   if (headlines.length === 0) return null;
 
   // Use literal spaces for joining
-  const separator = "         •         ";
+  const separator = "          |          ";
   const combinedText = headlines.map(h => h.message).join(separator) + separator;
 
   return (
@@ -65,7 +65,7 @@ export default function NewsTicker() {
         <motion.div
           animate={{ x: ["0%", "-50%"] }}
           transition={{ 
-            duration: 35, 
+            duration: 20, 
             repeat: Infinity, 
             ease: "linear"
           }}
