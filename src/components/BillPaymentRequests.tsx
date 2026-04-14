@@ -570,6 +570,7 @@ export default function BillPaymentRequests() {
                   </div>
                 </div>
 
+                <p className="text-xs text-slate-500 text-center px-4">
                   Approving this will credit <span className="font-bold text-emerald-600">₹{requests.find(r => r.id === showActionModal?.id)?.charges?.toLocaleString()}</span> to the admin wallet.
                 </p>
               </div>
