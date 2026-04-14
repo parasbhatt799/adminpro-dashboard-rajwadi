@@ -171,28 +171,37 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       .subscribe();
 
     const billChannel = supabase
-      .channel('bill_submissions_realtime_v3')
+      .channel('bill_submissions_realtime_final')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'bill_submissions'
       }, (payload: any) => {
-        if (payload.new && payload.new.user_id === userId) {
-          if (payload.eventType === 'INSERT') {
+        console.log('Bill Real-time Event:', payload.eventType, payload.new?.id);
+        
+        // Handle UPDATE event
+        if (payload.eventType === 'UPDATE' && payload.new) {
+          if (payload.new.user_id === userId) {
+            setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+          }
+        } 
+        // Handle INSERT event
+        else if (payload.eventType === 'INSERT' && payload.new) {
+          if (payload.new.user_id === userId) {
             setBillRequests(prev => {
-              // Prevent duplicates
               if (prev.some(req => req.id === payload.new.id)) return prev;
               return [payload.new, ...prev];
             });
-          } else if (payload.eventType === 'UPDATE') {
-            setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
           }
         }
-        if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
+        // Handle DELETE event
+        else if (payload.eventType === 'DELETE' && payload.old) {
           setBillRequests(prev => prev.filter(req => req.id !== payload.old.id));
         }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Bill Channel Status:', status);
+      });
 
     return () => {
       supabase.removeChannel(qrChannel);
