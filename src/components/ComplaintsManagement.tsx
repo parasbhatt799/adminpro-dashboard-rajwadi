@@ -107,6 +107,16 @@ export default function ComplaintsManagement() {
         setSelectedComplaint(prev => ({ ...prev, status: 'resolved' }));
       }
 
+      // 3. Create Notification for the user
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: selectedComplaint.user_id,
+          title: 'Support Ticket Update',
+          message: `Admin responded to your ticket: "${selectedComplaint.subject}"`,
+          link: '/user/complaints'
+        }]);
+
       setReplyText('');
       fetchMessages(selectedComplaint.id);
       fetchComplaints(); // Refresh list to update status/sorting

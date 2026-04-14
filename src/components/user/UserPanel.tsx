@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
 import ChangePassword from './ChangePassword';
-import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X } from 'lucide-react';
+import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { formatDistanceToNow, parseISO } from 'date-fns';
 
 interface UserPanelProps {
   onLogout: () => void;
@@ -14,10 +15,16 @@ interface UserPanelProps {
 
 export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const activeTab = location.pathname.split('/').pop() || 'payment';
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
+  
+  // Notification States
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -43,8 +50,43 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     }
   };
 
+  const fetchNotifications = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) throw error;
+      setNotifications(data || []);
+      setUnreadCount(data?.filter(n => !n.is_read).length || 0);
+    } catch (err) {
+      console.error('Error fetching notifications:', err);
+    }
+  };
+
   useEffect(() => {
     fetchProfile();
+    fetchNotifications();
+
+    // Subscribe to new notifications
+    const channel = supabase
+      .channel('notifications_realtime')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'notifications',
+        filter: `user_id=eq.${userId}`
+      }, () => {
+        fetchNotifications();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [userId]);
 
   if (loading) {
@@ -108,6 +150,26 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const handleCloseWelcome = () => {
     setShowWelcome(false);
     localStorage.setItem(`welcome_dialog_shown_${userId}`, 'true');
+  };
+
+  const handleNotificationClick = async (notification: any) => {
+    try {
+      if (!notification.is_read) {
+        await supabase
+          .from('notifications')
+          .update({ is_read: true })
+          .eq('id', notification.id);
+        
+        fetchNotifications();
+      }
+      
+      setShowNotifications(false);
+      if (notification.link) {
+        navigate(notification.link);
+      }
+    } catch (err) {
+      console.error('Error handling notification click:', err);
+    }
   };
 
   return (
@@ -177,10 +239,90 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
               <Wallet className="text-emerald-600" size={18} />
               <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            <button className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors relative">
-              <Bell size={20} />
-              <span className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-            </button>
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className={`p-2 rounded-lg transition-all relative ${
+                  showNotifications ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                }`}
+              >
+                <Bell size={20} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white animate-pulse"></span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {showNotifications && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-10" 
+                      onClick={() => setShowNotifications(false)}
+                    ></div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden"
+                    >
+                      <div className="p-4 border-b border-slate-50 flex items-center justify-between">
+                        <h3 className="font-bold text-slate-900">Notifications</h3>
+                        {unreadCount > 0 && (
+                          <span className="text-[10px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-black uppercase">
+                            {unreadCount} New
+                          </span>
+                        )}
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto no-scrollbar">
+                        {notifications.length === 0 ? (
+                          <div className="p-8 text-center">
+                            <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-3">
+                              <Bell size={20} />
+                            </div>
+                            <p className="text-xs text-slate-400 font-medium">No notifications yet</p>
+                          </div>
+                        ) : (
+                          notifications.map((n) => (
+                            <div 
+                              key={n.id}
+                              onClick={() => handleNotificationClick(n)}
+                              className={`p-4 border-b border-slate-50 last:border-0 cursor-pointer transition-colors hover:bg-slate-50 relative group ${!n.is_read ? 'bg-emerald-50/30' : ''}`}
+                            >
+                              {!n.is_read && (
+                                <div className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500"></div>
+                              )}
+                              <div className="flex gap-3">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${!n.is_read ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                                  <MessageSquare size={14} />
+                                </div>
+                                <div className="flex-1">
+                                  <p className={`text-xs ${!n.is_read ? 'font-bold text-slate-900' : 'font-medium text-slate-600'}`}>
+                                    {n.title}
+                                  </p>
+                                  <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
+                                  <div className="flex items-center gap-1 mt-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                    <Clock size={10} />
+                                    {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <div className="p-3 bg-slate-50/50 border-t border-slate-50 text-center">
+                        <button 
+                          onClick={() => navigate('/user/complaints')}
+                          className="text-[10px] font-black text-emerald-600 hover:underline uppercase tracking-widest"
+                        >
+                          View All Support
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
             <div className="h-8 w-px bg-slate-200 mx-2"></div>
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
