@@ -1,75 +1,422 @@
-import React, { useState } from 'react';
-import { QrCode, Search, IndianRupee, RotateCcw, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  QrCode, 
+  Search, 
+  IndianRupee, 
+  RotateCcw, 
+  Download, 
+  Loader2, 
+  User,
+  ExternalLink,
+  Table as TableIcon,
+  FileSpreadsheet,
+  FileText
+} from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+
+interface QRPaymentRequest {
+  id: string;
+  user_id: string;
+  utr_id: string;
+  amount: number;
+  charges: number;
+  proof_url: string;
+  status: 'pending' | 'approved' | 'rejected';
+  created_at: string;
+  users_profiles?: {
+    name: string;
+    firm_name: string;
+  };
+}
 
 export default function QRPaymentReport() {
+  const [requests, setRequests] = useState<QRPaymentRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const limit = 10;
+
+  // Filters
+  const [firmName, setFirmName] = useState('');
+  const [exactAmount, setExactAmount] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+
+  const fetchRequests = async (isLoadMore = false) => {
+    if (isLoadMore) setLoadingMore(true);
+    else {
+      setLoading(true);
+      setOffset(0);
+    }
+
+    try {
+      let query = supabase
+        .from('payment_submissions')
+        .select('*, users_profiles!inner(name, firm_name)')
+        .order('created_at', { ascending: false });
+
+      // Exclude rejected by default as per requirement
+      query = query.neq('status', 'rejected');
+
+      // Apply Filters
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+      if (firmName) {
+        query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      }
+      if (exactAmount) {
+        query = query.eq('amount', Number(exactAmount));
+      }
+      if (startDate) {
+        query = query.gte('created_at', `${startDate}T00:00:00`);
+      }
+      if (endDate) {
+        query = query.lte('created_at', `${endDate}T23:59:59`);
+      }
+
+      const currentOffset = isLoadMore ? offset + limit : 0;
+      const { data, error } = await query.range(currentOffset, currentOffset + limit - 1);
+
+      if (error) throw error;
+
+      if (isLoadMore) {
+        setRequests(prev => [...prev, ...(data || [])]);
+      } else {
+        setRequests(data || []);
+      }
+
+      setHasMore(data?.length === limit);
+      if (data?.length === limit) {
+        setOffset(currentOffset);
+      }
+    } catch (err) {
+      console.error('Error fetching report data:', err);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchRequests();
+  }, [statusFilter, startDate, endDate]); // Basic filters trigger reload
+
+  const handleSearch = () => {
+    fetchRequests();
+  };
+
+  const handleReset = () => {
+    setFirmName('');
+    setExactAmount('');
+    setStatusFilter('all');
+    setStartDate('');
+    setEndDate('');
+    fetchRequests();
+  };
+
+  const calculateTotals = (data: QRPaymentRequest[]) => {
+    return data.reduce((acc, curr) => ({
+      amount: acc.amount + Number(curr.amount || 0),
+      charges: acc.charges + Number(curr.charges || 0),
+      final: acc.final + (Number(curr.amount || 0) - Number(curr.charges || 0))
+    }), { amount: 0, charges: 0, final: 0 });
+  };
+
+  const exportToExcel = () => {
+    const totals = calculateTotals(requests);
+    const exportData = requests.map(req => ({
+      'Date': new Date(req.created_at).toLocaleDateString(),
+      'Firm Name': req.users_profiles?.firm_name || 'N/A',
+      'UTR ID': req.utr_id,
+      'Status': req.status.toUpperCase(),
+      'Amount': req.amount,
+      'Service Charge': req.charges || 0,
+      'Final Total': Number(req.amount) - Number(req.charges || 0)
+    }));
+
+    // Add totals row
+    exportData.push({
+      'Date': 'TOTAL',
+      'Firm Name': '',
+      'UTR ID': '',
+      'Status': '',
+      'Amount': totals.amount,
+      'Service Charge': totals.charges,
+      'Final Total': totals.final
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'QR Payments');
+    XLSX.writeFile(wb, `QR_Payment_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF({
+      orientation: 'landscape',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const totals = calculateTotals(requests);
+    const tableData = requests.map(req => [
+      new Date(req.created_at).toLocaleDateString(),
+      req.users_profiles?.firm_name || 'N/A',
+      req.utr_id,
+      req.status.toUpperCase(),
+      req.amount.toLocaleString(),
+      (req.charges || 0).toLocaleString(),
+      (Number(req.amount) - Number(req.charges || 0)).toLocaleString()
+    ]);
+
+    // Add footer
+    const footer = [
+      ['TOTAL', '', '', '', totals.amount.toLocaleString(), totals.charges.toLocaleString(), totals.final.toLocaleString()]
+    ];
+
+    (doc as any).autoTable({
+      head: [['Date', 'Firm Name', 'UTR ID', 'Status', 'Amount', 'Service Charge', 'Final Total']],
+      body: tableData,
+      foot: footer,
+      theme: 'grid',
+      headStyles: { fillStyle: 'DF', fillColor: [79, 70, 229], textColor: [255, 255, 255] },
+      footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold' },
+      margin: { top: 20 },
+      didDrawPage: (data: any) => {
+        doc.text('QR Payment Report', data.settings.margin.left, 10);
+      }
+    });
+
+    doc.save(`QR_Payment_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-900">QR Payment Report</h2>
-        <p className="text-slate-500 mt-1">Generate and export reports for all QR payments.</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">QR Payment Report</h2>
+          <p className="text-slate-500 mt-1">Review approved and pending QR transactions with detailed filtering.</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={exportToExcel}
+            className="flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border border-emerald-200"
+          >
+            <FileSpreadsheet size={18} />
+            Excel
+          </button>
+          <button 
+            onClick={exportToPDF}
+            className="flex items-center gap-2 bg-rose-50 text-rose-600 hover:bg-rose-100 px-4 py-2.5 rounded-xl text-sm font-bold transition-all border border-rose-200"
+          >
+            <FileText size={18} />
+            PDF
+          </button>
+        </div>
       </div>
 
+      {/* Filter Bar */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-             <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">Start Date</span>
-                  <input 
-                    type="date" 
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-                  />
-                </div>
-                <div className="w-px h-6 bg-slate-200 mx-1"></div>
-                <div className="flex flex-col">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">End Date</span>
-                  <input 
-                    type="date" 
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-                  />
-                </div>
-              </div>
-              <button 
-                onClick={() => { setStartDate(''); setEndDate(''); setSearchQuery(''); }}
-                className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
-                title="Reset Filters"
-              >
-                <RotateCcw size={18} />
-              </button>
-          </div>
-
-          <div className="flex items-center gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Firm Name</label>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               <input 
                 type="text" 
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none w-64"
+                placeholder="Search firm..."
+                value={firmName}
+                onChange={(e) => setFirmName(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
               />
             </div>
-            <button className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg shadow-indigo-600/20 transition-all">
-              <Download size={18} />
-              Export
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Exact Amount</label>
+            <div className="relative">
+              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="number" 
+                placeholder="Enter amount..."
+                value={exactAmount}
+                onChange={(e) => setExactAmount(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Status</label>
+            <select 
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            >
+              <option value="all">Approved & Pending</option>
+              <option value="approved">Approved Only</option>
+              <option value="pending">Pending Only</option>
+            </select>
+          </div>
+
+          <div className="flex items-end gap-2">
+            <button 
+              onClick={handleSearch}
+              className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white h-[38px] rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2"
+            >
+              <Search size={16} />
+              Filter
             </button>
+            <button 
+              onClick={handleReset}
+              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white h-[38px]"
+              title="Reset Filters"
+            >
+              <RotateCcw size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4 mt-4 pt-4 border-t border-slate-50">
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">Start Date</span>
+              <input 
+                type="date" 
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+              />
+            </div>
+            <div className="w-px h-6 bg-slate-200 mx-1"></div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-bold text-slate-400 uppercase">End Date</span>
+              <input 
+                type="date" 
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden p-12 text-center text-slate-400">
-        <QrCode className="mx-auto mb-4 opacity-10" size={64} />
-        <p className="font-medium">No report data to display for the selected range.</p>
-        <p className="text-sm mt-1">Select a date range and click export to generate a report.</p>
+      {/* Report Table */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-100">
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Date / Firm</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">UTR ID</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Service Charge</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Final Total</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Proof</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <Loader2 className="animate-spin text-indigo-600 mx-auto" size={32} />
+                    <p className="text-sm text-slate-500 mt-2 font-medium">Generating report...</p>
+                  </td>
+                </tr>
+              ) : requests.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center">
+                    <QrCode className="text-slate-200 mx-auto mb-4" size={48} />
+                    <p className="text-slate-500 font-medium">No results found for the current filters</p>
+                  </td>
+                </tr>
+              ) : (
+                <>
+                  {requests.map((req) => (
+                    <tr key={req.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">{req.users_profiles?.firm_name}</p>
+                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">{new Date(req.created_at).toLocaleDateString()}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <code className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg">
+                          {req.utr_id}
+                        </code>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-bold text-slate-900">
+                          ₹{req.amount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right text-rose-500 font-bold text-sm">
+                        ₹{(req.charges || 0).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-right text-emerald-600 font-bold text-sm">
+                        ₹{(Number(req.amount) - Number(req.charges || 0)).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                        }`}>
+                          {req.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <a 
+                          href={req.proof_url} 
+                          target="_blank" 
+                          rel="noreferrer"
+                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg inline-block transition-colors"
+                        >
+                          <ExternalLink size={16} />
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                  
+                  {/* Summary Totals Row */}
+                  <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
+                    <td colSpan={2} className="px-6 py-4 text-slate-900 text-sm">TOTAL (Filtered Data)</td>
+                    <td className="px-6 py-4 text-right text-slate-900 text-sm">
+                      ₹{calculateTotals(requests).amount.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right text-rose-600 text-sm">
+                      ₹{calculateTotals(requests).charges.toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-right text-emerald-700 text-sm font-black">
+                      ₹{calculateTotals(requests).final.toLocaleString()}
+                    </td>
+                    <td colSpan={2}></td>
+                  </tr>
+                </>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
+
+      {hasMore && !loading && (
+        <div className="flex justify-center">
+          <button 
+            onClick={() => fetchRequests(true)}
+            disabled={loadingMore}
+            className="flex items-center gap-2 px-8 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 transition-all shadow-sm disabled:opacity-50"
+          >
+            {loadingMore ? <Loader2 className="animate-spin" size={18} /> : <RotateCcw size={18} />}
+            Load More Data
+          </button>
+        </div>
+      )}
     </div>
   );
 }
