@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Megaphone, AlertCircle } from 'lucide-react';
+import { Megaphone } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 
@@ -29,7 +29,6 @@ export default function NewsTicker() {
   useEffect(() => {
     fetchActiveHeadlines();
 
-    // Subscribe to realtime updates for headlines
     const channel = supabase
       .channel('headlines_realtime')
       .on('postgres_changes', { 
@@ -48,7 +47,9 @@ export default function NewsTicker() {
 
   if (headlines.length === 0) return null;
 
-  const combinedMessage = headlines.map(h => h.message).join('\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0•\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0');
+  // Use literal spaces for joining
+  const separator = "         •         ";
+  const combinedText = headlines.map(h => h.message).join(separator) + separator;
 
   return (
     <div className="bg-white border-b border-slate-200 h-10 flex items-center overflow-hidden shrink-0 relative">
@@ -64,17 +65,17 @@ export default function NewsTicker() {
         <motion.div
           animate={{ x: ["0%", "-50%"] }}
           transition={{ 
-            duration: 30, 
+            duration: 35, 
             repeat: Infinity, 
             ease: "linear"
           }}
-          className="whitespace-nowrap flex items-center pr-12"
+          className="whitespace-nowrap flex items-center"
         >
-          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight flex items-center">
-            {combinedMessage}\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0•\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0
+          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight inline-block px-4">
+            {combinedText}
           </span>
-          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight flex items-center">
-            {combinedMessage}\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0•\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0
+          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight inline-block px-4">
+            {combinedText}
           </span>
         </motion.div>
       </div>
