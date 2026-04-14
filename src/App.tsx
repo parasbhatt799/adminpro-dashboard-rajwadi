@@ -24,7 +24,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
   const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('activeTab') || 'dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [pendingKYCCount, setPendingKYCCount] = useState(0);
 
@@ -57,6 +57,11 @@ export default function App() {
       };
     }
   }, [isAdmin]);
+
+  // Persist active tab when it changes
+  useEffect(() => {
+    localStorage.setItem('activeTab', activeTab);
+  }, [activeTab]);
 
   const handleLogin = (id: string, userType: 'admin' | 'user') => {
     localStorage.setItem('userId', id);
