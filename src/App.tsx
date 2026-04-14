@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -25,7 +25,7 @@ import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
 import UserComplaints from './components/user/UserComplaints';
-import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck } from 'lucide-react';
+import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -60,6 +60,35 @@ export default function App() {
       setUnreadAdminCount(data?.filter(n => !n.is_read).length || 0);
     } catch (err) {
       console.error('Unexpected error fetching admin notifications:', err);
+    }
+  };
+
+  const handleDeleteAdminNotification = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      setAdminNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadAdminCount(prev => prev - (adminNotifications.find(n => n.id === id)?.is_read ? 0 : 1));
+    } catch (err) {
+      console.error('Error deleting admin notification:', err);
+    }
+  };
+
+  const handleClearAllAdminNotifications = async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('target_role', 'admin');
+      if (error) throw error;
+      setAdminNotifications([]);
+      setUnreadAdminCount(0);
+    } catch (err) {
+      console.error('Error clearing all admin notifications:', err);
     }
   };
 
@@ -173,11 +202,21 @@ export default function App() {
                       className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden"
                     >
                       <div className="p-4 border-b border-slate-50 flex items-center justify-between">
-                        <h3 className="font-bold text-slate-900">Admin Alerts</h3>
-                        {unreadAdminCount > 0 && (
-                          <span className="text-[10px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-black uppercase">
-                            {unreadAdminCount} New
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-slate-900">Admin Alerts</h3>
+                          {unreadAdminCount > 0 && (
+                            <span className="text-[10px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-black uppercase">
+                              {unreadAdminCount} New
+                            </span>
+                          )}
+                        </div>
+                        {adminNotifications.length > 0 && (
+                          <button 
+                            onClick={handleClearAllAdminNotifications}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-wider"
+                          >
+                            Clear All
+                          </button>
                         )}
                       </div>
                       <div className="max-h-[400px] overflow-y-auto no-scrollbar">
@@ -218,9 +257,17 @@ export default function App() {
                                     {n.title}
                                   </p>
                                   <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
-                                  <div className="flex items-center gap-1 mt-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-                                    <Clock size={10} />
-                                    {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
+                                  <div className="flex items-center justify-between mt-2">
+                                    <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                      <Clock size={10} />
+                                      {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
+                                    </div>
+                                    <button 
+                                      onClick={(e) => handleDeleteAdminNotification(e, n.id)}
+                                      className="p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
                                   </div>
                                 </div>
                               </div>

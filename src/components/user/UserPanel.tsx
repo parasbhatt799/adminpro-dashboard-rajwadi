@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
 import ChangePassword from './ChangePassword';
-import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock } from 'lucide-react';
+import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -154,6 +154,37 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     localStorage.setItem(`welcome_dialog_shown_${userId}`, 'true');
   };
 
+  const handleDeleteNotification = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      setUnreadCount(prev => prev - (notifications.find(n => n.id === id)?.is_read ? 0 : 1));
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
+
+  const handleClearAllNotifications = async () => {
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (err) {
+      console.error('Error clearing all notifications:', err);
+    }
+  };
+
   const handleNotificationClick = async (notification: any) => {
     try {
       if (!notification.is_read) {
@@ -268,11 +299,21 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                       className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden"
                     >
                       <div className="p-4 border-b border-slate-50 flex items-center justify-between">
-                        <h3 className="font-bold text-slate-900">Notifications</h3>
-                        {unreadCount > 0 && (
-                          <span className="text-[10px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-black uppercase">
-                            {unreadCount} New
-                          </span>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-slate-900">Notifications</h3>
+                          {unreadCount > 0 && (
+                            <span className="text-[10px] bg-rose-50 text-rose-500 px-2 py-0.5 rounded-full font-black uppercase">
+                              {unreadCount} New
+                            </span>
+                          )}
+                        </div>
+                        {notifications.length > 0 && (
+                          <button 
+                            onClick={handleClearAllNotifications}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-widest"
+                          >
+                            Clear All
+                          </button>
                         )}
                       </div>
                       <div className="max-h-[400px] overflow-y-auto no-scrollbar">
@@ -302,9 +343,17 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                                     {n.title}
                                   </p>
                                   <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-2">{n.message}</p>
-                                  <div className="flex items-center gap-1 mt-2 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
-                                    <Clock size={10} />
-                                    {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
+                                  <div className="flex items-center justify-between mt-2">
+                                    <div className="flex items-center gap-1 text-[9px] text-slate-400 font-bold uppercase tracking-wider">
+                                      <Clock size={10} />
+                                      {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
+                                    </div>
+                                    <button 
+                                      onClick={(e) => handleDeleteNotification(e, n.id)}
+                                      className="p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
                                   </div>
                                 </div>
                               </div>
