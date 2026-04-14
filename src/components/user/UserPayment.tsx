@@ -279,6 +279,20 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         cardOwnerName: '',
         billAmount: ''
       });
+
+      // 3. Notify Admin about the new Bill Payment
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert([{
+          target_role: 'admin',
+          title: 'New Bill Payment Request',
+          message: `User ${userProfile?.firm_name || userId} submitted a bill payment of ₹${billAmountNum}.`,
+          link: '/bill-payment-requests'
+        }]);
+      
+      if (nError) {
+        console.error('Bill Notification Error (Admin):', nError);
+      }
     } catch (err: any) {
       console.error('Error submitting bill:', err);
       setError(err.message || 'Failed to submit bill payment.');
@@ -358,6 +372,20 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setUtrId('');
       setAmount('');
       setFile(null);
+
+      // 4. Notify Admin about the new QR Payment
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert([{
+          target_role: 'admin',
+          title: 'New QR Payment Request',
+          message: `User ${userProfile?.firm_name || userId} submitted a QR payment of ₹${amountNum}.`,
+          link: '/qr-payment-requests'
+        }]);
+      
+      if (nError) {
+        console.error('QR Notification Error (Admin):', nError);
+      }
     } catch (err: any) {
       console.error('Error submitting payment:', err);
       setError(err.message || 'Failed to submit payment. Please try again.');

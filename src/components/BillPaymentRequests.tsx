@@ -158,6 +158,22 @@ export default function BillPaymentRequests() {
         .eq('id', targetId);
 
       if (error) throw error;
+
+      // 3. Notify User about their request status
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert([{
+          user_id: targetRequest.user_id,
+          target_role: 'user',
+          title: `Bill Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
+          message: targetType === 'approved' 
+            ? `Your bill payment of ₹${amount.toLocaleString()} has been approved!`
+            : `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
+          link: '/user/reports'
+        }]);
+      
+      if (nError) console.error('Bill Status Notification Error:', nError);
+
       setRequests(prev => prev.map(req => req.id === targetId ? { ...req, ...updateData } : req));
       setRejectionRowId(null);
       setReason('');

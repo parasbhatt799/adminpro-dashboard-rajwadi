@@ -153,6 +153,22 @@ export default function QRPaymentRequests() {
         .eq('id', targetId);
 
       if (error) throw error;
+
+      // 3. Notify User about their request status
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert([{
+          user_id: requests.find(r => r.id === targetId)?.user_id,
+          target_role: 'user',
+          title: `QR Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
+          message: targetType === 'approved' 
+            ? `Your QR payment of ₹${amount.toLocaleString()} has been approved!`
+            : `Your QR payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
+          link: '/user/payment'
+        }]);
+      
+      if (nError) console.error('QR Status Notification Error:', nError);
+
       setRequests(prev => prev.map(req => req.id === targetId ? { ...req, ...updateData } : req));
       setRejectionRowId(null);
       setCharges('0');
