@@ -48,12 +48,12 @@ export default function NewsTicker() {
 
   if (headlines.length === 0) return null;
 
-  const combinedMessage = headlines.map(h => h.message).join('    •    ');
+  const combinedMessage = headlines.map(h => h.message).join('\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0•\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0');
 
   return (
     <div className="bg-white border-b border-slate-200 h-10 flex items-center overflow-hidden shrink-0 relative">
       {/* Label */}
-      <div className="bg-rose-600 h-full px-4 flex items-center gap-2 z-10 shadow-[4px_0_10px_rgba(0,0,0,0.1)] relative">
+      <div className="bg-rose-600 h-full px-4 flex items-center gap-2 z-20 shadow-[4px_0_10px_rgba(0,0,0,0.1)] relative">
         <Megaphone size={14} className="text-white animate-pulse" />
         <span className="text-white text-[10px] font-black uppercase tracking-widest whitespace-nowrap">News Updates</span>
         <div className="absolute right-[-10px] top-0 bottom-0 w-[10px] bg-rose-600 [clip-path:polygon(0_0,0_100%,100%_50%)]"></div>
@@ -62,22 +62,19 @@ export default function NewsTicker() {
       {/* Marquee Container */}
       <div className="flex-1 overflow-hidden h-full flex items-center">
         <motion.div
-          animate={{ x: [0, -2000] }}
+          animate={{ x: ["0%", "-50%"] }}
           transition={{ 
-            duration: 40, 
+            duration: 30, 
             repeat: Infinity, 
             ease: "linear"
           }}
-          className="whitespace-nowrap flex items-center gap-12 pl-8"
+          className="whitespace-nowrap flex items-center pr-12"
         >
-          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight">
-            {combinedMessage}
+          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight flex items-center">
+            {combinedMessage}\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0•\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0
           </span>
-          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight">
-            {combinedMessage}
-          </span>
-          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight">
-            {combinedMessage}
+          <span className="text-sm font-bold text-slate-700 uppercase tracking-tight flex items-center">
+            {combinedMessage}\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0•\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0
           </span>
         </motion.div>
       </div>
