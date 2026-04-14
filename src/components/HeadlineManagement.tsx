@@ -26,6 +26,9 @@ export default function HeadlineManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [newMessage, setNewMessage] = useState('');
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const fetchHeadlines = async () => {
     try {
       const { data, error } = await supabase
@@ -77,17 +80,21 @@ export default function HeadlineManagement() {
     }
   };
 
-  const deleteHeadline = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this headline?')) return;
+  const deleteHeadline = async () => {
+    if (!showDeleteConfirm) return;
+    setIsDeleting(true);
     try {
       const { error } = await supabase
         .from('headlines')
         .delete()
-        .eq('id', id);
+        .eq('id', showDeleteConfirm);
       if (error) throw error;
-      fetchHeadlines();
+      setHeadlines(prev => prev.filter(h => h.id !== showDeleteConfirm));
+      setShowDeleteConfirm(null);
     } catch (err) {
       console.error('Error deleting headline:', err);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -124,7 +131,44 @@ export default function HeadlineManagement() {
         </form>
       </div>
 
-      {/* Headlines List */}
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
+            >
+              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-6">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Delete Headline</h3>
+              <p className="text-slate-500 text-center mb-8">
+                Are you sure you want to delete this headline? This action cannot be undone.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={deleteHeadline}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isDeleting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-50 bg-slate-50/50 flex justify-between items-center">
           <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
@@ -177,7 +221,7 @@ export default function HeadlineManagement() {
                     {headline.is_active ? 'Active' : 'Inactive'}
                   </button>
                   <button 
-                    onClick={() => deleteHeadline(headline.id)}
+                    onClick={() => setShowDeleteConfirm(headline.id)}
                     className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
                   >
                     <Trash2 size={16} />
