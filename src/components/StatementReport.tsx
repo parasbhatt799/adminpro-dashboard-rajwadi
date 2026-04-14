@@ -50,6 +50,7 @@ export default function StatementReport() {
   // Filters
   const [firmName, setFirmName] = useState('');
   const [exactAmount, setExactAmount] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -76,60 +77,58 @@ export default function StatementReport() {
     else { setLoading(true); setDisplayCount(10); }
 
     try {
-      // 1. Fetch QR Payments
-      let qrQuery = supabase.from('payment_submissions').select('*, users_profiles!inner(firm_name)').neq('status', 'rejected');
-      // 2. Fetch Bill Payments
-      let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').neq('status', 'rejected');
+      let qrMapped: UnifiedRecord[] = [];
+      let billMapped: UnifiedRecord[] = [];
 
-      // Apply Filters to both
-      if (firmName) {
-        qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
-        billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+      // 1. Fetch QR Payments (unless filter is set to BILL only)
+      if (typeFilter === 'all' || typeFilter === 'QR') {
+        let qrQuery = supabase.from('payment_submissions').select('*, users_profiles!inner(firm_name)').neq('status', 'rejected');
+        
+        if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+        if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
+        if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
+
+        const { data, error } = await qrQuery;
+        if (error) throw error;
+        qrMapped = (data || []).map(r => ({
+          id: r.id,
+          type: 'QR',
+          date: r.created_at,
+          firm_name: r.users_profiles?.firm_name || 'N/A',
+          reference: r.utr_id,
+          amount: Number(r.amount),
+          charges: Number(r.charges || 0),
+          final_total: Number(r.amount) - Number(r.charges || 0),
+          status: r.status,
+          raw_data: r
+        }));
       }
-      if (exactAmount) {
-        qrQuery = qrQuery.eq('amount', Number(exactAmount));
-        billQuery = billQuery.eq('amount', Number(exactAmount));
+
+      // 2. Fetch Bill Payments (unless filter is set to QR only)
+      if (typeFilter === 'all' || typeFilter === 'BILL') {
+        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').neq('status', 'rejected');
+        
+        if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+        if (exactAmount) billQuery = billQuery.eq('amount', Number(exactAmount));
+        if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+
+        const { data, error } = await billQuery;
+        if (error) throw error;
+        billMapped = (data || []).map(r => ({
+          id: r.id,
+          type: 'BILL',
+          date: r.created_at,
+          firm_name: r.users_profiles?.firm_name || 'N/A',
+          reference: r.customer_mobile,
+          amount: Number(r.amount),
+          charges: Number(r.charges || 0),
+          final_total: Number(r.amount) + Number(r.charges || 0),
+          status: r.status,
+          raw_data: r
+        }));
       }
-      if (startDate) {
-        qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
-        billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
-      }
-      if (endDate) {
-        qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
-        billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
-      }
-
-      const [qrRes, billRes] = await Promise.all([qrQuery, billQuery]);
-
-      if (qrRes.error) throw qrRes.error;
-      if (billRes.error) throw billRes.error;
-
-      // 3. Map to Unified Format
-      const qrMapped: UnifiedRecord[] = (qrRes.data || []).map(r => ({
-        id: r.id,
-        type: 'QR',
-        date: r.created_at,
-        firm_name: r.users_profiles?.firm_name || 'N/A',
-        reference: r.utr_id,
-        amount: Number(r.amount),
-        charges: Number(r.charges || 0),
-        final_total: Number(r.amount) - Number(r.charges || 0),
-        status: r.status,
-        raw_data: r
-      }));
-
-      const billMapped: UnifiedRecord[] = (billRes.data || []).map(r => ({
-        id: r.id,
-        type: 'BILL',
-        date: r.created_at,
-        firm_name: r.users_profiles?.firm_name || 'N/A',
-        reference: r.customer_mobile,
-        amount: Number(r.amount),
-        charges: Number(r.charges || 0),
-        final_total: Number(r.amount) + Number(r.charges || 0),
-        status: r.status,
-        raw_data: r
-      }));
 
       // 4. Merge and Sort
       const merged = [...qrMapped, ...billMapped].sort((a, b) => 
@@ -137,7 +136,7 @@ export default function StatementReport() {
       );
 
       setRecords(merged);
-      setHasMore(merged.length > displayCount + (isLoadMore ? limit : 0));
+      setHasMore(merged.length > (isLoadMore ? displayCount + limit : limit));
       if (isLoadMore) setDisplayCount(prev => prev + limit);
 
     } catch (err) {
@@ -150,7 +149,7 @@ export default function StatementReport() {
 
   useEffect(() => {
     fetchStatement();
-  }, [startDate, endDate]);
+  }, [startDate, endDate, typeFilter]);
 
   const calculateTotals = (data: UnifiedRecord[]) => {
     return data.reduce((acc, curr) => ({
@@ -263,9 +262,22 @@ export default function StatementReport() {
             </div>
           </div>
 
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Type</label>
+            <select 
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as any)}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            >
+              <option value="all">All Types</option>
+              <option value="QR">QR Payments</option>
+              <option value="BILL">Bill Payments</option>
+            </select>
+          </div>
+
           <div className="flex items-end gap-2">
             <button onClick={() => fetchStatement()} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white h-[38px] rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"><Search size={16} /> Filter</button>
-            <button onClick={() => { setFirmName(''); setExactAmount(''); setStartDate(''); setEndDate(''); fetchStatement(); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white h-[38px]"><RotateCcw size={18} /></button>
+            <button onClick={() => { setFirmName(''); setExactAmount(''); setTypeFilter('all'); setStartDate(''); setEndDate(''); fetchStatement(); }} className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white h-[38px]"><RotateCcw size={18} /></button>
           </div>
 
           <div className="flex items-end">
