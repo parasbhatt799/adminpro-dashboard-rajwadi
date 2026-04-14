@@ -161,6 +161,7 @@ export default function App() {
           <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
             <div className="flex items-center gap-6">
               <button 
+                type="button"
                 onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
                 className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
               >
@@ -179,6 +180,7 @@ export default function App() {
             <div className="flex items-center gap-4">
             <div className="relative">
               <button 
+                type="button"
                 onClick={() => setShowAdminNotifications(!showAdminNotifications)}
                 className={`p-2 rounded-lg transition-all relative ${
                   showAdminNotifications ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'

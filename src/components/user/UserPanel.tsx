@@ -276,6 +276,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             </div>
             <div className="relative">
               <button 
+                type="button"
                 onClick={() => setShowNotifications(!showNotifications)}
                 className={`p-2 rounded-lg transition-all relative ${
                   showNotifications ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
