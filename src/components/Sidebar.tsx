@@ -7,7 +7,8 @@ import {
   Receipt, 
   FileBarChart,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  MessageSquare
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink } from 'react-router-dom';
@@ -28,6 +29,7 @@ const menuItems = [
   { id: 'reason-entry', label: 'Reason entry', icon: FileQuestion, path: '/reason-entry' },
   { id: 'service-charge', label: 'Service charge', icon: Receipt, path: '/service-charge' },
   { id: 'report-generate', label: 'Report Generate', icon: FileBarChart, path: '/report-generate' },
+  { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
 ];
 
 export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {

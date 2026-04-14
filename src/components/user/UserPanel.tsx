@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
+import UserKYC from './UserKYC';
+import ChangePassword from './ChangePassword';
 import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';

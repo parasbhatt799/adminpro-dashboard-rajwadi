@@ -15,10 +15,12 @@ import ReasonManagement from './components/ReasonManagement';
 import QRPaymentRequests from './components/QRPaymentRequests';
 import BillPaymentRequests from './components/BillPaymentRequests';
 import KYCVerificationRequests from './components/KYCVerificationRequests';
+import ComplaintsManagement from './components/ComplaintsManagement';
 import Login from './components/Login';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
+import UserComplaints from './components/user/UserComplaints';
 import { Search, Bell, User, Menu } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
@@ -182,6 +184,7 @@ export default function App() {
           <Route path="bill-payment-requests" element={<BillPaymentRequests />} />
           <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
           <Route path="reason-entry" element={<ReasonManagement />} />
+          <Route path="complaints-management" element={<ComplaintsManagement />} />
           <Route path="report-generate" element={<PageUnderConstruction tab="report-generate" />} />
         </Route>
         <Route 
@@ -197,6 +200,7 @@ export default function App() {
           <Route index element={<Navigate to="payment" replace />} />
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="reports" element={<UserReports userId={userId} />} />
+          <Route path="complaints" element={<UserComplaints userId={userId} />} />
         </Route>
         <Route 
           path="/login" 

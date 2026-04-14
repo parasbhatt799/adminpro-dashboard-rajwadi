@@ -2,19 +2,20 @@ import {
   LayoutDashboard, 
   CreditCard, 
   FileText,
-  LogOut
+  LogOut,
+  MessageSquare
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink } from 'react-router-dom';
 
 interface UserSidebarProps {
-  activeTab: string;
   onLogout: () => void;
 }
 
 const menuItems = [
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/user/reports' },
+  { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
 ];
 
 export default function UserSidebar({ onLogout }: UserSidebarProps) {
