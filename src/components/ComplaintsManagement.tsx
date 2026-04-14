@@ -31,6 +31,9 @@ export default function ComplaintsManagement() {
   const [replyText, setReplyText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const fetchComplaints = async () => {
     try {
       setLoading(true);
@@ -160,25 +163,28 @@ export default function ComplaintsManagement() {
     }
   };
 
-  const handleDelete = async (e: React.MouseEvent, complaintId: string) => {
-    e.stopPropagation();
-    if (!window.confirm('Are you sure you want to permanently delete this complaint and all its messages?')) return;
+  const handleDelete = async () => {
+    if (!showDeleteConfirm) return;
+    setIsDeleting(true);
 
     try {
       const { error } = await supabase
         .from('complaints')
         .delete()
-        .eq('id', complaintId);
+        .eq('id', showDeleteConfirm);
 
       if (error) throw error;
       
-      if (selectedComplaint?.id === complaintId) {
+      if (selectedComplaint?.id === showDeleteConfirm) {
         setSelectedComplaint(null);
       }
-      fetchComplaints();
+      setComplaints(prev => prev.filter(c => c.id !== showDeleteConfirm));
+      setShowDeleteConfirm(null);
     } catch (err) {
       console.error('Error deleting complaint:', err);
       alert('Failed to delete. Please try again.');
+    } finally {
+       setIsDeleting(false);
     }
   };
 
@@ -233,7 +239,10 @@ export default function ComplaintsManagement() {
                 </span>
                 {selectedComplaint.status === 'resolved' && (
                   <button 
-                    onClick={(e) => handleDelete(e, selectedComplaint.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowDeleteConfirm(selectedComplaint.id);
+                    }}
                     className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
                     title="Delete Complaint"
                   >
@@ -318,6 +327,44 @@ export default function ComplaintsManagement() {
 
   return (
     <div className="space-y-8">
+      {/* Delete Confirmation Modal */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
+            >
+              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-6">
+                <AlertCircle size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Delete Ticket</h3>
+              <p className="text-slate-500 text-center mb-8">
+                Are you sure you want to permanently delete this complaint and all its messages? This action cannot be undone.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isDeleting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -405,7 +452,10 @@ export default function ComplaintsManagement() {
                   <div className="flex items-center gap-4">
                     {complaint.status === 'resolved' && (
                       <button 
-                        onClick={(e) => handleDelete(e, complaint.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowDeleteConfirm(complaint.id);
+                        }}
                         className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
                         title="Delete Ticket"
                       >
