@@ -145,41 +145,47 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
     fetchData();
 
-    // Real-time Subscriptions with simplified channel names for better reliability
+    // even more robust real-time handling without server-side filters
     const qrChannel = supabase
-      .channel('qr_submissions_realtime')
+      .channel('qr_submissions_realtime_v2')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'payment_submissions',
-        filter: `user_id=eq.${userId}`
+        table: 'payment_submissions'
       }, (payload: any) => {
-        console.log('Real-time QR update received:', payload.eventType);
-        if (payload.eventType === 'INSERT') {
-          setQrRequests(prev => [payload.new, ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
-          setQrRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
-        } else if (payload.eventType === 'DELETE') {
-          setQrRequests(prev => prev.filter(req => req.id === payload.old.id));
+        // Filter manually in JavaScript to ensure it always works
+        if (payload.new && payload.new.user_id === userId) {
+          console.log('Live QR Update for this user:', payload.eventType);
+          if (payload.eventType === 'INSERT') {
+            setQrRequests(prev => [payload.new, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setQrRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+          }
+        }
+        if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
+          setQrRequests(prev => prev.filter(req => req.id !== payload.old.id));
         }
       })
       .subscribe();
 
     const billChannel = supabase
-      .channel('bill_submissions_realtime')
+      .channel('bill_submissions_realtime_v2')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'bill_submissions',
-        filter: `user_id=eq.${userId}`
+        table: 'bill_submissions'
       }, (payload: any) => {
-        console.log('Real-time Bill update received:', payload.eventType);
-        if (payload.eventType === 'INSERT') {
-          setBillRequests(prev => [payload.new, ...prev]);
-        } else if (payload.eventType === 'UPDATE') {
-          setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
-        } else if (payload.eventType === 'DELETE') {
-          setBillRequests(prev => prev.filter(req => req.id === payload.old.id));
+        // Filter manually in JavaScript
+        if (payload.new && payload.new.user_id === userId) {
+          console.log('Live Bill Update for this user:', payload.eventType);
+          if (payload.eventType === 'INSERT') {
+            setBillRequests(prev => [payload.new, ...prev]);
+          } else if (payload.eventType === 'UPDATE') {
+            setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+          }
+        }
+        if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
+          setBillRequests(prev => prev.filter(req => req.id !== payload.old.id));
         }
       })
       .subscribe();
