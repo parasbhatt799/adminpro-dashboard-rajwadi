@@ -21,9 +21,9 @@ import { Search, Bell, User, Menu } from 'lucide-react';
 import { supabase } from './lib/supabase';
 
 export default function App() {
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isUser, setIsUser] = useState(false);
-  const [userId, setUserId] = useState('');
+  const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
+  const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
+  const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [pendingKYCCount, setPendingKYCCount] = useState(0);
@@ -59,6 +59,9 @@ export default function App() {
   }, [isAdmin]);
 
   const handleLogin = (id: string, userType: 'admin' | 'user') => {
+    localStorage.setItem('userId', id);
+    localStorage.setItem('userType', userType);
+    
     if (userType === 'admin') {
       setIsAdmin(true);
       setIsUser(false);
@@ -70,6 +73,8 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    localStorage.removeItem('userId');
+    localStorage.removeItem('userType');
     setIsAdmin(false);
     setIsUser(false);
     setUserId('');
