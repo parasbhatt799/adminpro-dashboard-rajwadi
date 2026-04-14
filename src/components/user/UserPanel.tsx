@@ -170,7 +170,9 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     }
   };
 
-  const handleClearAllNotifications = async () => {
+  const handleClearAllNotifications = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     try {
       const { error } = await supabase
         .from('notifications')
@@ -309,6 +311,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                         </div>
                         {notifications.length > 0 && (
                           <button 
+                            type="button"
                             onClick={handleClearAllNotifications}
                             className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-widest"
                           >
@@ -349,6 +352,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                                       {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
                                     </div>
                                     <button 
+                                      type="button"
                                       onClick={(e) => handleDeleteNotification(e, n.id)}
                                       className="p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
                                     >

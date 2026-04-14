@@ -78,7 +78,9 @@ export default function App() {
     }
   };
 
-  const handleClearAllAdminNotifications = async () => {
+  const handleClearAllAdminNotifications = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     try {
       const { error } = await supabase
         .from('notifications')
@@ -212,6 +214,7 @@ export default function App() {
                         </div>
                         {adminNotifications.length > 0 && (
                           <button 
+                            type="button"
                             onClick={handleClearAllAdminNotifications}
                             className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-wider"
                           >
@@ -263,6 +266,7 @@ export default function App() {
                                       {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
                                     </div>
                                     <button 
+                                      type="button"
                                       onClick={(e) => handleDeleteAdminNotification(e, n.id)}
                                       className="p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
                                     >
