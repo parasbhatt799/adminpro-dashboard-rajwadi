@@ -53,6 +53,7 @@ export default function Dashboard() {
       const dailyBillAmount = billData?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const dailyQrAmount = qrData?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const dailyTotalCharges = dailyBillCharges + dailyQrCharges;
+      const dailyTotalCCBill = dailyBillAmount + dailyBillCharges;
 
       // 3. Total Users
       const { count: totalUsers } = await supabase
@@ -78,6 +79,13 @@ export default function Dashboard() {
           value: `₹${dailyBillAmount.toLocaleString()}`,
           icon: TrendingUp,
           color: "bg-cyan-500",
+          description: `Last update: ${todayStr}`
+        },
+        {
+          title: "Total CC Bill",
+          value: `₹${dailyTotalCCBill.toLocaleString()}`,
+          icon: TrendingUp,
+          color: "bg-purple-500",
           description: `Last update: ${todayStr}`
         },
         {
