@@ -10,7 +10,8 @@ import {
   LogOut,
   ShieldCheck,
   MessageSquare,
-  ChevronDown
+  ChevronDown,
+  Megaphone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -42,6 +43,7 @@ const menuItems = [
     ]
   },
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
+  { id: 'headlines', label: 'Add Headline', icon: Megaphone, path: '/headlines' },
 ];
 
 export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {

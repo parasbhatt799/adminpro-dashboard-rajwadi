@@ -19,6 +19,7 @@ import ComplaintsManagement from './components/ComplaintsManagement';
 import QRPaymentReport from './components/QRPaymentReport';
 import BillPaymentReport from './components/BillPaymentReport';
 import StatementReport from './components/StatementReport';
+import HeadlineManagement from './components/HeadlineManagement';
 import Login from './components/Login';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
@@ -297,6 +298,7 @@ export default function App() {
             <Route path="bill-payment" element={<BillPaymentReport />} />
             <Route path="statement" element={<StatementReport />} />
           </Route>
+          <Route path="headlines" element={<HeadlineManagement />} />
         </Route>
         <Route 
           path="/user" 

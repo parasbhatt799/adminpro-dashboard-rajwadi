@@ -8,6 +8,8 @@ import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 
+import NewsTicker from './NewsTicker';
+
 interface UserPanelProps {
   onLogout: () => void;
   userId: string;
@@ -345,6 +347,8 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             </div>
           </div>
         </header>
+
+        <NewsTicker />
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
