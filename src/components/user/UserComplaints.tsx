@@ -8,7 +8,9 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
-  Plus
+  Plus,
+  User as UserIcon,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
@@ -24,10 +26,9 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
   const [complaints, setComplaints] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-
-  // Form State
-  const [subject, setSubject] = useState('');
-  const [description, setDescription] = useState('');
+  const [messages, setMessages] = useState<{ [key: string]: any[] }>({});
+  const [loadingMessages, setLoadingMessages] = useState<{ [key: string]: boolean }>({});
+  const [replyText, setReplyText] = useState<{ [key: string]: string }>({});
 
   const fetchComplaints = async () => {
     try {
@@ -47,31 +48,55 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
     }
   };
 
+  const fetchMessages = async (complaintId: string) => {
+    try {
+      setLoadingMessages(prev => ({ ...prev, [complaintId]: true }));
+      const { data, error } = await supabase
+        .from('complaint_messages')
+        .select('*')
+        .eq('complaint_id', complaintId)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(prev => ({ ...prev, [complaintId]: data || [] }));
+    } catch (err) {
+      console.error('Error fetching messages:', err);
+    } finally {
+      setLoadingMessages(prev => ({ ...prev, [complaintId]: false }));
+    }
+  };
+
   useEffect(() => {
     fetchComplaints();
   }, [userId]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, subject: string, description: string) => {
     e.preventDefault();
     if (!subject || !description) return;
 
     try {
       setSubmitting(true);
-      const { error } = await supabase
+      
+      // 1. Create the Complaint Ticket
+      const { data: complaint, error: cError } = await supabase
         .from('complaints')
-        .insert([
-          {
-            user_id: userId,
-            subject,
-            description,
-            status: 'pending'
-          }
-        ]);
+        .insert([{ user_id: userId, subject, status: 'pending' }])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (cError) throw cError;
 
-      setSubject('');
-      setDescription('');
+      // 2. Create the first message
+      const { error: mError } = await supabase
+        .from('complaint_messages')
+        .insert([{ 
+          complaint_id: complaint.id, 
+          sender_role: 'user', 
+          message: description 
+        }]);
+
+      if (mError) throw mError;
+
       setShowForm(false);
       fetchComplaints();
     } catch (err) {
@@ -82,15 +107,44 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
     }
   };
 
+  const handleReply = async (complaintId: string) => {
+    const text = replyText[complaintId];
+    if (!text?.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('complaint_messages')
+        .insert([{ 
+          complaint_id: complaintId, 
+          sender_role: 'user', 
+          message: text 
+        }]);
+
+      if (error) throw error;
+      
+      setReplyText(prev => ({ ...prev, [complaintId]: '' }));
+      fetchMessages(complaintId);
+    } catch (err) {
+      console.error('Error sending reply:', err);
+    }
+  };
+
   const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
+    if (expandedId === id) {
+      setExpandedId(null);
+    } else {
+      setExpandedId(id);
+      if (!messages[id]) {
+        fetchMessages(id);
+      }
+    }
   };
 
   if (loading && !complaints.length) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="animate-spin text-emerald-600" size={48} />
-        <p className="text-slate-500 font-medium">Loading your complaints...</p>
+        <p className="text-slate-500 font-medium">Loading your conversations...</p>
       </div>
     );
   }
@@ -100,15 +154,15 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Support & Complaints</h2>
-          <p className="text-slate-500 mt-1">Have an issue? report it here and our team will help you.</p>
+          <h2 className="text-2xl font-bold text-slate-900">Support Chat</h2>
+          <p className="text-slate-500 mt-1">Talk to our team about any issues or questions.</p>
         </div>
         <button 
           onClick={() => setShowForm(!showForm)}
           className="flex items-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-2xl font-bold hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 active:scale-95"
         >
           {showForm ? <MessageSquare size={18} /> : <Plus size={18} />}
-          {showForm ? 'View Complaints' : 'New Complaint'}
+          {showForm ? 'View Conversations' : 'New Ticket'}
         </button>
       </div>
 
@@ -121,54 +175,7 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
             exit={{ opacity: 0, y: -20 }}
             className="max-w-2xl mx-auto"
           >
-            <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-                <Send className="text-emerald-600" size={24} />
-                Submit New Complaint
-              </h3>
-              
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 ml-1">Subject</label>
-                  <input 
-                    type="text" 
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="e.g. Payment not reflected in wallet"
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-400 font-medium"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-bold text-slate-700 ml-1">Description</label>
-                  <textarea 
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe your issue in detail..."
-                    className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-400 font-medium min-h-[150px] resize-none"
-                    required
-                  />
-                </div>
-
-                <div className="pt-2">
-                  <button 
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed group"
-                  >
-                    {submitting ? (
-                      <Loader2 className="animate-spin" size={20} />
-                    ) : (
-                      <>
-                        Submit Complaint
-                        <Send size={18} className="group-hover:translate-x-1 transition-transform" />
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
+            <NewComplaintForm onSubmit={handleSubmit} submitting={submitting} />
           </motion.div>
         ) : (
           <motion.div
@@ -178,24 +185,17 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
             className="space-y-4"
           >
             {complaints.length === 0 ? (
-              <div className="bg-white p-12 rounded-[32px] border border-dashed border-slate-300 text-center">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-4">
-                  <MessageSquare size={32} />
-                </div>
-                <h3 className="text-lg font-bold text-slate-900">No complaints yet</h3>
-                <p className="text-slate-500 mt-2">Any complaints you submit will appear here.</p>
-              </div>
+              <NoComplaintsView onNew={() => setShowForm(true)} />
             ) : (
               complaints.map((complaint) => (
-                <motion.div 
+                <div 
                   key={complaint.id}
-                  layout
-                  className={`bg-white rounded-3xl border transition-all duration-300 ${
-                    expandedId === complaint.id ? 'border-emerald-200 shadow-md ring-1 ring-emerald-50' : 'border-slate-200 shadow-sm'
+                  className={`bg-white rounded-[32px] border transition-all duration-300 overflow-hidden ${
+                    expandedId === complaint.id ? 'border-emerald-200 shadow-xl ring-1 ring-emerald-50' : 'border-slate-200 shadow-sm'
                   }`}
                 >
                   <div 
-                    className="p-6 cursor-pointer flex items-start justify-between gap-4"
+                    className="p-6 cursor-pointer flex items-center justify-between gap-4"
                     onClick={() => toggleExpand(complaint.id)}
                   >
                     <div className="flex-1">
@@ -209,7 +209,7 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
                         </span>
                         <span className="text-[11px] text-slate-400 font-bold flex items-center gap-1.5">
                           <Clock size={12} />
-                          {format(parseISO(complaint.created_at), 'dd MMM yyyy, HH:mm')}
+                          {format(parseISO(complaint.created_at), 'dd MMM yyyy')}
                         </span>
                       </div>
                       <h4 className="text-lg font-bold text-slate-900 leading-tight">{complaint.subject}</h4>
@@ -225,44 +225,141 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
                         exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
+                        className="bg-slate-50/50"
                       >
-                        <div className="px-6 pb-6 pt-2 space-y-6">
-                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100">
-                            <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Your Complaint</p>
-                            <p className="text-slate-600 leading-relaxed font-medium">{complaint.description}</p>
+                        <div className="p-6 pt-2 space-y-6">
+                          {/* Chat History */}
+                          <div className="space-y-4 max-h-[400px] overflow-y-auto px-2 py-4 no-scrollbar">
+                            {loadingMessages[complaint.id] ? (
+                              <div className="flex justify-center p-8">
+                                <Loader2 className="animate-spin text-emerald-600" size={24} />
+                              </div>
+                            ) : (
+                              messages[complaint.id]?.map((m) => (
+                                <div key={m.id} className={`flex ${m.sender_role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                  <div className={`max-w-[80%] rounded-2xl p-4 shadow-sm ${
+                                    m.sender_role === 'user' 
+                                      ? 'bg-emerald-600 text-white rounded-tr-none' 
+                                      : 'bg-white text-slate-700 border border-slate-200 rounded-tl-none'
+                                  }`}>
+                                    <div className="flex items-center gap-2 mb-1">
+                                      {m.sender_role === 'admin' ? <ShieldCheck size={14} className="text-emerald-500" /> : <UserIcon size={14} />}
+                                      <span className="text-[10px] uppercase font-black tracking-widest opacity-70">
+                                        {m.sender_role === 'user' ? 'You' : 'Admin'}
+                                      </span>
+                                    </div>
+                                    <p className="text-sm font-medium leading-relaxed">{m.message}</p>
+                                    <p className={`text-[9px] mt-2 opacity-60 text-right ${m.sender_role === 'user' ? 'text-white' : 'text-slate-400'}`}>
+                                      {format(parseISO(m.created_at), 'HH:mm')}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))
+                            )}
                           </div>
 
-                          {complaint.admin_reply ? (
-                            <div className="bg-emerald-50 p-6 rounded-2xl border border-emerald-100 relative overflow-hidden">
-                              <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-100/50 rounded-full -mr-8 -mt-8"></div>
-                              <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                                <CheckCircle2 size={14} />
-                                Admin Response
-                                {complaint.replied_at && (
-                                  <span className="text-emerald-400 ml-auto lowercase">
-                                    {format(parseISO(complaint.replied_at), 'dd MMM HH:mm')}
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-emerald-800 leading-relaxed font-bold">{complaint.admin_reply}</p>
+                          {/* Reply Input */}
+                          {complaint.status !== 'resolved' ? (
+                            <div className="flex gap-3">
+                              <input 
+                                type="text"
+                                value={replyText[complaint.id] || ''}
+                                onChange={(e) => setReplyText(prev => ({ ...prev, [complaint.id]: e.target.value }))}
+                                placeholder="Type your reply..."
+                                onKeyDown={(e) => e.key === 'Enter' && handleReply(complaint.id)}
+                                className="flex-1 px-5 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all shadow-sm"
+                              />
+                              <button 
+                                onClick={() => handleReply(complaint.id)}
+                                className="p-4 bg-emerald-600 text-white rounded-2xl hover:bg-emerald-500 transition-all shadow-lg active:scale-95"
+                              >
+                                <Send size={20} />
+                              </button>
                             </div>
                           ) : (
-                            <div className="flex items-center gap-3 p-6 bg-slate-50 rounded-2xl text-slate-500 border border-dashed border-slate-200">
-                              <AlertCircle size={20} className="text-amber-500 shrink-0" />
-                              <p className="text-sm font-medium">Waiting for admin reply...</p>
+                            <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center justify-center gap-3 text-emerald-700 font-bold">
+                              <CheckCircle2 size={20} />
+                              This conversation is marked as resolved.
                             </div>
                           )}
                         </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </motion.div>
+                </div>
               ))
             )}
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function NewComplaintForm({ onSubmit, submitting }: { onSubmit: any, submitting: boolean }) {
+  const [subject, setSubject] = useState('');
+  const [description, setDescription] = useState('');
+
+  return (
+    <div className="bg-white p-8 rounded-[32px] border border-slate-200 shadow-sm">
+      <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-3">
+        <Send className="text-emerald-600" size={24} />
+        Start New Conversation
+      </h3>
+      
+      <form onSubmit={(e) => onSubmit(e, subject, description)} className="space-y-6">
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-slate-700 ml-1">Subject</label>
+          <input 
+            type="text" 
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="e.g. Help with payment"
+            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-400 font-medium"
+            required
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-slate-700 ml-1">Your Problem</label>
+          <textarea 
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe your issue in detail..."
+            className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all placeholder:text-slate-400 font-medium min-h-[150px] resize-none"
+            required
+          />
+        </div>
+
+        <button 
+          type="submit"
+          disabled={submitting}
+          className="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-3 disabled:opacity-50 group"
+        >
+          {submitting ? <Loader2 className="animate-spin" size={20} /> : (
+            <>
+              Submit Ticket
+              <Send size={18} className="group-hover:translate-x-1 transition-transform" />
+            </>
+          )}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function NoComplaintsView({ onNew }: { onNew: any }) {
+  return (
+    <div className="bg-white p-12 rounded-[40px] border border-dashed border-slate-300 text-center">
+      <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 mx-auto mb-4">
+        <MessageSquare size={32} />
+      </div>
+      <h3 className="text-lg font-bold text-slate-900">No support tickets</h3>
+      <p className="text-slate-500 mt-2 mb-6">If you have any issues, feel free to start a conversation.</p>
+      <button onClick={onNew} className="text-emerald-600 font-black flex items-center gap-2 mx-auto hover:underline uppercase tracking-widest text-xs">
+        <Plus size={14} />
+        New Ticket
+      </button>
     </div>
   );
 }

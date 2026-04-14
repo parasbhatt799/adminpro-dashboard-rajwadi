@@ -1,35 +1,34 @@
--- Setup script for complaints table
+-- Setup script for Multi-Message Complaints (Ticketing) System
 
 CREATE TABLE IF NOT EXISTS public.complaints (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES public.users_profiles(id) ON DELETE CASCADE,
     subject TEXT NOT NULL,
-    description TEXT NOT NULL,
     status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'resolved')),
-    admin_reply TEXT,
-    replied_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.complaint_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    complaint_id UUID REFERENCES public.complaints(id) ON DELETE CASCADE,
+    sender_role TEXT NOT NULL CHECK (sender_role IN ('user', 'admin')),
+    message TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable RLS
-ALTER TABLE public.complaints ENABLE ROW LEVEL SECURITY;
+-- Disable RLS for custom auth compatibility
+ALTER TABLE public.complaints DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.complaint_messages DISABLE ROW LEVEL SECURITY;
 
--- Policies
-DO $$ 
-BEGIN
-    DROP POLICY IF EXISTS "complaints_user_access" ON public.complaints;
-    DROP POLICY IF EXISTS "complaints_admin_access" ON public.complaints;
+-- Grant permissions for anon key
+GRANT ALL ON public.complaints TO anon;
+GRANT ALL ON public.complaints TO authenticated;
+GRANT ALL ON public.complaints TO service_role;
 
-    -- Users can see and insert their own complaints
-    CREATE POLICY "complaints_user_access" ON public.complaints
-        FOR ALL USING (auth.uid() = user_id);
+GRANT ALL ON public.complaint_messages TO anon;
+GRANT ALL ON public.complaint_messages TO authenticated;
+GRANT ALL ON public.complaint_messages TO service_role;
 
-    -- Admins can see and update all complaints
-    CREATE POLICY "complaints_admin_access" ON public.complaints
-        FOR ALL USING (
-            EXISTS (
-                SELECT 1 FROM public.users_profiles
-                WHERE id = auth.uid() AND role = 'admin'
-            )
-        );
-END $$;
+-- Refresh schema cache
+NOTIFY pgrst, 'reload schema';
