@@ -145,35 +145,41 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
     fetchData();
 
-    // Real-time Subscriptions
+    // Real-time Subscriptions with simplified channel names for better reliability
     const qrChannel = supabase
-      .channel('public:payment_submissions')
+      .channel('qr_submissions_realtime')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'payment_submissions',
         filter: `user_id=eq.${userId}`
-      }, (payload) => {
+      }, (payload: any) => {
+        console.log('Real-time QR update received:', payload.eventType);
         if (payload.eventType === 'INSERT') {
           setQrRequests(prev => [payload.new, ...prev]);
         } else if (payload.eventType === 'UPDATE') {
           setQrRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+        } else if (payload.eventType === 'DELETE') {
+          setQrRequests(prev => prev.filter(req => req.id === payload.old.id));
         }
       })
       .subscribe();
 
     const billChannel = supabase
-      .channel('public:bill_submissions')
+      .channel('bill_submissions_realtime')
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
         table: 'bill_submissions',
         filter: `user_id=eq.${userId}`
-      }, (payload) => {
+      }, (payload: any) => {
+        console.log('Real-time Bill update received:', payload.eventType);
         if (payload.eventType === 'INSERT') {
           setBillRequests(prev => [payload.new, ...prev]);
         } else if (payload.eventType === 'UPDATE') {
           setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+        } else if (payload.eventType === 'DELETE') {
+          setBillRequests(prev => prev.filter(req => req.id === payload.old.id));
         }
       })
       .subscribe();
