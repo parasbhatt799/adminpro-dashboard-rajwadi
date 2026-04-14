@@ -68,7 +68,41 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
 
   useEffect(() => {
     fetchComplaints();
-  }, [userId]);
+
+    // Subscribe to complaints changes (status updates)
+    const complaintsChannel = supabase
+      .channel('user_complaints_realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'complaints',
+        filter: `user_id=eq.${userId}`
+      }, () => {
+        fetchComplaints();
+      })
+      .subscribe();
+
+    // Subscribe to new messages
+    const messagesChannel = supabase
+      .channel('user_messages_realtime')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'complaint_messages'
+      }, (payload) => {
+        const newMessage = payload.new;
+        // If the new message belongs to the currently expanded complaint, refresh messages
+        if (newMessage.complaint_id === expandedId) {
+          fetchMessages(newMessage.complaint_id);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(complaintsChannel);
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [userId, expandedId]);
 
   const handleSubmit = async (e: React.FormEvent, subject: string, description: string) => {
     e.preventDefault();

@@ -76,7 +76,39 @@ export default function ComplaintsManagement() {
 
   useEffect(() => {
     fetchComplaints();
-  }, []);
+
+    // Subscribe to all complaints changes
+    const complaintsChannel = supabase
+      .channel('admin_complaints_realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'complaints' 
+      }, () => {
+        fetchComplaints();
+      })
+      .subscribe();
+
+    // Subscribe to all messages (for the currently selected thread)
+    const messagesChannel = supabase
+      .channel('admin_messages_realtime')
+      .on('postgres_changes', { 
+        event: 'INSERT', 
+        schema: 'public', 
+        table: 'complaint_messages'
+      }, (payload) => {
+        const newMessage = payload.new;
+        if (selectedComplaint?.id === newMessage.complaint_id) {
+          fetchMessages(newMessage.complaint_id);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(complaintsChannel);
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [selectedComplaint?.id]);
 
   const handleReply = async (resolve: boolean = false) => {
     if (!replyText.trim() && !resolve) return;
