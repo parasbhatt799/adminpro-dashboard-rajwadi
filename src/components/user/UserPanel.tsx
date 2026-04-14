@@ -86,8 +86,23 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
       })
       .subscribe();
 
+    // Subscribe to profile changes (for real-time wallet updates)
+    const profileChannel = supabase
+      .channel(`profile_realtime_${userId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users_profiles',
+        filter: `id=eq.${userId}`
+      }, (payload) => {
+        console.log('Profile updated in real-time:', payload.new);
+        setUserProfile(payload.new);
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(profileChannel);
     };
   }, [userId]);
 

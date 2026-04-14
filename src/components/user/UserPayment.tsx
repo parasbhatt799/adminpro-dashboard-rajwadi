@@ -203,9 +203,24 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         console.log('Bill Channel Status:', status);
       });
 
+    const profileChannel = supabase
+      .channel(`profile_realtime_payment_${userId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users_profiles',
+        filter: `id=eq.${userId}`
+      }, (payload) => {
+        console.log('Profile updated in real-time (Payment page):', payload.new);
+        setUserProfile(payload.new);
+        setUserBalance(Number(payload.new.wallet_balance) || 0);
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(qrChannel);
       supabase.removeChannel(billChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, [userId]);
 
