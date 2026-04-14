@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS public.complaints (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure the updated_at column exists if the table was created before the update
+ALTER TABLE public.complaints ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 CREATE TABLE IF NOT EXISTS public.complaint_messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     complaint_id UUID REFERENCES public.complaints(id) ON DELETE CASCADE,

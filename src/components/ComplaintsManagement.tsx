@@ -11,7 +11,8 @@ import {
   Send,
   ArrowLeft,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -117,6 +118,28 @@ export default function ComplaintsManagement() {
     }
   };
 
+  const handleDelete = async (e: React.MouseEvent, complaintId: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Are you sure you want to permanently delete this complaint and all its messages?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('complaints')
+        .delete()
+        .eq('id', complaintId);
+
+      if (error) throw error;
+      
+      if (selectedComplaint?.id === complaintId) {
+        setSelectedComplaint(null);
+      }
+      fetchComplaints();
+    } catch (err) {
+      console.error('Error deleting complaint:', err);
+      alert('Failed to delete. Please try again.');
+    }
+  };
+
   const openComplaint = (complaint: any) => {
     setSelectedComplaint(complaint);
     fetchMessages(complaint.id);
@@ -166,6 +189,15 @@ export default function ComplaintsManagement() {
                 }`}>
                   {selectedComplaint.status}
                 </span>
+                {selectedComplaint.status === 'resolved' && (
+                  <button 
+                    onClick={(e) => handleDelete(e, selectedComplaint.id)}
+                    className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
+                    title="Delete Complaint"
+                  >
+                    <Trash2 size={20} />
+                  </button>
+                )}
               </div>
             </div>
             <h2 className="mt-6 text-2xl font-black text-slate-900 leading-tight">{selectedComplaint.subject}</h2>
@@ -326,6 +358,20 @@ export default function ComplaintsManagement() {
                       <span className="text-xs font-bold text-slate-600">{complaint.users_profiles?.name}</span>
                       <span className="text-xs text-slate-300">•</span>
                       <span className="text-xs text-slate-500 font-medium">{complaint.users_profiles?.firm_name}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {complaint.status === 'resolved' && (
+                      <button 
+                        onClick={(e) => handleDelete(e, complaint.id)}
+                        className="p-3 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all"
+                        title="Delete Ticket"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
+                    <div className="p-3 bg-slate-50 text-slate-300 rounded-2xl group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-all">
+                      <ChevronRight size={20} />
                     </div>
                   </div>
                 </div>
