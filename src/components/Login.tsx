@@ -69,14 +69,13 @@ export default function Login({ onLogin }: LoginProps) {
             <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-indigo-500/20">
               <ShieldCheck className="text-white" size={32} />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">Portal Access</h1>
-            <p className="text-slate-400 text-sm mt-2">Enter your unique ID to continue</p>
+            <h1 className="text-2xl font-bold text-white tracking-tight">UsePay</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
-                Access ID (Mobile)
+                Access ID
               </label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
