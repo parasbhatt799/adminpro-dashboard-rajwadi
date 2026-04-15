@@ -311,7 +311,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                       <p className="text-slate-500 text-sm font-medium">Loading KYC documents...</p>
                     </div>
                   ) : kycDocs ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
                       {[
                         { label: 'Aadhaar Front', url: kycDocs.aadhaar_front_url },
                         { label: 'Aadhaar Back', url: kycDocs.aadhaar_back_url },
