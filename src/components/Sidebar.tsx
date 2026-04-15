@@ -100,8 +100,8 @@ export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
                       }
                     }}
                     className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${isActive
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                        : 'hover:bg-slate-800 hover:text-white'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                      : 'hover:bg-slate-800 hover:text-white'
                       }`}
                   >
                     <Icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
@@ -155,8 +155,8 @@ export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
                 to={item.path}
                 title={isCollapsed ? item.label : ""}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${isActive
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-                    : 'hover:bg-slate-800 hover:text-white'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
+                  : 'hover:bg-slate-800 hover:text-white'
                   }`}
               >
                 {({ isActive }) => (
