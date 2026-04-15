@@ -142,10 +142,15 @@ export default function UsersList() {
 
       const { data, error } = await query.order('created_at', { ascending: false });
       if (error) throw error;
+      if (!data || data.length === 0) {
+        alert('No users found to export');
+        return;
+      }
 
-      const doc = new jsPDF('l', 'mm', 'a4');
+      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      
       doc.setFontSize(20);
-      doc.setTextColor(79, 70, 229); // Indigo-600
+      doc.setTextColor(79, 70, 229);
       doc.text('RAJWADI PORTAL - USERS REPORT', 14, 22);
       
       doc.setFontSize(10);
@@ -154,13 +159,13 @@ export default function UsersList() {
       doc.text(`Filter: ${statusFilter} | Search: ${searchTerm || 'None'}`, 14, 35);
 
       const tableData = data.map((u, i) => [
-        i + 1,
-        format(new Date(u.created_at), 'dd-MM-yyyy'),
-        u.name,
-        u.mobile_number,
-        u.email,
-        u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString()}` : '0',
-        u.status
+        String(i + 1),
+        u.created_at ? format(new Date(u.created_at), 'dd-MM-yyyy') : 'N/A',
+        String(u.name || ''),
+        String(u.mobile_number || ''),
+        String(u.email || ''),
+        u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString('en-IN')}` : '0',
+        String(u.status || '')
       ]);
 
       autoTable(doc, {
@@ -168,7 +173,7 @@ export default function UsersList() {
         head: [['#', 'Join Date', 'Name', 'Mobile', 'Email', 'Wallet', 'Status']],
         body: tableData,
         theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold' },
+        headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
         styles: { fontSize: 8, cellPadding: 3 },
         alternateRowStyles: { fillColor: [249, 250, 251] }
       });
@@ -176,6 +181,7 @@ export default function UsersList() {
       doc.save(`Users_Report_${format(new Date(), 'ddMMyyyy')}.pdf`);
     } catch (err) {
       console.error('PDF Export Error:', err);
+      alert('Failed to generate PDF. Please try again.');
     }
   };
 
