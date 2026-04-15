@@ -82,6 +82,24 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
     }
   };
 
+  const handleDownload = async (url: string, filename: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (err) {
+      console.error('Download error:', err);
+      window.open(url, '_blank');
+    }
+  };
+
   return (
     <div className="space-y-6 relative">
       {/* Full Screen Image Viewer Modal */}
@@ -101,14 +119,13 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
               <div className="w-full flex items-center justify-between text-white">
                 <h3 className="text-lg font-bold">{selectedImage.label}</h3>
                 <div className="flex items-center gap-4">
-                  <a 
-                    href={selectedImage.url} 
-                    download 
+                  <button 
+                    onClick={() => handleDownload(selectedImage.url, `${selectedImage.label}.jpg`)}
                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
                     title="Download"
                   >
                     <Download size={20} />
-                  </a>
+                  </button>
                   <button 
                     onClick={() => setSelectedImage(null)}
                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
