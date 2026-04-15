@@ -217,10 +217,28 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       })
       .subscribe();
 
+    const settingsChannel = supabase
+      .channel('qr_settings_realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'qr_settings',
+        filter: 'id=eq.1'
+      }, (payload: any) => {
+        console.log('QR Code updated in real-time:', payload.new);
+        if (payload.new && payload.new.is_enabled) {
+          setQrUrl(payload.new.qr_url);
+        } else {
+          setQrUrl(null);
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(qrChannel);
       supabase.removeChannel(billChannel);
       supabase.removeChannel(profileChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, [userId]);
 
