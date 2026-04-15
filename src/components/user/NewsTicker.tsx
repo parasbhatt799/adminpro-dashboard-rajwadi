@@ -56,7 +56,7 @@ export default function NewsTicker() {
       {/* Label */}
       <div className="bg-rose-600 h-full px-4 flex items-center gap-2 z-20 shadow-[4px_0_10px_rgba(0,0,0,0.1)] relative">
         <Megaphone size={14} className="text-white animate-pulse" />
-        <span className="text-white text-[10px] font-black uppercase tracking-widest whitespace-nowrap">News Updates</span>
+        <span className="text-white text-[10px] font-black uppercase tracking-widest whitespace-nowrap">ANNOUNCMENTS</span>
         <div className="absolute right-[-10px] top-0 bottom-0 w-[10px] bg-rose-600 [clip-path:polygon(0_0,0_100%,100%_50%)]"></div>
       </div>
 
