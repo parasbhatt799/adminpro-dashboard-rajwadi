@@ -84,6 +84,9 @@ CREATE TABLE IF NOT EXISTS public.headlines (
 CREATE TABLE IF NOT EXISTS public.rejection_categories (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL UNIQUE,
+    show_in_bill BOOLEAN DEFAULT TRUE,
+    show_in_qr BOOLEAN DEFAULT TRUE,
+    show_in_kyc BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -106,12 +109,31 @@ CREATE TABLE IF NOT EXISTS public.bank_accounts (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Service Charges
-CREATE TABLE IF NOT EXISTS public.service_charges (
+-- Service Charge Slabs
+CREATE TABLE IF NOT EXISTS public.service_charge_slabs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     min_amount NUMERIC NOT NULL,
     max_amount NUMERIC NOT NULL,
-    charge_percentage NUMERIC NOT NULL,
+    charge_amount NUMERIC NOT NULL,
+    is_percentage BOOLEAN DEFAULT FALSE,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Bank Details
+CREATE TABLE IF NOT EXISTS public.bank_details (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bank_name TEXT NOT NULL,
+    logo_url TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- App Policies
+CREATE TABLE IF NOT EXISTS public.app_policies (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -200,31 +222,40 @@ ALTER TABLE public.headlines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rejection_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rejection_reasons ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bank_accounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.service_charges ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.service_charge_slabs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kyc_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bill_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bank_details ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_policies ENABLE ROW LEVEL SECURITY;
 
 -- Public/Login Policies
 CREATE POLICY "admin_profiles_read" ON public.admin_profiles FOR SELECT USING (true);
-CREATE POLICY "users_profiles_public_check" ON public.users_profiles FOR SELECT USING (true);
-CREATE POLICY "users_profiles_self_update" ON public.users_profiles FOR UPDATE USING (id = auth.uid()::text);
+CREATE POLICY "users_profiles_read" ON public.users_profiles FOR SELECT USING (true);
+CREATE POLICY "users_profiles_insert" ON public.users_profiles FOR INSERT WITH CHECK (true);
+CREATE POLICY "users_profiles_update" ON public.users_profiles FOR UPDATE USING (true);
 
 -- Global Admin Tables (Public Read, Admin Write)
 CREATE POLICY "qr_settings_read" ON public.qr_settings FOR SELECT USING (true);
 CREATE POLICY "qr_settings_write" ON public.qr_settings FOR ALL USING (true); -- Simplified
 
 CREATE POLICY "headlines_all" ON public.headlines FOR ALL USING (true);
-CREATE POLICY "rejection_reasons_read" ON public.rejection_reasons FOR SELECT USING (true);
+CREATE POLICY "rejection_categories_all" ON public.rejection_categories FOR ALL USING (true);
+CREATE POLICY "rejection_reasons_all" ON public.rejection_reasons FOR ALL USING (true);
 CREATE POLICY "bank_accounts_read" ON public.bank_accounts FOR SELECT USING (true);
-CREATE POLICY "service_charges_read" ON public.service_charges FOR SELECT USING (true);
+CREATE POLICY "service_charge_slabs_all" ON public.service_charge_slabs FOR ALL USING (true);
+CREATE POLICY "bank_details_read" ON public.bank_details FOR SELECT USING (true);
+CREATE POLICY "bank_details_write" ON public.bank_details FOR ALL USING (true);
+CREATE POLICY "app_policies_read" ON public.app_policies FOR SELECT USING (true);
+CREATE POLICY "app_policies_write" ON public.app_policies FOR ALL USING (true);
 
--- User-Specific Data Policies (auth.uid()::text matching)
-CREATE POLICY "kyc_submissions_access" ON public.kyc_submissions FOR ALL USING (auth.uid()::text = user_id OR true);
-CREATE POLICY "bill_submissions_access" ON public.bill_submissions FOR ALL USING (auth.uid()::text = user_id OR true);
-CREATE POLICY "payment_submissions_access" ON public.payment_submissions FOR ALL USING (auth.uid()::text = user_id OR true);
-CREATE POLICY "complaints_access" ON public.complaints FOR ALL USING (auth.uid()::text = user_id OR true);
-CREATE POLICY "notifications_access" ON public.notifications FOR ALL USING (auth.uid()::text = user_id OR true);
+-- User-Specific Data Policies
+-- Using (true) for all because the frontend applies its own filtering by mobile/id
+CREATE POLICY "kyc_submissions_access" ON public.kyc_submissions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "bill_submissions_access" ON public.bill_submissions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "payment_submissions_access" ON public.payment_submissions FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "complaints_access" ON public.complaints FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "notifications_access" ON public.notifications FOR ALL USING (true) WITH CHECK (true);
 
 -- Disable RLS for messaging tables if needed for simplified testing
 ALTER TABLE public.complaints DISABLE ROW LEVEL SECURITY;
@@ -253,7 +284,8 @@ VALUES
   ('profiles', 'profiles', true),
   ('qr_codes', 'qr_codes', true),
   ('kyc', 'kyc', true),
-  ('proofs', 'proofs', true)
+  ('proofs', 'proofs', true),
+  ('bank_logos', 'bank_logos', true)
 ON CONFLICT (id) DO NOTHING;
 
 CREATE POLICY "Allow public storage access" ON storage.objects FOR ALL USING (true);
