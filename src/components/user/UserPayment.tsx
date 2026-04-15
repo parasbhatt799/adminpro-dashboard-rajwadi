@@ -508,7 +508,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         type="text"
                         inputMode="numeric" 
                         value={utrId}
-                        onChange={(e) => setUtrId(e.target.value)}
+                        onChange={(e) => setUtrId(e.target.value.replace(/\D/g, ''))}
                         placeholder="Enter 12-digit UTR"
                         className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
                         required
