@@ -1,5 +1,5 @@
-import { 
-  CreditCard, 
+import {
+  CreditCard,
   FileText,
   LogOut,
   MessageSquare,
@@ -30,16 +30,15 @@ export default function UserSidebar({ onLogout }: UserSidebarProps) {
         <nav className="space-y-1">
           {menuItems.map((item) => {
             const Icon = item.icon;
-            
+
             return (
               <NavLink
                 key={item.id}
                 to={item.path}
-                className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-                  isActive 
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20' 
+                className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
                     : 'hover:bg-slate-800 hover:text-white'
-                }`}
+                  }`}
               >
                 {({ isActive }) => (
                   <>
@@ -61,18 +60,18 @@ export default function UserSidebar({ onLogout }: UserSidebarProps) {
 
       <div className="mt-auto px-6 py-4 text-center flex items-center justify-center gap-1 bg-slate-800/20">
         <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Developed by</span>
-        <a 
-          href="https://codefixer.in" 
-          target="_blank" 
+        <a
+          href="https://codefixer.in"
+          target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] font-black text-emerald-500 hover:text-emerald-400 transition-colors uppercase tracking-widest underline underline-offset-2"
+          className="text-[10px] font-black text-emerald-500 hover:text-emerald-400 transition-colors uppercase tracking-widest"
         >
           codefixer.in
         </a>
       </div>
 
       <div className="p-6 border-t border-slate-800">
-        <button 
+        <button
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-colors"
         >
