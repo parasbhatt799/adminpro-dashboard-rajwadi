@@ -59,7 +59,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         if (error) throw error;
         qrMapped = (data || []).map(r => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || Math.floor(Math.random() * 900000) + 1000000),
+          numericId: String(r.payment_id || r.id || '0'),
           type: 'QR',
           date: r.created_at,
           reference: r.utr_id || String(r.id || '').split('-')[0],
@@ -86,7 +86,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         if (error) throw error;
         billMapped = (data || []).map(r => ({
           id: String(r.id || ''),
-          numericId: '0',
+          numericId: String(r.payment_id || '0'),
           type: 'BILL',
           date: r.created_at,
           reference: r.customer_mobile || '0000000000',

@@ -82,8 +82,8 @@ export default function StatementReport() {
         const { data, error } = await qrQuery;
         if (error) throw error;
         qrMapped = (data || []).map(r => ({
-          id: r.id,
-          numericId: String(Math.floor(Math.random() * 900000) + 1000000),
+          id: String(r.id || ''),
+          numericId: String(r.payment_id || r.id || '0'),
           type: 'QR',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
@@ -108,8 +108,8 @@ export default function StatementReport() {
         const { data, error } = await billQuery;
         if (error) throw error;
         billMapped = (data || []).map((r, idx) => ({
-          id: r.id,
-          numericId: '0', 
+          id: String(r.id || ''),
+          numericId: String(r.payment_id || '0'), 
           type: 'BILL',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
