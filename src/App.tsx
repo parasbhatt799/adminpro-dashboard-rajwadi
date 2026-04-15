@@ -20,11 +20,13 @@ import QRPaymentReport from './components/QRPaymentReport';
 import BillPaymentReport from './components/BillPaymentReport';
 import StatementReport from './components/StatementReport';
 import HeadlineManagement from './components/HeadlineManagement';
+import PolicyManagement from './components/PolicyManagement';
 import Login from './components/Login';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
 import UserComplaints from './components/user/UserComplaints';
+import UserPolicies from './components/user/UserPolicies';
 import UserStatementReport from './components/user/UserStatementReport';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -392,6 +394,7 @@ export default function App() {
             <Route path="statement" element={<StatementReport />} />
           </Route>
           <Route path="headlines" element={<HeadlineManagement />} />
+          <Route path="policies" element={<PolicyManagement />} />
         </Route>
         <Route 
           path="/user" 
@@ -408,6 +411,7 @@ export default function App() {
           <Route path="reports" element={<UserReports userId={userId} />} />
           <Route path="statement" element={<UserStatementReport userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
+          <Route path="policies" element={<UserPolicies userId={userId} />} />
         </Route>
         <Route 
           path="/login" 
