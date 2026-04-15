@@ -31,6 +31,35 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [kycDocs, setKycDocs] = useState<any>(null);
+  const [loadingKyc, setLoadingKyc] = useState(false);
+
+  useEffect(() => {
+    const fetchKycDocs = async () => {
+      if (activeTab === 'kyc' && !kycDocs) {
+        setLoadingKyc(true);
+        try {
+          const { data, error: kycError } = await supabase
+            .from('kyc_submissions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('status', 'approved')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (kycError) throw kycError;
+          setKycDocs(data);
+        } catch (err) {
+          console.error('Error fetching KYC documents:', err);
+        } finally {
+          setLoadingKyc(false);
+        }
+      }
+    };
+    
+    fetchKycDocs();
+  }, [activeTab, user.id, kycDocs]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -208,33 +237,48 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {user.profile_photo_url ? (
-                    <div className="flex items-center justify-between p-4 rounded-2xl bg-slate-50/50 border border-slate-100 group hover:bg-white hover:shadow-md transition-all">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 rounded-xl bg-white text-indigo-600 shadow-sm">
-                          <FileText size={24} />
+                <div className="space-y-6">
+                  {loadingKyc ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <Loader2 size={32} className="animate-spin text-indigo-600" />
+                      <p className="text-slate-500 text-sm font-medium">Loading KYC documents...</p>
+                    </div>
+                  ) : kycDocs ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {[
+                        { label: 'Aadhaar Front', url: kycDocs.aadhaar_front_url },
+                        { label: 'Aadhaar Back', url: kycDocs.aadhaar_back_url },
+                        { label: 'PAN Card', url: kycDocs.pan_card_url },
+                        { label: 'Blank Cheque', url: kycDocs.cheque_photo_url },
+                        { label: 'User Selfie', url: kycDocs.selfie_url },
+                        { label: 'Firm Photo', url: kycDocs.firm_photo_url }
+                      ].filter(d => d.url).map((doc, i) => (
+                        <div key={i} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{doc.label}</span>
+                            <a 
+                              href={doc.url} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="text-indigo-600 hover:text-indigo-700 transition-colors"
+                            >
+                              <Download size={16} />
+                            </a>
+                          </div>
+                          <div className="aspect-video rounded-2xl border border-slate-100 overflow-hidden bg-slate-50 relative group">
+                            <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                            <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors pointer-events-none" />
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-900">Profile Photo</p>
-                          <p className="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">Uploaded on {new Date(user.created_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <a 
-                        href={user.profile_photo_url} 
-                        target="_blank" 
-                        rel="noreferrer"
-                        className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-                      >
-                        <Download size={20} />
-                      </a>
+                      ))}
                     </div>
                   ) : (
                     <div className="text-center py-12">
                       <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
                         <FileText size={32} />
                       </div>
-                      <p className="text-slate-500 font-medium">No KYC documents uploaded yet.</p>
+                      <p className="text-slate-500 font-medium">No approved KYC documents found.</p>
+                      <p className="text-slate-400 text-xs mt-1">Wait for the user to complete verification.</p>
                     </div>
                   )}
                 </div>
