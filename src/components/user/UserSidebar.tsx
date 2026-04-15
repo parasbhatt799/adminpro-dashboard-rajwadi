@@ -36,8 +36,8 @@ export default function UserSidebar({ onLogout }: UserSidebarProps) {
                 key={item.id}
                 to={item.path}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
-                    : 'hover:bg-slate-800 hover:text-white'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                  : 'hover:bg-slate-800 hover:text-white'
                   }`}
               >
                 {({ isActive }) => (
