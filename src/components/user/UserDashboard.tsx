@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { 
   Wallet, 
   Clock,
+  QrCode,
+  CreditCard,
   Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -25,6 +27,23 @@ export default function UserDashboard({ userId }: { userId: string }) {
         
         setUserProfile(profile);
 
+        // Fetch Status counts / amounts
+        const [qrRes, billRes] = await Promise.all([
+          supabase
+            .from('payment_submissions')
+            .select('amount')
+            .eq('user_id', userId)
+            .eq('status', 'approved'),
+          supabase
+            .from('bill_submissions')
+            .select('amount')
+            .eq('user_id', userId)
+            .eq('status', 'approved')
+        ]);
+
+        const qrTotal = qrRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+        const billTotal = billRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+
         setStats([
           {
             title: "Total Balance",
@@ -35,25 +54,25 @@ export default function UserDashboard({ userId }: { userId: string }) {
             color: "bg-emerald-500"
           },
           {
-            title: "Total Spent",
-            value: "₹0.00",
-            change: "0%",
+            title: "QR Payment",
+            value: `₹${qrTotal.toLocaleString()}`,
+            change: "Approved",
             trend: "neutral",
-            icon: ArrowUpRight,
-            color: "bg-rose-500"
+            icon: QrCode,
+            color: "bg-blue-500"
           },
           {
-            title: "Total Received",
-            value: "₹0.00",
-            change: "0%",
+            title: "Bill Payment",
+            value: `₹${billTotal.toLocaleString()}`,
+            change: "Approved",
             trend: "neutral",
-            icon: ArrowDownLeft,
-            color: "bg-indigo-500"
+            icon: CreditCard,
+            color: "bg-purple-500"
           },
           {
-            title: "Pending Tasks",
-            value: "0",
-            change: "0%",
+            title: "Pending Requests",
+            value: "View Reports",
+            change: "All Time",
             trend: "neutral",
             icon: Clock,
             color: "bg-amber-500"
