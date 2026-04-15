@@ -59,7 +59,7 @@ export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
       animate={{ width: isCollapsed ? 80 : 256 }}
       className="bg-slate-900 text-slate-300 h-screen flex flex-col border-r border-slate-800 overflow-hidden shrink-0"
     >
-      <div className="p-4 h-16 flex items-center border-b border-slate-800 shrink-0 bg-slate-10">
+      <div className="p-4 h-16 flex items-center border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
           {isCollapsed ? (
             <img src="/logo.png" alt="UsePay" className="w-10 h-10 object-contain" />
