@@ -81,6 +81,19 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
     setError(null);
 
     try {
+      // Check for duplicate mobile number
+      const { data: existingUser, error: checkError } = await supabase
+        .from('users_profiles')
+        .select('id')
+        .eq('mobile_number', formData.mobile_number)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (existingUser && (!initialData || existingUser.id !== initialData.id)) {
+        throw new Error(`A user with mobile number ${formData.mobile_number} already exists.`);
+      }
+
       let profile_photo_url = initialData?.profile_photo_url || null;
       const generatedPassword = !initialData ? generatePassword() : null;
 
