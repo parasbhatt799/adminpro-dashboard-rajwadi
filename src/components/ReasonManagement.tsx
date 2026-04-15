@@ -73,10 +73,7 @@ export default function ReasonManagement() {
       setCategories(catRes.data || []);
       setReasons(reasonRes.data || []);
       
-      // Expand all by default if first load
-      if (expandedCategories.length === 0 && catRes.data) {
-        setExpandedCategories(catRes.data.map(c => c.id));
-      }
+      // Keep categories collapsed by default
     } catch (err) {
       console.error('Error fetching data:', err);
     } finally {
