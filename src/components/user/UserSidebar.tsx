@@ -60,6 +60,17 @@ export default function UserSidebar({ onLogout }: UserSidebarProps) {
       </div>
 
       <div className="mt-auto p-6 border-t border-slate-800">
+        <div className="mb-6 text-center">
+          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-1">Developed by</p>
+          <a 
+            href="https://codefixer.in" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-xs font-black text-emerald-500 hover:text-emerald-400 transition-colors"
+          >
+            codefixer.in
+          </a>
+        </div>
         <button 
           onClick={onLogout}
           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-colors"
