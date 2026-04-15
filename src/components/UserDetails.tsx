@@ -34,6 +34,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
   const [error, setError] = useState<string | null>(null);
   const [kycDocs, setKycDocs] = useState<any>(null);
   const [loadingKyc, setLoadingKyc] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<{url: string, label: string} | null>(null);
 
   useEffect(() => {
     const fetchKycDocs = async () => {
@@ -83,6 +84,51 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
 
   return (
     <div className="space-y-6 relative">
+      {/* Full Screen Image Viewer Modal */}
+      <AnimatePresence>
+        {selectedImage && (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md"
+            onClick={() => setSelectedImage(null)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center gap-4"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-full flex items-center justify-between text-white">
+                <h3 className="text-lg font-bold">{selectedImage.label}</h3>
+                <div className="flex items-center gap-4">
+                  <a 
+                    href={selectedImage.url} 
+                    download 
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                    title="Download"
+                  >
+                    <Download size={20} />
+                  </a>
+                  <button 
+                    onClick={() => setSelectedImage(null)}
+                    className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
+              </div>
+              <div className="w-full h-full rounded-2xl overflow-hidden border border-white/10 bg-black flex items-center justify-center">
+                <img 
+                  src={selectedImage.url} 
+                  alt={selectedImage.label} 
+                  className="max-w-full max-h-full object-contain shadow-2xl" 
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {showDeleteConfirm && (
@@ -141,7 +187,10 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
         {/* Profile Card */}
         <div className="lg:col-span-1 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 text-center">
-            <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-3xl border-4 border-white shadow-lg mx-auto mb-4 overflow-hidden">
+            <div 
+              className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center text-indigo-600 font-bold text-3xl border-4 border-white shadow-lg mx-auto mb-4 overflow-hidden cursor-zoom-in"
+              onClick={() => user.profile_photo_url && setSelectedImage({url: user.profile_photo_url, label: user.name})}
+            >
               {user.profile_photo_url ? (
                 <img src={user.profile_photo_url} alt="" className="w-full h-full object-cover" />
               ) : (
@@ -257,16 +306,17 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                         <div key={i} className="space-y-2">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{doc.label}</span>
-                            <a 
-                              href={doc.url} 
-                              target="_blank" 
-                              rel="noreferrer" 
+                            <button 
+                              onClick={() => setSelectedImage({url: doc.url, label: doc.label})}
                               className="text-indigo-600 hover:text-indigo-700 transition-colors"
                             >
                               <Download size={16} />
-                            </a>
+                            </button>
                           </div>
-                          <div className="aspect-video rounded-2xl border border-slate-100 overflow-hidden bg-slate-50 relative group">
+                          <div 
+                            className="aspect-video rounded-2xl border border-slate-100 overflow-hidden bg-slate-50 relative group cursor-zoom-in"
+                            onClick={() => setSelectedImage({url: doc.url, label: doc.label})}
+                          >
                             <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
                             <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors pointer-events-none" />
                           </div>
