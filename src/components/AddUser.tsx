@@ -141,7 +141,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
 
         // Send actual email via backend
         try {
-          await fetch('/api/send-email', {
+          const emailResponse = await fetch('/api/send-email', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -151,7 +151,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               subject: 'Welcome to Rajwadi - Your Account Details',
               html: `
                 <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
-                  <h2 style="color: #4f46e5; margin-bottom: 24px;">Welcome to Rajwadi, ${formData.name}!</h2>
+                  <h2 style="color: #4f46e5; margin-bottom: 24px;">Welcome to Rajwadi, ${fullName}!</h2>
                   <p style="font-size: 16px; line-height: 1.6;">Your account has been created by the administrator. You can now log in using the credentials below:</p>
                   
                   <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #f1f5f9;">
@@ -171,11 +171,17 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               `
             }),
           });
+
+          if (!emailResponse.ok) {
+            const errorText = await emailResponse.text();
+            throw new Error(`Email failed: ${errorText}`);
+          }
+          
+          alert(`User created successfully!\n\nCredentials have been sent to ${formData.email}.\n\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
         } catch (emailErr) {
           console.error('Error calling email API:', emailErr);
+          alert(`User created successfully, but email could not be sent.\n\nPlease share credentials manually:\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}\n\nError: ${emailErr instanceof Error ? emailErr.message : 'Unknown error'}`);
         }
-
-        alert(`User created successfully!\n\nCredentials have been sent to ${formData.email}.\n\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
       }
 
       onSuccess();
