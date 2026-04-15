@@ -17,7 +17,7 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
-  { id: 'policies', label: 'Rules & Policy', icon: FileText, path: '/user/policies' },
+  { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
 ];
 
