@@ -217,7 +217,7 @@ const AdminLayout = ({
             <div className="h-8 w-px bg-slate-200 mx-2"></div>
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">Admin #{userId}</p>
+                <p className="text-sm font-bold text-slate-900 leading-none">{userId}</p>
                 <p className="text-xs text-slate-500 mt-1">Super Admin</p>
               </div>
               <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
