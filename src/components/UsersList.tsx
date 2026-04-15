@@ -37,7 +37,7 @@ export default function UsersList() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
-  const pageSize = 20;
+  const [pageSize, setPageSize] = useState(10);
 
   const fetchUsers = async (isLoadMore = false) => {
     if (isLoadMore) setLoadingMore(true);
@@ -90,7 +90,7 @@ export default function UsersList() {
       fetchUsers();
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, pageSize]);
 
   const handleExportExcel = async () => {
     try {
@@ -283,6 +283,23 @@ export default function UsersList() {
 
       {/* Filters and Search */}
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+        <div className="flex items-center gap-2 text-sm text-slate-500 min-w-max border-r border-slate-100 pr-4 mr-2">
+          <span className="font-medium">Show</span>
+          <select 
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setPage(0);
+            }}
+            className="px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <span className="font-medium">entries</span>
+        </div>
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
