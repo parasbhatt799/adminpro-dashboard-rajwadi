@@ -14,7 +14,6 @@ interface UserSidebarProps {
 
 const menuItems = [
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
-  { id: 'reports', label: 'Reports', icon: FileText, path: '/user/reports' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
 ];
