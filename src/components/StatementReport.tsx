@@ -87,7 +87,7 @@ export default function StatementReport() {
           type: 'QR',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
-          reference: r.utr_id || r.id.split('-')[0],
+          reference: r.utr_id || String(r.id || '').split('-')[0],
           amount: Number(r.amount),
           charges: Number(r.charges || 0),
           final_total: Number(r.amount) - Number(r.charges || 0),
@@ -213,7 +213,7 @@ export default function StatementReport() {
         </div>
       );
     } catch {
-      return <span>{dateString}</span>;
+      return <span>{String(dateString || '')}</span>;
     }
   };
 
@@ -317,7 +317,7 @@ export default function StatementReport() {
                         </>
                       ) : (
                         <>
-                          <div className="break-all">TxnId: {r.reference}, OrderId:<br/>WeBCC...{r.id.substring(0,8)}...</div>
+                          <div className="break-all">TxnId: {r.reference}, OrderId:<br/>WeBCC...{String(r.id || '').substring(0,8)}...</div>
                           <div>({r.amount} - {r.charges} Txn Charge)</div>
                           <div>Wallet Topup Through CashFree3</div>
                         </>
