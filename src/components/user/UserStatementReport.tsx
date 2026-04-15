@@ -1,0 +1,316 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  FileText, 
+  Search, 
+  Loader2, 
+  FileSpreadsheet,
+} from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
+interface UserStatementReportProps {
+  userId: string;
+}
+
+interface UnifiedRecord {
+  id: string;
+  type: 'QR' | 'BILL';
+  date: string;
+  reference: string;
+  amount: number;
+  charges: number;
+  final_total: number;
+  status: string;
+  raw_data: any;
+  balance: number;
+  numericId: string;
+}
+
+export default function UserStatementReport({ userId }: UserStatementReportProps) {
+  const [records, setRecords] = useState<UnifiedRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [displayCount, setDisplayCount] = useState(10);
+
+  // Filters
+  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL'>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const fetchStatement = async () => {
+    setLoading(true);
+    try {
+      let qrMapped: any[] = [];
+      let billMapped: any[] = [];
+
+      // 1. Fetch QR Payments for this user (approved only)
+      if (typeFilter === 'all' || typeFilter === 'QR') {
+        let qrQuery = supabase
+          .from('payment_submissions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'approved');
+
+        if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
+
+        const { data, error } = await qrQuery;
+        if (error) throw error;
+        qrMapped = (data || []).map(r => ({
+          id: String(r.id || ''),
+          numericId: String(r.payment_id || Math.floor(Math.random() * 900000) + 1000000),
+          type: 'QR',
+          date: r.created_at,
+          reference: r.utr_id || String(r.id || '').split('-')[0],
+          amount: Number(r.amount),
+          charges: Number(r.charges || 0),
+          final_total: Number(r.amount) - Number(r.charges || 0),
+          status: r.status,
+          raw_data: r
+        }));
+      }
+
+      // 2. Fetch Bill Payments for this user (approved only)
+      if (typeFilter === 'all' || typeFilter === 'BILL') {
+        let billQuery = supabase
+          .from('bill_submissions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'approved');
+
+        if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+
+        const { data, error } = await billQuery;
+        if (error) throw error;
+        billMapped = (data || []).map(r => ({
+          id: String(r.id || ''),
+          numericId: '0',
+          type: 'BILL',
+          date: r.created_at,
+          reference: r.customer_mobile || '0000000000',
+          amount: Number(r.amount),
+          charges: Number(r.charges || 0),
+          final_total: Number(r.amount) + Number(r.charges || 0),
+          status: r.status,
+          raw_data: r
+        }));
+      }
+
+      // Merge oldest first for running balance calculation
+      const merged = [...qrMapped, ...billMapped].sort((a, b) =>
+        new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+
+      // Running Balance
+      let currentBalance = 0;
+      const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
+        if (r.type === 'QR') {
+          currentBalance += r.final_total;
+        } else {
+          currentBalance -= r.final_total;
+        }
+        return { ...r, balance: currentBalance };
+      });
+
+      // Reverse to show latest first
+      setRecords(recordsWithBalance.reverse());
+    } catch (err) {
+      console.error('User Statement fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userId) fetchStatement();
+  }, [userId, startDate, endDate, typeFilter]);
+
+  const exportToExcel = () => {
+    const dataToExport = records.slice(0, displayCount);
+    const exportData = dataToExport.map(r => ({
+      'Payment Date': r.date.replace('T', ' ').substring(0, 19),
+      'PaymentId': r.numericId,
+      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
+      'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
+      'Debit Amount': r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
+      'Balance': r.balance.toFixed(2),
+    }));
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Statement');
+    XLSX.writeFile(wb, `My_Account_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const dataToExport = records.slice(0, displayCount);
+      const tableData = dataToExport.map(r => [
+        r.date.replace('T', ' ').substring(0, 19),
+        r.numericId,
+        r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
+        r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
+        r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
+        r.balance.toFixed(2),
+      ]);
+      autoTable(doc, {
+        head: [['Payment Date', 'PaymentId', 'Transaction Type', 'Credit Amount', 'Debit Amount', 'Balance']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [139, 92, 246] },
+        styles: { fontSize: 8 }
+      });
+      doc.save(`My_Account_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) { console.error('PDF Error:', err); }
+  };
+
+  const formatDateTimeSplit = (dateString: string) => {
+    try {
+      const d = new Date(dateString);
+      const datePart = d.toISOString().split('T')[0];
+      const timePart = d.toTimeString().split(' ')[0];
+      return (
+        <div className="flex flex-col text-[#4c4c4c] text-[13px]">
+          <span>{datePart}</span>
+          <span>{timePart}</span>
+        </div>
+      );
+    } catch {
+      return <span>{String(dateString || '')}</span>;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Filters & Actions */}
+      <div className="flex flex-wrap gap-3 items-center bg-white p-4 rounded-xl border border-[#e0e0e0] shadow-sm">
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="text-xs font-bold text-slate-700 outline-none bg-transparent" />
+          </div>
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="text-xs font-bold text-slate-700 outline-none bg-transparent" />
+          </div>
+        </div>
+
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as any)}
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium outline-none bg-white"
+        >
+          <option value="all">All Types</option>
+          <option value="QR">QR Payments</option>
+          <option value="BILL">Bill Payments</option>
+        </select>
+
+        <button onClick={fetchStatement} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <Search size={15} /> Filter
+        </button>
+        <button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <FileSpreadsheet size={15} /> Excel
+        </button>
+        <button onClick={exportToPDF} className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
+          <FileText size={15} /> PDF
+        </button>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-lg border border-[#e0e0e0] shadow-sm overflow-hidden font-sans">
+        {/* Show entries selector */}
+        <div className="px-4 py-3 flex items-center gap-2 text-[13px] text-[#333]">
+          <span>Show</span>
+          <select
+            value={displayCount}
+            onChange={(e) => setDisplayCount(Number(e.target.value))}
+            className="border border-[#ccc] rounded px-2 py-1 outline-none text-[#333]"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={9999}>All</option>
+          </select>
+          <span>entries</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-y border-[#ddd] bg-slate-50">
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment Date</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">PaymentId</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Transaction<br />Type</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] min-w-[280px]">Description</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Credit<br />Amount</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Debit<br />Amount</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Balance</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-indigo-600">
+                    <Loader2 className="animate-spin mx-auto" size={32} />
+                  </td>
+                </tr>
+              ) : records.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-[#666] text-[13px]">
+                    No approved transactions found
+                  </td>
+                </tr>
+              ) : (
+                records.slice(0, displayCount).map((r, idx) => (
+                  <tr
+                    key={`${r.type}-${r.id}-${idx}`}
+                    className={`${idx % 2 === 0 ? 'bg-white' : 'bg-[#f5f5f5]'} border-b border-[#eee] hover:bg-[#ebebeb] transition-colors`}
+                  >
+                    <td className="px-4 py-3 align-top whitespace-nowrap">
+                      {formatDateTimeSplit(r.date)}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
+                      {r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT'}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
+                      {r.type === 'BILL' ? (
+                        <>
+                          <div>CCBILLPAY Mobile:{r.reference} CardNo:{r.raw_data?.card_number || '0000'}</div>
+                          <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="break-all">TxnId: {r.reference}</div>
+                          <div>({r.amount} - {r.charges} Txn Charge)</div>
+                          <div>Wallet Topup Through CashFree3</div>
+                        </>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
+                      {r.type === 'QR'
+                        ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0'}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
+                      {r.type === 'BILL'
+                        ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        : '0'}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#333] font-bold text-right">
+                      {r.balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

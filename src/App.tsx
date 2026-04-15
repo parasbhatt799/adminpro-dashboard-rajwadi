@@ -25,6 +25,7 @@ import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
 import UserComplaints from './components/user/UserComplaints';
+import UserStatementReport from './components/user/UserStatementReport';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO } from 'date-fns';
@@ -405,6 +406,7 @@ export default function App() {
           <Route index element={<Navigate to="payment" replace />} />
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="reports" element={<UserReports userId={userId} />} />
+          <Route path="statement" element={<UserStatementReport userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
         </Route>
         <Route 

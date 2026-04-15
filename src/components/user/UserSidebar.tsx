@@ -1,9 +1,9 @@
 import { 
-  LayoutDashboard, 
   CreditCard, 
   FileText,
   LogOut,
-  MessageSquare
+  MessageSquare,
+  ClipboardList
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink } from 'react-router-dom';
@@ -15,6 +15,7 @@ interface UserSidebarProps {
 const menuItems = [
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'reports', label: 'Reports', icon: FileText, path: '/user/reports' },
+  { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
 ];
 
