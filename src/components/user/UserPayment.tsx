@@ -508,8 +508,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         type="text"
                         inputMode="numeric" 
                         value={utrId}
-                        onChange={(e) => setUtrId(e.target.value.replace(/\D/g, ''))}
-                        placeholder="Enter 12-digit UTR"
+                        onChange={(e) => setUtrId(e.target.value.replace(/\D/g, '').slice(0, 20))}
+                        maxLength={20}
+                        placeholder="Enter UTR"
                         className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
                         required
                       />
@@ -916,7 +917,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       <label className="text-sm font-bold text-slate-700">Card Owner Name:</label>
                       <input 
                         type="text"
-                        inputMode="text" 
+                        value={billForm.cardOwnerName}
                         onChange={(e) => {
                           const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
                           setBillForm({...billForm, cardOwnerName: val});
