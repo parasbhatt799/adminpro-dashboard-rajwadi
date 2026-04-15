@@ -16,14 +16,14 @@ async function startServer() {
 
   app.use(express.json());
 
-  // API Route for sending emails
   app.post("/api/send-email", async (req, res) => {
     const { to, subject, text, html } = req.body;
-
+    console.log("Incoming email request to:", to);
+    
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.error("SMTP configuration missing");
+      console.error("SMTP configuration missing in process.env");
       return res.status(500).json({ 
-        error: "SMTP configuration missing. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables." 
+        error: "SMTP configuration missing. Please ensure your .env file is correct and you have RESTARTED the server." 
       });
     }
 

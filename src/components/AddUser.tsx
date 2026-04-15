@@ -172,15 +172,17 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
             }),
           });
 
+          const result = await emailResponse.json();
+          
           if (!emailResponse.ok) {
-            const errorText = await emailResponse.text();
-            throw new Error(`Email failed: ${errorText}`);
+            throw new Error(result.error || 'Unknown server error');
           }
           
           alert(`User created successfully!\n\nCredentials have been sent to ${formData.email}.\n\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
         } catch (emailErr) {
           console.error('Error calling email API:', emailErr);
-          alert(`User created successfully, but email could not be sent.\n\nPlease share credentials manually:\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}\n\nError: ${emailErr instanceof Error ? emailErr.message : 'Unknown error'}`);
+          const errorMessage = emailErr instanceof Error ? emailErr.message : 'Unknown error';
+          alert(`User created successfully, but email delivery failed.\n\nError: ${errorMessage}\n\nCredentials for manual sharing:\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
         }
       }
 
