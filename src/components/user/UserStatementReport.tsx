@@ -34,7 +34,6 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
   const [displayCount, setDisplayCount] = useState(10);
 
   // Filters
-  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -45,7 +44,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       let billMapped: any[] = [];
 
       // 1. Fetch QR Payments for this user (approved only)
-      if (typeFilter === 'all' || typeFilter === 'QR') {
+      {
         let qrQuery = supabase
           .from('payment_submissions')
           .select('*')
@@ -72,7 +71,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       }
 
       // 2. Fetch Bill Payments for this user (approved only)
-      if (typeFilter === 'all' || typeFilter === 'BILL') {
+      {
         let billQuery = supabase
           .from('bill_submissions')
           .select('*')
@@ -125,7 +124,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
 
   useEffect(() => {
     if (userId) fetchStatement();
-  }, [userId, startDate, endDate, typeFilter]);
+  }, [userId, startDate, endDate]);
 
   const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
@@ -197,16 +196,6 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="text-xs font-bold text-slate-700 outline-none bg-transparent" />
           </div>
         </div>
-
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as any)}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 font-medium outline-none bg-white"
-        >
-          <option value="all">All Types</option>
-          <option value="QR">QR Payments</option>
-          <option value="BILL">Bill Payments</option>
-        </select>
 
         <button onClick={fetchStatement} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
           <Search size={15} /> Filter
