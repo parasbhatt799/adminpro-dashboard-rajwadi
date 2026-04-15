@@ -59,12 +59,12 @@ export default function UserSidebar({ onLogout }: UserSidebarProps) {
       </div>
 
       <div className="mt-auto px-6 py-4 text-center flex items-center justify-center gap-1 bg-slate-800/20">
-        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Developed by</span>
+        <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest">Developed by</span>
         <a
           href="https://codefixer.in"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[10px] font-black text-emerald-500 hover:text-emerald-400 transition-colors uppercase tracking-widest"
+          className="text-[8px] font-black text-emerald-500 hover:text-emerald-400 transition-colors uppercase tracking-widest"
         >
           codefixer.in
         </a>
