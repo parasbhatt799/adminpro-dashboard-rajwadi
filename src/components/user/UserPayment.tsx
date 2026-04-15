@@ -505,7 +505,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     <div className="relative">
                       <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input 
-                        type="text" 
+                        type="text"
+                        inputMode="numeric" 
                         value={utrId}
                         onChange={(e) => setUtrId(e.target.value)}
                         placeholder="Enter 12-digit UTR"
