@@ -27,8 +27,16 @@ export default function Login({ onLogin }: LoginProps) {
 
     try {
       // 1. Check for Admin
-      if (id === '8140428671' && password === 'admin123') {
-        onLogin(id, 'admin');
+      // 1. Check for Admin in Database
+      const { data: adminData, error: adminError } = await supabase
+        .from('admin_profiles')
+        .select('mobile_number')
+        .eq('mobile_number', id)
+        .eq('password', password)
+        .single();
+
+      if (adminData && !adminError) {
+        onLogin(adminData.mobile_number, 'admin');
         return;
       }
 
