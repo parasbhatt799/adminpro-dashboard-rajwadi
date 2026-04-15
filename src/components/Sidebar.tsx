@@ -11,7 +11,8 @@ import {
   ShieldCheck,
   MessageSquare,
   ChevronDown,
-  Megaphone
+  Megaphone,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
