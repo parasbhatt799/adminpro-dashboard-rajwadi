@@ -159,7 +159,7 @@ export default function StatementReport() {
       'Payment Date': r.date.replace('T', ' ').substring(0, 19),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
-      'Description': r.type === 'BILL' ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data.card_number || '0000'}\\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` : `TxnId: ${r.reference}, OrderId: WeBCC...\\n(${r.amount} - ${r.charges} Txn Charge)\\nWallet Topup Through CashFree3`,
+      'Description': r.type === 'BILL' ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` : `TxnId: ${r.reference}, OrderId: WeBCC...\\n(${r.amount} - ${r.charges} Txn Charge)\\nWallet Topup Through CashFree3`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
@@ -312,7 +312,7 @@ export default function StatementReport() {
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
                         <>
-                          <div>CCBILLPAY Mobile:{r.reference} CardNo:{r.raw_data.card_number || '0000'}</div>
+                          <div>CCBILLPAY Mobile:{r.reference} CardNo:{r.raw_data?.card_number || '0000'}</div>
                           <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
                         </>
                       ) : (
