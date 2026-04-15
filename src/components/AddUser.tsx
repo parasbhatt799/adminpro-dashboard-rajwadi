@@ -50,7 +50,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
     firm_name: initialData?.firm_name || '',
     firm_address: initialData?.firm_address || '',
     charge_percentage: initialData?.charge_percentage?.toString() || '',
-    service_charge_enabled: initialData?.service_charge_enabled ?? true,
+    service_charge_enabled: initialData?.service_charge_enabled ?? false,
     custom_service_charge: initialData?.custom_service_charge?.toString() || '',
   });
 
