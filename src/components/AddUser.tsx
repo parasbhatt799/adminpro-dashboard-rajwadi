@@ -172,10 +172,17 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
             }),
           });
 
-          const result = await emailResponse.json();
+          // Safely parse JSON or handle as text
+          const responseText = await emailResponse.text();
+          let result;
+          try {
+            result = JSON.parse(responseText);
+          } catch (e) {
+            result = { error: responseText || `Status: ${emailResponse.status}` };
+          }
           
           if (!emailResponse.ok) {
-            throw new Error(result.error || 'Unknown server error');
+            throw new Error(result.error || 'Server error');
           }
           
           alert(`User created successfully!\n\nCredentials have been sent to ${formData.email}.\n\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
