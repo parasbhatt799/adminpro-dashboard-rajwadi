@@ -2,7 +2,8 @@ import {
   Wallet, 
   TrendingUp, 
   Clock,
-  Loader2
+  Loader2,
+  QrCode
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -70,7 +71,7 @@ export default function Dashboard() {
         {
           title: "Total QR Payments",
           value: `₹${dailyQrAmount.toLocaleString()}`,
-          icon: TrendingUp,
+          icon: QrCode,
           color: "bg-blue-500",
           description: `Last update: ${todayStr}`
         },
