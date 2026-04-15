@@ -72,7 +72,7 @@ export default function StatementReport() {
 
       // 1. Fetch QR Payments
       if (typeFilter === 'all' || typeFilter === 'QR') {
-        let qrQuery = supabase.from('payment_submissions').select('*, users_profiles!inner(firm_name)').neq('status', 'rejected');
+        let qrQuery = supabase.from('payment_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
         
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
@@ -98,7 +98,7 @@ export default function StatementReport() {
 
       // 2. Fetch Bill Payments
       if (typeFilter === 'all' || typeFilter === 'BILL') {
-        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').neq('status', 'rejected');
+        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
         
         if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) billQuery = billQuery.eq('amount', Number(exactAmount));
