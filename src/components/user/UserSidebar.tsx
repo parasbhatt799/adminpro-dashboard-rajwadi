@@ -23,10 +23,7 @@ export default function UserSidebar({ onLogout }: UserSidebarProps) {
     <div className="w-64 bg-slate-900 text-slate-300 h-screen flex flex-col border-r border-slate-800">
       <div className="p-6">
         <div className="flex items-center gap-3 mb-8">
-          <div className="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold">U</span>
-          </div>
-          <h1 className="text-xl font-bold text-white tracking-tight">UserPanel</h1>
+          <img src="/logo.png" alt="UsePay" className="h-9 object-contain" />
         </div>
 
         <nav className="space-y-1">

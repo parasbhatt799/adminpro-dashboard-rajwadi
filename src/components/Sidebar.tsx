@@ -61,17 +61,16 @@ export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
     >
       <div className="p-4 h-16 flex items-center border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center shrink-0">
-            <span className="text-white font-bold">A</span>
-          </div>
-          {!isCollapsed && (
-            <motion.h1 
+          {isCollapsed ? (
+            <img src="/logo.png" alt="UsePay" className="w-8 h-8 object-contain" />
+          ) : (
+            <motion.img
+              src="/logo.png"
+              alt="UsePay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-xl font-bold text-white tracking-tight whitespace-nowrap"
-            >
-              AdminPro
-            </motion.h1>
+              className="h-9 object-contain"
+            />
           )}
         </div>
       </div>
