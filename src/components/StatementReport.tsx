@@ -250,6 +250,19 @@ export default function StatementReport() {
            </AnimatePresence>
         </div>
 
+        {/* Date Range */}
+        <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
+            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="text-xs font-bold text-slate-700 outline-none bg-transparent" />
+          </div>
+          <div className="w-px h-6 bg-slate-200 mx-1" />
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
+            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="text-xs font-bold text-slate-700 outline-none bg-transparent" />
+          </div>
+        </div>
+
         <button onClick={fetchStatement} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
           <Search size={16} /> Filter
         </button>
