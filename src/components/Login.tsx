@@ -66,7 +66,7 @@ export default function Login({ onLogin }: LoginProps) {
       >
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl">
           <div className="flex flex-col items-center mb-8">
-            <div className="w-40 h-30 rounded-2xl flex items-center justify-center mb-4 p-2">
+            <div className="w-50 h-30 rounded-2xl flex items-center justify-center mb-4 p-2">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
           </div>
