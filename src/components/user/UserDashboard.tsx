@@ -10,7 +10,7 @@ import {
 import { motion } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 
-export default function UserDashboard() {
+export default function UserDashboard({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -18,13 +18,12 @@ export default function UserDashboard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        if (!userId) return;
 
         const { data: profile } = await supabase
           .from('users_profiles')
           .select('*')
-          .eq('id', user.id)
+          .eq('id', userId)
           .single();
         
         setUserProfile(profile);
