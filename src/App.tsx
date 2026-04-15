@@ -30,7 +30,7 @@ import UserPolicies from './components/user/UserPolicies';
 import UserStatementReport from './components/user/UserStatementReport';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
-import { formatDistanceToNow, parseISO } from 'date-fns';
+import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Layout Components ---
@@ -60,6 +60,26 @@ interface AdminLayoutProps {
   fetchAdminNotifications: () => void;
   userId: string;
 }
+
+const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-end mr-2 select-none">
+      <span className={`text-[10px] font-black uppercase tracking-wider ${colorClass} opacity-60 leading-none mb-1`}>
+        {format(now, 'dd MMM yyyy')}
+      </span>
+      <span className={`text-xs font-bold leading-none ${colorClass}`}>
+        {format(now, 'hh:mm:ss a')}
+      </span>
+    </div>
+  );
+};
 
 const AdminLayout = ({
   handleLogout,
@@ -108,6 +128,7 @@ const AdminLayout = ({
           </div>
 
           <div className="flex items-center gap-4">
+            <LiveClock />
             <div className="relative">
               <button 
                 type="button"

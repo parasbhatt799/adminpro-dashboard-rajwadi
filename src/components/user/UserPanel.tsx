@@ -6,9 +6,28 @@ import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Cl
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { formatDistanceToNow, parseISO } from 'date-fns';
-
+import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import NewsTicker from './NewsTicker';
+
+const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-end mr-2 select-none">
+      <span className={`text-[10px] font-black uppercase tracking-wider ${colorClass} opacity-60 leading-none mb-1`}>
+        {format(now, 'dd MMM yyyy')}
+      </span>
+      <span className={`text-xs font-bold leading-none ${colorClass}`}>
+        {format(now, 'hh:mm:ss a')}
+      </span>
+    </div>
+  );
+};
 
 interface UserPanelProps {
   onLogout: () => void;
@@ -285,6 +304,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
           </div>
 
           <div className="flex items-center gap-4">
+            <LiveClock colorClass="text-emerald-700" />
             <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
               <Wallet className="text-emerald-600" size={18} />
               <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
