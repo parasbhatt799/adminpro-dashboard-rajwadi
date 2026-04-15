@@ -132,8 +132,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
           );
         })}
       </div>
-
-      </div>
     </div>
   );
 }
