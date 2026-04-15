@@ -4,20 +4,72 @@ import {
   Clock,
   Loader2,
   CreditCard,
-  QrCode
+  QrCode,
+  Calendar,
+  Filter,
+  ChevronDown
 } from 'lucide-react';
-import { motion } from 'motion/react';
-import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
+import { 
+  startOfDay, 
+  endOfDay, 
+  subDays, 
+  startOfYesterday, 
+  endOfYesterday, 
+  format,
+  parseISO
+} from 'date-fns';
+
+type TimeRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
 export default function Dashboard() {
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState<TimeRange>('today');
+  const [customDates, setCustomDates] = useState({
+    start: format(new Date(), 'yyyy-MM-dd'),
+    end: format(new Date(), 'yyyy-MM-dd')
+  });
+  const [showFilter, setShowFilter] = useState(false);
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      // 0. Admin Wallet Balance
+      // 0. Date Logic
+      let startDate: Date | null = null;
+      let endDate: Date | null = null;
+      const now = new Date();
+
+      switch (timeRange) {
+        case 'today':
+          startDate = startOfDay(now);
+          endDate = endOfDay(now);
+          break;
+        case 'yesterday':
+          startDate = startOfYesterday();
+          endDate = endOfYesterday();
+          break;
+        case '7days':
+          startDate = startOfDay(subDays(now, 7));
+          endDate = endOfDay(now);
+          break;
+        case '30days':
+          startDate = startOfDay(subDays(now, 30));
+          endDate = endOfDay(now);
+          break;
+        case 'custom':
+          startDate = startOfDay(parseISO(customDates.start));
+          endDate = endOfDay(parseISO(customDates.end));
+          break;
+        case 'all':
+        default:
+          startDate = null;
+          endDate = null;
+      }
+
+      // 1. Admin Wallet Balance (Always Lifetime)
       const { data: qrSettingsData } = await supabase
         .from('qr_settings')
         .select('admin_balance')
@@ -26,7 +78,7 @@ export default function Dashboard() {
       
       const adminWalletBalance = Number(qrSettingsData?.admin_balance) || 0;
 
-      // 1. Total Users Wallet Balance
+      // 2. Total Users Wallet Balance (Always Lifetime)
       const { data: usersData, error: usersError } = await supabase
         .from('users_profiles')
         .select('wallet_balance');
@@ -34,23 +86,6 @@ export default function Dashboard() {
       if (usersError) throw usersError;
       const totalWalletBalance = usersData?.reduce((acc, user) => acc + (Number(user.wallet_balance) || 0), 0) || 0;
 
-      // 2. Daily Service Charges & Amounts (Separated)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const { data: billData } = await supabase
-        .from('bill_submissions')
-        .select('amount, charges')
-        .eq('status', 'approved')
-        .gte('created_at', today.toISOString());
-      
-      const { data: qrData } = await supabase
-        .from('payment_submissions')
-        .select('amount, charges')
-        .eq('status', 'approved')
-        .gte('created_at', today.toISOString());
-      
-      const dailyBillCharges = billData?.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
       // 3. Transactions (Filtered by Date)
       let billQuery = supabase.from('bill_submissions').select('amount, charges').eq('status', 'approved');
       let qrQuery = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved');
@@ -60,12 +95,15 @@ export default function Dashboard() {
         qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      const [{ data: billData }, { data: qrData }] = await Promise.all([billQuery, qrQuery]);
+      const [billRes, qrRes] = await Promise.all([billQuery, qrQuery]);
       
-      const rangeBillCharges = billData?.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
-      const rangeQrCharges = qrData?.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
-      const rangeBillAmount = billData?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-      const rangeQrAmount = qrData?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+      const billData = billRes.data || [];
+      const qrData = qrRes.data || [];
+      
+      const rangeBillCharges = billData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
+      const rangeQrCharges = qrData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
+      const rangeBillAmount = billData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+      const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       
       const rangeTotalCharges = rangeBillCharges + rangeQrCharges;
       const rangeTotalCCBill = rangeBillAmount;
@@ -148,23 +186,24 @@ export default function Dashboard() {
 
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
           {timeRange === 'custom' && (
-            <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300">
+            <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
               <input 
                 type="date" 
                 value={customDates.start}
                 onChange={(e) => setCustomDates(prev => ({ ...prev, start: e.target.value }))}
-                className="text-xs font-bold text-slate-600 px-2 py-1 outline-none"
+                className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
               />
-              <span className="text-slate-300">to</span>
+              <span className="text-slate-300 text-xs">to</span>
               <input 
                 type="date" 
                 value={customDates.end}
                 onChange={(e) => setCustomDates(prev => ({ ...prev, end: e.target.value }))}
-                className="text-xs font-bold text-slate-600 px-2 py-1 outline-none"
+                className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
               />
               <button 
                 onClick={fetchStats}
                 className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-500 transition-colors"
+                title="Apply Filter"
               >
                 <Filter size={14} />
               </button>
