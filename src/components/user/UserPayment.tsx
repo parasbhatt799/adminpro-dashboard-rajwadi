@@ -916,8 +916,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       <input 
                         type="text"
                         inputMode="text" 
-                        value={billForm.cardOwnerName}
-                        onChange={(e) => setBillForm({...billForm, cardOwnerName: e.target.value})}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                          setBillForm({...billForm, cardOwnerName: val});
+                        }}
                         placeholder="Enter Name"
                         className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                         required
