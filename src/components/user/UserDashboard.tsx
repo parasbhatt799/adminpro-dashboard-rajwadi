@@ -28,7 +28,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
         setUserProfile(profile);
 
         // Fetch Status counts / amounts
-        const [qrRes, billRes] = await Promise.all([
+        const [qrRes, billRes, pendingQrRes, pendingBillRes] = await Promise.all([
           supabase
             .from('payment_submissions')
             .select('amount')
@@ -38,11 +38,22 @@ export default function UserDashboard({ userId }: { userId: string }) {
             .from('bill_submissions')
             .select('amount')
             .eq('user_id', userId)
-            .eq('status', 'approved')
+            .eq('status', 'approved'),
+          supabase
+            .from('payment_submissions')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('status', 'pending'),
+          supabase
+            .from('bill_submissions')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('status', 'pending')
         ]);
 
         const qrTotal = qrRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
         const billTotal = billRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+        const totalPending = (pendingQrRes.count || 0) + (pendingBillRes.count || 0);
 
         setStats([
           {
@@ -68,7 +79,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
           },
           {
             title: "Pending Requests",
-            value: "View Reports",
+            value: totalPending.toString(),
             trend: "neutral",
             icon: Clock,
             color: "bg-amber-500"
