@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from 'react';
 import { 
   ShieldCheck, 
   BookOpen, 
@@ -9,6 +8,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { motion } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
 interface Policy {
@@ -21,6 +21,7 @@ interface Policy {
 export default function UserPolicies({ userId }: { userId: string }) {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const fetchPolicies = async () => {
     try {
@@ -114,7 +115,10 @@ export default function UserPolicies({ userId }: { userId: string }) {
           <p className="text-indigo-100 text-sm mb-6 max-w-md">
             If you have questions regarding any of our policies, please contact our support team.
           </p>
-          <button className="bg-white text-indigo-600 px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors">
+          <button 
+            onClick={() => navigate('/user/complaints')}
+            className="bg-white text-indigo-600 px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-50 transition-colors"
+          >
             Support Center
             <ExternalLink size={16} />
           </button>
