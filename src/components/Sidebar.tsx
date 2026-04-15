@@ -44,8 +44,8 @@ const menuItems = [
     ]
   },
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
-  { id: 'headlines', label: 'Add Headline', icon: Megaphone, path: '/headlines' },
-  { id: 'policies', label: 'Rules & Policy', icon: FileText, path: '/policies' },
+  { id: 'headlines', label: 'Add Anouncement', icon: Megaphone, path: '/headlines' },
+  { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/policies' },
 ];
 
 export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
