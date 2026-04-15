@@ -50,7 +50,7 @@ export default function UserPolicies({ userId }: { userId: string }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Rules & Policies</h2>
+          <h2 className="text-2xl font-bold text-slate-900">Terms & Conditions</h2>
           <p className="text-slate-500 text-sm mt-1">Please read our terms and conditions carefully.</p>
         </div>
         <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl">
