@@ -69,7 +69,6 @@ export default function Login({ onLogin }: LoginProps) {
             <div className="w-40 h-30 rounded-2xl flex items-center justify-center mb-4 p-2">
               <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">UsePay</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
