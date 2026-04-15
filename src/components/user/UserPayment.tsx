@@ -914,7 +914,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700">Card Owner Name:</label>
                       <input 
-                        type="text" 
+                        type="text"
+                        inputMode="text" 
                         value={billForm.cardOwnerName}
                         onChange={(e) => setBillForm({...billForm, cardOwnerName: e.target.value})}
                         placeholder="Enter Name"
