@@ -3,6 +3,7 @@ import {
   TrendingUp, 
   Clock,
   Loader2,
+  CreditCard,
   QrCode
 } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -78,21 +79,21 @@ export default function Dashboard() {
         {
           title: "Total CC Bill",
           value: `₹${dailyTotalCCBill.toLocaleString()}`,
-          icon: TrendingUp,
+          icon: CreditCard,
           color: "bg-purple-500",
           description: `Last update: ${todayStr}`
         },
         {
           title: "QR Payment Charges",
           value: `₹${dailyQrCharges.toLocaleString()}`,
-          icon: TrendingUp,
+          icon: QrCode,
           color: "bg-emerald-500",
           description: `Last update: ${todayStr}`
         },
         {
           title: "Bill Payment Charge",
           value: `₹${dailyBillCharges.toLocaleString()}`,
-          icon: TrendingUp,
+          icon: CreditCard,
           color: "bg-indigo-500",
           description: `Last update: ${todayStr}`
         },
