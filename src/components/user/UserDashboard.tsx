@@ -48,7 +48,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
           {
             title: "Total Balance",
             value: `₹${(Number(profile?.wallet_balance) || 0).toLocaleString()}`,
-            change: "Real-time",
             trend: "neutral",
             icon: Wallet,
             color: "bg-emerald-500"
@@ -56,7 +55,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
           {
             title: "QR Payment",
             value: `₹${qrTotal.toLocaleString()}`,
-            change: "Approved",
             trend: "neutral",
             icon: QrCode,
             color: "bg-blue-500"
@@ -64,7 +62,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
           {
             title: "Bill Payment",
             value: `₹${billTotal.toLocaleString()}`,
-            change: "Approved",
             trend: "neutral",
             icon: CreditCard,
             color: "bg-purple-500"
@@ -72,7 +69,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
           {
             title: "Pending Requests",
             value: "View Reports",
-            change: "All Time",
             trend: "neutral",
             icon: Clock,
             color: "bg-amber-500"
