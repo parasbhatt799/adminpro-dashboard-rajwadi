@@ -20,9 +20,15 @@ export default async function handler(req: any, res: any) {
   );
 
   try {
+    let formattedMobile = mobileNumber;
+    // Add +91 if not present (assuming India based on project context)
+    if (!formattedMobile.startsWith('+')) {
+      formattedMobile = `+91${formattedMobile.replace(/^0+/, '')}`;
+    }
+
     if (action === 'create') {
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
-        phone: mobileNumber,
+        phone: formattedMobile,
         password: password,
         phone_confirm: true
       });

@@ -33,11 +33,16 @@ export default function Login({ onLogin }: LoginProps) {
       });
 
       if (authData.user && !authError) {
+        // Use the phone number from the authenticated user to handle country codes (+91)
+        const authenticatedPhone = authData.user.phone || '';
+        const normalizedPhone = authenticatedPhone.replace('+', '');
+        
         // Verify this mobile number exists in admin_profiles
+        // We check for exact match or the number without the country code
         const { data: adminProfile } = await supabase
           .from('admin_profiles')
           .select('mobile_number')
-          .eq('mobile_number', id)
+          .filter('mobile_number', 'in', `(${id},${normalizedPhone},${normalizedPhone.slice(-10)})`)
           .single();
 
         if (adminProfile) {
