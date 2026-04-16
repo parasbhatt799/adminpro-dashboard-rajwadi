@@ -54,10 +54,20 @@ export default function Login({ onLogin }: LoginProps) {
         if (adminProfile) {
           onLogin(adminProfile.mobile_number, 'admin');
           return;
-        } else {
-          setError('Authorized admin profile not found for this account');
-          return;
         }
+      }
+
+      // 1.2 FALLBACK: Check for Admin in Legacy Database (Plain Text)
+      const { data: legacyAdmin } = await supabase
+        .from('admin_profiles')
+        .select('mobile_number')
+        .eq('mobile_number', id)
+        .eq('password', password)
+        .single();
+
+      if (legacyAdmin) {
+        onLogin(legacyAdmin.mobile_number, 'admin');
+        return;
       }
 
       // 2. Check for User in Database (Legacy Flow)
