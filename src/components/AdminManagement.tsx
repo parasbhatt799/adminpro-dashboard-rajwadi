@@ -96,8 +96,10 @@ export default function AdminManagement({ currentAdminId }: AdminManagementProps
 
     // 2. LAST ADMIN PROTECTION
     const adminToDelete = admins.find(a => a.mobile_number === mobileNumber);
-    if (adminToDelete?.role === 'full') {
-      const fullAdminCount = admins.filter(a => a.role === 'full').length;
+    const isTargetFull = !adminToDelete?.role || adminToDelete.role.toLowerCase() === 'full';
+    
+    if (isTargetFull) {
+      const fullAdminCount = admins.filter(a => !a.role || a.role.toLowerCase() === 'full').length;
       if (fullAdminCount <= 1) {
         alert("Protection Error: You cannot delete the LAST Full Admin. You must create another Full Admin first to ensure you can always access the portal.");
         return;
@@ -312,17 +314,26 @@ export default function AdminManagement({ currentAdminId }: AdminManagementProps
                     </td>
                     <td className="px-8 py-5 text-right">
                       {/* Hide delete button if it's the current user or the LAST full admin */}
-                      {admin.mobile_number !== currentAdminId && !(admin.role === 'full' && admins.filter(a => a.role === 'full').length <= 1) ? (
-                        <button 
-                          onClick={() => handleDeleteAdmin(admin.mobile_number)}
-                          className="p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                          title="Revoke Admin Access"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      ) : (
-                        <span className="text-[10px] font-black text-slate-300 uppercase italic px-2">Protected</span>
-                      )}
+                      {(() => {
+                        const isThisAdminFull = !admin.role || admin.role.toLowerCase() === 'full';
+                        const totalFullAdmins = admins.filter(a => !a.role || a.role.toLowerCase() === 'full').length;
+                        const isLastFullAdmin = isThisAdminFull && totalFullAdmins <= 1;
+                        const isSelf = admin.mobile_number === currentAdminId;
+
+                        if (isSelf || isLastFullAdmin) {
+                          return <span className="text-[10px] font-black text-slate-300 uppercase italic px-2">Protected</span>;
+                        }
+
+                        return (
+                          <button 
+                            onClick={() => handleDeleteAdmin(admin.mobile_number)}
+                            className="p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            title="Revoke Admin Access"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        );
+                      })()}
                     </td>
                   </tr>
                 ))}
