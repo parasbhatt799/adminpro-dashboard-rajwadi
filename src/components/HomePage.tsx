@@ -17,7 +17,8 @@ import {
   Zap,
   Globe,
   Lock,
-  ChevronRight
+  ChevronRight,
+  Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
