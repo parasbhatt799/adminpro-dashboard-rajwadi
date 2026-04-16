@@ -345,12 +345,6 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                   </div>
                 </div>
               </div>
-
-              <div className="pt-4">
-                <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-4 rounded-2xl font-black transition-all shadow-lg shadow-indigo-100">
-                  Work With Us
-                </button>
-              </div>
             </div>
           </div>
         </div>
