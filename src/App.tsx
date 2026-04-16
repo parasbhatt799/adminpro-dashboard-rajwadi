@@ -62,6 +62,7 @@ interface AdminLayoutProps {
   handleClearAllAdminNotifications: (e: React.MouseEvent) => void;
   fetchAdminNotifications: () => void;
   userId: string;
+  adminRole: string;
 }
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
@@ -95,7 +96,8 @@ const AdminLayout = ({
   handleDeleteAdminNotification,
   handleClearAllAdminNotifications,
   fetchAdminNotifications,
-  userId
+  userId,
+  adminRole
 }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -107,6 +109,7 @@ const AdminLayout = ({
       <Sidebar 
         onLogout={handleLogout} 
         isCollapsed={isSidebarCollapsed}
+        adminRole={adminRole}
       />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -244,7 +247,7 @@ const AdminLayout = ({
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-bold text-slate-900 leading-none">{userId}</p>
-                <p className="text-xs text-slate-500 mt-1">Super Admin</p>
+                <p className="text-xs text-slate-500 mt-1 capitalize">{adminRole} Admin</p>
               </div>
               <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
                 <User size={20} />
@@ -270,6 +273,7 @@ export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
   const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
+  const [adminRole, setAdminRole] = useState(() => localStorage.getItem('adminRole') || 'full');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   // Admin Notification States
@@ -354,13 +358,15 @@ export default function App() {
     }
   }, [isAdmin]);
 
-  const handleLogin = (id: string, userType: 'admin' | 'user') => {
+  const handleLogin = (id: string, userType: 'admin' | 'user', role?: string) => {
     localStorage.setItem('userId', id);
     localStorage.setItem('userType', userType);
+    if (role) localStorage.setItem('adminRole', role);
     
     if (userType === 'admin') {
       setIsAdmin(true);
       setIsUser(false);
+      setAdminRole(role || 'full');
     } else {
       setIsUser(true);
       setIsAdmin(false);
@@ -371,9 +377,11 @@ export default function App() {
   const handleLogout = () => {
     localStorage.removeItem('userId');
     localStorage.removeItem('userType');
+    localStorage.removeItem('adminRole');
     setIsAdmin(false);
     setIsUser(false);
     setUserId('');
+    setAdminRole('full');
   };
 
   return (
@@ -397,6 +405,7 @@ export default function App() {
                 handleClearAllAdminNotifications={handleClearAllAdminNotifications}
                 fetchAdminNotifications={fetchAdminNotifications}
                 userId={userId}
+                adminRole={adminRole}
               />
             )
           } 
@@ -419,8 +428,12 @@ export default function App() {
           </Route>
           <Route path="headlines" element={<HeadlineManagement />} />
           <Route path="policies" element={<PolicyManagement />} />
-          <Route path="admin-management" element={<AdminManagement />} />
-          <Route path="change-password" element={<ChangePassword />} />
+          {adminRole === 'full' && (
+            <>
+              <Route path="admin-management" element={<AdminManagement />} />
+              <Route path="change-password" element={<ChangePassword />} />
+            </>
+          )}
         </Route>
         <Route 
           path="/user" 

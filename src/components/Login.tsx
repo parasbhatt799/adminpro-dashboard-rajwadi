@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 interface LoginProps {
-  onLogin: (id: string, userType: 'admin' | 'user') => void;
+  onLogin: (id: string, userType: 'admin' | 'user', role?: string) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
@@ -41,18 +41,20 @@ export default function Login({ onLogin }: LoginProps) {
       }
 
       if (authData.user && !authError) {
-        // ... (existing logic)
+        // Use the phone number from the authenticated user to handle country codes (+91)
         const authenticatedPhone = authData.user.phone || '';
         const normalizedPhone = authenticatedPhone.replace('+', '');
         
+        // Verify this mobile number exists in admin_profiles
+        // We check for exact match or the number without the country code
         const { data: adminProfile } = await supabase
           .from('admin_profiles')
-          .select('mobile_number')
+          .select('mobile_number, role')
           .filter('mobile_number', 'in', `(${id},${normalizedPhone},${normalizedPhone.slice(-10)})`)
           .single();
 
         if (adminProfile) {
-          onLogin(adminProfile.mobile_number, 'admin');
+          onLogin(adminProfile.mobile_number, 'admin', adminProfile.role || 'full');
           return;
         }
       }
@@ -60,20 +62,20 @@ export default function Login({ onLogin }: LoginProps) {
       // 1.2 FALLBACK: Check for Admin in Legacy Database (Plain Text)
       const { data: legacyAdmin } = await supabase
         .from('admin_profiles')
-        .select('mobile_number')
+        .select('mobile_number, role')
         .eq('mobile_number', id)
         .eq('password', password)
         .single();
 
       if (legacyAdmin) {
-        onLogin(legacyAdmin.mobile_number, 'admin');
+        onLogin(legacyAdmin.mobile_number, 'admin', legacyAdmin.role || 'full');
         return;
       }
 
       // 2. Check for User in Database (Legacy Flow)
       const { data, error: dbError } = await supabase
         .from('users_profiles')
-        .select('id, mobile_number, password, status')
+        .select('id, mobile_number, password, status, role')
         .eq('mobile_number', id)
         .eq('password', password)
         .single();

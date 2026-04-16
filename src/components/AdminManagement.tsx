@@ -12,6 +12,7 @@ export default function AdminManagement() {
   // New Admin Form
   const [newAdminMobile, setNewAdminMobile] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
   const [addLoading, setAddLoading] = useState(false);
 
   const fetchAdmins = async () => {
@@ -49,7 +50,8 @@ export default function AdminManagement() {
         body: JSON.stringify({
           action: 'create',
           mobileNumber: newAdminMobile,
-          password: newAdminPassword
+          password: newAdminPassword,
+          role: newAdminRole
         })
       });
 
@@ -59,13 +61,18 @@ export default function AdminManagement() {
       // 2. Create or Update in admin_profiles table
       const { error: dbError } = await supabase
         .from('admin_profiles')
-        .upsert([{ mobile_number: newAdminMobile, password: newAdminPassword }], { onConflict: 'mobile_number' });
+        .upsert([{ 
+          mobile_number: newAdminMobile, 
+          password: newAdminPassword,
+          role: newAdminRole
+        }], { onConflict: 'mobile_number' });
 
       if (dbError) throw dbError;
 
       setIsAddingAdmin(false);
       setNewAdminMobile('');
       setNewAdminPassword('');
+      setNewAdminRole('full');
       fetchAdmins();
       alert('Administrator added successfully!');
     } catch (err: any) {
@@ -180,8 +187,41 @@ export default function AdminManagement() {
                     value={newAdminPassword}
                     onChange={(e) => setNewAdminPassword(e.target.value)}
                     placeholder="Create secure password"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono tracking-widest"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Access Level</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setNewAdminRole('full')}
+                      className={`p-4 rounded-2xl border-2 transition-all text-left ${
+                        newAdminRole === 'full' 
+                          ? 'border-indigo-600 bg-indigo-50/50' 
+                          : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                      }`}
+                    >
+                      <Shield className={`mb-2 ${newAdminRole === 'full' ? 'text-indigo-600' : 'text-slate-400'}`} size={20} />
+                      <p className={`text-sm font-bold ${newAdminRole === 'full' ? 'text-indigo-900' : 'text-slate-600'}`}>Full Admin</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Total control over everything.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewAdminRole('limited')}
+                      className={`p-4 rounded-2xl border-2 transition-all text-left ${
+                        newAdminRole === 'limited' 
+                          ? 'border-indigo-600 bg-indigo-50/50' 
+                          : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                      }`}
+                    >
+                      <div className={`mb-2 w-5 h-5 rounded-md flex items-center justify-center ${newAdminRole === 'limited' ? 'bg-indigo-600 text-white' : 'bg-slate-300 text-white'}`}>
+                        <X size={14} />
+                      </div>
+                      <p className={`text-sm font-bold ${newAdminRole === 'limited' ? 'text-indigo-900' : 'text-slate-600'}`}>Limited Admin</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Cannot manage admins or change passwords.</p>
+                    </button>
+                  </div>
                 </div>
 
                 <button
@@ -237,8 +277,12 @@ export default function AdminManagement() {
                       </div>
                     </td>
                     <td className="px-8 py-5">
-                      <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-[10px] font-black uppercase tracking-wider">
-                        Full Administrator
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        admin.role === 'full' 
+                          ? 'bg-indigo-100 text-indigo-600' 
+                          : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {admin.role === 'limited' ? 'Limited Admin' : 'Full Administrator'}
                       </span>
                     </td>
                     <td className="px-8 py-5">

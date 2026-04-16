@@ -22,6 +22,7 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 interface SidebarProps {
   onLogout: () => void;
   isCollapsed: boolean;
+  adminRole: string;
 }
 
 const menuItems = [
@@ -48,13 +49,15 @@ const menuItems = [
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
   { id: 'headlines', label: 'Add Anouncement', icon: Megaphone, path: '/headlines' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/policies' },
-  { id: 'admin-management', label: 'Admin Management', icon: Shield, path: '/admin-management' },
-  { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password' },
+  { id: 'admin-management', label: 'Admin Management', icon: Shield, path: '/admin-management', role: 'full' },
+  { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password', role: 'full' },
 ];
 
-export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
+export default function Sidebar({ onLogout, isCollapsed, adminRole }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const filteredMenuItems = menuItems.filter(item => !item.role || item.role === adminRole);
   const [reportsExpanded, setReportsExpanded] = useState(() => {
     return location.pathname.startsWith('/reports');
   });
@@ -83,7 +86,7 @@ export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 no-scrollbar">
         <nav className="space-y-1">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const Icon = item.icon;
             const isReports = item.id === 'report-generate';
             const isActive = isReports

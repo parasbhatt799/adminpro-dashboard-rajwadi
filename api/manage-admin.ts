@@ -5,7 +5,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { action, password, mobileNumber } = req.body;
+  const { action, password, mobileNumber, role } = req.body;
 
   if (!process.env.VITE_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
     console.error("Supabase configuration missing in process.env");
