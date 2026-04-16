@@ -27,10 +27,17 @@ export default async function handler(req: any, res: any) {
     }
 
     if (action === 'create') {
-      // Check if user already exists in Auth
+      // Check if user already exists in Auth (flexible check)
       const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
       if (!listError && usersData?.users) {
-        const existingUser = usersData.users.find((u: any) => u.phone === formattedMobile);
+        const cleanTarget = formattedMobile.replace(/\D/g, ''); // Keep only digits
+        
+        const existingUser = usersData.users.find((u: any) => {
+          if (!u.phone) return false;
+          const cleanPhone = u.phone.replace(/\D/g, '');
+          return cleanPhone.endsWith(cleanTarget.slice(-10)); // Match last 10 digits
+        });
+
         if (existingUser) {
           // Update existing user's password
           const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
