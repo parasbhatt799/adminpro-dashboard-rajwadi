@@ -3,6 +3,8 @@ import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
+import Modal from './Modal';
+
 interface AdminManagementProps {
   currentAdminId: string;
   onLogout: () => void;
@@ -20,7 +22,25 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
   const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
   const [addLoading, setAddLoading] = useState(false);
 
-  // ... (fetchAdmins and handleAddAdmin stay the same)
+  // Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info' | 'confirm';
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
+
+  const showModal = (title: string, message: string, type: any = 'info', onConfirm?: () => void) => {
+    setModalConfig({ isOpen: true, title, message, type, onConfirm });
+  };
+
+  // ... (fetchAdmins stays the same)
   const fetchAdmins = async () => {
     setLoading(true);
     try {
@@ -80,7 +100,7 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
       setNewAdminPassword('');
       setNewAdminRole('full');
       fetchAdmins();
-      alert('Administrator added successfully!');
+      showModal('Success!', 'Administrator added successfully.', 'success');
     } catch (err: any) {
       console.error('Add admin error:', err);
       setError(err.message || 'Failed to add administrator');
@@ -97,57 +117,66 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
     if (isTargetFull) {
       const fullAdmins = admins.filter(a => !a.role || a.role.toLowerCase() === 'full');
       if (fullAdmins.length <= 1) {
-        alert("Protection Error: This is the LAST Full Admin. You cannot delete them because someone must always have control of the portal. Create another Full Admin first.");
+        showModal('Protection Error', "This is the LAST Full Admin. You cannot delete them because someone must always have control of the portal. Create another Full Admin first.", 'error');
         return;
       }
     }
 
     const isSelf = mobileNumber === currentAdminId;
-    const confirmMessage = isSelf 
+    const title = isSelf ? 'Delete Your Own Account?' : 'Remove Administrator?';
+    const message = isSelf 
       ? "Warning: You are about to delete YOUR OWN account. You will be logged out immediately. Are you sure?"
-      : `Are you sure you want to remove admin ${mobileNumber}?`;
+      : `Are you sure you want to remove admin ${mobileNumber}? This action is permanent.`;
 
-    if (!confirm(confirmMessage)) return;
+    showModal(title, message, 'confirm', async () => {
+      try {
+        // 1. Remove from Auth via Backend
+        const response = await fetch('/api/manage-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete',
+            mobileNumber: mobileNumber
+          })
+        });
 
-    try {
-      // 1. Remove from Auth via Backend
-      const response = await fetch('/api/manage-admin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'delete',
-          mobileNumber: mobileNumber
-        })
-      });
+        if (!response.ok) {
+          const result = await response.json();
+          console.warn('Auth deletion warning:', result.error);
+        }
 
-      if (!response.ok) {
-        const result = await response.json();
-        console.warn('Auth deletion warning:', result.error);
+        // 2. Remove from admin_profiles table
+        const { error: dbError } = await supabase
+          .from('admin_profiles')
+          .delete()
+          .eq('mobile_number', mobileNumber);
+
+        if (dbError) throw dbError;
+
+        if (isSelf) {
+          showModal('Account Deleted', 'Your account has been deleted. Logging out...', 'info');
+          setTimeout(() => onLogout(), 2000);
+        } else {
+          fetchAdmins();
+          showModal('Removed!', 'Administrator removed successfully.', 'success');
+        }
+      } catch (err: any) {
+        console.error('Delete admin error:', err);
+        setError('Failed to delete administrator');
       }
-
-      // 2. Remove from admin_profiles table
-      const { error: dbError } = await supabase
-        .from('admin_profiles')
-        .delete()
-        .eq('mobile_number', mobileNumber);
-
-      if (dbError) throw dbError;
-
-      if (isSelf) {
-        alert('Your account has been deleted. Logging out...');
-        onLogout();
-      } else {
-        fetchAdmins();
-        alert('Administrator removed successfully.');
-      }
-    } catch (err: any) {
-      console.error('Delete admin error:', err);
-      setError('Failed to delete administrator');
-    }
+    });
   };
 
   return (
     <div className="space-y-6">
+      <Modal 
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        onConfirm={modalConfig.onConfirm}
+      />
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Admin Management</h2>

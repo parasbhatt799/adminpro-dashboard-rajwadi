@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Lock, Loader2, Save, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import Modal from './Modal';
 
 interface ChangePasswordProps {
   adminId: string;
@@ -15,7 +16,19 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  
+  // Modal State
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error' | 'info';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
 
   const isSelf = targetMobile === adminId;
 
@@ -23,7 +36,6 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
     e.preventDefault();
     setLoading(true);
     setError('');
-    setSuccess('');
 
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match');
@@ -40,7 +52,6 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
     try {
       if (isSelf) {
         // --- 1. SECURE SELF-UPDATE ---
-        // Re-verify with current password
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("You must be logged in to change your password");
 
@@ -55,13 +66,12 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
           return;
         }
 
-        // Update password in Auth
         const { error: updateError } = await supabase.auth.updateUser({
           password: newPassword
         });
         if (updateError) throw updateError;
       } else {
-        // --- 2. ADMINISTRATIVE RESET (FOR OTHERS) ---
+        // --- 2. ADMINISTRATIVE RESET ---
         if (adminRole !== 'full') {
           throw new Error("You do not have permission to reset other admins' passwords");
         }
@@ -70,7 +80,7 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            action: 'create', // Our API 'create' action already handles upsert (password update)
+            action: 'create',
             mobileNumber: targetMobile,
             password: newPassword
           })
@@ -80,8 +90,7 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
         if (!response.ok) throw new Error(result.error || 'Failed to reset password');
       }
 
-      // --- 3. SYNC WITH DATABASE TABLE ---
-      // Update the admin_profiles table so the legacy login continues to work
+      // --- 3. SYNC WITH DATABASE ---
       const { error: dbError } = await supabase
         .from('admin_profiles')
         .update({ password: newPassword })
@@ -91,7 +100,12 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
         console.warn('Auth success, but failed to sync table:', dbError);
       }
 
-      setSuccess(`Password for ${targetMobile} updated successfully!`);
+      setModalConfig({
+        isOpen: true,
+        title: 'Password Updated!',
+        message: `The password for ${targetMobile} has been successfully updated.`,
+        type: 'success'
+      });
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -105,6 +119,13 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
+      <Modal 
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+      />
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 leading-none">Change Password</h2>
