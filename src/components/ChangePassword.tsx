@@ -234,17 +234,6 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
                 <button type="button" onClick={() => setError('')}><X size={16} /></button>
               </motion.div>
             )}
-            {success && (
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-emerald-50 border border-emerald-100 text-emerald-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center justify-between"
-              >
-                <span>{success}</span>
-                <button type="button" onClick={() => setSuccess('')}><X size={16} /></button>
-              </motion.div>
-            )}
           </AnimatePresence>
 
           <button
