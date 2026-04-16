@@ -14,6 +14,7 @@ import { NavLink } from 'react-router-dom';
 
 interface UserSidebarProps {
   onLogout: () => void;
+  isCollapsed: boolean;
 }
 
 const menuItems = [
@@ -24,9 +25,7 @@ const menuItems = [
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
 ];
 
-export default function UserSidebar({ onLogout }: UserSidebarProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
+export default function UserSidebar({ onLogout, isCollapsed }: UserSidebarProps) {
   return (
     <motion.div
       initial={false}
@@ -48,12 +47,6 @@ export default function UserSidebar({ onLogout }: UserSidebarProps) {
             />
           )}
         </div>
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="w-7 h-7 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg flex items-center justify-center transition-all shrink-0"
-        >
-          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-        </button>
       </div>
 
       {/* Nav */}

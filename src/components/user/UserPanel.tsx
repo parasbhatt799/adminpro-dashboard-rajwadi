@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
 import ChangePassword from './ChangePassword';
-import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2 } from 'lucide-react';
+import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -41,6 +41,8 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [showWelcome, setShowWelcome] = useState(false);
+  
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   
   // Notification States
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -289,18 +291,27 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         )}
       </AnimatePresence>
 
-      <UserSidebar onLogout={onLogout} />
+      <UserSidebar onLogout={onLogout} isCollapsed={isSidebarCollapsed} />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <div className="relative w-96">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search transactions, bills..." 
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-            />
+          <div className="flex items-center gap-6">
+            <button 
+              type="button"
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+            >
+              <Menu size={20} />
+            </button>
+            <div className="relative w-96">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search transactions, bills..." 
+                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-4">
