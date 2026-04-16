@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle } from 'lucide-react';
+import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
@@ -21,6 +21,7 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
   const [addLoading, setAddLoading] = useState(false);
+  const [showAdminPwd, setShowAdminPwd] = useState(false);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -239,13 +240,20 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Secure Password</label>
-                  <input
-                    required
-                    type="password"
-                    value={newAdminPassword}
-                    onChange={(e) => setNewAdminPassword(e.target.value)}
-                    placeholder="Create secure password"
-                  />
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      required
+                      type={showAdminPwd ? 'text' : 'password'}
+                      value={newAdminPassword}
+                      onChange={(e) => setNewAdminPassword(e.target.value)}
+                      placeholder="Create secure password"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-12 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono tracking-widest"
+                    />
+                    <button type="button" onClick={() => setShowAdminPwd(!showAdminPwd)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                      {showAdminPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
                 </div>
 
                 <div>
