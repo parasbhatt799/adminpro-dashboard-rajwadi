@@ -11,7 +11,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, Link } from 'react-router-dom';
 
 interface UserSidebarProps {
   onLogout: () => void;
@@ -36,19 +36,19 @@ export default function UserSidebar({ onLogout, isCollapsed }: UserSidebarProps)
     >
       {/* Header */}
       <div className="p-4 h-16 flex items-center justify-between border-b border-slate-800 shrink-0">
-        <div className="flex items-center gap-3 overflow-hidden">
+        <Link to="/" className="flex items-center gap-3 overflow-hidden group">
           {isCollapsed ? (
-            <img src="/fav.png" alt="UsePay" className="w-10 h-10 object-contain shrink-0" />
+            <img src="/fav.png" alt="Logo" className="w-10 h-10 object-contain transition-transform group-hover:scale-110" />
           ) : (
             <motion.img
               src="/logo.png"
-              alt="UsePay"
+              alt="Logo"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="h-9 object-contain"
+              className="h-9 object-contain transition-transform group-hover:scale-105"
             />
           )}
-        </div>
+        </Link>
       </div>
 
       {/* Nav */}

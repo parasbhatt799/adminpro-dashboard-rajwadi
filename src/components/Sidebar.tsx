@@ -17,7 +17,7 @@ import {
   Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
 
 interface SidebarProps {
   onLogout: () => void;
@@ -70,19 +70,19 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole }: SidebarPro
       className="bg-slate-900 text-slate-300 h-screen flex flex-col border-r border-slate-800 overflow-hidden shrink-0"
     >
       <div className="p-4 h-16 flex items-center border-b border-slate-800 shrink-0">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3 group">
           {isCollapsed ? (
-            <img src="/fav.png" alt="UsePay" className="w-10 h-10 object-contain" />
+            <img src="/fav.png" alt="UsePay" className="w-10 h-10 object-contain transition-transform group-hover:scale-110" />
           ) : (
             <motion.img
               src="/logo.png"
               alt="UsePay"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="h-9 object-contain"
+              className="h-9 object-contain transition-transform group-hover:scale-105"
             />
           )}
-        </div>
+        </Link>
       </div>
 
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 no-scrollbar">

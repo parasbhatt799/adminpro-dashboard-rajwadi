@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, ArrowRight, Lock, User, Loader2, X, Mail, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -8,6 +9,7 @@ interface LoginProps {
 }
 
 export default function Login({ onLogin }: LoginProps) {
+  const navigate = useNavigate();
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -60,6 +62,7 @@ export default function Login({ onLogin }: LoginProps) {
             return;
           }
           onLogin(adminProfile.mobile_number, 'admin', adminProfile.role || 'full');
+          navigate('/dashboard');
           return;
         }
       }
@@ -78,6 +81,7 @@ export default function Login({ onLogin }: LoginProps) {
           return;
         }
         onLogin(legacyAdmin.mobile_number, 'admin', legacyAdmin.role || 'full');
+        navigate('/dashboard');
         return;
       }
 
@@ -105,6 +109,7 @@ export default function Login({ onLogin }: LoginProps) {
       }
 
       onLogin(data.id, 'user');
+      navigate('/user/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || 'An unexpected error occurred during login');
@@ -178,6 +183,15 @@ export default function Login({ onLogin }: LoginProps) {
 
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
+      <header className="fixed top-0 left-0 right-0 p-6 flex justify-between items-center z-10">
+        <Link to="/" className="flex items-center gap-2 group">
+          <img src="/logo.png" alt="Logo" className="h-10 transition-transform group-hover:scale-105" />
+        </Link>
+        <Link to="/" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+          Back to Website
+        </Link>
+      </header>
+
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/10 rounded-full blur-[120px]"></div>
