@@ -145,7 +145,6 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
       setError('Failed to delete administrator');
     }
   };
-  };
 
   return (
     <div className="space-y-6">
