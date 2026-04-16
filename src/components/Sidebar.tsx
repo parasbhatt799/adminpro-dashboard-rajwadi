@@ -71,7 +71,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole }: SidebarPro
       <div className="p-4 h-16 flex items-center border-b border-slate-800 shrink-0">
         <div className="flex items-center gap-3">
           {isCollapsed ? (
-            <img src="/logo.png" alt="UsePay" className="w-10 h-10 object-contain" />
+            <img src="/fav.png" alt="UsePay" className="w-10 h-10 object-contain" />
           ) : (
             <motion.img
               src="/logo.png"
