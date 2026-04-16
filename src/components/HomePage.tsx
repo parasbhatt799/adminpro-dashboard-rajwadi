@@ -376,64 +376,13 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
       </section>
 
       {/* --- FOOTER --- */}
-      <footer id="contact" className="bg-slate-900 pt-24 pb-12 px-6">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
-          <div className="space-y-6">
-            <img src="/logo.png" alt="UsePay" className="h-10 brightness-0 invert" />
-            <p className="text-slate-400 font-medium leading-relaxed text-sm">
-              Empowering secure digital payments, smart investments, and seamless financial solutions for the modern world. Built for security and speed.
-            </p>
-            <div className="flex items-center gap-4">
-               {/* Social Icons Placeholder */}
-               <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"><Globe size={16} /></div>
-               <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"><Zap size={16} /></div>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-white font-black uppercase tracking-widest text-xs mb-8">Quick Links</h4>
-            <ul className="space-y-4">
-              <li><button onClick={() => scrollToSection('home')} className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Home</button></li>
-              <li><button onClick={() => scrollToSection('about')} className="text-slate-400 hover:text-white transition-colors text-sm font-medium">About Us</button></li>
-              <li><button onClick={() => scrollToSection('services')} className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Our Services</button></li>
-              <li><button onClick={() => scrollToSection('contact')} className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Contact Us</button></li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-black uppercase tracking-widest text-xs mb-8">Office Location</h4>
-            <ul className="space-y-6">
-              <li className="flex gap-3">
-                <MapPin className="text-indigo-500 shrink-0" size={18} />
-                <p className="text-slate-400 text-sm font-medium leading-relaxed">
-                  Corporate Office: 201, Devi arcade, modi mohall, a.k road, Surat, Gujarat 395008
-                </p>
-              </li>
-              <li className="flex items-center gap-3 text-slate-400 text-sm font-medium">
-                <Phone className="text-indigo-500" size={18} />
-                +91 8780224955
-              </li>
-              <li className="flex items-center gap-3 text-slate-400 text-sm font-medium">
-                <Mail className="text-indigo-500" size={18} />
-                info@nxtgpay.com
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-black uppercase tracking-widest text-xs mb-8">Legal Policies</h4>
-            <ul className="space-y-4">
-              <li><Link to="/policies" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Terms & Conditions</Link></li>
-              <li><Link to="/policies" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Privacy Policy</Link></li>
-              <li><Link to="/policies" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Refund Policy</Link></li>
-              <li><Link to="/policies" className="text-slate-400 hover:text-white transition-colors text-sm font-medium">Cancellation Policy</Link></li>
-            </ul>
-          </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto pt-10 border-t border-slate-800 text-center">
+      <footer id="contact" className="bg-slate-900 py-12 px-6">
+        <div className="max-w-7xl mx-auto text-center space-y-4">
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
             © {new Date().getFullYear()} JMP NextGenPay Pvt Ltd. All rights reserved.
+          </p>
+          <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">
+            Developed By <a href="https://codefixer.in" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-400 transition-colors">Codefixer</a>
           </p>
         </div>
       </footer>
