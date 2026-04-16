@@ -5,9 +5,10 @@ import { supabase } from '../lib/supabase';
 
 interface AdminManagementProps {
   currentAdminId: string;
+  onLogout: () => void;
 }
 
-export default function AdminManagement({ currentAdminId }: AdminManagementProps) {
+export default function AdminManagement({ currentAdminId, onLogout }: AdminManagementProps) {
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
@@ -19,6 +20,7 @@ export default function AdminManagement({ currentAdminId }: AdminManagementProps
   const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
   const [addLoading, setAddLoading] = useState(false);
 
+  // ... (fetchAdmins and handleAddAdmin stay the same)
   const fetchAdmins = async () => {
     setLoading(true);
     try {
@@ -88,25 +90,24 @@ export default function AdminManagement({ currentAdminId }: AdminManagementProps
   };
 
   const handleDeleteAdmin = async (mobileNumber: string) => {
-    // 1. SELF-DELETE PROTECTION
-    if (mobileNumber === currentAdminId) {
-      alert("Safety Check: You cannot delete your own account while you are logged in. To delete this account, log in with a different Full Admin account.");
-      return;
-    }
-
-    // 2. LAST ADMIN PROTECTION
+    // LAST ADMIN PROTECTION (Only check for Full Admins)
     const adminToDelete = admins.find(a => a.mobile_number === mobileNumber);
     const isTargetFull = !adminToDelete?.role || adminToDelete.role.toLowerCase() === 'full';
     
     if (isTargetFull) {
-      const fullAdminCount = admins.filter(a => !a.role || a.role.toLowerCase() === 'full').length;
-      if (fullAdminCount <= 1) {
-        alert("Protection Error: You cannot delete the LAST Full Admin. You must create another Full Admin first to ensure you can always access the portal.");
+      const fullAdmins = admins.filter(a => !a.role || a.role.toLowerCase() === 'full');
+      if (fullAdmins.length <= 1) {
+        alert("Protection Error: This is the LAST Full Admin. You cannot delete them because someone must always have control of the portal. Create another Full Admin first.");
         return;
       }
     }
 
-    if (!confirm(`Are you sure you want to remove admin ${mobileNumber}? This will revoke their access immediately.`)) return;
+    const isSelf = mobileNumber === currentAdminId;
+    const confirmMessage = isSelf 
+      ? "Warning: You are about to delete YOUR OWN account. You will be logged out immediately. Are you sure?"
+      : `Are you sure you want to remove admin ${mobileNumber}?`;
+
+    if (!confirm(confirmMessage)) return;
 
     try {
       // 1. Remove from Auth via Backend
@@ -131,12 +132,19 @@ export default function AdminManagement({ currentAdminId }: AdminManagementProps
         .eq('mobile_number', mobileNumber);
 
       if (dbError) throw dbError;
-      fetchAdmins();
-      alert('Administrator removed successfully.');
+
+      if (isSelf) {
+        alert('Your account has been deleted. Logging out...');
+        onLogout();
+      } else {
+        fetchAdmins();
+        alert('Administrator removed successfully.');
+      }
     } catch (err: any) {
       console.error('Delete admin error:', err);
       setError('Failed to delete administrator');
     }
+  };
   };
 
   return (

@@ -430,7 +430,7 @@ export default function App() {
           <Route path="policies" element={<PolicyManagement />} />
           {adminRole === 'full' && (
             <>
-              <Route path="admin-management" element={<AdminManagement currentAdminId={userId} />} />
+              <Route path="admin-management" element={<AdminManagement currentAdminId={userId} onLogout={handleLogout} />} />
               <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} />} />
             </>
           )}
