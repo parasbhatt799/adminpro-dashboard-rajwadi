@@ -35,13 +35,16 @@ export default function Login({ onLogin }: LoginProps) {
         password: password,
       });
 
+      if (authError) {
+        // Fallback to legacy user check if auth fails
+        console.warn('Auth login failed, falling back to legacy:', authError.message);
+      }
+
       if (authData.user && !authError) {
-        // Use the phone number from the authenticated user to handle country codes (+91)
+        // ... (existing logic)
         const authenticatedPhone = authData.user.phone || '';
         const normalizedPhone = authenticatedPhone.replace('+', '');
         
-        // Verify this mobile number exists in admin_profiles
-        // We check for exact match or the number without the country code
         const { data: adminProfile } = await supabase
           .from('admin_profiles')
           .select('mobile_number')
@@ -51,10 +54,13 @@ export default function Login({ onLogin }: LoginProps) {
         if (adminProfile) {
           onLogin(adminProfile.mobile_number, 'admin');
           return;
+        } else {
+          setError('Authorized admin profile not found for this account');
+          return;
         }
       }
 
-      // 2. Check for User in Database
+      // 2. Check for User in Database (Legacy Flow)
       const { data, error: dbError } = await supabase
         .from('users_profiles')
         .select('id, mobile_number, password, status')
@@ -63,7 +69,12 @@ export default function Login({ onLogin }: LoginProps) {
         .single();
 
       if (dbError || !data) {
-        setError('Invalid ID or Password');
+        // If both Auth and Legacy DB fail, show the specific Auth error if it's relevant
+        if (authError && authError.message !== 'Invalid login credentials') {
+          setError(`Security Error: ${authError.message}`);
+        } else {
+          setError('Invalid Mobile Number or Password');
+        }
         return;
       }
 
@@ -73,9 +84,9 @@ export default function Login({ onLogin }: LoginProps) {
       }
 
       onLogin(data.id, 'user');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      setError('An error occurred during login');
+      setError(err.message || 'An unexpected error occurred during login');
     } finally {
       setLoading(false);
     }
