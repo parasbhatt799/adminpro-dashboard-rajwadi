@@ -364,18 +364,25 @@ export default function App() {
           table: 'admin_profiles',
           filter: `mobile_number=eq.${userId}`
         }, (payload) => {
+          console.log('Admin Security Event Received:', payload);
           const { status, role } = payload.new;
           
+          if (!status || !role) {
+             console.log('Delta payload received without full data. Refreshing session check...');
+             // If payload.new doesn't have all fields, we might need to fetch
+             // But usually it should have them if we enabled REPLICA IDENTITY FULL
+          }
+
           // Check for blocking
           if (status === 'Blocked') {
-            console.warn('Admin account blocked. Terminating session.');
+            console.warn('CRITICAL: Admin account blocked. Terminating session.');
             handleLogout();
             return;
           }
 
           // Check for role changes (to prevent permission mismatch)
-          if (role !== adminRole) {
-            console.warn('Admin role modified. Refreshing session.');
+          if (role && role !== adminRole) {
+            console.warn('SECURITY: Admin role modified. Refreshing session.');
             handleLogout();
             return;
           }

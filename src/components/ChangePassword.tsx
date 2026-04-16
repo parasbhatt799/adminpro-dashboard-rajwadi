@@ -134,7 +134,13 @@ export default function ChangePassword({ adminId, adminRole, onLogout }: ChangeP
     <div className="max-w-2xl mx-auto space-y-6">
       <Modal 
         isOpen={modalConfig.isOpen}
-        onClose={() => setModalConfig({ ...modalConfig, isOpen: false })}
+        onClose={() => {
+          if (modalConfig.type === 'success' && isSelf) {
+            onLogout();
+          } else {
+            setModalConfig({ ...modalConfig, isOpen: false });
+          }
+        }}
         title={modalConfig.title}
         message={modalConfig.message}
         type={modalConfig.type}
