@@ -379,7 +379,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
       <footer id="contact" className="bg-slate-900 py-12 px-6">
         <div className="max-w-7xl mx-auto text-center space-y-4">
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-            © {new Date().getFullYear()} JMP NextGenPay Pvt Ltd. All rights reserved.
+            © {new Date().getFullYear()} UsePay Pvt Ltd. All rights reserved.
           </p>
           <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">
             Developed By <a href="https://codefixer.in" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-400 transition-colors">Codefixer</a>
