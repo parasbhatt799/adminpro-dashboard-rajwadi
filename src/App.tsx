@@ -31,6 +31,7 @@ import UserComplaints from './components/user/UserComplaints';
 import UserPolicies from './components/user/UserPolicies';
 import UserStatementReport from './components/user/UserStatementReport';
 import UserDashboard from './components/user/UserDashboard';
+import UserChangePassword from './components/user/UserChangePassword';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -452,6 +453,7 @@ export default function App() {
           <Route path="statement" element={<UserStatementReport userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
           <Route path="policies" element={<UserPolicies userId={userId} />} />
+          <Route path="change-password" element={<UserChangePassword userId={userId} onLogout={handleLogout} />} />
         </Route>
         <Route 
           path="/login" 

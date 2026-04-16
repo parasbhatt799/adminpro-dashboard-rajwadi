@@ -7,7 +7,8 @@ import {
   ClipboardList,
   LayoutDashboard,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  KeyRound
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink } from 'react-router-dom';
@@ -23,6 +24,7 @@ const menuItems = [
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
+  { id: 'change-password', label: 'Security', icon: KeyRound, path: '/user/change-password' },
 ];
 
 export default function UserSidebar({ onLogout, isCollapsed }: UserSidebarProps) {
