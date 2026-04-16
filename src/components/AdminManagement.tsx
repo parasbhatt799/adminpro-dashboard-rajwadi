@@ -3,7 +3,11 @@ import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
-export default function AdminManagement() {
+interface AdminManagementProps {
+  currentAdminId: string;
+}
+
+export default function AdminManagement({ currentAdminId }: AdminManagementProps) {
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
@@ -84,6 +88,22 @@ export default function AdminManagement() {
   };
 
   const handleDeleteAdmin = async (mobileNumber: string) => {
+    // 1. SELF-DELETE PROTECTION
+    if (mobileNumber === currentAdminId) {
+      alert("Safety Check: You cannot delete your own account while you are logged in. To delete this account, log in with a different Full Admin account.");
+      return;
+    }
+
+    // 2. LAST ADMIN PROTECTION
+    const adminToDelete = admins.find(a => a.mobile_number === mobileNumber);
+    if (adminToDelete?.role === 'full') {
+      const fullAdminCount = admins.filter(a => a.role === 'full').length;
+      if (fullAdminCount <= 1) {
+        alert("Protection Error: You cannot delete the LAST Full Admin. You must create another Full Admin first to ensure you can always access the portal.");
+        return;
+      }
+    }
+
     if (!confirm(`Are you sure you want to remove admin ${mobileNumber}? This will revoke their access immediately.`)) return;
 
     try {
@@ -291,13 +311,18 @@ export default function AdminManagement() {
                       </p>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button 
-                        onClick={() => handleDeleteAdmin(admin.mobile_number)}
-                        className="p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                        title="Revoke Admin Access"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+                      {/* Hide delete button if it's the current user or the LAST full admin */}
+                      {admin.mobile_number !== currentAdminId && !(admin.role === 'full' && admins.filter(a => a.role === 'full').length <= 1) ? (
+                        <button 
+                          onClick={() => handleDeleteAdmin(admin.mobile_number)}
+                          className="p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                          title="Revoke Admin Access"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-black text-slate-300 uppercase italic px-2">Protected</span>
+                      )}
                     </td>
                   </tr>
                 ))}
