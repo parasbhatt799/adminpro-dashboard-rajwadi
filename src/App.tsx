@@ -508,9 +508,9 @@ export default function App() {
           path="/login" 
           element={
             isAdmin ? (
-              <Navigate to="/" replace />
+              <Navigate to="/dashboard" replace />
             ) : isUser ? (
-              <Navigate to="/user" replace />
+              <Navigate to="/user/dashboard" replace />
             ) : (
               <Login onLogin={handleLogin} />
             )
