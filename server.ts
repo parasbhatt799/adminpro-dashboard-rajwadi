@@ -58,7 +58,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/admin/manage-user", async (req, res) => {
+  app.post("/api/manage-admin", async (req, res) => {
     const { action, password, mobileNumber } = req.body;
     
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === "Paste_your_service_role_key_here") {

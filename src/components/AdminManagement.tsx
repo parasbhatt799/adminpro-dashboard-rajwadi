@@ -43,7 +43,7 @@ export default function AdminManagement() {
 
     try {
       // 1. Create in Supabase Auth via Backend
-      const response = await fetch('/api/admin/manage-user', {
+      const response = await fetch('/api/manage-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -81,7 +81,7 @@ export default function AdminManagement() {
 
     try {
       // 1. Remove from Auth via Backend
-      const response = await fetch('/api/admin/manage-user', {
+      const response = await fetch('/api/manage-admin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
