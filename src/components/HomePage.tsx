@@ -355,22 +355,117 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
         </div>
       </section>
 
-      {/* --- CTA SECTION --- */}
-      <section className="px-6 mb-24">
-        <div className="max-w-7xl mx-auto bg-indigo-600 rounded-[3.5rem] p-12 md:p-24 text-center space-y-8 relative overflow-hidden">
+      {/* --- CONTACT SECTION --- */}
+      <section id="contact" className="px-6 mb-24">
+        <div className="max-w-7xl mx-auto bg-indigo-600 rounded-[3.5rem] p-8 md:p-16 lg:p-20 relative overflow-hidden shadow-2xl shadow-indigo-200">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
              <div className="absolute -top-20 -left-20 w-80 h-80 bg-white rounded-full blur-[100px]"></div>
              <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-white rounded-full blur-[100px]"></div>
           </div>
           
-          <h2 className="text-4xl md:text-6xl font-black text-white relative z-10 leading-[1.1]">Have Any Questions? Get In Touch With Our Team.</h2>
-          <p className="text-indigo-100 text-lg md:text-xl font-medium max-w-2xl mx-auto relative z-10 opacity-80">
-            We are here to help you scale your business with the best digital payment tools in the industry.
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-6 relative z-10">
-            <a href="mailto:info@usepay.com" className="bg-white text-indigo-600 px-12 py-5 rounded-2xl font-black transition-all hover:scale-105 active:scale-95 shadow-2xl">
-              Contact Us Now
-            </a>
+          <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-start">
+            {/* Info Column */}
+            <div className="space-y-10">
+              <div className="space-y-4">
+                <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Get In Touch With <br/>Our Expert Team</h2>
+                <p className="text-indigo-100 text-lg font-medium opacity-80 max-w-md">
+                  We are here to help you scale your business with the best digital payment tools in the industry.
+                </p>
+              </div>
+
+              <div className="grid gap-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white shrink-0">
+                    <MapPin size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Company Address</h4>
+                    <p className="text-white font-bold leading-relaxed">
+                      201, Devi arcade, modi mohall, a.k road, <br/>Surat, Gujarat 395008
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white shrink-0">
+                    <Phone size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Phone Support</h4>
+                    <p className="text-white font-bold text-xl">+91 8780224955</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white shrink-0">
+                    <Mail size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Email Address</h4>
+                    <p className="text-white font-bold">info@nxtgpay.com</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center text-white shrink-0">
+                    <Clock size={24} />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Working Hours (IST)</h4>
+                    <p className="text-white font-bold text-sm">Mon - Sat: 10:00 AM to 07:00 PM</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Form Column */}
+            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl">
+              <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
+                    <input 
+                      type="text" 
+                      placeholder="John Doe"
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
+                    <input 
+                      type="email" 
+                      placeholder="john@example.com"
+                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</label>
+                  <input 
+                    type="text" 
+                    placeholder="General Inquiry"
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">How can we help?</label>
+                  <textarea 
+                    rows={4}
+                    placeholder="Tell us about your requirements..."
+                    className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300 resize-none"
+                  ></textarea>
+                </div>
+
+                <button 
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-2xl font-black transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
+                >
+                  Send Message <ArrowRight size={20} />
+                </button>
+              </form>
+            </div>
           </div>
         </div>
       </section>
