@@ -40,6 +40,7 @@ const menuItems = [
     label: 'Report Generate',
     icon: FileBarChart,
     path: '/reports/qr-payment',
+    role: 'full',
     subItems: [
       { label: 'QR Payment Report', path: '/reports/qr-payment' },
       { label: 'Bill Payment Report', path: '/reports/bill-payment' },

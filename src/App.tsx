@@ -456,7 +456,7 @@ export default function App() {
           <Route path="users-list" element={<UsersList />} />
           <Route path="qr-upload" element={<QRManagement />} />
           <Route path="bank-upload" element={<BankManagement />} />
-          <Route path="service-charge" element={<ServiceChargeManagement />} />
+          <Route path="service-charge" element={<ServiceChargeManagement adminRole={adminRole} />} />
           <Route path="qr-payment-requests" element={<QRPaymentRequests />} />
           <Route path="bill-payment-requests" element={<BillPaymentRequests />} />
           <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />

@@ -26,7 +26,12 @@ interface Slab {
   created_at: string;
 }
 
-export default function ServiceChargeManagement() {
+interface ServiceChargeManagementProps {
+  adminRole?: string;
+}
+
+export default function ServiceChargeManagement({ adminRole }: ServiceChargeManagementProps) {
+  const isFullAdmin = adminRole === 'full';
   const [slabs, setSlabs] = useState<Slab[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -162,23 +167,25 @@ export default function ServiceChargeManagement() {
           <h2 className="text-2xl font-bold text-slate-900">Service Charge Slabs</h2>
           <p className="text-slate-500 mt-1">Configure service charge amounts based on transaction value ranges.</p>
         </div>
-        <button 
-          onClick={() => {
-            setIsAdding(true);
-            setEditingSlab(null);
-            setFormData({
-              min_amount: '',
-              max_amount: '',
-              charge_amount: '',
-              is_percentage: false,
-            });
-            setError(null);
-          }}
-          className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 active:scale-95"
-        >
-          <Plus size={20} />
-          <span>Add New Slab</span>
-        </button>
+        {isFullAdmin && (
+          <button 
+            onClick={() => {
+              setIsAdding(true);
+              setEditingSlab(null);
+              setFormData({
+                min_amount: '',
+                max_amount: '',
+                charge_amount: '',
+                is_percentage: false,
+              });
+              setError(null);
+            }}
+            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 active:scale-95"
+          >
+            <Plus size={20} />
+            <span>Add New Slab</span>
+          </button>
+        )}
       </div>
 
       {loading ? (
@@ -247,26 +254,29 @@ export default function ServiceChargeManagement() {
 
                 <div className="flex items-center gap-6">
                   <button 
-                    onClick={() => toggleStatus(slab)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${slab.is_active ? 'bg-indigo-600' : 'bg-slate-200'}`}
+                    onClick={() => isFullAdmin && toggleStatus(slab)}
+                    disabled={!isFullAdmin}
+                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${slab.is_active ? 'bg-indigo-600' : 'bg-slate-200'} ${!isFullAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${slab.is_active ? 'translate-x-5' : 'translate-x-1'}`} />
                   </button>
 
-                  <div className="flex items-center gap-1 border-l border-slate-100 pl-4">
-                    <button 
-                      onClick={() => handleEdit(slab)}
-                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                    >
-                      <Edit3 size={16} />
-                    </button>
-                    <button 
-                      onClick={() => setDeleteConfirm(slab.id)}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {isFullAdmin && (
+                    <div className="flex items-center gap-1 border-l border-slate-100 pl-4">
+                      <button 
+                        onClick={() => handleEdit(slab)}
+                        className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                      >
+                        <Edit3 size={16} />
+                      </button>
+                      <button 
+                        onClick={() => setDeleteConfirm(slab.id)}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
