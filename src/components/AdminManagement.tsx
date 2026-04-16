@@ -229,14 +229,17 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
               <form onSubmit={handleAddAdmin} className="space-y-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Mobile Number</label>
-                  <input
-                    required
-                    type="tel"
-                    value={newAdminMobile}
-                    onChange={(e) => setNewAdminMobile(e.target.value)}
-                    placeholder="Enter admin mobile number"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-                  />
+                  <div className="relative">
+                    <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      required
+                      type="tel"
+                      value={newAdminMobile}
+                      onChange={(e) => setNewAdminMobile(e.target.value)}
+                      placeholder="Enter admin mobile number"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                    />
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Secure Password</label>
