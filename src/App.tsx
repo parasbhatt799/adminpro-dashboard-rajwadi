@@ -336,10 +336,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (isAdmin) {
+    if (isAdmin && userId) {
       fetchAdminNotifications();
 
-      const channel = supabase
+      // 1. Notification Listener
+      const notifChannel = supabase
         .channel('admin_notifications_realtime')
         .on('postgres_changes', { 
           event: '*', 
@@ -353,11 +354,40 @@ export default function App() {
         })
         .subscribe();
 
+      // 2. Security & Session Listener
+      // Instantly logout if senior admin blocks this account or changes its role
+      const securityChannel = supabase
+        .channel(`admin_security_${userId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'admin_profiles',
+          filter: `mobile_number=eq.${userId}`
+        }, (payload) => {
+          const { status, role } = payload.new;
+          
+          // Check for blocking
+          if (status === 'Blocked') {
+            console.warn('Admin account blocked. Terminating session.');
+            handleLogout();
+            return;
+          }
+
+          // Check for role changes (to prevent permission mismatch)
+          if (role !== adminRole) {
+            console.warn('Admin role modified. Refreshing session.');
+            handleLogout();
+            return;
+          }
+        })
+        .subscribe();
+
       return () => {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(notifChannel);
+        supabase.removeChannel(securityChannel);
       };
     }
-  }, [isAdmin]);
+  }, [isAdmin, userId, adminRole]);
 
   const handleLogin = (id: string, userType: 'admin' | 'user', role?: string) => {
     localStorage.setItem('userId', id);
@@ -432,7 +462,7 @@ export default function App() {
           {adminRole === 'full' && (
             <>
               <Route path="admin-management" element={<AdminManagement currentAdminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
-              <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} />} />
+              <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
             </>
           )}
         </Route>

@@ -7,9 +7,10 @@ import Modal from './Modal';
 interface ChangePasswordProps {
   adminId: string;
   adminRole: string;
+  onLogout: () => void;
 }
 
-export default function ChangePassword({ adminId, adminRole }: ChangePasswordProps) {
+export default function ChangePassword({ adminId, adminRole, onLogout }: ChangePasswordProps) {
   const [targetMobile, setTargetMobile] = useState(adminId);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -106,9 +107,18 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
       setModalConfig({
         isOpen: true,
         title: 'Password Updated!',
-        message: `The password for ${targetMobile} has been successfully updated.`,
+        message: isSelf 
+          ? 'Your password has been updated. For security reasons, you will be logged out in 3 seconds.'
+          : `The password for ${targetMobile} has been successfully updated.`,
         type: 'success'
       });
+
+      if (isSelf) {
+        setTimeout(() => {
+          onLogout();
+        }, 3000);
+      }
+
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
