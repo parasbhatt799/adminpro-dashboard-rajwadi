@@ -456,6 +456,29 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             <Outlet />
           </div>
         </div>
+
+        {/* Dynamic Footer Branding */}
+        <AnimatePresence>
+          {isSidebarCollapsed && (
+            <motion.footer 
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="bg-white border-t border-slate-100 py-3 flex items-center justify-center gap-1.5 shrink-0 overflow-hidden"
+            >
+              <span className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em]">Developed by</span>
+              <a
+                href="https://codefixer.in"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[10px] font-black text-emerald-600 hover:text-emerald-500 transition-colors uppercase tracking-[0.2em] relative group"
+              >
+                codefixer.in
+                <span className="absolute -bottom-0.5 left-0 w-0 h-0.5 bg-emerald-500 transition-all group-hover:w-full"></span>
+              </a>
+            </motion.footer>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   );
