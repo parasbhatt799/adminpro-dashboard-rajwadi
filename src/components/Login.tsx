@@ -26,9 +26,12 @@ export default function Login({ onLogin }: LoginProps) {
     setError('');
 
     try {
+      // Normalize the login ID (add +91 for admins)
+      const loginId = id.startsWith('+') ? id : `+91${id.replace(/^0+/, '')}`;
+
       // 1. Try Secure Admin Login via Supabase Auth (Mobile & Password)
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        phone: id,
+        phone: loginId,
         password: password,
       });
 
