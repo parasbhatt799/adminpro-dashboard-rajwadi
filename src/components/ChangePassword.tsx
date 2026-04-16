@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
-import { Lock, Loader2, Save, X } from 'lucide-react';
+import { Lock, Loader2, Save, X, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
-export default function ChangePassword() {
+interface ChangePasswordProps {
+  adminId: string;
+  adminRole: string;
+}
+
+export default function ChangePassword({ adminId, adminRole }: ChangePasswordProps) {
+  const [targetMobile, setTargetMobile] = useState(adminId);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  const isSelf = targetMobile === adminId;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,30 +38,60 @@ export default function ChangePassword() {
     }
 
     try {
-      // 1. Re-verify with current password
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("You must be logged in to change your password");
+      if (isSelf) {
+        // --- 1. SECURE SELF-UPDATE ---
+        // Re-verify with current password
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("You must be logged in to change your password");
 
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        phone: user.phone,
-        email: user.email,
-        password: currentPassword
-      });
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          phone: user.phone,
+          password: currentPassword
+        });
 
-      if (signInError) {
-        setError('Current password is incorrect');
-        setLoading(false);
-        return;
+        if (signInError) {
+          setError('Current password is incorrect');
+          setLoading(false);
+          return;
+        }
+
+        // Update password in Auth
+        const { error: updateError } = await supabase.auth.updateUser({
+          password: newPassword
+        });
+        if (updateError) throw updateError;
+      } else {
+        // --- 2. ADMINISTRATIVE RESET (FOR OTHERS) ---
+        if (adminRole !== 'full') {
+          throw new Error("You do not have permission to reset other admins' passwords");
+        }
+
+        const response = await fetch('/api/manage-admin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create', // Our API 'create' action already handles upsert (password update)
+            mobileNumber: targetMobile,
+            password: newPassword
+          })
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || 'Failed to reset password');
       }
 
-      // 2. Update password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: newPassword
-      });
+      // --- 3. SYNC WITH DATABASE TABLE ---
+      // Update the admin_profiles table so the legacy login continues to work
+      const { error: dbError } = await supabase
+        .from('admin_profiles')
+        .update({ password: newPassword })
+        .eq('mobile_number', targetMobile);
 
-      if (updateError) throw updateError;
+      if (dbError) {
+        console.warn('Auth success, but failed to sync table:', dbError);
+      }
 
-      setSuccess('Password updated successfully!');
+      setSuccess(`Password for ${targetMobile} updated successfully!`);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -64,6 +102,7 @@ export default function ChangePassword() {
       setLoading(false);
     }
   };
+ circular index.tsx:1
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -77,19 +116,59 @@ export default function ChangePassword() {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Current Password</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Mobile Number to Update</label>
             <div className="relative">
-              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input
                 required
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="Enter current password"
+                type="tel"
+                value={targetMobile}
+                onChange={(e) => {
+                  setTargetMobile(e.target.value);
+                  setError('');
+                }}
+                placeholder="Enter mobile number"
                 className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />
             </div>
           </div>
+
+          <AnimatePresence mode="wait">
+            {isSelf && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Current Password (Required for Self-Update)</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      required={isSelf}
+                      type="password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="Enter current password"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            {!isSelf && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="p-4 bg-amber-50 border border-amber-100 rounded-2xl"
+              >
+                <p className="text-xs text-amber-700 font-medium">
+                  <strong>Administrative Reset Mode:</strong> You are resetting the password for another administrator. You do not need their current password.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <hr className="border-slate-50" />
 
