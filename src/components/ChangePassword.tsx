@@ -102,7 +102,6 @@ export default function ChangePassword({ adminId, adminRole }: ChangePasswordPro
       setLoading(false);
     }
   };
- circular index.tsx:1
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
