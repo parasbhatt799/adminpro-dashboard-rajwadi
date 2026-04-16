@@ -32,6 +32,7 @@ import UserPolicies from './components/user/UserPolicies';
 import UserStatementReport from './components/user/UserStatementReport';
 import UserDashboard from './components/user/UserDashboard';
 import UserChangePassword from './components/user/UserChangePassword';
+import HomePage from './components/HomePage';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -431,6 +432,15 @@ export default function App() {
         <Route 
           path="/" 
           element={
+            <HomePage 
+              isAdmin={isAdmin} 
+              isUser={isUser} 
+              onLogout={handleLogout} 
+            />
+          } 
+        />
+        <Route 
+          element={
             !isAdmin ? (
               <Navigate to="/login" replace />
             ) : (
@@ -451,7 +461,6 @@ export default function App() {
             )
           } 
         >
-          <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="users-list" element={<UsersList />} />
           <Route path="qr-upload" element={<QRManagement />} />
