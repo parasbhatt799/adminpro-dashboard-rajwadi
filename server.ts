@@ -4,8 +4,14 @@ import path from "path";
 import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
+import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
+
+const supabaseAdmin = createClient(
+  process.env.VITE_SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -48,6 +54,47 @@ async function startServer() {
       res.json({ success: true });
     } catch (error: any) {
       console.error("Error sending email:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/manage-user", async (req, res) => {
+    const { action, password, mobileNumber } = req.body;
+    
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === "Paste_your_service_role_key_here") {
+      return res.status(500).json({ error: "Service Role Key is missing. Please add it to your .env file." });
+    }
+
+    try {
+      if (action === "create") {
+        const { data, error } = await supabaseAdmin.auth.admin.createUser({
+          phone: mobileNumber,
+          password: password,
+          phone_confirm: true
+        });
+        if (error) throw error;
+        return res.json({ success: true, user: data.user });
+      } 
+      
+      if (action === "delete") {
+        const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        if (listError) throw listError;
+        
+        const user = usersData.users.find((u: any) => u.phone?.replace('+', '') === mobileNumber.replace('+', ''));
+        if (!user) {
+          // If not found in Auth, just return success as we probably just need to clean up the table
+          return res.json({ success: true, message: "User not found in Auth, but proceeding." });
+        }
+
+        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
+        if (deleteError) throw deleteError;
+        
+        return res.json({ success: true });
+      }
+
+      res.status(400).json({ error: "Invalid action" });
+    } catch (error: any) {
+      console.error("Admin management error:", error);
       res.status(500).json({ error: error.message });
     }
   });

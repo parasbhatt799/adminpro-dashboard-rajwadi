@@ -12,7 +12,9 @@ import {
   MessageSquare,
   ChevronDown,
   Megaphone,
-  FileText
+  FileText,
+  Shield,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
@@ -46,6 +48,8 @@ const menuItems = [
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
   { id: 'headlines', label: 'Add Anouncement', icon: Megaphone, path: '/headlines' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/policies' },
+  { id: 'admin-management', label: 'Admin Management', icon: Shield, path: '/admin-management' },
+  { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password' },
 ];
 
 export default function Sidebar({ onLogout, isCollapsed }: SidebarProps) {
