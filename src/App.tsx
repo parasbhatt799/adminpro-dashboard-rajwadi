@@ -365,24 +365,27 @@ export default function App() {
           filter: `mobile_number=eq.${userId}`
         }, (payload) => {
           console.log('Admin Security Event Received:', payload);
-          const { status, role } = payload.new;
+          const { status, role, password } = payload.new;
           
-          if (!status || !role) {
-             console.log('Delta payload received without full data. Refreshing session check...');
-             // If payload.new doesn't have all fields, we might need to fetch
-             // But usually it should have them if we enabled REPLICA IDENTITY FULL
-          }
-
-          // Check for blocking
+          // 1. Check for blocking
           if (status === 'Blocked') {
             console.warn('CRITICAL: Admin account blocked. Terminating session.');
             handleLogout();
             return;
           }
 
-          // Check for role changes (to prevent permission mismatch)
+          // 2. Check for role changes
           if (role && role !== adminRole) {
             console.warn('SECURITY: Admin role modified. Refreshing session.');
+            handleLogout();
+            return;
+          }
+
+          // 3. Check for password changes (triggered when another admin resets it)
+          // Since we don't store the password in state, any update to the password field 
+          // that satisfies this row filter should trigger a session refresh.
+          if (password) {
+            console.warn('SECURITY: Admin password modified. Terminating session.');
             handleLogout();
             return;
           }
