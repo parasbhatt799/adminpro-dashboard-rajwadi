@@ -27,6 +27,20 @@ export default async function handler(req: any, res: any) {
     }
 
     if (action === 'create') {
+      // Check if user already exists in Auth
+      const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+      if (!listError && usersData?.users) {
+        const existingUser = usersData.users.find((u: any) => u.phone === formattedMobile);
+        if (existingUser) {
+          // Update existing user's password
+          const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(existingUser.id, {
+            password: password
+          });
+          if (updateError) throw updateError;
+          return res.status(200).json({ success: true, message: "Existing user updated" });
+        }
+      }
+
       const { data, error } = await supabaseAdmin.auth.admin.createUser({
         phone: formattedMobile,
         password: password,

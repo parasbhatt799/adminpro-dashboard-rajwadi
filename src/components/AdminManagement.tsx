@@ -56,10 +56,10 @@ export default function AdminManagement() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Failed to create admin in Auth');
 
-      // 2. Create in admin_profiles table
+      // 2. Create or Update in admin_profiles table
       const { error: dbError } = await supabase
         .from('admin_profiles')
-        .insert([{ mobile_number: newAdminMobile, password: newAdminPassword }]);
+        .upsert([{ mobile_number: newAdminMobile, password: newAdminPassword }], { onConflict: 'mobile_number' });
 
       if (dbError) throw dbError;
 
