@@ -50,11 +50,15 @@ export default function Login({ onLogin }: LoginProps) {
         // We check for exact match or the number without the country code
         const { data: adminProfile } = await supabase
           .from('admin_profiles')
-          .select('mobile_number, role')
+          .select('mobile_number, role, status')
           .filter('mobile_number', 'in', `(${id},${normalizedPhone},${normalizedPhone.slice(-10)})`)
           .single();
 
         if (adminProfile) {
+          if (adminProfile.status === 'Blocked') {
+            setError('Your account has been blocked by a senior admin');
+            return;
+          }
           onLogin(adminProfile.mobile_number, 'admin', adminProfile.role || 'full');
           return;
         }
@@ -63,12 +67,16 @@ export default function Login({ onLogin }: LoginProps) {
       // 1.2 FALLBACK: Check for Admin in Legacy Database (Plain Text)
       const { data: legacyAdmin } = await supabase
         .from('admin_profiles')
-        .select('mobile_number, role')
+        .select('mobile_number, role, status')
         .eq('mobile_number', id)
         .eq('password', password)
         .single();
 
       if (legacyAdmin) {
+        if (legacyAdmin.status === 'Blocked') {
+          setError('Your account has been blocked by a senior admin');
+          return;
+        }
         onLogin(legacyAdmin.mobile_number, 'admin', legacyAdmin.role || 'full');
         return;
       }

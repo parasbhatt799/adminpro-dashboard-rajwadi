@@ -18,11 +18,19 @@ CREATE TABLE IF NOT EXISTS public.admin_profiles (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   mobile_number text UNIQUE NOT NULL,
   password text NOT NULL,
+  role text DEFAULT 'full' CHECK (role IN ('full', 'limited')),
+  status text DEFAULT 'Active' CHECK (status IN ('Active', 'Blocked')),
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
 );
  
 INSERT INTO public.admin_profiles (mobile_number, password)
 VALUES ('8140428671', 'admin123') ON CONFLICT (mobile_number) DO NOTHING;
+ 
+-- Ensure existing columns and roles are correct
+ALTER TABLE public.admin_profiles ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'full';
+ALTER TABLE public.admin_profiles ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'Active' CHECK (status IN ('Active', 'Blocked'));
+UPDATE public.admin_profiles SET role = 'full' WHERE role IS NULL;
+UPDATE public.admin_profiles SET status = 'Active' WHERE status IS NULL;
  
 -- User profiles
 CREATE TABLE IF NOT EXISTS public.users_profiles (

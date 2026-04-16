@@ -6,11 +6,12 @@ import { supabase } from '../lib/supabase';
 import Modal from './Modal';
 
 interface AdminManagementProps {
-  currentAdminId: string;
-  onLogout: () => void;
-}
-
-export default function AdminManagement({ currentAdminId, onLogout }: AdminManagementProps) {
+   currentAdminId: string;
+   adminRole?: string;
+   onLogout: () => void;
+ }
+ 
+ export default function AdminManagement({ currentAdminId, adminRole, onLogout }: AdminManagementProps) {
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
@@ -22,6 +23,11 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
   const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
   const [addLoading, setAddLoading] = useState(false);
   const [showAdminPwd, setShowAdminPwd] = useState(false);
+
+  // Edit Admin State
+  const [editingAdmin, setEditingAdmin] = useState<any>(null);
+  const [editRole, setEditRole] = useState<'full' | 'limited'>('full');
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -168,6 +174,61 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
     });
   };
 
+  const handleUpdateRole = async () => {
+    if (!editingAdmin) return;
+    setActionLoading(true);
+    try {
+      const { error: dbError } = await supabase
+        .from('admin_profiles')
+        .update({ role: editRole })
+        .eq('mobile_number', editingAdmin.mobile_number);
+
+      if (dbError) throw dbError;
+
+      setEditingAdmin(null);
+      fetchAdmins();
+      showModal('Success!', 'Access level updated successfully.', 'success');
+    } catch (err: any) {
+      console.error('Update role error:', err);
+      showModal('Error', 'Failed to update access level.', 'error');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleToggleStatus = async (admin: any) => {
+    const isSelf = admin.mobile_number === currentAdminId;
+    if (isSelf) {
+      showModal('Action Denied', "You cannot block your own account. It would lock you out of the portal.", 'warning');
+      return;
+    }
+
+    const newStatus = admin.status === 'Blocked' ? 'Active' : 'Blocked';
+    const actionText = newStatus === 'Blocked' ? 'block' : 'unblock';
+    
+    showModal(
+      `${newStatus === 'Blocked' ? 'Block' : 'Unblock'} Administrator?`, 
+      `Are you sure you want to ${actionText} admin ${admin.mobile_number}? ${newStatus === 'Blocked' ? 'They will no longer be able to log in.' : ''}`, 
+      'confirm', 
+      async () => {
+        try {
+          const { error: dbError } = await supabase
+            .from('admin_profiles')
+            .update({ status: newStatus })
+            .eq('mobile_number', admin.mobile_number);
+
+          if (dbError) throw dbError;
+
+          fetchAdmins();
+          showModal('Success!', `Administrator ${actionText}ed successfully.`, 'success');
+        } catch (err: any) {
+          console.error('Toggle status error:', err);
+          showModal('Error', `Failed to ${actionText} administrator.`, 'error');
+        }
+      }
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Modal 
@@ -307,6 +368,102 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
         )}
       </AnimatePresence>
 
+      {/* Edit Access Modal */}
+      <AnimatePresence>
+        {editingAdmin && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setEditingAdmin(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="w-full max-w-md relative z-10 bg-white rounded-3xl shadow-2xl p-8 overflow-hidden"
+            >
+              <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                    <Shield size={20} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Edit Access Level</h3>
+                </div>
+                <button onClick={() => setEditingAdmin(null)} className="text-slate-400 hover:text-slate-600">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <div className="mb-6 p-4 bg-indigo-50 rounded-2xl flex items-center gap-3">
+                 <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-indigo-600 font-bold border border-indigo-100">
+                    <Shield size={20} />
+                 </div>
+                 <div>
+                    <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Administrator</p>
+                    <p className="text-sm font-black text-slate-900">{editingAdmin.mobile_number}</p>
+                 </div>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Access Level</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setEditRole('full')}
+                      className={`p-4 rounded-2xl border-2 transition-all text-left ${
+                        editRole === 'full' 
+                          ? 'border-indigo-600 bg-indigo-50/50' 
+                          : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                      }`}
+                    >
+                      <Shield className={`mb-2 ${editRole === 'full' ? 'text-indigo-600' : 'text-slate-400'}`} size={20} />
+                      <p className={`text-sm font-bold ${editRole === 'full' ? 'text-indigo-900' : 'text-slate-600'}`}>Full Admin</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Total control over everything.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditRole('limited')}
+                      className={`p-4 rounded-2xl border-2 transition-all text-left ${
+                        editRole === 'limited' 
+                          ? 'border-indigo-600 bg-indigo-50/50' 
+                          : 'border-slate-100 bg-slate-50 hover:border-slate-200'
+                      }`}
+                    >
+                      <div className={`mb-2 w-5 h-5 rounded-md flex items-center justify-center ${editRole === 'limited' ? 'bg-indigo-600 text-white' : 'bg-slate-300 text-white'}`}>
+                        <X size={14} />
+                      </div>
+                      <p className={`text-sm font-bold ${editRole === 'limited' ? 'text-indigo-900' : 'text-slate-600'}`}>Limited Admin</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Cannot manage admins or change passwords.</p>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setEditingAdmin(null)}
+                    className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-2xl transition-all active:scale-[0.98]"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={actionLoading}
+                    onClick={handleUpdateRole}
+                    className="flex-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-200 active:scale-[0.98] disabled:opacity-50"
+                  >
+                    {actionLoading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle size={20} />}
+                    {actionLoading ? 'Updating...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
         {loading ? (
           <div className="p-20 flex flex-col items-center justify-center text-slate-400 gap-3">
@@ -324,7 +481,8 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
               <thead>
                 <tr className="bg-slate-50/50">
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Administrator</th>
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Access Level</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Access Level</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Added On</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Security</th>
                 </tr>
@@ -345,14 +503,42 @@ export default function AdminManagement({ currentAdminId, onLogout }: AdminManag
                         </div>
                       </div>
                     </td>
-                    <td className="px-8 py-5">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                        admin.role === 'full' 
-                          ? 'bg-indigo-100 text-indigo-600' 
-                          : 'bg-slate-100 text-slate-600'
-                      }`}>
-                        {admin.role === 'limited' ? 'Limited Admin' : 'Full Administrator'}
-                      </span>
+                    <td className="px-8 py-5 text-center">
+                      <button 
+                        onClick={() => handleToggleStatus(admin)}
+                        disabled={admin.mobile_number === currentAdminId}
+                        className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
+                          admin.status === 'Blocked' ? 'bg-rose-500' : 'bg-emerald-500'
+                        } ${admin.mobile_number === currentAdminId ? 'opacity-50 cursor-not-allowed' : 'hover:ring-4 hover:ring-slate-100'}`}
+                        title={admin.status === 'Blocked' ? 'Unblock Admin' : 'Block Admin'}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
+                          admin.status === 'Blocked' ? 'left-1' : 'left-7'
+                        }`} />
+                      </button>
+                      <p className={`text-[9px] font-black uppercase mt-1 ${admin.status === 'Blocked' ? 'text-rose-500' : 'text-emerald-500'}`}>
+                        {admin.status || 'Active'}
+                      </p>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <div className="flex flex-col items-center gap-2">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          admin.role === 'full' 
+                            ? 'bg-indigo-100 text-indigo-600' 
+                            : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {admin.role === 'limited' ? 'Limited Admin' : 'Full Administrator'}
+                        </span>
+                        <button 
+                          onClick={() => {
+                            setEditingAdmin(admin);
+                            setEditRole(admin.role || 'full');
+                          }}
+                          className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                        >
+                          <Shield size={10} /> Edit Access
+                        </button>
+                      </div>
                     </td>
                     <td className="px-8 py-5">
                       <p className="text-xs text-slate-500 font-medium">
