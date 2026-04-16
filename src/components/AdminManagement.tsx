@@ -59,7 +59,7 @@ export default function AdminManagement() {
       // 2. Create in admin_profiles table
       const { error: dbError } = await supabase
         .from('admin_profiles')
-        .insert([{ mobile_number: newAdminMobile, password: 'Managed in Auth' }]);
+        .insert([{ mobile_number: newAdminMobile, password: newAdminPassword }]);
 
       if (dbError) throw dbError;
 
