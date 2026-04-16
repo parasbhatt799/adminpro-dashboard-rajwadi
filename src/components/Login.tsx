@@ -26,18 +26,24 @@ export default function Login({ onLogin }: LoginProps) {
     setError('');
 
     try {
-      // 1. Check for Admin
-      // 1. Check for Admin in Database
-      const { data: adminData, error: adminError } = await supabase
-        .from('admin_profiles')
-        .select('mobile_number')
-        .eq('mobile_number', id)
-        .eq('password', password)
-        .single();
+      // 1. Try Secure Admin Login via Supabase Auth (Mobile & Password)
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        phone: id,
+        password: password,
+      });
 
-      if (adminData && !adminError) {
-        onLogin(adminData.mobile_number, 'admin');
-        return;
+      if (authData.user && !authError) {
+        // Verify this mobile number exists in admin_profiles
+        const { data: adminProfile } = await supabase
+          .from('admin_profiles')
+          .select('mobile_number')
+          .eq('mobile_number', id)
+          .single();
+
+        if (adminProfile) {
+          onLogin(adminProfile.mobile_number, 'admin');
+          return;
+        }
       }
 
       // 2. Check for User in Database
