@@ -151,7 +151,7 @@ export default function UsersList() {
       
       doc.setFontSize(20);
       doc.setTextColor(79, 70, 229);
-      doc.text('RAJWADI PORTAL - USERS REPORT', 14, 22);
+      doc.text('USEPAY PORTAL - USERS REPORT', 14, 22);
       
       doc.setFontSize(10);
       doc.setTextColor(100);

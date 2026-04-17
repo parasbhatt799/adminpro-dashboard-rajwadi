@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ShieldCheck, 
-  Upload, 
-  Camera, 
-  CheckCircle2, 
+import {
+  ShieldCheck,
+  Upload,
+  Camera,
+  CheckCircle2,
   AlertCircle,
   Loader2,
   FileText,
@@ -89,7 +89,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate all files are present
     const missingFiles = Object.keys(files).filter(key => !files[key]);
     if (missingFiles.length > 0) {
@@ -119,7 +119,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         const { data: { publicUrl } } = supabase.storage
           .from('profiles')
           .getPublicUrl(filePath);
-        
+
         urls[`${key}_url`] = publicUrl;
       }
 
@@ -180,7 +180,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
   // If verified, show welcome
   if (userProfile?.kyc_status === 'verified') {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-white rounded-3xl p-12 text-center border border-emerald-100 shadow-xl shadow-emerald-500/5"
@@ -189,7 +189,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
           <CheckCircle2 size={40} />
         </div>
         <h2 className="text-3xl font-bold text-slate-900 mb-2">Your Dashboard is active.</h2>
-        <p className="text-xl text-emerald-600 font-bold mb-6">Welcome to Rajwadi</p>
+        <p className="text-xl text-emerald-600 font-bold mb-6">Welcome to UsePay</p>
         <p className="text-slate-500 max-w-md mx-auto">
           Your identity has been verified. You can now access all features of the portal.
         </p>
@@ -200,7 +200,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
   // If submitted and pending
   if (userProfile?.kyc_status === 'submitted') {
     return (
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="bg-white rounded-3xl p-12 text-center border border-amber-100 shadow-xl shadow-amber-500/5"
@@ -225,7 +225,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
       <div className="text-center">
         <h2 className="text-3xl font-bold text-slate-900">KYC Verification</h2>
         <p className="text-slate-500 mt-2">Please upload the following documents to activate your account.</p>
-        
+
         {userProfile?.kyc_status === 'rejected' && (
           <div className="mt-6 p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-left">
             <AlertCircle size={24} className="shrink-0" />
@@ -249,9 +249,8 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
           ].map((doc) => (
             <div key={doc.key} className="space-y-2">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">{doc.label}</label>
-              <label className={`relative flex flex-col items-center justify-center aspect-video rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden ${
-                previews[doc.key] ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-slate-50'
-              }`}>
+              <label className={`relative flex flex-col items-center justify-center aspect-video rounded-2xl border-2 border-dashed transition-all cursor-pointer overflow-hidden ${previews[doc.key] ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200 bg-white hover:border-indigo-400 hover:bg-slate-50'
+                }`}>
                 {previews[doc.key] ? (
                   <img src={previews[doc.key]!} alt={doc.label} className="w-full h-full object-cover" />
                 ) : (
@@ -260,9 +259,9 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
                     <span className="text-[10px] font-bold mt-2">Click to upload</span>
                   </div>
                 )}
-                <input 
-                  type="file" 
-                  className="sr-only" 
+                <input
+                  type="file"
+                  className="sr-only"
                   accept="image/*"
                   onChange={(e) => handleFileChange(e, doc.key)}
                 />

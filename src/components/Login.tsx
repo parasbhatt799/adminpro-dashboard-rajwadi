@@ -47,7 +47,7 @@ export default function Login({ onLogin }: LoginProps) {
         // Use the phone number from the authenticated user to handle country codes (+91)
         const authenticatedPhone = authData.user.phone || '';
         const normalizedPhone = authenticatedPhone.replace('+', '');
-        
+
         // Verify this mobile number exists in admin_profiles
         // We check for exact match or the number without the country code
         const { data: adminProfile } = await supabase
@@ -146,7 +146,7 @@ export default function Login({ onLogin }: LoginProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           to: data.email,
-          subject: 'Account Recovery - Rajwadi',
+          subject: 'Account Recovery - UsePay',
           html: `
             <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
               <h2 style="color: #4f46e5; margin-bottom: 24px;">Account Recovery</h2>
@@ -161,7 +161,7 @@ export default function Login({ onLogin }: LoginProps) {
               <p style="font-size: 14px; color: #64748b; margin-top: 24px;">If you did not request this, please contact support immediately.</p>
               
               <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-              <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated message from Rajwadi.</p>
+              <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated message from UsePay.</p>
             </div>
           `
         }),
@@ -197,7 +197,7 @@ export default function Login({ onLogin }: LoginProps) {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/10 rounded-full blur-[120px]"></div>
       </div>
 
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
         className="w-full max-w-md relative z-10"
@@ -234,7 +234,7 @@ export default function Login({ onLogin }: LoginProps) {
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">
                   Password
                 </label>
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsForgotModalOpen(true)}
                   className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
@@ -263,7 +263,7 @@ export default function Login({ onLogin }: LoginProps) {
                 </button>
               </div>
               {error && (
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="text-rose-500 text-xs font-bold mt-2 ml-1"
@@ -308,7 +308,7 @@ export default function Login({ onLogin }: LoginProps) {
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               className="w-full max-w-sm relative z-10 bg-slate-900 border border-white/10 p-8 rounded-3xl shadow-2xl"
             >
-              <button 
+              <button
                 onClick={() => setIsForgotModalOpen(false)}
                 className="absolute right-6 top-6 text-slate-500 hover:text-white transition-colors"
               >

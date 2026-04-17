@@ -1,12 +1,12 @@
-import { 
-  ArrowLeft, 
-  User, 
-  Mail, 
-  Phone, 
-  MapPin, 
-  Building2, 
-  Percent, 
-  IndianRupee, 
+import {
+  ArrowLeft,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Building2,
+  Percent,
+  IndianRupee,
   Camera,
   Save,
   Loader2
@@ -112,7 +112,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
         const { data: { publicUrl } } = supabase.storage
           .from('profiles')
           .getPublicUrl(filePath);
-        
+
         profile_photo_url = publicUrl;
       }
 
@@ -143,7 +143,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
           .from('users_profiles')
           .update(userData)
           .eq('id', initialData.id);
-        
+
         if (updateError) throw updateError;
       } else {
         const { error: insertError } = await supabase
@@ -161,10 +161,10 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
             },
             body: JSON.stringify({
               to: formData.email,
-              subject: 'Welcome to Rajwadi - Your Account Details',
+              subject: 'Welcome to UsePay - Your Account Details',
               html: `
                 <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
-                  <h2 style="color: #4f46e5; margin-bottom: 24px;">Welcome to Rajwadi, ${fullName}!</h2>
+                  <h2 style="color: #4f46e5; margin-bottom: 24px;">Welcome to UsePay, ${fullName}!</h2>
                   <p style="font-size: 16px; line-height: 1.6;">Your account has been created by the administrator. You can now log in using the credentials below:</p>
                   
                   <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #f1f5f9;">
@@ -179,7 +179,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                   
                   <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
                   
-                  <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated message from Rajwadi. Please do not reply to this email.</p>
+                  <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated message from UsePay. Please do not reply to this email.</p>
                 </div>
               `
             }),
@@ -193,11 +193,11 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
           } catch (e) {
             result = { error: responseText || `Status: ${emailResponse.status}` };
           }
-          
+
           if (!emailResponse.ok) {
             throw new Error(result.error || 'Server error');
           }
-          
+
           alert(`User created successfully!\n\nCredentials have been sent to ${formData.email}.\n\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
         } catch (emailErr) {
           console.error('Error calling email API:', emailErr);
@@ -218,7 +218,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <button 
+        <button
           onClick={onBack}
           className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
         >
@@ -246,15 +246,15 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                     <span className="text-[10px] font-bold uppercase mt-2">Upload Photo</span>
                   </>
                 )}
-                <input 
-                  type="file" 
-                  className="sr-only" 
+                <input
+                  type="file"
+                  className="sr-only"
                   accept="image/*"
                   onChange={handlePhotoChange}
                 />
               </label>
               {photoPreview && (
-                <button 
+                <button
                   type="button"
                   onClick={() => { setProfilePhoto(null); setPhotoPreview(null); }}
                   className="absolute -top-2 -right-2 bg-rose-500 text-white p-1.5 rounded-full shadow-lg hover:bg-rose-600 transition-colors"
@@ -263,16 +263,16 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                 </button>
               )}
             </div>
-            
+
             <div className="space-y-4 text-left">
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                   <label className="sm:w-24 text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
+                    <input
                       required
-                      type="text" 
+                      type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       placeholder="Enter first name"
                       value={formData.firstName}
@@ -284,8 +284,8 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                   <label className="sm:w-24 text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name</label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       placeholder="Enter middle name"
                       value={formData.middleName}
@@ -297,9 +297,9 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                   <label className="sm:w-24 text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
+                    <input
                       required
-                      type="text" 
+                      type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       placeholder="Enter last name"
                       value={formData.lastName}
@@ -312,9 +312,9 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
+                  <input
                     required
-                    type="email" 
+                    type="email"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     placeholder="user@example.com"
                     value={formData.email}
@@ -326,9 +326,9 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Mobile Number</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
+                  <input
                     required
-                    type="tel" 
+                    type="tel"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     placeholder="+1 234 567 890"
                     value={formData.mobile_number}
@@ -347,11 +347,11 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               <MapPin size={20} className="text-indigo-600" />
               Address & Business Details
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Home Address</label>
-                <textarea 
+                <textarea
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all min-h-[80px]"
                   placeholder="Enter complete home address"
                   value={formData.home_address}
@@ -362,8 +362,8 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Name</label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     placeholder="Enter firm name"
                     value={formData.firm_name}
@@ -373,7 +373,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Address</label>
-                <textarea 
+                <textarea
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all min-h-[80px]"
                   placeholder="Enter firm address"
                   value={formData.firm_address}
@@ -388,14 +388,14 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               <Percent size={20} className="text-indigo-600" />
               Service Charges
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">QR Service Charge (%)</label>
                 <div className="relative">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     step="0.01"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     placeholder="0.00"
@@ -408,8 +408,8 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               <div className="flex flex-col justify-center">
                 <label className="flex items-center gap-3 cursor-pointer group">
                   <div className="relative">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="sr-only"
                       checked={formData.service_charge_enabled}
                       onChange={(e) => setFormData({ ...formData, service_charge_enabled: e.target.checked })}
@@ -422,7 +422,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               </div>
 
               {formData.service_charge_enabled && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
                   className="md:col-span-2"
@@ -430,8 +430,8 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Service Charge</label>
                   <div className="relative">
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input 
-                      type="number" 
+                    <input
+                      type="number"
                       step="0.01"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       placeholder="0.00"
@@ -451,14 +451,14 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
           )}
 
           <div className="flex justify-end gap-4">
-            <button 
+            <button
               type="button"
               onClick={onBack}
               className="px-8 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
             >
               Cancel
             </button>
-            <button 
+            <button
               type="submit"
               disabled={loading}
               className="px-10 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"

@@ -1,5 +1,5 @@
 -- =============================================================
--- MASTER DATABASE SETUP COMPLETED - RAJWADI / USEPAY
+-- MASTER DATABASE SETUP COMPLETED - USEPAY
 -- =============================================================
 -- This script contains ALL Tables, Buckets, and Policies.
 -- Run this in Supabase SQL Editor to reset and setup EVERYTHING.
