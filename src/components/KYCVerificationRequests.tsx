@@ -27,6 +27,7 @@ interface KYCSubmission {
   cheque_photo_url: string;
   selfie_url: string;
   firm_photo_url: string;
+  signed_agreement_url?: string;
   created_at: string;
   users_profiles: {
     name: string;
@@ -269,23 +270,33 @@ export default function KYCVerificationRequests() {
                     { label: 'PAN Card', url: selectedSubmission.pan_card_url },
                     { label: 'Blank Cheque', url: selectedSubmission.cheque_photo_url },
                     { label: 'User Selfie', url: selectedSubmission.selfie_url },
-                    { label: 'Firm Photo', url: selectedSubmission.firm_photo_url }
-                  ].map((doc, i) => (
+                    { label: 'Firm Photo', url: selectedSubmission.firm_photo_url },
+                    { label: 'Signed Agreement', url: selectedSubmission.signed_agreement_url, isPdf: true }
+                  ].filter(doc => doc.url).map((doc: any, i) => (
                     <div key={i} className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{doc.label}</span>
-                        <button 
-                          onClick={() => setPreviewUrl(doc.url)}
+                        <a 
+                          href={doc.url} 
+                          target="_blank" 
+                          rel="noreferrer"
                           className="text-indigo-600 hover:underline text-xs font-bold flex items-center gap-1"
                         >
                           <Eye size={12} /> Full View
-                        </button>
+                        </a>
                       </div>
                       <div 
                         onClick={() => setPreviewUrl(doc.url)}
-                        className="aspect-video rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 group relative cursor-pointer"
+                        className="aspect-video rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 group relative cursor-pointer flex items-center justify-center font-bold text-slate-400"
                       >
-                        <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        {doc.isPdf || doc.url.toLowerCase().endsWith('.pdf') ? (
+                          <div className="flex flex-col items-center gap-2">
+                             <FileText size={40} className="text-indigo-200" />
+                             <span className="text-[10px] uppercase tracking-widest">Signed PDF</span>
+                          </div>
+                        ) : (
+                          <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        )}
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                           <Eye className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={24} />
                         </div>
@@ -332,11 +343,17 @@ export default function KYCVerificationRequests() {
               >
                 <X size={24} />
               </button>
-              <img 
-                src={previewUrl} 
-                alt="Document Preview" 
-                className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/10"
-              />
+              {previewUrl.toLowerCase().endsWith('.pdf') ? (
+                <div className="w-full h-[80vh] bg-white rounded-2xl overflow-hidden">
+                  <iframe src={previewUrl} className="w-full h-full border-none" title="PDF Preview" />
+                </div>
+              ) : (
+                <img 
+                  src={previewUrl} 
+                  alt="Document Preview" 
+                  className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+                />
+              )}
               <div className="mt-6 flex gap-4">
                 <button 
                   onClick={async () => {

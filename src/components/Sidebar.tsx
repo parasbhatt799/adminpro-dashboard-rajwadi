@@ -50,6 +50,7 @@ const menuItems = [
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
   { id: 'headlines', label: 'Add Anouncement', icon: Megaphone, path: '/headlines' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/policies' },
+  { id: 'user-agreement', label: 'User Agreement', icon: ShieldCheck, path: '/agreement' },
   { id: 'admin-management', label: 'Admin Management', icon: Shield, path: '/admin-management', role: 'full' },
   { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password', role: 'full' },
 ];

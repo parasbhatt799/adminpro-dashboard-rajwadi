@@ -12,6 +12,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
+import { PDFDocument } from 'pdf-lib';
+import SignatureCanvas from 'react-signature-canvas';
+import { useRef } from 'react';
 
 interface UserKYCProps {
   userId: string;
@@ -24,6 +27,9 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
   const [kycData, setKycData] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [agreementTemplate, setAgreementTemplate] = useState<string | null>(null);
+  const sigCanvas = useRef<any>(null);
+  const [hasSigned, setHasSigned] = useState(false);
 
   const [files, setFiles] = useState<{ [key: string]: File | null }>({
     aadhaar_front: null,
@@ -64,6 +70,17 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
 
       if (kycError) throw kycError;
       setKycData(kyc);
+
+      // Fetch agreement template
+      const { data: qrSettings } = await supabase
+        .from('qr_settings')
+        .select('agreement_pdf_url')
+        .eq('id', 1)
+        .single();
+      
+      if (qrSettings?.agreement_pdf_url) {
+        setAgreementTemplate(qrSettings.agreement_pdf_url);
+      }
     } catch (err) {
       console.error('Error fetching KYC:', err);
     } finally {
@@ -97,11 +114,55 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
       return;
     }
 
+    if (agreementTemplate && !hasSigned) {
+      setError('Please sign the User Agreement before submitting.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
       const urls: { [key: string]: string } = {};
+
+      // 0. Process & Merge Agreement if exists
+      if (agreementTemplate && sigCanvas.current) {
+        const signatureDataUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+        
+        // Merge signature into PDF
+        const existingPdfBytes = await fetch(agreementTemplate).then(res => res.arrayBuffer());
+        const pdfDoc = await PDFDocument.load(existingPdfBytes);
+        const signatureImage = await pdfDoc.embedPng(signatureDataUrl);
+        
+        const pages = pdfDoc.getPages();
+        const lastPage = pages[pages.length - 1];
+        const { width, height } = lastPage.getSize();
+        
+        // Draw signature at the bottom (x: 50, y: 50, approx 150x75 size)
+        lastPage.drawImage(signatureImage, {
+          x: 50,
+          y: 50,
+          width: 150,
+          height: 75,
+        });
+
+        const mergedPdfBytes = await pdfDoc.save();
+        const mergedPdfBlob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+        const mergedPdfFile = new File([mergedPdfBlob], 'signed_agreement.pdf', { type: 'application/pdf' });
+
+        const agreementPath = `kyc/${userId}_signed_agreement_${Math.random().toString(36).substring(7)}.pdf`;
+        const { error: uploadError } = await supabase.storage
+          .from('profiles')
+          .upload(agreementPath, mergedPdfFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('profiles')
+          .getPublicUrl(agreementPath);
+
+        urls['signed_agreement_url'] = publicUrl;
+      }
 
       // 1. Upload all files
       for (const key of Object.keys(files)) {
@@ -237,8 +298,21 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         )}
       </div>
 
+      {agreementTemplate && (
+        <AgreementSection 
+          template={agreementTemplate} 
+          sigCanvas={sigCanvas} 
+          setHasSigned={setHasSigned} 
+        />
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="md:col-span-2 lg:col-span-3">
+             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest px-1 mb-4 flex items-center gap-2">
+               <Upload size={14} /> Step 2: KYC Documents
+             </h3>
+          </div>
           {[
             { key: 'aadhaar_front', label: 'Aadhaar Card (Front)', icon: FileText },
             { key: 'aadhaar_back', label: 'Aadhaar Card (Back)', icon: FileText },
@@ -290,6 +364,71 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
     </div>
   );
 }
+
+const AgreementSection = ({ template, sigCanvas, setHasSigned }: any) => (
+  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-12">
+    <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+        <FileText size={20} />
+      </div>
+      <div>
+        <h3 className="font-bold text-slate-900 leading-none">Step 1: User Agreement</h3>
+        <p className="text-xs text-slate-500 mt-1">Please read and sign the agreement below</p>
+      </div>
+    </div>
+    
+    <div className="p-8 space-y-8">
+      {/* PDF View */}
+      <div className="aspect-[4/5] bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden relative group">
+        <iframe 
+          src={`${template}#toolbar=0`} 
+          className="w-full h-full border-none"
+          title="Agreement Template"
+        />
+        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+          <a 
+            href={template} 
+            target="_blank" 
+            rel="noreferrer"
+            className="bg-white/90 backdrop-blur-sm p-2 rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm border border-slate-200"
+          >
+            <Download size={18} />
+          </a>
+        </div>
+      </div>
+
+      {/* Signature Pad */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Draw your signature below</label>
+          <button 
+            type="button"
+            onClick={() => {
+              sigCanvas.current.clear();
+              setHasSigned(false);
+            }}
+            className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
+          >
+            Clear Canvas
+          </button>
+        </div>
+        <div className="border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 overflow-hidden p-4">
+          <SignatureCanvas 
+            ref={sigCanvas}
+            penColor="black"
+            canvasProps={{
+              className: "w-full min-h-[150px] cursor-crosshair h-40",
+            }}
+            onEnd={() => setHasSigned(true)}
+          />
+        </div>
+        <p className="text-[10px] text-slate-400 text-center font-medium italic">
+          By signing above, you agree to the terms and conditions outlined in the agreement.
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
 // Helper icons for the mapping
 import { CreditCard, Building2 } from 'lucide-react';

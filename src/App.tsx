@@ -24,6 +24,7 @@ import PolicyManagement from './components/PolicyManagement';
 import AdminManagement from './components/AdminManagement';
 import ChangePassword from './components/ChangePassword';
 import Login from './components/Login';
+import AgreementManagement from './components/AgreementManagement';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
@@ -478,6 +479,7 @@ export default function App() {
           </Route>
           <Route path="headlines" element={<HeadlineManagement />} />
           <Route path="policies" element={<PolicyManagement />} />
+          <Route path="agreement" element={<AgreementManagement />} />
           {adminRole === 'full' && (
             <>
               <Route path="admin-management" element={<AdminManagement currentAdminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
