@@ -9,7 +9,8 @@ import {
   IndianRupee,
   Camera,
   Save,
-  Loader2
+  Loader2,
+  Shield
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useState, type FormEvent, type ChangeEvent } from 'react';
@@ -52,6 +53,9 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
     charge_percentage: initialData?.charge_percentage?.toString() || '',
     service_charge_enabled: initialData?.service_charge_enabled ?? false,
     custom_service_charge: initialData?.custom_service_charge?.toString() || '',
+    hold_balance: initialData?.hold_balance?.toString() || '0',
+    is_hold_active: (initialData?.hold_balance || 0) > 0,
+    hold_input: '0'
   });
 
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -131,6 +135,47 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
         profile_photo_url,
         status: initialData?.status || 'Active'
       };
+
+      // Handle Hold Balance Logic
+      if (initialData) {
+        let finalWallet = Number(initialData.wallet_balance || 0);
+        let finalHold = Number(initialData.hold_balance || 0);
+
+        if (formData.is_hold_active) {
+          const newHoldAmount = parseFloat(formData.hold_input) || 0;
+          if (newHoldAmount > 0) {
+            // Check if they already have a hold
+            if (finalHold > 0) {
+              // Adjusting existing hold
+              const diff = newHoldAmount - finalHold;
+              if (diff > 0) {
+                // Holding more
+                if (finalWallet < diff) throw new Error("Insufficient wallet balance to add to hold.");
+                finalWallet -= diff;
+                finalHold += diff;
+              } else if (diff < 0) {
+                // Releasing partial hold
+                finalWallet += Math.abs(diff);
+                finalHold -= Math.abs(diff);
+              }
+            } else {
+              // Creating new hold
+              if (finalWallet < newHoldAmount) throw new Error("Insufficient wallet balance for hold.");
+              finalWallet -= newHoldAmount;
+              finalHold = newHoldAmount;
+            }
+          }
+        } else {
+          // Releasing all hold if toggle was turned off
+          if (finalHold > 0) {
+            finalWallet += finalHold;
+            finalHold = 0;
+          }
+        }
+
+        userData.wallet_balance = finalWallet;
+        userData.hold_balance = finalHold;
+      }
 
       if (!initialData) {
         userData.password = generatedPassword;
@@ -443,6 +488,65 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               )}
             </div>
           </div>
+
+          {/* Hold Balance Management Section */}
+          {initialData && (
+            <div className="bg-amber-50 rounded-3xl border border-amber-100 shadow-sm p-8">
+              <h3 className="font-bold text-amber-900 mb-6 flex items-center gap-2">
+                <Shield size={20} className="text-amber-600" />
+                Hold Balance Management
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                   <div className="bg-white p-4 rounded-2xl border border-amber-200 inline-block">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Current Wallet</p>
+                      <p className="text-xl font-bold text-slate-900">₹{Number(initialData.wallet_balance || 0).toLocaleString()}</p>
+                   </div>
+                   <div className="bg-amber-600 p-4 rounded-2xl text-white inline-block ml-4">
+                      <p className="text-[10px] font-bold text-amber-200 uppercase tracking-widest mb-1">Current Hold</p>
+                      <p className="text-xl font-bold">₹{Number(initialData.hold_balance || 0).toLocaleString()}</p>
+                   </div>
+                </div>
+
+                <div className="flex flex-col gap-6">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={formData.is_hold_active}
+                        onChange={(e) => setFormData({ ...formData, is_hold_active: e.target.checked })}
+                      />
+                      <div className={`w-12 h-6 rounded-full transition-colors ${formData.is_hold_active ? 'bg-amber-600' : 'bg-slate-200'}`}></div>
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.is_hold_active ? 'translate-x-6' : ''}`}></div>
+                    </div>
+                    <span className="text-sm font-bold text-slate-700">Put Funds on Hold</span>
+                  </label>
+
+                  {formData.is_hold_active && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                    >
+                      <label className="block text-xs font-bold text-amber-700 uppercase tracking-widest mb-1.5 ml-1">New Hold Amount (Target)</label>
+                      <div className="relative">
+                        <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-400" size={16} />
+                        <input
+                          type="number"
+                          className="w-full pl-10 pr-4 py-2.5 bg-white border border-amber-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+                          placeholder="Enter amount to hold..."
+                          value={formData.hold_input}
+                          onChange={(e) => setFormData({ ...formData, hold_input: e.target.value })}
+                        />
+                      </div>
+                      <p className="text-[10px] text-amber-600 mt-2 font-medium">Money will be moved from Main Wallet to Hold Wallet.</p>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-medium">

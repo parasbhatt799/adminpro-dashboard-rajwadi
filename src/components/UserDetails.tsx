@@ -14,7 +14,8 @@ import {
   X,
   MapPin,
   CreditCard,
-  Download
+  Download,
+  Lock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -317,6 +318,17 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
               <CreditCard size={24} className="text-indigo-300" />
             </div>
           </div>
+
+          {Number(user.hold_balance || 0) > 0 && (
+            <div className="bg-amber-500 rounded-3xl p-6 text-white shadow-lg shadow-amber-100">
+               <h4 className="text-amber-100 text-xs font-bold uppercase tracking-widest mb-4">Hold Balance</h4>
+               <div className="flex items-end justify-between">
+                 <p className="text-3xl font-bold">₹{Number(user.hold_balance || 0).toLocaleString()}</p>
+                 <Lock size={24} className="text-amber-200" />
+               </div>
+               <p className="text-[10px] text-amber-100 mt-2 font-bold uppercase tracking-widest">Locked by Administrator</p>
+            </div>
+          )}
         </div>
 
         {/* Details Tabs/Content */}

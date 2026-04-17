@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
 import ChangePassword from './ChangePassword';
-import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu } from 'lucide-react';
+import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -331,6 +331,13 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
               <Wallet className="text-emerald-600" size={18} />
               <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
+
+            {Number(userProfile?.hold_balance || 0) > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl" title="Hold Balance (Locked)">
+                <Lock className="text-amber-600" size={14} />
+                <span className="text-sm font-bold text-amber-700">₹{(Number(userProfile?.hold_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            )}
             <div className="relative">
               <button
                 type="button"

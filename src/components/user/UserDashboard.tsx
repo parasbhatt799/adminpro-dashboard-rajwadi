@@ -4,7 +4,8 @@ import {
   Clock,
   QrCode,
   CreditCard,
-  Loader2
+  Loader2,
+  Lock
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../../lib/supabase';
@@ -63,6 +64,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
             icon: Wallet,
             color: "bg-emerald-500"
           },
+          ...(Number(profile?.hold_balance || 0) > 0 ? [{
+            title: "Hold Balance",
+            value: `₹${(Number(profile?.hold_balance) || 0).toLocaleString()}`,
+            trend: "neutral",
+            icon: Lock,
+            color: "bg-amber-500",
+            subtitle: "Locked by Admin"
+          }] : []),
           {
             title: "QR Payment",
             value: `₹${qrTotal.toLocaleString()}`,
@@ -110,31 +119,32 @@ export default function UserDashboard({ userId }: { userId: string }) {
         <p className="text-slate-500 mt-1">Here's what's happening with your account today.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {stats.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <motion.div
               key={stat.title}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
+              className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group"
             >
+              {stat.title === "Hold Balance" && (
+                <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full flex items-center justify-center translate-x-4 -translate-y-4 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform">
+                   <Lock size={12} className="text-amber-500" />
+                </div>
+              )}
               <div className="flex items-center justify-between mb-4">
                 <div className={`p-3 rounded-2xl ${stat.color} text-white shadow-lg shadow-current/20`}>
                   <Icon size={24} />
                 </div>
-                <span className={`text-xs font-bold px-2 py-1 rounded-full ${
-                  stat.trend === 'up' ? 'bg-emerald-50 text-emerald-600' : 
-                  stat.trend === 'down' ? 'bg-rose-50 text-rose-600' : 
-                  'bg-slate-50 text-slate-600'
-                }`}>
-                  {stat.change}
-                </span>
               </div>
               <p className="text-sm font-medium text-slate-500">{stat.title}</p>
               <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+              {stat.subtitle && (
+                <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-2">{stat.subtitle}</p>
+              )}
             </motion.div>
           );
         })}
