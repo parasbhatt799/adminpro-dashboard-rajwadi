@@ -42,6 +42,7 @@ export default function KYCVerificationRequests() {
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [selectedSubmission, setSelectedSubmission] = useState<KYCSubmission | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
 
@@ -273,9 +274,12 @@ export default function KYCVerificationRequests() {
                     <div key={i} className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{doc.label}</span>
-                        <a href={doc.url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline text-xs font-bold flex items-center gap-1">
-                          <Download size={12} /> Full View
-                        </a>
+                        <button 
+                          onClick={() => setPreviewUrl(doc.url)}
+                          className="text-indigo-600 hover:underline text-xs font-bold flex items-center gap-1"
+                        >
+                          <Eye size={12} /> Full View
+                        </button>
                       </div>
                       <div className="aspect-video rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 group relative">
                         <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -301,6 +305,55 @@ export default function KYCVerificationRequests() {
                   </button>
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Full Resolution Preview Modal */}
+      <AnimatePresence>
+        {previewUrl && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center focus:outline-none"
+            >
+              <button 
+                onClick={() => setPreviewUrl(null)}
+                className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors bg-white/10 hover:bg-white/20 rounded-full"
+              >
+                <X size={24} />
+              </button>
+              <img 
+                src={previewUrl} 
+                alt="Document Preview" 
+                className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/10"
+              />
+              <div className="mt-6 flex gap-4">
+                <button 
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(previewUrl);
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `document-${Date.now()}.jpg`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                    } catch (err) {
+                      window.open(previewUrl, '_blank');
+                    }
+                  }}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-white text-slate-900 rounded-xl font-bold shadow-xl hover:bg-slate-50 transition-all"
+                >
+                  <Download size={18} />
+                  Download File
+                </button>
+              </div>
             </motion.div>
           </div>
         )}
