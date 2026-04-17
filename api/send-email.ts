@@ -25,8 +25,11 @@ export default async function handler(req: any, res: any) {
   });
 
   try {
+    const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+    const fromName = process.env.SMTP_FROM_NAME || 'UsePay';
+
     await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      from: `"${fromName}" <${fromEmail}>`,
       to,
       subject,
       html,
