@@ -107,7 +107,7 @@ export default function Dashboard() {
       let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingBillQuery = supabase.from('bill_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingQrQuery = supabase.from('payment_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
-      let activeUsersQuery = supabase.from('users_profiles').select('count', { count: 'exact', head: true }).eq('kyc_status', 'approved');
+      let activeUsersQuery = supabase.from('users_profiles').select('count', { count: 'exact', head: true }).eq('kyc_status', 'verified');
 
       if (startDate && endDate) {
         billQuery = billQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
