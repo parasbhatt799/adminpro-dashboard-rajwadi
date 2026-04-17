@@ -365,7 +365,7 @@ export default function BillPaymentRequests() {
                               {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id.slice(0, 8)}`}
                             </p>
                             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                              {new Date(req.created_at).toLocaleDateString()}
+                              {new Date(req.created_at).toLocaleDateString()} {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
                         </div>
