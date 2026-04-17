@@ -31,55 +31,58 @@ const AgreementSection = ({ template, sigCanvas, setHasSigned }: any) => (
       </div>
     </div>
     
-    <div className="p-8 space-y-8">
-      {/* PDF View */}
-      <div className="aspect-[4/5] bg-white rounded-2xl border border-slate-200 overflow-hidden relative group shadow-inner">
-        <iframe 
-          src={`${template}#toolbar=0`} 
-          className="w-full h-full border-none bg-white" 
-          title="Agreement Template"
-        />
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <a 
-            href={template} 
-            target="_blank" 
-            rel="noreferrer"
-            className="bg-white/90 backdrop-blur-sm p-2 rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm border border-slate-200"
-          >
-            <Download size={18} />
-          </a>
-        </div>
-      </div>
-
-      {/* Signature Pad */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Draw your signature below</label>
-          <button 
-            type="button"
-            onClick={() => {
-              sigCanvas.current.clear();
-              setHasSigned(false);
-            }}
-            className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
-          >
-            Clear Canvas
-          </button>
-        </div>
-        <div className="border-2 border-dashed border-slate-200 rounded-3xl bg-white overflow-hidden p-4 shadow-inner">
-          <SignatureCanvas 
-            ref={sigCanvas}
-            penColor="black"
-            canvasProps={{
-              className: "w-full min-h-[150px] cursor-crosshair h-40",
-            }}
-            onEnd={() => setHasSigned(true)}
+    <div className="p-8 space-y-4">
+      {/* Integrated Agreement Container */}
+      <div className="border border-slate-200 rounded-3xl overflow-hidden bg-white shadow-inner">
+        {/* PDF View - Reduced Height */}
+        <div className="h-[350px] border-b border-slate-100 relative group">
+          <iframe 
+            src={`${template}#toolbar=0`} 
+            className="w-full h-full border-none bg-white font-bold" 
+            title="Agreement Template"
           />
+          <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+            <a 
+              href={template} 
+              target="_blank" 
+              rel="noreferrer"
+              className="bg-white/90 backdrop-blur-sm p-2 rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm border border-slate-200"
+            >
+              <Download size={18} />
+            </a>
+          </div>
         </div>
-        <p className="text-[10px] text-slate-400 text-center font-medium italic">
-          By signing above, you agree to the terms and conditions outlined in the agreement.
-        </p>
+
+        {/* Signature Area Directly Below */}
+        <div className="p-6 bg-white space-y-4">
+          <div className="flex items-center justify-between px-1">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Draw your signature below</label>
+            <button 
+              type="button"
+              onClick={() => {
+                sigCanvas.current.clear();
+                setHasSigned(false);
+              }}
+              className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
+            >
+              Clear Canvas
+            </button>
+          </div>
+          <div className="bg-white rounded-2xl overflow-hidden border-2 border-dashed border-slate-100 flex items-center justify-center min-h-[160px]">
+            <SignatureCanvas 
+              ref={sigCanvas}
+              penColor="black"
+              canvasProps={{
+                className: "w-full cursor-crosshair h-40",
+              }}
+              onEnd={() => setHasSigned(true)}
+            />
+          </div>
+        </div>
       </div>
+      <p className="text-[10px] text-slate-400 text-center font-medium italic px-4">
+        By signing above, you agree to the terms and conditions outlined in the agreement.
+      </p>
     </div>
   </div>
 );
