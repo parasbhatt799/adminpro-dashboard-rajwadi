@@ -11,7 +11,9 @@ import {
   Table as TableIcon,
   FileSpreadsheet,
   FileText,
-  ChevronRight
+  ChevronRight,
+  X,
+  Hash
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -40,6 +42,7 @@ export default function QRPaymentReport() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [selectedProof, setSelectedProof] = useState<QRPaymentRequest | null>(null);
   const limit = 10;
 
   // Autocomplete state
@@ -302,19 +305,19 @@ export default function QRPaymentReport() {
                     <div className="max-h-60 overflow-y-auto no-scrollbar">
                       {suggestions.map((s, i) => (
                         <button
-                          key={i}
-                          onClick={() => {
-                            setFirmName(s);
-                            setShowSuggestions(false);
-                            // Auto-trigger search when selecting a suggestion
-                            setTimeout(() => fetchRequests(), 0);
-                          }}
-                          className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 text-left transition-colors group"
+                           key={i}
+                           onClick={() => {
+                             setFirmName(s);
+                             setShowSuggestions(false);
+                             // Auto-trigger search when selecting a suggestion
+                             setTimeout(() => fetchRequests(), 0);
+                           }}
+                           className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 text-left transition-colors group"
                         >
-                          <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 truncate">
-                            {s}
-                          </span>
-                          <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+                           <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 truncate">
+                             {s}
+                           </span>
+                           <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
                         </button>
                       ))}
                     </div>
@@ -458,14 +461,13 @@ export default function QRPaymentReport() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <a 
-                          href={req.proof_url} 
-                          target="_blank" 
-                          rel="noreferrer"
+                        <button 
+                          onClick={() => setSelectedProof(req)}
                           className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg inline-block transition-colors"
+                          title="View Proof"
                         >
                           <ExternalLink size={16} />
-                        </a>
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -503,6 +505,84 @@ export default function QRPaymentReport() {
           </button>
         </div>
       )}
+
+      {/* Proof Preview Modal */}
+      <AnimatePresence>
+        {selectedProof && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-4xl max-h-[95vh] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col"
+            >
+              <div className="absolute top-4 right-4 z-10">
+                <button 
+                  onClick={() => setSelectedProof(null)}
+                  className="p-2 bg-white/90 hover:bg-white text-slate-900 rounded-full shadow-lg transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+              
+              <div className="flex-1 bg-slate-50 flex items-center justify-center overflow-hidden p-2 md:p-4">
+                <img 
+                  src={selectedProof.proof_url} 
+                  alt="Payment Proof" 
+                  className="max-w-full max-h-[calc(95vh-150px)] object-contain rounded-xl shadow-sm"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+
+              <div className="p-6 bg-white border-t border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                  <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
+                    <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
+                      <Hash size={16} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">UTR ID</p>
+                      <p className="text-sm font-bold text-slate-900">{selectedProof.utr_id}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 bg-emerald-50 px-4 py-2 rounded-2xl border border-emerald-100">
+                    <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
+                      <IndianRupee size={16} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Amount</p>
+                      <p className="text-sm font-bold text-emerald-900">₹{selectedProof.amount.toLocaleString()}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(selectedProof.proof_url);
+                      const blob = await response.blob();
+                      const url = window.URL.createObjectURL(blob);
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = `proof-${selectedProof.utr_id}.jpg`;
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      window.URL.revokeObjectURL(url);
+                    } catch (err) {
+                      window.open(selectedProof.proof_url, '_blank');
+                    }
+                  }}
+                  className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-800 transition-all shadow-lg"
+                >
+                  <Download size={18} />
+                  Download
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
