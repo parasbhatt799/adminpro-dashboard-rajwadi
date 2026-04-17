@@ -106,16 +106,24 @@ export default function Dashboard() {
       let qrQuery = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved');
       let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingBillQuery = supabase.from('bill_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
+      let pendingQrQuery = supabase.from('payment_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
 
       if (startDate && endDate) {
         billQuery = billQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
         qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      const [billRes, qrRes, kycRes, pendingBillRes] = await Promise.all([billQuery, qrQuery, pendingKycQuery, pendingBillQuery]);
+      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes] = await Promise.all([
+        billQuery, 
+        qrQuery, 
+        pendingKycQuery, 
+        pendingBillQuery,
+        pendingQrQuery
+      ]);
       
       const pendingKycCount = kycRes.count || 0;
       const pendingBillCount = pendingBillRes.count || 0;
+      const pendingQrCount = pendingQrRes.count || 0;
       
       const billData = billRes.data || [];
       const qrData = qrRes.data || [];
@@ -183,11 +191,11 @@ export default function Dashboard() {
           description: "Awaiting Review"
         },
         {
-          title: "Pending Bills",
-          value: pendingBillCount.toString(),
+          title: "Pending Requests",
+          value: `${pendingQrCount} QR / ${pendingBillCount} Bill`,
           icon: Clock,
           color: "bg-slate-700",
-          description: "New Bill Requests"
+          description: "Awaiting Action"
         }
       ]);
     } catch (err) {
