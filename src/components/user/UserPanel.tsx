@@ -59,13 +59,8 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
       if (error) throw error;
       setUserProfile(data);
 
-      // Check if we should show welcome dialogue
-      if (data.kyc_status === 'verified') {
-        const hasSeenWelcome = localStorage.getItem(`welcome_dialog_shown_${userId}`);
-        if (!hasSeenWelcome) {
-          setShowWelcome(true);
-        }
-      }
+      // Database handles welcome dialog state now
+
     } catch (err) {
       console.error('Error fetching profile:', err);
     } finally {
@@ -127,6 +122,14 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     };
   }, [userId]);
 
+  // Monitor profile changes to show welcome modal immediately upon verification
+  useEffect(() => {
+    if (userProfile && userProfile.kyc_status === 'verified' && !userProfile.welcome_modal_shown) {
+      setShowWelcome(true);
+    }
+  }, [userProfile]);
+
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -185,10 +188,18 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     );
   }
 
-  const handleCloseWelcome = () => {
+  const handleCloseWelcome = async () => {
     setShowWelcome(false);
-    localStorage.setItem(`welcome_dialog_shown_${userId}`, 'true');
+    try {
+      await supabase
+        .from('users_profiles')
+        .update({ welcome_modal_shown: true })
+        .eq('id', userId);
+    } catch (err) {
+      console.error('Error updating welcome status:', err);
+    }
   };
+
 
   const handleDeleteNotification = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
