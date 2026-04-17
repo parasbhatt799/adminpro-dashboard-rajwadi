@@ -156,10 +156,17 @@ export default function StatementReport() {
   const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
     const exportData = dataToExport.map(r => ({
-      'Payment Date': r.date.replace('T', ' ').substring(0, 19),
+      'Payment Date': new Date(r.date).toLocaleString('en-IN', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: true 
+      }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
-      'Description': r.type === 'BILL' ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` : `TxnId: ${r.reference}, OrderId: WeBCC...\\n(${r.amount} - ${r.charges} Txn Charge)\\nWallet Topup Through CashFree3`,
+      'Description': r.type === 'BILL' ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` : `TxnId: ${r.reference}, OrderId: WeBCC...\n(${r.amount} - ${r.charges} Txn Charge)\nWallet Topup Through CashFree3`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
@@ -179,7 +186,14 @@ export default function StatementReport() {
       const dataToExport = records.slice(0, displayCount);
       
       const tableData = dataToExport.map(r => [
-        r.date.replace('T', ' ').substring(0, 19),
+        new Date(r.date).toLocaleString('en-IN', { 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit', 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: true 
+        }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
@@ -204,12 +218,12 @@ export default function StatementReport() {
   const formatDateTimeSplit = (dateString: string) => {
     try {
       const d = new Date(dateString);
-      const datePart = d.toISOString().split('T')[0];
-      const timePart = d.toTimeString().split(' ')[0];
+      const datePart = d.toLocaleDateString();
+      const timePart = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
       return (
         <div className="flex flex-col text-[#4c4c4c] text-[13px]">
           <span>{datePart}</span>
-          <span>{timePart}</span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase">{timePart}</span>
         </div>
       );
     } catch {

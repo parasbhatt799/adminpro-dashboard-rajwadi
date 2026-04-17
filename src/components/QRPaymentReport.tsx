@@ -434,7 +434,8 @@ export default function QRPaymentReport() {
                       <td className="px-6 py-4">
                         <div>
                           <p className="text-xs font-bold text-slate-900">{req.users_profiles?.firm_name}</p>
-                          <p className="text-[10px] text-slate-400 font-medium mt-0.5">{new Date(req.created_at).toLocaleDateString()}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">{new Date(req.created_at).toLocaleDateString()}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">
