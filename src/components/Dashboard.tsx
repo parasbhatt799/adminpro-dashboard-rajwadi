@@ -114,7 +114,7 @@ export default function Dashboard() {
         qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes] = await Promise.all([
+      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes, activeUsersRes] = await Promise.all([
         billQuery, 
         qrQuery, 
         pendingKycQuery, 
