@@ -107,6 +107,7 @@ export default function Dashboard() {
       let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingBillQuery = supabase.from('bill_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingQrQuery = supabase.from('payment_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
+      let activeUsersQuery = supabase.from('users_profiles').select('count', { count: 'exact', head: true }).eq('kyc_status', 'approved');
 
       if (startDate && endDate) {
         billQuery = billQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
@@ -118,12 +119,14 @@ export default function Dashboard() {
         qrQuery, 
         pendingKycQuery, 
         pendingBillQuery,
-        pendingQrQuery
+        pendingQrQuery,
+        activeUsersQuery
       ]);
       
       const pendingKycCount = kycRes.count || 0;
       const pendingBillCount = pendingBillRes.count || 0;
       const pendingQrCount = pendingQrRes.count || 0;
+      const activeUsersCount = activeUsersRes.count || 0;
       
       const billData = billRes.data || [];
       const qrData = qrRes.data || [];
@@ -174,7 +177,8 @@ export default function Dashboard() {
           value: `₹${totalWalletBalance.toLocaleString()}`,
           icon: Wallet,
           color: "bg-amber-500",
-          description: "Lifetime Total"
+          description: "Lifetime Total",
+          badge: `${activeUsersCount} Active Users`
         },
         {
           title: "Total Service Charge",
@@ -430,6 +434,11 @@ export default function Dashboard() {
                   <div className={`p-3 rounded-2xl ${stat.color} text-white shadow-lg`}>
                     <Icon size={24} />
                   </div>
+                  {stat.badge && (
+                    <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-100 shadow-sm animate-pulse">
+                      {stat.badge}
+                    </div>
+                  )}
                 </div>
                 
                 <div className="mt-6 relative z-10">
