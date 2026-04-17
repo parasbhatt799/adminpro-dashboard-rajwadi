@@ -33,10 +33,10 @@ const AgreementSection = ({ template, sigCanvas, setHasSigned }: any) => (
     
     <div className="p-8 space-y-8">
       {/* PDF View */}
-      <div className="aspect-[4/5] bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden relative group">
+      <div className="aspect-[4/5] bg-white rounded-2xl border border-slate-200 overflow-hidden relative group shadow-inner">
         <iframe 
           src={`${template}#toolbar=0`} 
-          className="w-full h-full border-none"
+          className="w-full h-full border-none bg-white" 
           title="Agreement Template"
         />
         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -66,7 +66,7 @@ const AgreementSection = ({ template, sigCanvas, setHasSigned }: any) => (
             Clear Canvas
           </button>
         </div>
-        <div className="border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 overflow-hidden p-4">
+        <div className="border-2 border-dashed border-slate-200 rounded-3xl bg-white overflow-hidden p-4 shadow-inner">
           <SignatureCanvas 
             ref={sigCanvas}
             penColor="black"
