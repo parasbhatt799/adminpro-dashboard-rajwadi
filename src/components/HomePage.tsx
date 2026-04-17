@@ -1,12 +1,12 @@
 import React from 'react';
-import { 
-  Smartphone, 
-  Tablet, 
-  Landmark, 
-  Receipt, 
-  ShieldCheck, 
-  Ticket, 
-  CreditCard, 
+import {
+  Smartphone,
+  Tablet,
+  Landmark,
+  Receipt,
+  ShieldCheck,
+  Ticket,
+  CreditCard,
   QrCode,
   ArrowRight,
   Menu,
@@ -43,52 +43,52 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
   };
 
   const services = [
-    { 
-      title: 'Recharge Services', 
-      desc: 'Instant mobile and data recharges with secure and fast processing.', 
+    {
+      title: 'Recharge Services',
+      desc: 'Instant mobile and data recharges with secure and fast processing.',
       icon: Smartphone,
       color: 'bg-indigo-50 text-indigo-600'
     },
-    { 
-      title: 'DTH Recharge', 
-      desc: 'Quick DTH recharge services with instant activation and confirmation.', 
-      icon: Tablet, 
+    {
+      title: 'DTH Recharge',
+      desc: 'Quick DTH recharge services with instant activation and confirmation.',
+      icon: Tablet,
       color: 'bg-emerald-50 text-emerald-600'
     },
-    { 
-      title: 'Aadhar ATM', 
-      desc: 'Withdraw cash securely using Aadhaar-enabled payment services.', 
-      icon: ShieldCheck, 
+    {
+      title: 'Aadhar ATM',
+      desc: 'Withdraw cash securely using Aadhaar-enabled payment services.',
+      icon: ShieldCheck,
       color: 'bg-amber-50 text-amber-600'
     },
-    { 
-      title: 'Bank Account', 
-      desc: 'Open and manage bank accounts with easy documentation support.', 
-      icon: Landmark, 
+    {
+      title: 'Bank Account',
+      desc: 'Open and manage bank accounts with easy documentation support.',
+      icon: Landmark,
       color: 'bg-blue-50 text-blue-600'
     },
-    { 
-      title: 'Insurance', 
-      desc: 'Get reliable insurance policies with complete protection coverage.', 
-      icon: Lock, 
+    {
+      title: 'Insurance',
+      desc: 'Get reliable insurance policies with complete protection coverage.',
+      icon: Lock,
       color: 'bg-rose-50 text-rose-600'
     },
-    { 
-      title: 'Ticket Booking', 
-      desc: 'Book bus, train, and flight tickets easily at best available fares.', 
-      icon: Ticket, 
+    {
+      title: 'Ticket Booking',
+      desc: 'Book bus, train, and flight tickets easily at best available fares.',
+      icon: Ticket,
       color: 'bg-purple-50 text-purple-600'
     },
-    { 
-      title: 'Pan Card', 
-      desc: 'Apply and update PAN card services with fast processing support.', 
-      icon: CreditCard, 
+    {
+      title: 'Pan Card',
+      desc: 'Apply and update PAN card services with fast processing support.',
+      icon: CreditCard,
       color: 'bg-teal-50 text-teal-600'
     },
-    { 
-      title: 'POS Machine', 
-      desc: 'Accept digital payments easily using modern POS machines.', 
-      icon: QrCode, 
+    {
+      title: 'POS Machine',
+      desc: 'Accept digital payments easily using modern POS machines.',
+      icon: QrCode,
       color: 'bg-slate-50 text-slate-600'
     },
   ];
@@ -112,14 +112,14 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
 
           <div className="flex items-center gap-4">
             {isLoggedIn ? (
-              <button 
+              <button
                 onClick={() => navigate(isAdmin ? '/dashboard' : '/user/dashboard')}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100 flex items-center gap-2"
               >
                 Dashboard <ArrowRight size={16} />
               </button>
             ) : (
-              <Link 
+              <Link
                 to="/login"
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100"
               >
@@ -127,7 +127,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
               </Link>
             )}
 
-            <button 
+            <button
               className="md:hidden p-2 text-slate-600"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
@@ -166,7 +166,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
             className="space-y-8"
           >
             <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest leading-none">
-              <Zap size={14} className="fill-current" /> Next-Gen Fintech Solution
+              <Zap size={14} className="fill-current" /> UsePay Fintech Solution
             </div>
             <h1 className="text-5xl md:text-7xl font-black text-slate-900 leading-[1.1]">
               Seamless Digital <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-emerald-500">Payments</span> For Everyone
@@ -175,13 +175,13 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
               Empowering your connectivity with a unified platform for Mobile, DTH, and Data Card recharges — built with enterprise-grade security and lightning-fast processing.
             </p>
             <div className="flex flex-wrap items-center gap-4">
-              <button 
+              <button
                 onClick={() => scrollToSection('services')}
                 className="bg-slate-900 hover:bg-slate-800 text-white px-10 py-5 rounded-2xl font-black transition-all flex items-center gap-2 shadow-xl shadow-slate-200"
               >
                 Get Started <ChevronRight size={20} />
               </button>
-              <button 
+              <button
                 onClick={() => scrollToSection('about')}
                 className="bg-white border-2 border-slate-100 hover:border-indigo-100 text-slate-600 px-10 py-5 rounded-2xl font-black transition-all"
               >
@@ -208,12 +208,12 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
             className="relative"
           >
             <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/20 to-emerald-500/20 rounded-[4rem] blur-3xl -z-10 animate-pulse"></div>
-            <img 
-              src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&q=80&w=1000" 
-              alt="Fintech App" 
+            <img
+              src="https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&q=80&w=1000"
+              alt="Fintech App"
               className="rounded-[3rem] shadow-2xl border-8 border-white w-full object-cover aspect-[4/5] md:aspect-auto"
             />
-            
+
             {/* Floating Stats UI */}
             <div className="absolute top-12 -left-8 bg-white p-4 rounded-2xl shadow-xl border border-slate-50 hidden md:block">
               <div className="flex items-center gap-3">
@@ -309,9 +309,9 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-2 gap-20 items-center">
             <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=1000" 
-                alt="Fintech Team" 
+              <img
+                src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&q=80&w=1000"
+                alt="Fintech Team"
                 className="rounded-[3rem] shadow-2xl relative z-10"
               />
               <div className="absolute -bottom-10 -left-10 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl -z-10"></div>
@@ -323,7 +323,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                 <h5 className="text-sm font-black text-indigo-600 uppercase tracking-[0.2em] mb-4">Who we are</h5>
                 <h2 className="text-4xl md:text-5xl font-black text-slate-900 leading-[1.1]">Transforming Digital Finance For The Better</h2>
               </div>
-              
+
               <div className="space-y-6">
                 <div className="flex gap-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-md text-emerald-500 shrink-0">
@@ -354,15 +354,15 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
       <section id="contact" className="px-6 mb-24">
         <div className="max-w-7xl mx-auto bg-indigo-600 rounded-[3.5rem] p-8 md:p-16 lg:p-20 relative overflow-hidden shadow-2xl shadow-indigo-200">
           <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
-             <div className="absolute -top-20 -left-20 w-80 h-80 bg-white rounded-full blur-[100px]"></div>
-             <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-white rounded-full blur-[100px]"></div>
+            <div className="absolute -top-20 -left-20 w-80 h-80 bg-white rounded-full blur-[100px]"></div>
+            <div className="absolute -bottom-20 -right-20 w-80 h-80 bg-white rounded-full blur-[100px]"></div>
           </div>
-          
+
           <div className="relative z-10 grid lg:grid-cols-2 gap-16 items-start">
             {/* Info Column */}
             <div className="space-y-10">
               <div className="space-y-4">
-                <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Get In Touch With <br/>Our Expert Team</h2>
+                <h2 className="text-4xl md:text-5xl font-black text-white leading-tight">Get In Touch With <br />Our Expert Team</h2>
                 <p className="text-indigo-100 text-lg font-medium opacity-80 max-w-md">
                   We are here to help you scale your business with the best digital payment tools in the industry.
                 </p>
@@ -376,7 +376,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                   <div>
                     <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Company Address</h4>
                     <p className="text-white font-bold leading-relaxed">
-                      4th floor AR Mall, Opp. Panvel Point, Mota Varachha, <br/>Surat Gujarat 394101
+                      4th floor AR Mall, Opp. Panvel Point, Mota Varachha, <br />Surat Gujarat 394101
                     </p>
                   </div>
                 </div>
@@ -419,16 +419,16 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder="John Doe"
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Address</label>
-                    <input 
-                      type="email" 
+                    <input
+                      type="email"
                       placeholder="john@example.com"
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
                     />
@@ -437,8 +437,8 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="General Inquiry"
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
                   />
@@ -446,14 +446,14 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
 
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">How can we help?</label>
-                  <textarea 
+                  <textarea
                     rows={4}
                     placeholder="Tell us about your requirements..."
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300 resize-none"
                   ></textarea>
                 </div>
 
-                <button 
+                <button
                   type="submit"
                   className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-5 rounded-2xl font-black transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2"
                 >
