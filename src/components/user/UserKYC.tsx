@@ -8,13 +8,81 @@ import {
   Loader2,
   FileText,
   Image as ImageIcon,
-  User
+  User,
+  Download,
+  CreditCard,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { PDFDocument } from 'pdf-lib';
 import SignatureCanvas from 'react-signature-canvas';
 import { useRef } from 'react';
+
+const AgreementSection = ({ template, sigCanvas, setHasSigned }: any) => (
+  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-12">
+    <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+        <FileText size={20} />
+      </div>
+      <div>
+        <h3 className="font-bold text-slate-900 leading-none">Step 1: User Agreement</h3>
+        <p className="text-xs text-slate-500 mt-1">Please read and sign the agreement below</p>
+      </div>
+    </div>
+    
+    <div className="p-8 space-y-8">
+      {/* PDF View */}
+      <div className="aspect-[4/5] bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden relative group">
+        <iframe 
+          src={`${template}#toolbar=0`} 
+          className="w-full h-full border-none"
+          title="Agreement Template"
+        />
+        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+          <a 
+            href={template} 
+            target="_blank" 
+            rel="noreferrer"
+            className="bg-white/90 backdrop-blur-sm p-2 rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm border border-slate-200"
+          >
+            <Download size={18} />
+          </a>
+        </div>
+      </div>
+
+      {/* Signature Pad */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-1">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Draw your signature below</label>
+          <button 
+            type="button"
+            onClick={() => {
+              sigCanvas.current.clear();
+              setHasSigned(false);
+            }}
+            className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
+          >
+            Clear Canvas
+          </button>
+        </div>
+        <div className="border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 overflow-hidden p-4">
+          <SignatureCanvas 
+            ref={sigCanvas}
+            penColor="black"
+            canvasProps={{
+              className: "w-full min-h-[150px] cursor-crosshair h-40",
+            }}
+            onEnd={() => setHasSigned(true)}
+          />
+        </div>
+        <p className="text-[10px] text-slate-400 text-center font-medium italic">
+          By signing above, you agree to the terms and conditions outlined in the agreement.
+        </p>
+      </div>
+    </div>
+  </div>
+);
 
 interface UserKYCProps {
   userId: string;
@@ -365,70 +433,6 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
   );
 }
 
-const AgreementSection = ({ template, sigCanvas, setHasSigned }: any) => (
-  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-12">
-    <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-      <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-        <FileText size={20} />
-      </div>
-      <div>
-        <h3 className="font-bold text-slate-900 leading-none">Step 1: User Agreement</h3>
-        <p className="text-xs text-slate-500 mt-1">Please read and sign the agreement below</p>
-      </div>
-    </div>
-    
-    <div className="p-8 space-y-8">
-      {/* PDF View */}
-      <div className="aspect-[4/5] bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden relative group">
-        <iframe 
-          src={`${template}#toolbar=0`} 
-          className="w-full h-full border-none"
-          title="Agreement Template"
-        />
-        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-          <a 
-            href={template} 
-            target="_blank" 
-            rel="noreferrer"
-            className="bg-white/90 backdrop-blur-sm p-2 rounded-lg text-slate-600 hover:text-indigo-600 shadow-sm border border-slate-200"
-          >
-            <Download size={18} />
-          </a>
-        </div>
-      </div>
 
-      {/* Signature Pad */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Draw your signature below</label>
-          <button 
-            type="button"
-            onClick={() => {
-              sigCanvas.current.clear();
-              setHasSigned(false);
-            }}
-            className="text-[10px] font-black text-rose-500 uppercase tracking-widest hover:text-rose-600 transition-colors"
-          >
-            Clear Canvas
-          </button>
-        </div>
-        <div className="border-2 border-dashed border-slate-200 rounded-3xl bg-slate-50/50 overflow-hidden p-4">
-          <SignatureCanvas 
-            ref={sigCanvas}
-            penColor="black"
-            canvasProps={{
-              className: "w-full min-h-[150px] cursor-crosshair h-40",
-            }}
-            onEnd={() => setHasSigned(true)}
-          />
-        </div>
-        <p className="text-[10px] text-slate-400 text-center font-medium italic">
-          By signing above, you agree to the terms and conditions outlined in the agreement.
-        </p>
-      </div>
-    </div>
-  </div>
-);
 
-// Helper icons for the mapping
-import { CreditCard, Building2 } from 'lucide-react';
+
