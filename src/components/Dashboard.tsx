@@ -446,10 +446,13 @@ export default function Dashboard() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">User / Firm</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Details</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Firm / Date</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Details</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Card Info</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
-                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Charges</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Service Charge</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Debited Amount</th>
+                    <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
                     <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
                   </tr>
                 </thead>
@@ -478,7 +481,16 @@ export default function Dashboard() {
                               <Phone size={10} className="text-slate-400" />
                               {req.customer_mobile}
                             </p>
-                            <p className="text-[10px] text-slate-400 font-medium">Card: {req.card_number.slice(-4)}</p>
+                            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{req.card_owner_name}</p>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                              <CreditCard size={10} className="text-slate-400" />
+                              {req.card_number.slice(-4)}
+                            </p>
+                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{req.card_bank}</p>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-right">
@@ -489,6 +501,17 @@ export default function Dashboard() {
                         <td className="px-6 py-4 text-right">
                           <span className="text-sm font-bold text-emerald-600 flex items-center justify-end font-mono">
                             ₹{(req.charges || 0).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-bold text-indigo-600 flex items-center justify-end font-mono">
+                            ₹{(Number(req.amount) + Number(req.charges || 0)).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-indigo-100/50 shadow-sm">
+                            <RotateCcw size={10} className="animate-spin-slow" />
+                            Refund Policy
                           </span>
                         </td>
                         <td className="px-6 py-4">
@@ -514,7 +537,7 @@ export default function Dashboard() {
                       </tr>
                       {rejectionRowId === req.id && (
                         <tr>
-                          <td colSpan={5} className="px-6 py-4 bg-rose-50/30 border-y border-rose-100/50">
+                          <td colSpan={8} className="px-6 py-4 bg-rose-50/30 border-y border-rose-100/50">
                             <motion.div 
                               initial={{ opacity: 0, scale: 0.98 }}
                               animate={{ opacity: 1, scale: 1 }}
