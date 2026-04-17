@@ -15,7 +15,9 @@ import {
   User,
   Phone,
   IndianRupee,
-  Search
+  Search,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -102,13 +104,18 @@ export default function Dashboard() {
       // 3. Transactions (Filtered by Date)
       let billQuery = supabase.from('bill_submissions').select('amount, charges').eq('status', 'approved');
       let qrQuery = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved');
+      let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
+      let pendingBillQuery = supabase.from('bill_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
 
       if (startDate && endDate) {
         billQuery = billQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
         qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      const [billRes, qrRes] = await Promise.all([billQuery, qrQuery]);
+      const [billRes, qrRes, kycRes, pendingBillRes] = await Promise.all([billQuery, qrQuery, pendingKycQuery, pendingBillQuery]);
+      
+      const pendingKycCount = kycRes.count || 0;
+      const pendingBillCount = pendingBillRes.count || 0;
       
       const billData = billRes.data || [];
       const qrData = qrRes.data || [];
@@ -167,6 +174,20 @@ export default function Dashboard() {
           icon: TrendingUp,
           color: "bg-rose-500",
           description: `Range: ${dateDisplay}`
+        },
+        {
+          title: "Pending KYC",
+          value: pendingKycCount.toString(),
+          icon: ShieldAlert,
+          color: "bg-orange-500",
+          description: "Awaiting Review"
+        },
+        {
+          title: "Pending Bills",
+          value: pendingBillCount.toString(),
+          icon: Clock,
+          color: "bg-slate-700",
+          description: "New Bill Requests"
         }
       ]);
     } catch (err) {
