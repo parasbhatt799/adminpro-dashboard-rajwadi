@@ -30,7 +30,7 @@ interface BillRequest {
   card_owner_name: string;
   amount: number;
   charges: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'refunded';
   created_at: string;
   users_profiles?: {
     name: string;

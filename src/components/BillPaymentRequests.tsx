@@ -26,7 +26,7 @@ interface BillRequest {
   card_owner_name: string;
   amount: number;
   charges?: number;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'refunded';
   created_at: string;
   users_profiles?: {
     name: string;
@@ -37,7 +37,7 @@ interface BillRequest {
 export default function BillPaymentRequests() {
   const [requests, setRequests] = useState<BillRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'refunded'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
@@ -100,7 +100,50 @@ export default function BillPaymentRequests() {
     fetchReasons();
   }, [filter]);
 
-  const handleStatusUpdate = async (id?: string, type?: 'approved' | 'rejected', customReason?: string) => {
+  const handleRefund = async (id: string) => {
+    setProcessingId(id);
+    try {
+      const targetRequest = requests.find(r => r.id === id);
+      if (!targetRequest) throw new Error('Request not found');
+
+      // 1. Deduct charges from admin balance (undo the credit)
+      const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
+      const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
+      const requestCharges = targetRequest.charges || 0;
+
+      await supabase
+        .from('qr_settings')
+        .update({ admin_balance: Math.max(0, currentAdminBalance - requestCharges) })
+        .eq('id', 1);
+
+      // 2. Update request status to refunded
+      const { error } = await supabase
+        .from('bill_submissions')
+        .update({ status: 'refunded' })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // 3. Notify User
+      await supabase
+        .from('notifications')
+        .insert([{
+          user_id: targetRequest.user_id,
+          target_role: 'user',
+          title: 'Bill Payment Status Updated',
+          message: `Your bill payment of ₹${targetRequest.amount.toLocaleString()} is now under Refund Policy review.`,
+          link: '/user/reports'
+        }]);
+
+      setRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'refunded' } : req));
+    } catch (err) {
+      console.error('Error moving to refund:', err);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleStatusUpdate = async (id?: string, type?: 'approved' | 'rejected' | 'refunded', customReason?: string) => {
     const targetId = id || showActionModal?.id;
     const targetType = type || (showActionModal ? 'approved' : 'rejected');
     const targetReason = customReason || reason;
@@ -266,6 +309,7 @@ export default function BillPaymentRequests() {
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
+            <option value="refunded">Refund Policy</option>
           </select>
         </div>
       </div>
@@ -367,12 +411,14 @@ export default function BillPaymentRequests() {
                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                             req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
                             req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                            req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
                             'bg-amber-50 text-amber-600'
                           }`}>
                             {req.status === 'pending' && <Clock size={10} />}
                             {req.status === 'approved' && <CheckCircle2 size={10} />}
                             {req.status === 'rejected' && <XCircle size={10} />}
-                            {req.status}
+                            {req.status === 'refunded' && <RotateCcw size={10} />}
+                            {req.status === 'refunded' ? 'Refund Policy' : req.status}
                           </span>
                           {req.status === 'rejected' && (req as any).rejection_reason && (
                             <div className="flex flex-col gap-1">
@@ -407,6 +453,18 @@ export default function BillPaymentRequests() {
                               title="Approve"
                             >
                               <CheckCircle2 size={20} />
+                            </button>
+                          </div>
+                        )}
+                        {req.status === 'approved' && (
+                          <div className="flex items-center justify-end">
+                            <button 
+                              onClick={() => handleRefund(req.id)}
+                              disabled={processingId === req.id}
+                              className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Move to Refund Policy"
+                            >
+                              <RotateCcw size={20} />
                             </button>
                           </div>
                         )}

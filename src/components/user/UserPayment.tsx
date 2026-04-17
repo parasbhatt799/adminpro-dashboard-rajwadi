@@ -48,7 +48,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
   // Bill Filters & Pagination
   const [billSearch, setBillSearch] = useState('');
-  const [billStatus, setBillStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [billStatus, setBillStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'refunded'>('all');
   const [billStartDate, setBillStartDate] = useState('');
   const [billEndDate, setBillEndDate] = useState('');
   const [billPage, setBillPage] = useState(1);
@@ -1060,6 +1060,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
+                        <option value="refunded">Refund Policy</option>
                       </select>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -1174,9 +1175,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                   <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
                                     req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
                                     req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                    req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
                                     'bg-amber-50 text-amber-600'
                                   }`}>
-                                    {req.status}
+                                    {req.status === 'refunded' ? 'Refund Policy' : req.status}
                                   </span>
                                   {req.status === 'rejected' && (
                                     <button 
