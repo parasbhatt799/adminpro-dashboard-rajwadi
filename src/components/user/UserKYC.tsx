@@ -215,7 +215,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         });
 
         const mergedPdfBytes = await pdfDoc.save();
-        const mergedPdfBlob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+        const mergedPdfBlob = new Blob([mergedPdfBytes as any], { type: 'application/pdf' });
         const mergedPdfFile = new File([mergedPdfBlob], 'signed_agreement.pdf', { type: 'application/pdf' });
 
         const agreementPath = `kyc/${userId}_signed_agreement_${Math.random().toString(36).substring(7)}.pdf`;
