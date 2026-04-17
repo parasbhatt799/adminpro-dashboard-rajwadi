@@ -1,3 +1,12 @@
+import { 
+  Wallet, 
+  TrendingUp, 
+  Clock,
+  Loader2,
+  CreditCard,
+  QrCode,
+  Calendar,
+  Filter,
   ChevronDown,
   RotateCcw,
   CheckCircle2,
@@ -411,8 +420,6 @@ export default function Dashboard() {
               </motion.div>
             );
           })}
-        </div>
-      )}
         </div>
       )}
 
