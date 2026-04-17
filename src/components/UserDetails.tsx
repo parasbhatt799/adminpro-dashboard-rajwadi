@@ -67,6 +67,61 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
     setIsDeleting(true);
     setError(null);
     try {
+      // 1. Identify files to delete from Storage
+      const filesToDeleteFromProfiles: string[] = [];
+      const filesToDeleteFromPayments: string[] = [];
+
+      // Fetch KYC documents
+      const { data: kycSubmissions } = await supabase
+        .from('kyc_submissions')
+        .select('*')
+        .eq('user_id', user.id);
+
+      kycSubmissions?.forEach(sub => {
+        const docKeys = [
+          'aadhaar_front_url', 
+          'aadhaar_back_url', 
+          'pan_card_url', 
+          'cheque_photo_url', 
+          'selfie_url', 
+          'firm_photo_url'
+        ];
+        docKeys.forEach(key => {
+          if (sub[key]) {
+            const path = sub[key].split('profiles/')[1];
+            if (path) filesToDeleteFromProfiles.push(path);
+          }
+        });
+      });
+
+      // Fetch Payment Proofs
+      const { data: paymentSubmissions } = await supabase
+        .from('payment_submissions')
+        .select('proof_url')
+        .eq('user_id', user.id);
+
+      paymentSubmissions?.forEach(sub => {
+        if (sub.proof_url) {
+          const path = sub.proof_url.split('payment_proofs/')[1];
+          if (path) filesToDeleteFromPayments.push(path);
+        }
+      });
+
+      // Add profile photo if exists
+      if (user.profile_photo_url) {
+        const path = user.profile_photo_url.split('profiles/')[1];
+        if (path) filesToDeleteFromProfiles.push(path);
+      }
+
+      // 2. Perform storage cleanup
+      if (filesToDeleteFromProfiles.length > 0) {
+        await supabase.storage.from('profiles').remove(filesToDeleteFromProfiles);
+      }
+      if (filesToDeleteFromPayments.length > 0) {
+        await supabase.storage.from('payment_proofs').remove(filesToDeleteFromPayments);
+      }
+
+      // 3. Delete user record (triggering DB cascades)
       const { error: deleteError } = await supabase
         .from('users_profiles')
         .delete()
@@ -75,8 +130,8 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
       if (deleteError) throw deleteError;
       onDelete();
     } catch (err: any) {
-      console.error('Error deleting user:', err);
-      setError(err.message || 'Failed to delete user. This might be due to associated transaction records.');
+      console.error('Error during full user deletion:', err);
+      setError(err.message || 'Failed to delete user and associated files.');
     } finally {
       setIsDeleting(false);
     }
