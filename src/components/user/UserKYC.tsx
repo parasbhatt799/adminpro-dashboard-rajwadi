@@ -196,9 +196,26 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
       // 0. Process & Merge Agreement if exists
       if (agreementTemplate && sigCanvas.current) {
         const signatureDataUrl = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
-        
         // Merge signature into PDF
-        const existingPdfBytes = await fetch(agreementTemplate).then(res => res.arrayBuffer());
+        let existingPdfBytes: ArrayBuffer;
+        
+        try {
+          // Extract path from public URL
+          const pathParts = agreementTemplate.split('profiles/')[1];
+          if (!pathParts) throw new Error('Invalid agreement template URL');
+          
+          const { data, error: downloadError } = await supabase.storage
+            .from('profiles')
+            .download(pathParts);
+          
+          if (downloadError) throw downloadError;
+          existingPdfBytes = await data.arrayBuffer();
+        } catch (fetchErr) {
+          console.error('Fetch Template Error:', fetchErr);
+          // Fallback to fetch if path extraction fails
+          existingPdfBytes = await fetch(agreementTemplate).then(res => res.arrayBuffer());
+        }
+
         const pdfDoc = await PDFDocument.load(existingPdfBytes);
         const signatureImage = await pdfDoc.embedPng(signatureDataUrl);
         
@@ -206,12 +223,15 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         const lastPage = pages[pages.length - 1];
         const { width, height } = lastPage.getSize();
         
-        // Draw signature at the bottom (x: 50, y: 50, approx 150x75 size)
+        // Draw signature at the bottom center
+        const sigWidth = 150;
+        const sigHeight = 75;
+        
         lastPage.drawImage(signatureImage, {
-          x: 50,
-          y: 50,
-          width: 150,
-          height: 75,
+          x: (width / 2) - (sigWidth / 2),
+          y: 70, // Slightly higher from the bottom edge
+          width: sigWidth,
+          height: sigHeight,
         });
 
         const mergedPdfBytes = await pdfDoc.save();
