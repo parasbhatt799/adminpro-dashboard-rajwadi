@@ -281,8 +281,14 @@ export default function KYCVerificationRequests() {
                           <Eye size={12} /> Full View
                         </button>
                       </div>
-                      <div className="aspect-video rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 group relative">
+                      <div 
+                        onClick={() => setPreviewUrl(doc.url)}
+                        className="aspect-video rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 group relative cursor-pointer"
+                      >
                         <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                          <Eye className="text-white opacity-0 group-hover:opacity-100 transition-opacity" size={24} />
+                        </div>
                       </div>
                     </div>
                   ))}
