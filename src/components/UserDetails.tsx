@@ -84,7 +84,8 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
           'pan_card_url', 
           'cheque_photo_url', 
           'selfie_url', 
-          'firm_photo_url'
+          'firm_photo_url',
+          'signed_agreement_url'
         ];
         docKeys.forEach(key => {
           if (sub[key]) {
@@ -175,7 +176,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                 <h3 className="text-lg font-bold">{selectedImage.label}</h3>
                 <div className="flex items-center gap-4">
                   <button 
-                    onClick={() => handleDownload(selectedImage.url, `${selectedImage.label}.jpg`)}
+                    onClick={() => handleDownload(selectedImage.url, `${selectedImage.label}${selectedImage.url.toLowerCase().endsWith('.pdf') ? '.pdf' : '.jpg'}`)}
                     className="p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
                     title="Download"
                   >
@@ -190,11 +191,19 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                 </div>
               </div>
               <div className="w-full h-full rounded-2xl overflow-hidden border border-white/10 bg-black flex items-center justify-center">
-                <img 
-                  src={selectedImage.url} 
-                  alt={selectedImage.label} 
-                  className="max-w-full max-h-full object-contain shadow-2xl" 
-                />
+                {selectedImage.url.toLowerCase().endsWith('.pdf') ? (
+                  <iframe 
+                    src={selectedImage.url} 
+                    className="w-full h-full border-none bg-white" 
+                    title={selectedImage.label}
+                  />
+                ) : (
+                  <img 
+                    src={selectedImage.url} 
+                    alt={selectedImage.label} 
+                    className="max-w-full max-h-full object-contain shadow-2xl" 
+                  />
+                )}
               </div>
             </motion.div>
           </div>
@@ -373,7 +382,8 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                         { label: 'PAN Card', url: kycDocs.pan_card_url },
                         { label: 'Blank Cheque', url: kycDocs.cheque_photo_url },
                         { label: 'User Selfie', url: kycDocs.selfie_url },
-                        { label: 'Firm Photo', url: kycDocs.firm_photo_url }
+                        { label: 'Firm Photo', url: kycDocs.firm_photo_url },
+                        { label: 'Signed Agreement', url: kycDocs.signed_agreement_url }
                       ].filter(d => d.url).map((doc, i) => (
                         <div key={i} className="space-y-2">
                           <div className="flex items-center justify-between">
@@ -386,10 +396,17 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                             </button>
                           </div>
                           <div 
-                            className="aspect-video rounded-2xl border border-slate-100 overflow-hidden bg-slate-50 relative group cursor-zoom-in"
+                            className="aspect-video rounded-2xl border border-slate-100 overflow-hidden bg-slate-50 relative group cursor-zoom-in flex items-center justify-center"
                             onClick={() => setSelectedImage({url: doc.url, label: doc.label})}
                           >
-                            <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                            {doc.url.toLowerCase().endsWith('.pdf') ? (
+                               <div className="flex flex-col items-center gap-2">
+                                  <FileText size={40} className="text-indigo-200" />
+                                  <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Signed PDF</span>
+                               </div>
+                            ) : (
+                               <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                            )}
                             <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/10 transition-colors pointer-events-none" />
                           </div>
                         </div>
