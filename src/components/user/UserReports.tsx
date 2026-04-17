@@ -183,7 +183,7 @@ export default function UserReports({ userId }: UserReportsProps) {
     switch (activeReport) {
       case 'master':
         dataToExport = filteredData.map(i => ({
-          'Date/Time': format(parseISO(i.created_at), 'yyyy-MM-dd HH:mm'),
+          'Date/Time': format(parseISO(i.created_at), 'yyyy-MM-dd hh:mm a'),
           'Type': i.type,
           'Reference': i.reference,
           'Amount': i.amount,
@@ -246,7 +246,7 @@ export default function UserReports({ userId }: UserReportsProps) {
     doc.text(title, 14, 20);
     doc.setFontSize(10);
     doc.text(dateRange, 14, 28);
-    doc.text(`Generated on: ${format(new Date(), 'yyyy-MM-dd HH:mm')}`, 14, 34);
+    doc.text(`Generated on: ${format(new Date(), 'yyyy-MM-dd hh:mm a')}`, 14, 34);
 
     let columns: string[] = [];
     let body: any[] = [];
@@ -255,7 +255,7 @@ export default function UserReports({ userId }: UserReportsProps) {
       case 'master':
         columns = ['Date/Time', 'Type', 'Reference', 'Amount', 'Service Charge', 'Net Amount', 'Remaining Balance'];
         body = filteredData.map(i => [
-          format(parseISO(i.created_at), 'yyyy-MM-dd HH:mm'),
+          format(parseISO(i.created_at), 'yyyy-MM-dd hh:mm a'),
           i.type,
           i.reference,
           `INR ${i.amount}`,
@@ -551,7 +551,7 @@ export default function UserReports({ userId }: UserReportsProps) {
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4">
                           <p className="text-xs font-bold text-slate-900">{format(parseISO(item.created_at), 'dd MMM yyyy')}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">{format(parseISO(item.created_at), 'HH:mm')}</p>
+                          <p className="text-[10px] text-slate-400 font-medium">{format(parseISO(item.created_at), 'hh:mm a')}</p>
                         </td>
                         <td className="px-6 py-4">
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${

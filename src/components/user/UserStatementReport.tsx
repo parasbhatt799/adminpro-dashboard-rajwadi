@@ -129,7 +129,14 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
   const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
     const exportData = dataToExport.map(r => ({
-      'Payment Date': r.date.replace('T', ' ').substring(0, 19),
+      'Payment Date': new Date(r.date).toLocaleString('en-IN', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: true 
+      }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
@@ -147,7 +154,14 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
       const dataToExport = records.slice(0, displayCount);
       const tableData = dataToExport.map(r => [
-        r.date.replace('T', ' ').substring(0, 19),
+        new Date(r.date).toLocaleString('en-IN', { 
+          year: 'numeric', 
+          month: '2-digit', 
+          day: '2-digit', 
+          hour: '2-digit', 
+          minute: '2-digit', 
+          hour12: true 
+        }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
@@ -168,12 +182,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
   const formatDateTimeSplit = (dateString: string) => {
     try {
       const d = new Date(dateString);
-      const datePart = d.toISOString().split('T')[0];
-      const timePart = d.toTimeString().split(' ')[0];
+      const datePart = d.toLocaleDateString();
+      const timePart = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
       return (
         <div className="flex flex-col text-[#4c4c4c] text-[13px]">
           <span>{datePart}</span>
-          <span>{timePart}</span>
+          <span className="text-[10px] text-slate-400 font-bold uppercase">{timePart}</span>
         </div>
       );
     } catch {

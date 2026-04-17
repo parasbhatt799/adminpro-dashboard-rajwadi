@@ -1136,7 +1136,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                   </div>
                                   <div>
                                     <p className="text-[11px] font-bold text-slate-900">{new Date(req.created_at).toLocaleDateString()}</p>
-                                    <p className="text-[10px] text-slate-400 font-medium">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                                    <p className="text-[10px] text-slate-400 font-medium">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                                   </div>
                                 </div>
 
