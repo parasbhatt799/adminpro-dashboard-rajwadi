@@ -34,7 +34,7 @@ import UserStatementReport from './components/user/UserStatementReport';
 import UserDashboard from './components/user/UserDashboard';
 import UserChangePassword from './components/user/UserChangePassword';
 import HomePage from './components/HomePage';
-import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Trash2 } from 'lucide-react';
+import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
