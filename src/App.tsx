@@ -101,6 +101,10 @@ const AdminLayout = ({
   handleClearAllAdminNotifications,
   fetchAdminNotifications,
   userId,
+  adminRole,
+  totalHoldBalance
+}: AdminLayoutProps) => {
+  const location = useLocation();
   const navigate = useNavigate();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const currentTab = location.pathname.substring(1) || 'dashboard';
