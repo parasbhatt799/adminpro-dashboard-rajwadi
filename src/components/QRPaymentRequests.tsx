@@ -184,11 +184,17 @@ export default function QRPaymentRequests() {
             const targetMobile = currentReq?.qr_history?.whatsapp_number;
             
             if (targetMobile) {
+              // Clean number and ensure country code (91 for India)
+              let cleanNumber = targetMobile.replace(/\D/g, '');
+              if (cleanNumber.length === 10) {
+                cleanNumber = '91' + cleanNumber;
+              }
+
               await fetch('/api/send-whatsapp-proof', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  whatsapp_number: targetMobile,
+                  whatsapp_number: cleanNumber,
                   proof_url: currentReq.proof_url,
                   credentials: {
                     access_token: ws.access_token,

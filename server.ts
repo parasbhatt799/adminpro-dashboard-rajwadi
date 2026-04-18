@@ -118,36 +118,46 @@ async function startServer() {
       const { access_token, phone_number_id, sender_number } = credentials;
       const url = `https://graph.facebook.com/v18.0/${phone_number_id}/messages`;
 
+      const payload = {
+        messaging_product: "whatsapp",
+        recipient_type: "individual",
+        to: whatsapp_number,
+        type: "image",
+        image: {
+          link: proof_url,
+          caption: `Payment Approved! Here is the proof of your submission. (Sent from ${sender_number || "Admin Portal"})`,
+        },
+      };
+
+      console.log("Sending to Meta API:", {
+        url,
+        to: whatsapp_number,
+        image_url: proof_url
+      });
+
       const response = await fetch(url, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messaging_product: "whatsapp",
-          recipient_type: "individual",
-          to: whatsapp_number,
-          type: "image",
-          image: {
-            link: proof_url,
-            caption: `Payment Approved! Here is the proof of your submission. (Sent from ${sender_number || "Admin Portal"})`,
-          },
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data: any = await response.json();
+      console.log("Meta API Response Status:", response.status);
+      console.log("Meta API Response Data:", JSON.stringify(data, null, 2));
 
       if (!response.ok) {
-        console.error("Meta WhatsApp API Error:", data);
         return res.status(response.status).json({ 
-          error: data.error?.message || "Failed to send WhatsApp message" 
+          error: data.error?.message || "Failed to send WhatsApp message",
+          details: data.error
         });
       }
 
       res.json({ success: true, message_id: data.messages?.[0]?.id });
     } catch (error: any) {
-      console.error("Error sending WhatsApp message:", error);
+      console.error("Critical Error in WhatsApp handler:", error);
       res.status(500).json({ error: error.message });
     }
   });
