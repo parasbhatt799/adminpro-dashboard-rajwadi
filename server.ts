@@ -102,6 +102,56 @@ async function startServer() {
     }
   });
 
+  app.post("/api/send-whatsapp-proof", async (req, res) => {
+    const { whatsapp_number, proof_url, credentials } = req.body;
+    console.log("Incoming WhatsApp proof request for:", whatsapp_number);
+
+    if (!whatsapp_number || !proof_url) {
+      return res.status(400).json({ error: "WhatsApp number and proof URL are required." });
+    }
+
+    if (!credentials || !credentials.access_token || !credentials.phone_number_id) {
+      return res.status(400).json({ error: "WhatsApp API credentials missing." });
+    }
+
+    try {
+      const { access_token, phone_number_id, sender_number } = credentials;
+      const url = `https://graph.facebook.com/v18.0/${phone_number_id}/messages`;
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: whatsapp_number,
+          type: "image",
+          image: {
+            link: proof_url,
+            caption: `Payment Approved! Here is the proof of your submission. (Sent from ${sender_number || "Admin Portal"})`,
+          },
+        }),
+      });
+
+      const data: any = await response.json();
+
+      if (!response.ok) {
+        console.error("Meta WhatsApp API Error:", data);
+        return res.status(response.status).json({ 
+          error: data.error?.message || "Failed to send WhatsApp message" 
+        });
+      }
+
+      res.json({ success: true, message_id: data.messages?.[0]?.id });
+    } catch (error: any) {
+      console.error("Error sending WhatsApp message:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
