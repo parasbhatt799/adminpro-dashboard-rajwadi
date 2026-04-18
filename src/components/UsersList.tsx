@@ -139,7 +139,7 @@ export default function UsersList() {
         'Email': u.email,
         'Wallet Balance': Number(u.wallet_balance || 0),
         'Status': u.status,
-        'KYC Status': u.kyc_status === 'approved' ? 'VERIFIED' : 'NOT VERIFIED',
+        'KYC Status': u.kyc_status === 'verified' ? 'VERIFIED' : 'NOT VERIFIED',
         'User ID': u.id
       }));
 
@@ -191,7 +191,7 @@ export default function UsersList() {
         String(u.email || ''),
         u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString('en-IN')}` : '0',
         String(u.status || ''),
-        u.kyc_status === 'approved' ? 'VERIFIED' : 'NOT VERIFIED'
+        u.kyc_status === 'verified' ? 'VERIFIED' : 'NOT VERIFIED'
       ]);
 
       autoTable(doc, {
@@ -463,12 +463,12 @@ export default function UsersList() {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full shadow-sm ${
-                          user.kyc_status === 'approved' ? 'bg-emerald-500 shadow-emerald-200 animate-pulse' : 'bg-amber-500 shadow-amber-200'
+                          user.kyc_status === 'verified' ? 'bg-emerald-500 shadow-emerald-200 animate-pulse' : 'bg-amber-500 shadow-amber-200'
                         }`} />
                         <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                          user.kyc_status === 'approved' ? 'text-emerald-600' : 'text-amber-600'
+                          user.kyc_status === 'verified' ? 'text-emerald-600' : 'text-amber-600'
                         }`}>
-                          {user.kyc_status === 'approved' ? 'Verified' : 'Not Verified'}
+                          {user.kyc_status === 'verified' ? 'Verified' : 'Not Verified'}
                         </span>
                       </div>
                     </td>
