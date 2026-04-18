@@ -207,6 +207,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
             body: JSON.stringify({
               to: formData.email,
               subject: 'Welcome to UsePay - Your Account Details',
+              text: `Welcome to UsePay, ${fullName}!\n\nYour account has been created by the administrator. You can now log in using the credentials below:\n\nUser ID (Mobile): ${formData.mobile_number}\nPassword: ${generatedPassword}\nLogin URL: ${window.location.origin}\n\nImportant: You will be required to change your password upon your first login.\n\nAfter changing your password, you will need to complete your KYC verification to activate your dashboard.\n\nThis is an automated message from UsePay. Please do not reply to this email.`,
               html: `
                 <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
                   <h2 style="color: #4f46e5; margin-bottom: 24px;">Welcome to UsePay, ${fullName}!</h2>

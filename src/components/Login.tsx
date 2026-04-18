@@ -147,6 +147,7 @@ export default function Login({ onLogin }: LoginProps) {
         body: JSON.stringify({
           to: data.email,
           subject: 'Account Recovery - UsePay',
+          text: `Hello ${data.name},\n\nWe received a request to recover your account credentials. Please find them below:\n\nUser ID (Mobile): ${data.mobile_number}\nCurrent Password: ${data.password}\nLogin URL: ${window.location.origin}\n\nIf you did not request this, please contact support immediately.\n\nThis is an automated message from UsePay.`,
           html: `
             <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
               <h2 style="color: #4f46e5; margin-bottom: 24px;">Account Recovery</h2>

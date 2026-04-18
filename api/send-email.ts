@@ -5,7 +5,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { to, subject, html } = req.body;
+  const { to, subject, text, html } = req.body;
 
   if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
     console.error("SMTP configuration missing in process.env");
@@ -32,6 +32,7 @@ export default async function handler(req: any, res: any) {
       from: `"${fromName}" <${fromEmail}>`,
       to,
       subject,
+      text,
       html,
     });
     return res.status(200).json({ success: true });
