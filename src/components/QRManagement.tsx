@@ -9,7 +9,8 @@ import {
   Eye,
   EyeOff,
   History,
-  FileText
+  FileText,
+  Phone
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type ChangeEvent } from 'react';
@@ -21,6 +22,7 @@ interface QRHistoryItem {
   qr_url: string;
   is_active: boolean;
   created_at: string;
+  whatsapp_number?: string;
   counts?: {
     total: number;
     pending: number;
@@ -33,6 +35,7 @@ export default function QRManagement() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [qrName, setQrName] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean; active_qr_id: string | null }>({
     qr_url: null,
     is_enabled: true,
@@ -158,6 +161,7 @@ export default function QRManagement() {
         .from('qr_history')
         .insert({
           qr_name: qrName.trim(),
+          whatsapp_number: whatsappNumber.trim(),
           qr_url: publicUrl,
           is_active: true
         })
@@ -175,6 +179,7 @@ export default function QRManagement() {
       if (dbError) throw dbError;
 
       setQrName('');
+      setWhatsappNumber('');
       await fetchQRData();
       setSuccess('New QR Code activated and tracking started!');
       
@@ -234,6 +239,17 @@ export default function QRManagement() {
                 placeholder="QR Name (e.g. PhonePe_01)" 
                 value={qrName}
                 onChange={(e) => setQrName(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
+              />
+            </div>
+
+            <div className="relative">
+              <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="tel" 
+                placeholder="WhatsApp Number (e.g. 919876543210)" 
+                value={whatsappNumber}
+                onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
               />
             </div>
@@ -325,7 +341,11 @@ export default function QRManagement() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Active QR Name</p>
                   <p className="text-lg font-bold text-slate-900">{qrHistory.find(h => h.is_active)?.qr_name || 'N/A'}</p>
                 </div>
-                <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">WhatsApp Target</p>
+                  <p className="text-sm font-bold text-slate-900 truncate">{qrHistory.find(h => h.is_active)?.whatsapp_number || 'NOT SET'}</p>
+                </div>
+                <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100 col-span-2">
                   <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Total Entries</p>
                   <p className="text-lg font-bold text-emerald-700">{qrHistory.find(h => h.is_active)?.counts?.total || 0}</p>
                 </div>
@@ -366,6 +386,7 @@ export default function QRManagement() {
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-100">
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Name / Date</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">WhatsApp</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Total Entries</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Breakdown (P / A / R)</th>
@@ -389,6 +410,9 @@ export default function QRManagement() {
                             {new Date(item.created_at).toLocaleDateString()} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-xs font-bold text-slate-600">{item.whatsapp_number || '-'}</span>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${item.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>

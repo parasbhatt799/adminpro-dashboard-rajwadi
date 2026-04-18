@@ -34,6 +34,7 @@ interface QRPaymentRequest {
   };
   qr_history?: {
     qr_name: string;
+    whatsapp_number?: string;
   };
 }
 
@@ -66,7 +67,7 @@ export default function QRPaymentRequests() {
     try {
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(name, firm_name), qr_history(qr_name)')
+        .select('*, users_profiles(name, firm_name), qr_history(qr_name, whatsapp_number)')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -171,6 +172,38 @@ export default function QRPaymentRequests() {
         }]);
       
       if (nError) console.error('QR Status Notification Error:', nError);
+ 
+      // 4. Send WhatsApp Notification if enabled (Approved only)
+      if (targetType === 'approved') {
+        try {
+          // Fetch settings to check if active
+          const { data: ws } = await supabase.from('whatsapp_api_settings').select('*').eq('id', 1).single();
+          
+          if (ws?.is_active) {
+            const currentReq = requests.find(r => r.id === targetId);
+            const targetMobile = currentReq?.qr_history?.whatsapp_number;
+            
+            if (targetMobile) {
+              await fetch('/api/send-whatsapp-proof', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  whatsapp_number: targetMobile,
+                  proof_url: currentReq.proof_url,
+                  credentials: {
+                    access_token: ws.access_token,
+                    phone_number_id: ws.phone_number_id,
+                    sender_number: ws.sender_number
+                  }
+                })
+              });
+            }
+          }
+        } catch (wsErr) {
+          console.error('WhatsApp Notification Error:', wsErr);
+          // Don't fail the whole approval if WhatsApp fails, but log it
+        }
+      }
 
       setRequests(prev => prev.map(req => req.id === targetId ? { ...req, ...updateData } : req));
       setRejectionRowId(null);

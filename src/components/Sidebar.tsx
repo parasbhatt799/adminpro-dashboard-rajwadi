@@ -14,7 +14,8 @@ import {
   Megaphone,
   FileText,
   Shield,
-  Lock
+  Lock,
+  Settings
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
@@ -54,6 +55,7 @@ const menuItems = [
   { id: 'user-agreement', label: 'User Agreement', icon: ShieldCheck, path: '/agreement' },
   { id: 'admin-management', label: 'Admin Management', icon: Shield, path: '/admin-management', role: 'full' },
   { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password', role: 'full' },
+  { id: 'settings', label: 'Business Settings', icon: Settings, path: '/settings', role: 'full' },
 ];
 
 export default function Sidebar({ onLogout, isCollapsed, adminRole, pendingCounts }: SidebarProps) {
