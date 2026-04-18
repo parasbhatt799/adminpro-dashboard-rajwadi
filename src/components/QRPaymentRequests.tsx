@@ -281,8 +281,8 @@ export default function QRPaymentRequests() {
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Firm / Date</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">UTR ID</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Used</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Service Charge</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Credited Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Proof</th>
@@ -293,14 +293,14 @@ export default function QRPaymentRequests() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
+                  <td colSpan={9} className="px-6 py-12 text-center">
                     <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
               ) : filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
+                  <td colSpan={9} className="px-6 py-12 text-center">
                     <QrCode className="text-slate-200 mx-auto mb-4" size={48} />
                     <p className="text-slate-500 font-medium">No payment requests found</p>
                   </td>
@@ -336,15 +336,15 @@ export default function QRPaymentRequests() {
                           {req.utr_id}
                         </code>
                       </td>
+                       <td className="px-6 py-4">
+                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
+                          {req.qr_history?.qr_name || 'Legacy QR'}
+                        </span>
+                      </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-slate-900 flex items-center">
                           <IndianRupee size={14} className="mr-0.5" />
                           {req.amount.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-                          {req.qr_history?.qr_name || 'Legacy QR'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
