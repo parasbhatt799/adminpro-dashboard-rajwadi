@@ -92,6 +92,30 @@ export default function UsersList() {
     return () => clearTimeout(timer);
   }, [searchTerm, statusFilter, pageSize]);
 
+  // Real-time subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel('users_realtime')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'users_profiles' 
+      }, (payload) => {
+        if (payload.eventType === 'INSERT') {
+          setUsers(prev => [payload.new, ...prev].slice(0, pageSize));
+        } else if (payload.eventType === 'UPDATE') {
+          setUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
+        } else if (payload.eventType === 'DELETE') {
+          setUsers(prev => prev.filter(u => u.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pageSize]);
+
   const handleExportExcel = async () => {
     try {
       let query = supabase
@@ -115,6 +139,7 @@ export default function UsersList() {
         'Email': u.email,
         'Wallet Balance': Number(u.wallet_balance || 0),
         'Status': u.status,
+        'KYC Status': (u.kyc_status || 'pending').toUpperCase(),
         'User ID': u.id
       }));
 
@@ -165,12 +190,13 @@ export default function UsersList() {
         String(u.mobile_number || ''),
         String(u.email || ''),
         u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString('en-IN')}` : '0',
-        String(u.status || '')
+        String(u.status || ''),
+        String((u.kyc_status || 'pending').toUpperCase())
       ]);
 
       autoTable(doc, {
         startY: 40,
-        head: [['#', 'Join Date', 'Name', 'Mobile', 'Email', 'Wallet', 'Status']],
+        head: [['#', 'Join Date', 'Name', 'Mobile', 'Email', 'Wallet', 'Status', 'KYC']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -371,6 +397,7 @@ export default function UsersList() {
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Wallet Balance</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">KYC</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Joined Date</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                 </tr>
@@ -424,14 +451,24 @@ export default function UsersList() {
                         <span>{Number(user.wallet_balance || 0).toLocaleString()}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        user.status === 'Active' ? 'text-emerald-600 bg-emerald-50' : 
-                        user.status === 'Suspended' ? 'text-rose-600 bg-rose-50' : 
-                        'text-amber-600 bg-amber-50'
-                      }`}>
                         {user.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <div className={`w-2 h-2 rounded-full shadow-sm ${
+                          user.kyc_status === 'approved' ? 'bg-emerald-500 shadow-emerald-200 animate-pulse' : 
+                          user.kyc_status === 'rejected' ? 'bg-rose-500 shadow-rose-200' : 
+                          'bg-amber-500 shadow-amber-200 animate-bounce'
+                        }`} />
+                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                          user.kyc_status === 'approved' ? 'text-emerald-600' : 
+                          user.kyc_status === 'rejected' ? 'text-rose-600' : 
+                          'text-amber-600'
+                        }`}>
+                          {user.kyc_status || 'pending'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-xs text-slate-500 flex items-center gap-2">
