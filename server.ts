@@ -22,6 +22,12 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Global Request Logger
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+
   app.post("/api/send-email", async (req, res) => {
     const { to, subject, text, html } = req.body;
     console.log("Incoming email request to:", to);
@@ -176,6 +182,12 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  // Global Error Handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("[CRITICAL SERVER ERROR]", err);
+    res.status(500).json({ error: "Internal Server Error", message: err.message });
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
