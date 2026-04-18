@@ -127,9 +127,18 @@ export default function QRPaymentReport() {
     }
 
     try {
+      let selectQuery = '*, users_profiles!inner(name, firm_name)';
+      
+      // Use !inner join ONLY when filtering by QR Name to avoid hiding legacy payments by default
+      if (qrNameFilter) {
+        selectQuery += ', qr_history!inner(qr_name)';
+      } else {
+        selectQuery += ', qr_history(qr_name)';
+      }
+
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles!inner(name, firm_name), qr_history(qr_name)')
+        .select(selectQuery)
         .order('created_at', { ascending: false });
 
       // Exclude rejected by default as per requirement
