@@ -66,6 +66,7 @@ interface AdminLayoutProps {
   fetchAdminNotifications: () => void;
   userId: string;
   adminRole: string;
+  totalHoldBalance: number;
 }
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
@@ -100,9 +101,6 @@ const AdminLayout = ({
   handleClearAllAdminNotifications,
   fetchAdminNotifications,
   userId,
-  adminRole
-}: AdminLayoutProps) => {
-  const location = useLocation();
   const navigate = useNavigate();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const currentTab = location.pathname.substring(1) || 'dashboard';
@@ -126,7 +124,7 @@ const AdminLayout = ({
             >
               <Menu size={20} />
             </button>
-            <div className="relative w-96">
+            <div className="relative w-96 font-sans">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
@@ -138,6 +136,20 @@ const AdminLayout = ({
 
           <div className="flex items-center gap-4">
             <LiveClock />
+
+            {/* Total Hold Balance Wallet */}
+            <div className="hidden lg:flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
+               <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600 shadow-inner">
+                 <Shield size={18} className="animate-pulse" />
+               </div>
+               <div className="flex flex-col">
+                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none mb-0.5">Total Hold</span>
+                 <span className="text-sm font-bold text-slate-900 leading-none">₹{totalHoldBalance.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
+               </div>
+            </div>
+
+            <div className="w-px h-8 bg-slate-100 mx-1 hidden lg:block"></div>
+
             <div className="relative">
               <button 
                 type="button"
@@ -283,6 +295,22 @@ export default function App() {
   const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
   const [unreadAdminCount, setUnreadAdminCount] = useState(0);
   const [showAdminNotifications, setShowAdminNotifications] = useState(false);
+  const [totalHoldBalance, setTotalHoldBalance] = useState(0);
+
+  const fetchTotalHoldBalance = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('users_profiles')
+        .select('hold_balance');
+      
+      if (error) throw error;
+      
+      const total = (data || []).reduce((sum, u) => sum + (Number(u.hold_balance) || 0), 0);
+      setTotalHoldBalance(total);
+    } catch (err) {
+      console.error('Error fetching total hold balance:', err);
+    }
+  };
 
   const fetchAdminNotifications = async () => {
     try {
@@ -340,6 +368,19 @@ export default function App() {
   useEffect(() => {
     if (isAdmin && userId) {
       fetchAdminNotifications();
+      fetchTotalHoldBalance();
+
+      // 0. Hold Balance Listener
+      const holdChannel = supabase
+        .channel('admin_hold_realtime')
+        .on('postgres_changes', { 
+          event: '*', 
+          schema: 'public', 
+          table: 'users_profiles' 
+        }, () => {
+          fetchTotalHoldBalance();
+        })
+        .subscribe();
 
       // 1. Notification Listener
       const notifChannel = supabase
@@ -397,6 +438,7 @@ export default function App() {
       return () => {
         supabase.removeChannel(notifChannel);
         supabase.removeChannel(securityChannel);
+        supabase.removeChannel(holdChannel);
       };
     }
   }, [isAdmin, userId, adminRole]);
@@ -458,6 +500,7 @@ export default function App() {
                 fetchAdminNotifications={fetchAdminNotifications}
                 userId={userId}
                 adminRole={adminRole}
+                totalHoldBalance={totalHoldBalance}
               />
             )
           } 
