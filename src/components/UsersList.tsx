@@ -451,6 +451,12 @@ export default function UsersList() {
                         <span>{Number(user.wallet_balance || 0).toLocaleString()}</span>
                       </div>
                     </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        user.status === 'Active' ? 'text-emerald-600 bg-emerald-50' : 
+                        user.status === 'Suspended' ? 'text-rose-600 bg-rose-50' : 
+                        'text-amber-600 bg-amber-50'
+                      }`}>
                         {user.status}
                       </span>
                     </td>
