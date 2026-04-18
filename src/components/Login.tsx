@@ -157,7 +157,6 @@ export default function Login({ onLogin }: LoginProps) {
               <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #f1f5f9;">
                 <p style="margin: 8px 0; font-size: 18px;"><strong>User ID (Mobile):</strong> <span style="color: #0f172a;">${data.mobile_number}</span></p>
                 <p style="margin: 8px 0; font-size: 18px;"><strong>Current Password:</strong> <span style="color: #0f172a;">${data.password}</span></p>
-                <p style="margin: 8px 0; font-size: 18px;"><strong>Login URL:</strong> <a href="${window.location.origin}" style="color: #4f46e5; text-decoration: none;">${window.location.origin}</a></p>
               </div>
               
               <p style="font-size: 14px; color: #64748b; margin-top: 24px;">If you did not request this, please contact support immediately.</p>
