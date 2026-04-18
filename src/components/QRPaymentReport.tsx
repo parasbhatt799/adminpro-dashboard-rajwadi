@@ -410,8 +410,8 @@ export default function QRPaymentReport() {
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Date / Firm</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">UTR ID</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Used</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Service Charge</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Final Total</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
@@ -421,14 +421,14 @@ export default function QRPaymentReport() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Loader2 className="animate-spin text-indigo-600 mx-auto" size={32} />
                     <p className="text-sm text-slate-500 mt-2 font-medium">Generating report...</p>
                   </td>
                 </tr>
               ) : requests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <QrCode className="text-slate-200 mx-auto mb-4" size={48} />
                     <p className="text-slate-500 font-medium">No results found for the current filters</p>
                   </td>
@@ -449,14 +449,14 @@ export default function QRPaymentReport() {
                           {req.utr_id}
                         </code>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-slate-900">
-                          ₹{req.amount.toLocaleString()}
-                        </span>
-                      </td>
                       <td className="px-6 py-4">
                         <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg flex items-center justify-center">
                           {req.qr_history?.qr_name || 'Legacy'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-sm font-bold text-slate-900">
+                          ₹{req.amount.toLocaleString()}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right text-rose-500 font-bold text-sm">
@@ -487,6 +487,7 @@ export default function QRPaymentReport() {
                   {/* Summary Totals Row */}
                   <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
                     <td colSpan={2} className="px-6 py-4 text-slate-900 text-sm">TOTAL (Filtered Data)</td>
+                    <td className="px-6 py-4"></td> {/* Empty cell for QR Used column */}
                     <td className="px-6 py-4 text-right text-slate-900 text-sm">
                       ₹{calculateTotals(requests).amount.toLocaleString()}
                     </td>
@@ -496,7 +497,7 @@ export default function QRPaymentReport() {
                     <td className="px-6 py-4 text-right text-emerald-700 text-sm font-black">
                       ₹{calculateTotals(requests).final.toLocaleString()}
                     </td>
-                    <td colSpan={2}></td>
+                    <td colSpan={3}></td>
                   </tr>
                 </>
               )}
