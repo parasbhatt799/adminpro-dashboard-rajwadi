@@ -216,6 +216,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                     <p style="margin: 0 0 12px 0; font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">Login Credentials</p>
                     <p style="margin: 8px 0; font-size: 18px;"><strong>User ID (Mobile):</strong> <span style="color: #0f172a;">${formData.mobile_number}</span></p>
                     <p style="margin: 8px 0; font-size: 18px;"><strong>Password:</strong> <span style="color: #0f172a;">${generatedPassword}</span></p>
+                    <p style="margin: 8px 0; font-size: 18px;"><strong>Login URL:</strong> <a href="${window.location.origin}" style="color: #4f46e5; text-decoration: none;">${window.location.origin}</a></p>
                   </div>
                   
                   <p style="font-size: 14px; color: #ef4444; font-weight: bold;">Important: You will be required to change your password upon your first login.</p>
