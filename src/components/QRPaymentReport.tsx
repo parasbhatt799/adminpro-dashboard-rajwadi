@@ -53,8 +53,13 @@ export default function QRPaymentReport() {
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
+  const [allQrNames, setAllQrNames] = useState<string[]>([]);
+  const [qrSuggestions, setQrSuggestions] = useState<string[]>([]);
+  const [showQrSuggestions, setShowQrSuggestions] = useState(false);
+
   // Filters
   const [firmName, setFirmName] = useState('');
+  const [qrNameFilter, setQrNameFilter] = useState('');
   const [exactAmount, setExactAmount] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const [startDate, setStartDate] = useState('');
@@ -74,8 +79,22 @@ export default function QRPaymentReport() {
     }
   };
 
+  const fetchQrNames = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('qr_history')
+        .select('qr_name');
+      if (error) throw error;
+      const uniqueNames = Array.from(new Set(data.map(d => d.qr_name))).sort();
+      setAllQrNames(uniqueNames);
+    } catch (err) {
+      console.error('Error fetching QR names:', err);
+    }
+  };
+
   useEffect(() => {
     fetchFirmNames();
+    fetchQrNames();
   }, []);
 
   useEffect(() => {
@@ -88,6 +107,17 @@ export default function QRPaymentReport() {
       setSuggestions([]);
     }
   }, [firmName, allFirms]);
+
+  useEffect(() => {
+    if (qrNameFilter.trim().length > 0) {
+      const filtered = allQrNames.filter(n => 
+        n.toLowerCase().includes(qrNameFilter.toLowerCase())
+      ).slice(0, 10);
+      setQrSuggestions(filtered);
+    } else {
+      setQrSuggestions([]);
+    }
+  }, [qrNameFilter, allQrNames]);
 
   const fetchRequests = async (isLoadMore = false) => {
     if (isLoadMore) setLoadingMore(true);
@@ -111,6 +141,9 @@ export default function QRPaymentReport() {
       }
       if (firmName) {
         query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      }
+      if (qrNameFilter) {
+        query = query.ilike('qr_history.qr_name', `%${qrNameFilter}%`);
       }
       if (exactAmount) {
         query = query.eq('amount', Number(exactAmount));
@@ -155,6 +188,7 @@ export default function QRPaymentReport() {
 
   const handleReset = () => {
     setFirmName('');
+    setQrNameFilter('');
     setExactAmount('');
     setStatusFilter('all');
     setStartDate('');
@@ -272,7 +306,7 @@ export default function QRPaymentReport() {
 
       {/* Filter Bar */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="space-y-1.5 relative">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Firm Name</label>
             <div className="relative">
@@ -315,6 +349,64 @@ export default function QRPaymentReport() {
                              setFirmName(s);
                              setShowSuggestions(false);
                              // Auto-trigger search when selecting a suggestion
+                             setTimeout(() => fetchRequests(), 0);
+                           }}
+                           className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 text-left transition-colors group"
+                        >
+                           <span className="text-sm font-medium text-slate-700 group-hover:text-indigo-600 truncate">
+                             {s}
+                           </span>
+                           <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <div className="space-y-1.5 relative">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Used QR</label>
+            <div className="relative">
+              <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input 
+                type="text" 
+                placeholder="Search QR..."
+                value={qrNameFilter}
+                onChange={(e) => {
+                  setQrNameFilter(e.target.value);
+                  setShowQrSuggestions(true);
+                }}
+                onFocus={() => setShowQrSuggestions(true)}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+              />
+            </div>
+
+            {/* QR Name Suggestions Dropdown */}
+            <AnimatePresence>
+              {showQrSuggestions && qrSuggestions.length > 0 && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-10" 
+                    onClick={() => setShowQrSuggestions(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-2xl shadow-xl z-20 overflow-hidden"
+                  >
+                    <div className="p-2 border-b border-slate-50 bg-slate-50/50">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase px-2">QR Suggestions</p>
+                    </div>
+                    <div className="max-h-60 overflow-y-auto no-scrollbar">
+                      {qrSuggestions.map((s, i) => (
+                        <button
+                           key={i}
+                           onClick={() => {
+                             setQrNameFilter(s);
+                             setShowQrSuggestions(false);
                              setTimeout(() => fetchRequests(), 0);
                            }}
                            className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 text-left transition-colors group"
