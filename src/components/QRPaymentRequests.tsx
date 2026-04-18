@@ -32,6 +32,9 @@ interface QRPaymentRequest {
     name: string;
     firm_name: string;
   };
+  qr_history?: {
+    qr_name: string;
+  };
 }
 
 export default function QRPaymentRequests() {
@@ -63,7 +66,7 @@ export default function QRPaymentRequests() {
     try {
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(name, firm_name)')
+        .select('*, users_profiles(name, firm_name), qr_history(qr_name)')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -279,6 +282,7 @@ export default function QRPaymentRequests() {
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Firm / Date</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">UTR ID</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Amount</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Used</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Service Charge</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Credited Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Proof</th>
@@ -336,6 +340,11 @@ export default function QRPaymentRequests() {
                         <span className="text-sm font-bold text-slate-900 flex items-center">
                           <IndianRupee size={14} className="mr-0.5" />
                           {req.amount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
+                          {req.qr_history?.qr_name || 'Legacy QR'}
                         </span>
                       </td>
                       <td className="px-6 py-4">

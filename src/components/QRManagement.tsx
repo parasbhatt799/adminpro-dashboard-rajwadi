@@ -7,39 +7,90 @@ import {
   Image as ImageIcon,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  History,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type ChangeEvent } from 'react';
 import { supabase } from '../lib/supabase';
 
+interface QRHistoryItem {
+  id: string;
+  qr_name: string;
+  qr_url: string;
+  is_active: boolean;
+  created_at: string;
+  counts?: {
+    total: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+  };
+}
+
 export default function QRManagement() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean }>({
+  const [qrName, setQrName] = useState('');
+  const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean; active_qr_id: string | null }>({
     qr_url: null,
-    is_enabled: true
+    is_enabled: true,
+    active_qr_id: null
   });
+  const [qrHistory, setQrHistory] = useState<QRHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const fetchQRSettings = async () => {
+  const fetchQRData = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Fetch QR Settings
+      const { data: settings, error: sError } = await supabase
         .from('qr_settings')
         .select('*')
         .eq('id', 1)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      if (data) {
-        setQrData({
-          qr_url: data.qr_url,
-          is_enabled: data.is_enabled
-        });
+      if (sError && sError.code !== 'PGRST116') throw sError;
+      
+      // 2. Fetch QR History
+      const { data: history, error: hError } = await supabase
+        .from('qr_history')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (hError) throw hError;
+
+      // 3. Fetch counts for each history item
+      if (history && history.length > 0) {
+        const { data: submissions, error: subError } = await supabase
+          .from('payment_submissions')
+          .select('qr_id, status');
+
+        if (!subError && submissions) {
+          history.forEach((item: any) => {
+            const itemSubs = submissions.filter(s => s.qr_id === item.id);
+            item.counts = {
+              total: itemSubs.length,
+              pending: itemSubs.filter(s => s.status === 'pending').length,
+              approved: itemSubs.filter(s => s.status === 'approved').length,
+              rejected: itemSubs.filter(s => s.status === 'rejected').length,
+            };
+          });
+        }
       }
+
+      const activeQR = history?.find(h => h.is_active);
+
+      setQrHistory(history || []);
+      setQrData({
+        qr_url: settings?.qr_url || activeQR?.qr_url || null,
+        is_enabled: settings?.is_enabled ?? true,
+        active_qr_id: activeQR?.id || null
+      });
+
     } catch (err) {
-      console.error('Error fetching QR settings:', err);
+      console.error('Error fetching QR data:', err);
       setError('Failed to load QR settings');
     } finally {
       setLoading(false);
@@ -47,7 +98,7 @@ export default function QRManagement() {
   };
 
   useEffect(() => {
-    fetchQRSettings();
+    fetchQRData();
   }, []);
 
   const handleToggle = async () => {
@@ -71,18 +122,17 @@ export default function QRManagement() {
   const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!qrName.trim()) {
+      setError('Please provide a name for this QR code first.');
+      return;
+    }
 
     setUploading(true);
     setError(null);
     setSuccess(null);
 
     try {
-      // 1. List existing files to clean up later
-      const { data: existingFiles } = await supabase.storage
-        .from('qr_codes')
-        .list();
-
-      // 2. Upload new file with a unique name
+      // 1. Upload new file with a unique name
       const fileExt = file.name.split('.').pop();
       const fileName = `qr_${Date.now()}.${fileExt}`;
       
@@ -92,12 +142,31 @@ export default function QRManagement() {
 
       if (uploadError) throw uploadError;
 
-      // 3. Get Public URL
+      // 2. Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('qr_codes')
         .getPublicUrl(fileName);
 
-      // 4. Update Database
+      // 3. Set all previous QRs to inactive
+      await supabase
+        .from('qr_history')
+        .update({ is_active: false })
+        .eq('is_active', true);
+
+      // 4. Create History Entry
+      const { data: newQR, error: hError } = await supabase
+        .from('qr_history')
+        .insert({
+          qr_name: qrName.trim(),
+          qr_url: publicUrl,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (hError) throw hError;
+
+      // 5. Update Legacy Settings
       const { error: dbError } = await supabase
         .from('qr_settings')
         .update({ qr_url: publicUrl })
@@ -105,18 +174,10 @@ export default function QRManagement() {
 
       if (dbError) throw dbError;
 
-      // 5. Delete old files from storage to keep only 1
-      if (existingFiles && existingFiles.length > 0) {
-        const filesToDelete = existingFiles.map(f => f.name);
-        await supabase.storage
-          .from('qr_codes')
-          .remove(filesToDelete);
-      }
-
-      setQrData(prev => ({ ...prev, qr_url: publicUrl }));
-      setSuccess('QR Code updated successfully!');
+      setQrName('');
+      await fetchQRData();
+      setSuccess('New QR Code activated and tracking started!');
       
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
       console.error('Error uploading QR:', err);
@@ -135,15 +196,15 @@ export default function QRManagement() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-8">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">QR Code Management</h2>
-          <p className="text-slate-500 mt-1">Upload and manage the active payment QR code for your system.</p>
+          <p className="text-slate-500 mt-1">Upload and track multiple QR codes for your system.</p>
         </div>
         <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
           <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full ${qrData.is_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-            {qrData.is_enabled ? 'Active' : 'Hidden'}
+            {qrData.is_enabled ? 'Visible' : 'Hidden'}
           </span>
           <button 
             onClick={handleToggle}
@@ -154,30 +215,43 @@ export default function QRManagement() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Upload Section */}
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 flex flex-col items-center justify-center text-center">
-          <div className="w-20 h-20 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6">
-            <QrCode size={40} />
+          <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-6">
+            <Upload size={32} />
           </div>
           <h3 className="text-xl font-bold text-slate-900 mb-2">Upload New QR</h3>
-          <p className="text-slate-500 text-sm mb-8 leading-relaxed">
-            Upload a clear image of your payment QR code. This will replace any existing QR code in the system.
+          <p className="text-slate-500 text-sm mb-6 leading-relaxed">
+            Enter a unique name for this QR code (e.g. PhonePe_01) to track its entries.
           </p>
 
-          <label className="w-full">
-            <div className={`flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 cursor-pointer active:scale-95 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-              {uploading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-              <span>{uploading ? 'Uploading...' : 'Select & Upload QR'}</span>
+          <div className="w-full space-y-4">
+            <div className="relative">
+              <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="QR Name (e.g. PhonePe_01)" 
+                value={qrName}
+                onChange={(e) => setQrName(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
+              />
             </div>
-            <input 
-              type="file" 
-              className="sr-only" 
-              accept="image/*" 
-              onChange={handleUpload}
-              disabled={uploading}
-            />
-          </label>
+
+            <label className="w-full block">
+              <div className={`flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 cursor-pointer active:scale-95 ${uploading || !qrName.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {uploading ? <Loader2 className="animate-spin" size={20} /> : <QrCode size={20} />}
+                <span>{uploading ? 'Processing...' : 'Select & Update QR'}</span>
+              </div>
+              <input 
+                type="file" 
+                className="sr-only" 
+                accept="image/*" 
+                onChange={handleUpload}
+                disabled={uploading || !qrName.trim()}
+              />
+            </label>
+          </div>
 
           <AnimatePresence>
             {success && (
@@ -206,65 +280,147 @@ export default function QRManagement() {
         </div>
 
         {/* Preview Section */}
-        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8 flex flex-col items-center">
-          <div className="flex items-center justify-between w-full mb-6">
-            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-              <Eye size={20} className="text-indigo-600" />
-              Live Preview
-            </h3>
-            <button 
-              onClick={fetchQRSettings}
-              className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
-              title="Refresh Preview"
-            >
-              <RefreshCw size={18} />
-            </button>
+        <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                <Eye size={20} className="text-indigo-600" />
+                Current Active QR
+              </h3>
+              <p className="text-xs text-slate-400 mt-1">This QR is currently being shown to users.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${qrData.is_enabled ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                {qrData.is_enabled ? 'Live Now' : 'Currently Hidden'}
+              </span>
+              <button 
+                onClick={fetchQRData}
+                className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                title="Refresh"
+              >
+                <RefreshCw size={18} />
+              </button>
+            </div>
           </div>
 
-          <div className="relative w-full aspect-square max-w-[280px] rounded-3xl border-2 border-dashed border-slate-100 flex items-center justify-center overflow-hidden bg-slate-50">
-            {!qrData.is_enabled ? (
-              <div className="flex flex-col items-center text-slate-400 p-6">
-                <EyeOff size={48} className="mb-4 opacity-20" />
-                <p className="text-sm font-bold uppercase tracking-widest opacity-50">QR Hidden</p>
-                <p className="text-[10px] mt-2">Placeholder shown to users</p>
-              </div>
-            ) : qrData.qr_url ? (
-              <img 
-                src={qrData.qr_url} 
-                alt="Active QR Code" 
-                className="w-full h-full object-contain p-4"
-              />
-            ) : (
-              <div className="flex flex-col items-center text-slate-300">
-                <ImageIcon size={48} className="mb-4 opacity-20" />
-                <p className="text-xs font-medium">No QR Uploaded</p>
-              </div>
-            )}
-            
-            {/* Placeholder Overlay (Simulating what user sees when disabled) */}
-            {!qrData.is_enabled && (
-              <div className="absolute inset-0 bg-slate-900/5 backdrop-blur-[2px] flex items-center justify-center">
-                <div className="bg-white/90 px-4 py-2 rounded-full shadow-sm border border-white">
-                  <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Placeholder Active</span>
+          <div className="flex flex-col md:flex-row gap-8 items-center">
+            <div className="relative w-64 h-64 shrink-0 rounded-3xl border-2 border-dashed border-slate-100 flex items-center justify-center overflow-hidden bg-slate-50">
+              {qrData.qr_url ? (
+                <img 
+                  src={qrData.qr_url} 
+                  alt="Active QR Code" 
+                  className="w-full h-full object-contain p-4"
+                />
+              ) : (
+                <div className="flex flex-col items-center text-slate-300">
+                  <ImageIcon size={48} className="mb-4 opacity-20" />
+                  <p className="text-xs font-medium">No QR Uploaded</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Active QR Name</p>
+                  <p className="text-lg font-bold text-slate-900">{qrHistory.find(h => h.is_active)?.qr_name || 'N/A'}</p>
+                </div>
+                <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100">
+                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Total Entries</p>
+                  <p className="text-lg font-bold text-emerald-700">{qrHistory.find(h => h.is_active)?.counts?.total || 0}</p>
                 </div>
               </div>
-            )}
-          </div>
 
-          <div className="mt-8 w-full space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold text-slate-400 uppercase tracking-widest px-2">
-              <span>System Status</span>
-              <span className={qrData.is_enabled ? 'text-emerald-500' : 'text-rose-500'}>
-                {qrData.is_enabled ? 'Visible to Users' : 'Hidden from Users'}
-              </span>
+              <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100">
+                <h4 className="text-xs font-bold text-indigo-900 mb-3 uppercase tracking-widest">Entry Status Breakdown</h4>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-amber-600">{qrHistory.find(h => h.is_active)?.counts?.pending || 0}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Pending</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-emerald-600">{qrHistory.find(h => h.is_active)?.counts?.approved || 0}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Approved</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold text-rose-600">{qrHistory.find(h => h.is_active)?.counts?.rejected || 0}</p>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Rejected</p>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: qrData.is_enabled ? '100%' : '0%' }}
-                className={`h-full transition-colors ${qrData.is_enabled ? 'bg-emerald-500' : 'bg-rose-500'}`}
-              />
-            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* History Section */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 px-2">
+          <History size={20} className="text-indigo-600" />
+          <h3 className="text-lg font-bold text-slate-900">QR Tracking History</h3>
+        </div>
+
+        <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Name / Date</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Total Entries</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Breakdown (P / A / R)</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Preview</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {qrHistory.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                      No QR history available. Upload your first QR to start tracking.
+                    </td>
+                  </tr>
+                ) : (
+                  qrHistory.map((item) => (
+                    <tr key={item.id} className={`${item.is_active ? 'bg-indigo-50/20' : 'hover:bg-slate-50/50'} transition-colors`}>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-900">{item.qr_name}</span>
+                          <span className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                            {new Date(item.created_at).toLocaleDateString()} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${item.is_active ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          {item.is_active ? 'Active' : 'Archived'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-sm font-bold text-slate-700">{item.counts?.total || 0}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-amber-500">{item.counts?.pending || 0}</span>
+                          <span className="text-slate-200">/</span>
+                          <span className="text-xs font-bold text-emerald-500">{item.counts?.approved || 0}</span>
+                          <span className="text-slate-200">/</span>
+                          <span className="text-xs font-bold text-rose-500">{item.counts?.rejected || 0}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button 
+                          onClick={() => window.open(item.qr_url, '_blank')}
+                          className="p-2 text-slate-400 hover:text-indigo-600 transition-colors"
+                          title="View QR Source"
+                        >
+                          <ImageIcon size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -273,10 +429,10 @@ export default function QRManagement() {
       <div className="bg-indigo-50 rounded-3xl p-6 border border-indigo-100/50">
         <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
           <AlertCircle size={18} />
-          Important Note
+          Tracking Logic
         </h4>
         <p className="text-sm text-indigo-700 leading-relaxed">
-          When you upload a new QR code, it is stored securely in Supabase. The system is configured to only ever keep <strong>one active QR code</strong>. The toggle switch allows you to temporarily hide the QR code from users (e.g., during maintenance) without deleting it.
+          Every QR you upload is tracked by its unique <strong>ID</strong>. When users submit payments, they are automatically linked to the QR that was <strong>Active</strong> at the time of submission. Toggling visibility "Off" does not change the tracking; new entries will still count towards the same QR ID until a new one is uploaded to replace it.
         </p>
       </div>
     </div>

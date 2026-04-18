@@ -10,6 +10,7 @@ interface UserPaymentProps {
 export default function UserPayment({ userId }: UserPaymentProps) {
   const [activeTab, setActiveTab] = useState<'qr' | 'bill'>('qr');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [activeQrId, setActiveQrId] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(true);
   const [banks, setBanks] = useState<{ id: string; bank_name: string }[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
@@ -107,6 +108,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
         if (!qrError && qrData && qrData.is_enabled) {
           setQrUrl(qrData.qr_url);
+        }
+
+        // Fetch Current Active QR ID from History
+        const { data: activeQR } = await supabase
+          .from('qr_history')
+          .select('id')
+          .eq('is_active', true)
+          .single();
+        
+        if (activeQR) {
+          setActiveQrId(activeQR.id);
         }
 
         // Fetch Banks
@@ -406,18 +418,19 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .from('payment_proofs')
         .getPublicUrl(fileName);
 
-      // 3. Save Transaction
-      const { data: newPayment, error: dbError } = await supabase
-        .from('payment_submissions')
-        .insert({
-          user_id: userId,
-          utr_id: utrId,
-          amount: parseFloat(amount),
-          proof_url: publicUrl,
-          status: 'pending'
-        })
-        .select()
-        .single();
+        // 3. Save Transaction
+        const { data: newPayment, error: dbError } = await supabase
+          .from('payment_submissions')
+          .insert({
+            user_id: userId,
+            utr_id: utrId,
+            amount: parseFloat(amount),
+            proof_url: publicUrl,
+            status: 'pending',
+            qr_id: activeQrId
+          })
+          .select()
+          .single();
 
       if (dbError) throw dbError;
 

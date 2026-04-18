@@ -34,6 +34,9 @@ interface QRPaymentRequest {
     name: string;
     firm_name: string;
   };
+  qr_history?: {
+    qr_name: string;
+  };
 }
 
 export default function QRPaymentReport() {
@@ -96,7 +99,7 @@ export default function QRPaymentReport() {
     try {
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles!inner(name, firm_name)')
+        .select('*, users_profiles!inner(name, firm_name), qr_history(qr_name)')
         .order('created_at', { ascending: false });
 
       // Exclude rejected by default as per requirement
@@ -173,6 +176,7 @@ export default function QRPaymentReport() {
       'Date': new Date(req.created_at).toLocaleDateString(),
       'Firm Name': req.users_profiles?.firm_name || 'N/A',
       'UTR ID': req.utr_id,
+      'QR Used': req.qr_history?.qr_name || 'Legacy',
       'Status': req.status.toUpperCase(),
       'Amount': req.amount,
       'Service Charge': req.charges || 0,
@@ -209,6 +213,7 @@ export default function QRPaymentReport() {
         new Date(req.created_at).toLocaleDateString(),
         req.users_profiles?.firm_name || 'N/A',
         req.utr_id,
+        req.qr_history?.qr_name || 'Legacy',
         req.status.toUpperCase(),
         req.amount.toLocaleString(),
         (req.charges || 0).toLocaleString(),
@@ -217,11 +222,11 @@ export default function QRPaymentReport() {
 
       // Add footer
       const footer = [
-        ['TOTAL', '', '', '', totals.amount.toLocaleString(), totals.charges.toLocaleString(), totals.final.toLocaleString()]
+        ['TOTAL', '', '', '', '', totals.amount.toLocaleString(), totals.charges.toLocaleString(), totals.final.toLocaleString()]
       ];
 
       autoTable(doc, {
-        head: [['Date', 'Firm Name', 'UTR ID', 'Status', 'Amount', 'Service Charge', 'Final Total']],
+        head: [['Date', 'Firm Name', 'UTR ID', 'QR Used', 'Status', 'Amount', 'Service Charge', 'Final Total']],
         body: tableData,
         foot: footer,
         theme: 'grid',
@@ -406,6 +411,7 @@ export default function QRPaymentReport() {
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Date / Firm</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">UTR ID</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Used</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Service Charge</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Final Total</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
@@ -446,6 +452,11 @@ export default function QRPaymentReport() {
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-bold text-slate-900">
                           ₹{req.amount.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg flex items-center justify-center">
+                          {req.qr_history?.qr_name || 'Legacy'}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right text-rose-500 font-bold text-sm">
