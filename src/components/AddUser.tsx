@@ -81,10 +81,12 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
     try {
+      // 0. Validate mobile number length
+      if (formData.mobile_number.length !== 10) {
+        throw new Error("Mobile number must be exactly 10 digits.");
+      }
+
       // Check for duplicate mobile number
       const { data: existingUser, error: checkError } = await supabase
         .from('users_profiles')
@@ -313,49 +315,50 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
             <div className="space-y-4 text-left">
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <label className="sm:w-24 text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">First Name</label>
+                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name (Optional)</label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
-                      required
                       type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      placeholder="Enter first name"
+                      style={{ textTransform: 'uppercase' }}
+                      placeholder="ENTER FIRST NAME"
                       value={formData.firstName}
-                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, firstName: e.target.value.toUpperCase() })}
                     />
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <label className="sm:w-24 text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name</label>
+                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name (Optional)</label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
                       type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      placeholder="Enter middle name"
+                      style={{ textTransform: 'uppercase' }}
+                      placeholder="ENTER MIDDLE NAME"
                       value={formData.middleName}
-                      onChange={(e) => setFormData({ ...formData, middleName: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, middleName: e.target.value.toUpperCase() })}
                     />
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <label className="sm:w-24 text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name</label>
+                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name (Optional)</label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
-                      required
                       type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      placeholder="Enter last name"
+                      style={{ textTransform: 'uppercase' }}
+                      placeholder="ENTER LAST NAME"
                       value={formData.lastName}
-                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                      onChange={(e) => setFormData({ ...formData, lastName: e.target.value.toUpperCase() })}
                     />
                   </div>
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email Address</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Email Address <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
@@ -369,16 +372,17 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                 </div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Mobile Number</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Mobile Number (10 Digits) <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
                     required
                     type="tel"
+                    maxLength={10}
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    placeholder="+1 234 567 890"
+                    placeholder="1234567890"
                     value={formData.mobile_number}
-                    onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, mobile_number: e.target.value.replace(/\D/g, '') })}
                   />
                 </div>
               </div>
@@ -396,34 +400,38 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Home Address</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Home Address (Optional)</label>
                 <textarea
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all min-h-[80px]"
-                  placeholder="Enter complete home address"
+                  style={{ textTransform: 'uppercase' }}
+                  placeholder="ENTER COMPLETE HOME ADDRESS"
                   value={formData.home_address}
-                  onChange={(e) => setFormData({ ...formData, home_address: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, home_address: e.target.value.toUpperCase() })}
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Name</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Name <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
+                    required
                     type="text"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                    placeholder="Enter firm name"
+                    style={{ textTransform: 'uppercase' }}
+                    placeholder="ENTER FIRM NAME"
                     value={formData.firm_name}
-                    onChange={(e) => setFormData({ ...formData, firm_name: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, firm_name: e.target.value.toUpperCase() })}
                   />
                 </div>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Address</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Address (Optional)</label>
                 <textarea
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all min-h-[80px]"
-                  placeholder="Enter firm address"
+                  style={{ textTransform: 'uppercase' }}
+                  placeholder="ENTER FIRM ADDRESS"
                   value={formData.firm_address}
-                  onChange={(e) => setFormData({ ...formData, firm_address: e.target.value })}
+                  onChange={(e) => setFormData({ ...formData, firm_address: e.target.value.toUpperCase() })}
                 />
               </div>
             </div>
@@ -437,10 +445,11 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">QR Service Charge (%)</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">QR Service Charge (%) <span className="text-rose-500">*</span></label>
                 <div className="relative">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
+                    required
                     type="number"
                     step="0.01"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
@@ -473,7 +482,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                   animate={{ opacity: 1, height: 'auto' }}
                   className="md:col-span-2"
                 >
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Service Charge</label>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Service Charge (Optional)</label>
                   <div className="relative">
                     <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
