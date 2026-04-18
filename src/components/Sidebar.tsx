@@ -23,6 +23,7 @@ interface SidebarProps {
   onLogout: () => void;
   isCollapsed: boolean;
   adminRole: string;
+  pendingCounts: { qr: number; bill: number; kyc: number };
 }
 
 const menuItems = [
@@ -55,7 +56,7 @@ const menuItems = [
   { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password', role: 'full' },
 ];
 
-export default function Sidebar({ onLogout, isCollapsed, adminRole }: SidebarProps) {
+export default function Sidebar({ onLogout, isCollapsed, adminRole, pendingCounts }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -182,7 +183,40 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole }: SidebarPro
                         {item.label}
                       </motion.span>
                     )}
-                    {isActive && !isCollapsed && (
+
+                    {/* Pending Count Badges */}
+                    {!isCollapsed && (
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {item.id === 'qr-payment-requests' && pendingCounts.qr > 0 && (
+                          <span className="bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse">
+                            {pendingCounts.qr}
+                          </span>
+                        )}
+                        {item.id === 'bill-payment-requests' && pendingCounts.bill > 0 && (
+                          <span className="bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse">
+                            {pendingCounts.bill}
+                          </span>
+                        )}
+                        {item.id === 'kyc-verification-requests' && pendingCounts.kyc > 0 && (
+                          <span className="bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse">
+                            {pendingCounts.kyc}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Collapsed Badges (Small dots) */}
+                    {isCollapsed && (
+                      <>
+                        {((item.id === 'qr-payment-requests' && pendingCounts.qr > 0) ||
+                          (item.id === 'bill-payment-requests' && pendingCounts.bill > 0) ||
+                          (item.id === 'kyc-verification-requests' && pendingCounts.kyc > 0)) && (
+                          <div className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                        )}
+                      </>
+                    )}
+
+                    {isActive && !isCollapsed && !['qr-payment-requests', 'bill-payment-requests', 'kyc-verification-requests'].includes(item.id) && (
                       <motion.div
                         layoutId="active-pill"
                         className="ml-auto w-1.5 h-1.5 rounded-full bg-white"

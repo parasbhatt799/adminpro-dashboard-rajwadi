@@ -67,6 +67,7 @@ interface AdminLayoutProps {
   userId: string;
   adminRole: string;
   totalHoldBalance: number;
+  pendingCounts: { qr: number; bill: number; kyc: number };
 }
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
@@ -102,7 +103,8 @@ const AdminLayout = ({
   fetchAdminNotifications,
   userId,
   adminRole,
-  totalHoldBalance
+  totalHoldBalance,
+  pendingCounts
 }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -115,6 +117,7 @@ const AdminLayout = ({
         onLogout={handleLogout} 
         isCollapsed={isSidebarCollapsed}
         adminRole={adminRole}
+        pendingCounts={pendingCounts}
       />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -300,6 +303,25 @@ export default function App() {
   const [unreadAdminCount, setUnreadAdminCount] = useState(0);
   const [showAdminNotifications, setShowAdminNotifications] = useState(false);
   const [totalHoldBalance, setTotalHoldBalance] = useState(0);
+  const [pendingCounts, setPendingCounts] = useState({ qr: 0, bill: 0, kyc: 0 });
+
+  const fetchPendingCounts = async () => {
+    try {
+      const [qrRes, billRes, kycRes] = await Promise.all([
+        supabase.from('payment_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('bill_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('kyc_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      ]);
+
+      setPendingCounts({
+        qr: qrRes.count || 0,
+        bill: billRes.count || 0,
+        kyc: kycRes.count || 0
+      });
+    } catch (err) {
+      console.error('Error fetching pending counts:', err);
+    }
+  };
 
   const fetchTotalHoldBalance = async () => {
     try {
@@ -373,6 +395,23 @@ export default function App() {
     if (isAdmin && userId) {
       fetchAdminNotifications();
       fetchTotalHoldBalance();
+      fetchPendingCounts();
+
+      // Real-time Pending Counts Listeners
+      const qrSub = supabase
+        .channel('qr_pending_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, () => fetchPendingCounts())
+        .subscribe();
+
+      const billSub = supabase
+        .channel('bill_pending_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, () => fetchPendingCounts())
+        .subscribe();
+
+      const kycSub = supabase
+        .channel('kyc_pending_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_submissions' }, () => fetchPendingCounts())
+        .subscribe();
 
       // 0. Hold Balance Listener
       const holdChannel = supabase
@@ -443,6 +482,9 @@ export default function App() {
         supabase.removeChannel(notifChannel);
         supabase.removeChannel(securityChannel);
         supabase.removeChannel(holdChannel);
+        supabase.removeChannel(qrSub);
+        supabase.removeChannel(billSub);
+        supabase.removeChannel(kycSub);
       };
     }
   }, [isAdmin, userId, adminRole]);
@@ -505,6 +547,7 @@ export default function App() {
                 userId={userId}
                 adminRole={adminRole}
                 totalHoldBalance={totalHoldBalance}
+                pendingCounts={pendingCounts}
               />
             )
           } 
