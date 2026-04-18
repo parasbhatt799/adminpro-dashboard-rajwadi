@@ -72,7 +72,7 @@ export default function StatementReport() {
 
       // 1. Fetch QR Payments
       if (typeFilter === 'all' || typeFilter === 'QR') {
-        let qrQuery = supabase.from('payment_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
+        let qrQuery = supabase.from('payment_submissions').select('*, users_profiles!inner(firm_name), qr_history(qr_name)').eq('status', 'approved');
         
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
@@ -166,7 +166,9 @@ export default function StatementReport() {
       }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
-      'Description': r.type === 'BILL' ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` : `TxnId: ${r.reference}, OrderId: WeBCC...\n(${r.amount} - ${r.charges} Txn Charge)\nWallet Topup Through CashFree3`,
+      'Description': r.type === 'BILL' 
+        ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` 
+        : `TxnId: ${r.reference}, OrderId: WeBCC...\n(${r.amount} - ${r.charges} Txn Charge)\nWallet Topup Through ${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
@@ -196,6 +198,9 @@ export default function StatementReport() {
         }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
+        r.type === 'BILL' 
+          ? `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}` 
+          : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
         r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
@@ -204,7 +209,7 @@ export default function StatementReport() {
       ]);
 
       autoTable(doc, {
-        head: [['Payment Date', 'PaymentId', 'Transaction Type', 'Credit Amount', 'Debit Amount', 'Balance', 'Payment From', 'Payment To']],
+        head: [['Payment Date', 'PaymentId', 'Transaction Type', 'Description', 'Credit Amount', 'Debit Amount', 'Balance', 'Payment From', 'Payment To']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [139, 92, 246] },
@@ -346,7 +351,7 @@ export default function StatementReport() {
                         <>
                           <div className="break-all">TxnId: {r.reference}, OrderId:<br/>WeBCC...{String(r.id || '').substring(0,8)}...</div>
                           <div>({r.amount} - {r.charges} Txn Charge)</div>
-                          <div>Wallet Topup Through CashFree3</div>
+                          <div className="text-indigo-600 font-bold">Wallet Topup Through {r.raw_data?.qr_history?.qr_name || 'CashFree'}</div>
                         </>
                       )}
                     </td>
