@@ -237,11 +237,28 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         table: 'qr_settings',
         filter: 'id=eq.1'
       }, (payload: any) => {
-        console.log('QR Code updated in real-time:', payload.new);
-        if (payload.new && payload.new.is_enabled) {
+        console.log('QR settings updated:', payload.new);
+        const isEnabled = payload.new?.is_enabled;
+        // Only update URL if enabled
+        if (isEnabled) {
           setQrUrl(payload.new.qr_url);
         } else {
           setQrUrl(null);
+        }
+      })
+      .subscribe();
+
+    const historyChannel = supabase
+      .channel('qr_history_realtime')
+      .on('postgres_changes', {
+        event: '*', // Listen for all changes to ensure we catch active status flips
+        schema: 'public',
+        table: 'qr_history'
+      }, (payload: any) => {
+        console.log('QR History change detected:', payload.eventType);
+        if (payload.new && payload.new.is_active) {
+          setActiveQrId(payload.new.id);
+          setQrUrl(payload.new.qr_url);
         }
       })
       .subscribe();
@@ -251,6 +268,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       supabase.removeChannel(billChannel);
       supabase.removeChannel(profileChannel);
       supabase.removeChannel(settingsChannel);
+      supabase.removeChannel(historyChannel);
     };
   }, [userId]);
 
