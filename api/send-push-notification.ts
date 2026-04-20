@@ -40,12 +40,9 @@ export default async function handler(req: any, res: any) {
     const data: any = {
       app_id: app_id.trim(),
       headings: { en: title },
-      contents: { 
-        en: link ? `${message}` : `[DEBUG: Link Missing] ${message}`
-      },
+      contents: { en: message },
       isAnyWeb: true,
-      url: link ? `https://usepay.in${link}` : "https://usepay.in/dashboard",
-      web_url: link ? `https://usepay.in${link}` : "https://usepay.in/dashboard",
+      web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/deshboard",
     };
 
     // Target specific players if provided, otherwise fallback to segments
