@@ -13,13 +13,16 @@ export async function sendAdminPushNotification(title: string, message: string) 
       .single();
 
     if (sError || !settings || !settings.is_enabled) {
-      return; // Push not enabled or settings missing
+      console.warn('[Push] Notification skipped: Settings not found or disabled.', sError);
+      return;
     }
 
     if (!settings.app_id || !settings.rest_api_key) {
-      console.warn('OneSignal credentials missing in settings.');
+      console.warn('[Push] Notification skipped: Missing API Keys in database.');
       return;
     }
+
+    console.log('[Push] Triggering notification for:', title);
 
     // 2. Call the serverless API
     const response = await fetch('/api/send-push-notification', {
@@ -37,11 +40,13 @@ export async function sendAdminPushNotification(title: string, message: string) 
       })
     });
 
+    const result = await response.json();
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Push Notification Error:', errorData.error);
+      console.error('[Push] API Error:', result.error);
+    } else {
+      console.log('[Push] Success! Notification ID:', result.id);
     }
   } catch (err) {
-    console.error('Failed to trigger push notification:', err);
+    console.error('[Push] Critical Failure:', err);
   }
 }
