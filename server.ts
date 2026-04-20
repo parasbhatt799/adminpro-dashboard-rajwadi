@@ -135,12 +135,6 @@ async function startServer() {
         },
       };
 
-      console.log("Sending to Meta API:", {
-        url,
-        to: whatsapp_number,
-        image_url: proof_url
-      });
-
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -151,9 +145,6 @@ async function startServer() {
       });
 
       const data: any = await response.json();
-      console.log("Meta API Response Status:", response.status);
-      console.log("Meta API Response Data:", JSON.stringify(data, null, 2));
-
       if (!response.ok) {
         return res.status(response.status).json({ 
           error: data.error?.message || "Failed to send WhatsApp message",
@@ -164,6 +155,56 @@ async function startServer() {
       res.json({ success: true, message_id: data.messages?.[0]?.id });
     } catch (error: any) {
       console.error("Critical Error in WhatsApp handler:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/send-push-notification", async (req, res) => {
+    const { title, message, credentials } = req.body;
+    console.log("Incoming push notification request:", title);
+
+    if (!title || !message) {
+      return res.status(400).json({ error: "Title and message are required." });
+    }
+
+    if (!credentials || !credentials.app_id || !credentials.rest_api_key) {
+      return res.status(400).json({ error: "OneSignal API credentials missing." });
+    }
+
+    try {
+      const { app_id, rest_api_key } = credentials;
+      const url = "https://onesignal.com/api/v1/notifications";
+
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${rest_api_key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          app_id: app_id,
+          headings: { en: title },
+          contents: { en: message },
+          included_segments: ["Subscribed Users"],
+          isAnyWeb: true,
+          web_url: "https://www.usepay.in/admin",
+        }),
+      });
+
+      const data: any = await response.json();
+      console.log("OneSignal API Response Status:", response.status);
+      console.log("OneSignal API Response Data:", JSON.stringify(data, null, 2));
+
+      if (!response.ok) {
+        return res.status(response.status).json({ 
+          error: data.errors?.[0] || "Failed to send push notification",
+          details: data.errors
+        });
+      }
+
+      res.json({ success: true, id: data.id });
+    } catch (error: any) {
+      console.error("Critical Error in OneSignal handler:", error);
       res.status(500).json({ error: error.message });
     }
   });
