@@ -9,8 +9,8 @@ const supabase = createClient(
 );
 
 async function check() {
-  const { data, error } = await supabase.from('admin_profiles').select('*').limit(1);
-  console.log('Admin Profile Data Sample:', data);
+  const { data, error } = await supabase.from('users_profiles').select('*').eq('mobile_number', '8140428671').single();
+  console.log('Admin User Profile Data:', data);
   if (error) console.error('Error:', error);
 }
 
