@@ -86,6 +86,7 @@ export default function Settings() {
     fetchSettings();
 
     // Check OneSignal Subscription Status & Player ID
+    const checkStatus = async () => {
       try {
         const OneSignal = (window as any).OneSignal;
         if (OneSignal && typeof OneSignal.init === 'function') {
@@ -106,6 +107,7 @@ export default function Settings() {
       } catch (err) {
         // Silently handle if SDK is still proxying
       }
+    };
 
     checkStatus();
     const interval = setInterval(checkStatus, 3000);
