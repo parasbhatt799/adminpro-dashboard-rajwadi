@@ -176,8 +176,75 @@ async function startServer() {
     }
   });
 
-    res.status(404).json({ error: "Route not found" });
+  app.post("/api/send-push-notification", async (req, res) => {
+    const { title, message, player_ids, credentials } = req.body;
+
+    if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
+      return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
+    }
+
+    try {
+      const { app_id, rest_api_key } = credentials;
+      const data: any = {
+        app_id: app_id.trim(),
+        headings: { en: title },
+        contents: { en: message },
+        isAnyWeb: true,
+        web_url: "https://www.usepay.in/admin",
+      };
+
+      // Target specific players if provided, otherwise fallback to segments
+      if (player_ids && player_ids.length > 0) {
+        data.include_player_ids = player_ids;
+      } else {
+        data.included_segments = ["Subscribed Users", "All"];
+      }
+
+      const bodyData = JSON.stringify(data);
+
+      const options = {
+        hostname: 'onesignal.com',
+        path: '/api/v1/notifications',
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${rest_api_key.trim()}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(bodyData)
+        }
+      };
+
+      const osRequest = https.request(options, (osRes) => {
+        let responseBody = '';
+        osRes.on('data', (chunk) => responseBody += chunk);
+        osRes.on('end', () => {
+          try {
+            const parsed = JSON.parse(responseBody);
+            if (osRes.statusCode && osRes.statusCode >= 200 && osRes.statusCode < 300) {
+              res.json({ success: true, id: parsed.id });
+            } else {
+              res.status(osRes.statusCode || 500).json({ 
+                error: parsed.errors?.[0] || "OneSignal API Error",
+                details: parsed.errors
+              });
+            }
+          } catch (e: any) {
+            res.status(500).json({ error: "Invalid response from OneSignal" });
+          }
+        });
+      });
+
+      osRequest.on('error', (err) => {
+        res.status(500).json({ error: err.message });
+      });
+
+      osRequest.write(bodyData);
+      osRequest.end();
+
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
   });
+
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
@@ -193,6 +260,11 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  // API 404 Handler
+  app.use('/api/*', (req, res) => {
+    res.status(404).json({ error: "API Route not found" });
+  });
 
   // Global Error Handler
   app.use((err: any, req: any, res: any, next: any) => {

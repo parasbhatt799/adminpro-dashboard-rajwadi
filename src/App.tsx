@@ -35,10 +35,48 @@ import UserStatementReport from './components/user/UserStatementReport';
 import UserDashboard from './components/user/UserDashboard';
 import UserChangePassword from './components/user/UserChangePassword';
 import HomePage from './components/HomePage';
-import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2 } from 'lucide-react';
+import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
+
+// OneSignal Initialization Helper
+const setupOneSignal = async (currentUserId: string) => {
+  try {
+    const OneSignal = (window as any).OneSignal;
+    if (!OneSignal) return;
+
+    // 1. Fetch App ID
+    const { data: settings } = await supabase
+      .from('onesignal_settings')
+      .select('app_id')
+      .eq('id', 1)
+      .single();
+
+    if (!settings?.app_id) return;
+
+    // 2. Initialize
+    await OneSignal.init({
+      appId: settings.app_id,
+      allowLocalhostAsSecureOrigin: true,
+      serviceWorkerParam: { scope: '/' },
+      serviceWorkerPath: 'OneSignalSDKWorker.js',
+    });
+
+    // 3. Sync Player ID if logged in
+    const user = await OneSignal.User;
+    if (user?.PushSubscription?.id && currentUserId) {
+      await supabase
+        .from('users_profiles')
+        .update({ onesignal_id: user.PushSubscription.id })
+        .eq('id', currentUserId);
+        
+      console.log('OneSignal Sync Success:', user.PushSubscription.id);
+    }
+  } catch (err) {
+    console.error('OneSignal Setup Error:', err);
+  }
+};
 
 
 // --- Layout Components ---
@@ -299,6 +337,12 @@ export default function App() {
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [adminRole, setAdminRole] = useState(() => localStorage.getItem('adminRole') || 'full');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  useEffect(() => {
+    if ((window as any).OneSignal) {
+      setupOneSignal(userId);
+    }
+  }, [userId]);
   
   // Admin Notification States
   const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
