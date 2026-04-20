@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
       headings: { en: title },
       contents: { en: message },
       isAnyWeb: true,
-      web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/dashboard",
+      web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in${link}",
     };
 
     // Target specific players if provided, otherwise fallback to segments
