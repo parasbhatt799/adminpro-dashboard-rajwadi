@@ -20,6 +20,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [testLoading, setTestLoading] = useState(false);
 
   const [whatsappSettings, setWhatsappSettings] = useState({
     is_active: false,
@@ -158,6 +159,42 @@ export default function Settings() {
     } catch (err: any) {
       console.error('OneSignal Error:', err);
       setError(err.message || 'Failed to subscribe');
+    }
+  };
+
+  const handleTestNotification = async () => {
+    if (!oneSignalSettings.app_id || !oneSignalSettings.rest_api_key) {
+      setError('Please save both App ID and REST API Key before testing.');
+      return;
+    }
+
+    setTestLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch('/api/send-push-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Test Notification 🔔',
+          message: 'If you see this, your Push Notifications are working correctly!',
+          credentials: {
+            app_id: oneSignalSettings.app_id,
+            rest_api_key: oneSignalSettings.rest_api_key
+          }
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send test');
+
+      setSuccess('Test notification triggered! Check your mobile.');
+    } catch (err: any) {
+      console.error('Test Error:', err);
+      setError('Test failed: ' + err.message);
+    } finally {
+      setTestLoading(false);
     }
   };
 
@@ -323,6 +360,26 @@ export default function Settings() {
                   disabled={isSubscribed}
                 >
                   {isSubscribed ? 'Subscribed ✓' : 'Subscribe Now'}
+                </button>
+              </div>
+
+              <div className="md:col-span-2 flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center text-slate-400 shadow-sm">
+                    <BellRing size={16} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Push Delivery Test</p>
+                    <p className="text-[10px] text-slate-500">Send a test alert to all subscribed admins.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleTestNotification}
+                  disabled={testLoading}
+                  className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 active:scale-95 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  {testLoading ? <Loader2 className="animate-spin" size={14} /> : <Bell size={14} />}
+                  Send Test Alert
                 </button>
               </div>
             </div>

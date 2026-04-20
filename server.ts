@@ -161,13 +161,14 @@ async function startServer() {
 
   app.post("/api/send-push-notification", async (req, res) => {
     const { title, message, credentials } = req.body;
-    console.log("Incoming push notification request:", title);
+    console.log("[OneSignal] Incoming request:", { title, message, appId: credentials?.app_id });
 
     if (!title || !message) {
       return res.status(400).json({ error: "Title and message are required." });
     }
 
     if (!credentials || !credentials.app_id || !credentials.rest_api_key) {
+      console.error("[OneSignal] Missing credentials in request body");
       return res.status(400).json({ error: "OneSignal API credentials missing." });
     }
 
@@ -175,6 +176,7 @@ async function startServer() {
       const { app_id, rest_api_key } = credentials;
       const url = "https://onesignal.com/api/v1/notifications";
 
+      console.log("[OneSignal] Calling API...");
       const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -192,8 +194,8 @@ async function startServer() {
       });
 
       const data: any = await response.json();
-      console.log("OneSignal API Response Status:", response.status);
-      console.log("OneSignal API Response Data:", JSON.stringify(data, null, 2));
+      console.log("[OneSignal] API Status:", response.status);
+      console.log("[OneSignal] API Response:", JSON.stringify(data, null, 2));
 
       if (!response.ok) {
         return res.status(response.status).json({ 
@@ -204,7 +206,7 @@ async function startServer() {
 
       res.json({ success: true, id: data.id });
     } catch (error: any) {
-      console.error("Critical Error in OneSignal handler:", error);
+      console.error("[OneSignal] Critical Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
