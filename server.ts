@@ -176,70 +176,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/send-push-notification", async (req, res) => {
-    const { title, message, credentials } = req.body;
-    console.log("[OneSignal] Incoming request:", title);
-
-    if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
-      return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
-    }
-
-    try {
-      const { app_id, rest_api_key } = credentials;
-      const data = JSON.stringify({
-        app_id: app_id.trim(),
-        headings: { en: title },
-        contents: { en: message },
-        included_segments: ["All"],
-        isAnyWeb: true,
-        web_url: "https://www.usepay.in/admin",
-      });
-
-      const options = {
-        hostname: 'onesignal.com',
-        path: '/api/v1/notifications',
-        method: 'POST',
-        headers: {
-          'Authorization': `Basic ${rest_api_key.trim()}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(data)
-        }
-      };
-
-      const osRequest = https.request(options, (osRes) => {
-        let responseBody = '';
-        osRes.on('data', (chunk) => responseBody += chunk);
-        osRes.on('end', () => {
-          try {
-            const parsed = JSON.parse(responseBody);
-            console.log("[OneSignal] API Response:", parsed);
-            if (osRes.statusCode && osRes.statusCode >= 200 && osRes.statusCode < 300) {
-              res.json({ success: true, id: parsed.id });
-            } else {
-              res.status(osRes.statusCode || 500).json({ 
-                error: parsed.errors?.[0] || "Failed to send push notification",
-                details: parsed.errors
-              });
-            }
-          } catch (e: any) {
-            console.error("[OneSignal] Parse Error:", responseBody);
-            res.status(500).json({ error: "Invalid response from OneSignal" });
-          }
-        });
-      });
-
-      osRequest.on('error', (err) => {
-        console.error("[OneSignal] Network Error:", err);
-        res.status(500).json({ error: err.message });
-      });
-
-      osRequest.write(data);
-      osRequest.end();
-
-    } catch (error: any) {
-      console.error("[OneSignal] Execution Error:", error);
-      res.status(500).json({ error: error.message });
-    }
+    res.status(404).json({ error: "Route not found" });
   });
 
   // Vite middleware for development

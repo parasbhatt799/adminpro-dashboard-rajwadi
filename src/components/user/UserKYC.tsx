@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
-import { sendAdminPushNotification } from '../../lib/notifications';
 import { PDFDocument } from 'pdf-lib';
 import SignatureCanvas from 'react-signature-canvas';
 import { useRef } from 'react';
@@ -309,11 +308,6 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         console.error('KYC Notification Error (Admin):', nError);
       } else {
         console.log('KYC Notification sent to admin!');
-        // 5. Send Push Notification to Admin (Mobile)
-        sendAdminPushNotification(
-          'New KYC Request',
-          `User ${userProfile?.name || userId} has submitted documents for verification.`
-        );
       }
 
       await fetchKYCStatus();

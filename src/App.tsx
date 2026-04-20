@@ -40,31 +40,6 @@ import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Initialize OneSignal Globally
-const initOneSignal = async () => {
-  try {
-    const { data: settings } = await supabase
-      .from('onesignal_settings')
-      .select('app_id')
-      .eq('id', 1)
-      .single();
-
-    if (settings?.app_id) {
-      const OneSignal = (window as any).OneSignal;
-      if (OneSignal) {
-        await OneSignal.init({
-          appId: settings.app_id,
-          allowLocalhostAsSecureOrigin: true,
-          notifyButton: {
-            enable: false
-          }
-        });
-      }
-    }
-  } catch (err) {
-    console.error('OneSignal Global Init Error:', err);
-  }
-};
 
 // --- Layout Components ---
 
@@ -324,10 +299,6 @@ export default function App() {
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [adminRole, setAdminRole] = useState(() => localStorage.getItem('adminRole') || 'full');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-
-  useEffect(() => {
-    initOneSignal();
-  }, []);
   
   // Admin Notification States
   const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
