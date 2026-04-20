@@ -86,22 +86,26 @@ export default function Settings() {
     fetchSettings();
 
     // Check OneSignal Subscription Status & Player ID
-    const checkStatus = async () => {
       try {
         const OneSignal = (window as any).OneSignal;
-        if (OneSignal) {
-          const pushEnabled = await OneSignal.Notifications.permission;
-          setIsSubscribed(pushEnabled === 'granted');
+        if (OneSignal && typeof OneSignal.init === 'function') {
+          // Check Notifications namespace
+          if (OneSignal.Notifications) {
+            const pushEnabled = OneSignal.Notifications.permission;
+            setIsSubscribed(pushEnabled === 'granted');
+          }
           
-          const user = await OneSignal.User;
-          if (user?.PushSubscription?.id) {
-            setPlayerId(user.PushSubscription.id);
+          // Check User namespace
+          if (OneSignal.User) {
+            const pushId = OneSignal.User.PushSubscription?.id;
+            if (pushId) {
+              setPlayerId(pushId);
+            }
           }
         }
       } catch (err) {
-        console.error('Error checking OneSignal status:', err);
+        // Silently handle if SDK is still proxying
       }
-    };
 
     checkStatus();
     const interval = setInterval(checkStatus, 3000);
