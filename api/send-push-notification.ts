@@ -33,7 +33,7 @@ export default async function handler(req: any, res: any) {
         const discoveredIds = admins.map(a => a.onesignal_id).filter(Boolean);
         targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredIds])];
       }
-      
+
       console.log(`[OneSignal] Target mode: admins. Found ${targetPlayerIds.length} device IDs.`);
     }
 
@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
       headings: { en: title },
       contents: { en: message },
       isAnyWeb: true,
-      web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/admin",
+      web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/dashboard",
     };
 
     // Target specific players if provided, otherwise fallback to segments
@@ -75,7 +75,7 @@ export default async function handler(req: any, res: any) {
             if (osRes.statusCode && osRes.statusCode >= 200 && osRes.statusCode < 300) {
               res.status(200).json({ success: true, id: parsed.id });
             } else {
-              res.status(osRes.statusCode || 500).json({ 
+              res.status(osRes.statusCode || 500).json({
                 error: parsed.errors?.[0] || "OneSignal API Error",
                 details: parsed.errors
               });
