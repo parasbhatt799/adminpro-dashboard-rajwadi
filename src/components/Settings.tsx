@@ -194,10 +194,8 @@ export default function Settings() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          headings: { en: 'Test Notification 🔔' },
-          contents: { en: 'If you see this, your Push Notifications are working correctly!' },
-          included_segments: ["Subscribed Users", "All"],
-          isAnyWeb: true,
+          title: 'Test Notification 🔔',
+          message: 'If you see this, your Push Notifications are working correctly!',
           credentials: {
             app_id: oneSignalSettings.app_id,
             rest_api_key: oneSignalSettings.rest_api_key
