@@ -206,7 +206,7 @@ async function startServer() {
         headings: { en: title },
         contents: { en: message },
         isAnyWeb: true,
-        web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/admin",
+        web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
       };
 
       // Target specific players if provided, otherwise fallback to segments

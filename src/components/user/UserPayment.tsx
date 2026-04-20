@@ -83,7 +83,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch User Profile
         const { data: userData, error: userError } = await supabase
           .from('users_profiles')
-          .select('wallet_balance, service_charge_enabled, custom_service_charge')
+          .select('wallet_balance, service_charge_enabled, custom_service_charge, firm_name')
           .eq('id', userId)
           .single();
         

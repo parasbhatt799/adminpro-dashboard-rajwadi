@@ -8,6 +8,9 @@ export default async function handler(req: any, res: any) {
 
   const { title, message, player_ids, target, link, credentials } = req.body;
 
+  // Log incoming request data for debugging
+  console.log(`[Push API] Request - Title: ${title}, Target: ${target}, Link: ${link}`);
+
   if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
     return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
   }
@@ -16,7 +19,7 @@ export default async function handler(req: any, res: any) {
     const { app_id, rest_api_key } = credentials;
     let targetPlayerIds = player_ids || [];
 
-    // --- NEW: Server-side discovery of Admin Player IDs ---
+    // --- Server-side discovery of Admin Player IDs ---
     if (target === 'admins') {
       const supabaseAdmin = createClient(
         process.env.VITE_SUPABASE_URL || "",
@@ -26,15 +29,15 @@ export default async function handler(req: any, res: any) {
       const { data: admins, error } = await supabaseAdmin
         .from('users_profiles')
         .select('onesignal_id')
-        .eq('role', 'admin') // We now sync admins to users_profiles with role='admin'
+        .eq('role', 'admin') 
         .not('onesignal_id', 'is', null);
 
       if (!error && admins) {
         const discoveredIds = admins.map(a => a.onesignal_id).filter(Boolean);
         targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredIds])];
       }
-
-      console.log(`[OneSignal] Target mode: admins. Found ${targetPlayerIds.length} device IDs.`);
+      
+      console.log(`[Push API] Target mode: admins. Found ${targetPlayerIds.length} device IDs.`);
     }
 
     const data: any = {
@@ -42,7 +45,8 @@ export default async function handler(req: any, res: any) {
       headings: { en: title },
       contents: { en: message },
       isAnyWeb: true,
-      web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/deshboard",
+      // Fix: Ensure link starts with a slash and no double slashes
+      web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
     };
 
     // Target specific players if provided, otherwise fallback to segments
@@ -75,7 +79,7 @@ export default async function handler(req: any, res: any) {
             if (osRes.statusCode && osRes.statusCode >= 200 && osRes.statusCode < 300) {
               res.status(200).json({ success: true, id: parsed.id });
             } else {
-              res.status(osRes.statusCode || 500).json({
+              res.status(osRes.statusCode || 500).json({ 
                 error: parsed.errors?.[0] || "OneSignal API Error",
                 details: parsed.errors
               });
