@@ -46,7 +46,20 @@ const setupOneSignal = async (currentUserId: string) => {
     const OneSignal = (window as any).OneSignal;
     if (!OneSignal) return;
 
-    // 1. Fetch App ID
+    // 1. Wait for SDK to be ready (v16 handles init differently sometimes)
+    let retryCount = 0;
+    while (typeof OneSignal.init !== 'function' && retryCount < 10) {
+      console.log('Waiting for OneSignal SDK to be ready...');
+      await new Promise(resolve => setTimeout(resolve, 500));
+      retryCount++;
+    }
+
+    if (typeof OneSignal.init !== 'function') {
+      console.warn('OneSignal.init still not found after retries.');
+      return;
+    }
+
+    // 2. Fetch App ID
     const { data: settings } = await supabase
       .from('onesignal_settings')
       .select('app_id')
@@ -55,15 +68,16 @@ const setupOneSignal = async (currentUserId: string) => {
 
     if (!settings?.app_id) return;
 
-    // 2. Initialize
+    // 3. Initialize
     await OneSignal.init({
       appId: settings.app_id,
       allowLocalhostAsSecureOrigin: true,
+      notifyButton: { enable: false },
       serviceWorkerParam: { scope: '/' },
       serviceWorkerPath: 'OneSignalSDKWorker.js',
     });
 
-    // 3. Sync Player ID if logged in
+    // 4. Sync Player ID if logged in
     const user = await OneSignal.User;
     if (user?.PushSubscription?.id && currentUserId) {
       await supabase
