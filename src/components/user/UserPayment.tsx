@@ -478,6 +478,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           link: '/qr-payment-requests'
         }]);
       
+      if (!nError) {
+        // Trigger Mobile Push Notification
+        sendAdminPushNotification(
+          'New QR Payment Request 🔔',
+          `User ${userProfile?.firm_name || userId} submitted ₹${amountNum}. Review now!`
+        );
+      }
       if (nError) {
         console.error('QR Notification Error (Admin):', nError);
       } else {
