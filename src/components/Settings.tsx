@@ -149,32 +149,12 @@ export default function Settings() {
     try {
       const OneSignal = (window as any).OneSignal;
       if (!OneSignal) {
-        setError('OneSignal SDK not loaded yet. Please refresh page.');
+        setError('OneSignal SDK not loaded yet. Please refresh.');
         return;
       }
 
-      if (!oneSignalSettings.app_id) {
-        setError('Please save your OneSignal App ID first.');
-        return;
-      }
-
-      // Initialize if needed
-      await OneSignal.init({
-        appId: oneSignalSettings.app_id,
-        allowLocalhostAsSecureOrigin: true,
-      });
-
-      // Request Permission & Subscribe
+      console.log('Opening subscription prompt...');
       await OneSignal.Notifications.requestPermission();
-      await OneSignal.User.PushSubscription.optIn();
-      
-      // Tag as admin
-      await OneSignal.User.addTag("role", "admin");
-
-      setIsSubscribed(true);
-      setSuccess('This device is now subscribed to Admin alerts!');
-    } catch (err: any) {
-      console.error('OneSignal Error:', err);
       setError(err.message || 'Failed to subscribe');
     }
   };
