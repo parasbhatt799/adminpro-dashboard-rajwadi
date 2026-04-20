@@ -156,21 +156,31 @@ export default function BillPaymentRequests() {
       const targetRequest = requests.find(r => r.id === targetId);
       if (!targetRequest) throw new Error('Request not found');
 
-      const { data: userData, error: userFetchError } = await supabase
-        .from('users_profiles')
-        .select('wallet_balance')
-        .eq('id', targetRequest.user_id)
+      // 1. First, check status to prevent race conditions
+      const { data: currentReq, error: fetchError } = await supabase
+        .from('bill_submissions')
+        .select('status, amount, charges')
+        .eq('id', targetId)
         .single();
       
-      if (userFetchError) throw userFetchError;
+      if (fetchError || !currentReq) throw new Error('Request not found');
+      if (currentReq.status !== 'pending') throw new Error('This request has already been processed');
 
+      const amount = currentReq.amount || 0;
+      const requestCharges = currentReq.charges || 0;
       const updateData: any = { status: targetType };
-      const amount = targetRequest.amount || 0;
-      const requestCharges = targetRequest.charges || 0;
-      const currentUserBalance = Number(userData.wallet_balance) || 0;
 
       if (targetType === 'approved') {
-        // Update Admin Wallet (qr_settings.admin_balance)
+        // 2. Update Status to Approved FIRST to lock the record
+        const { error: statusError } = await supabase
+          .from('bill_submissions')
+          .update(updateData)
+          .eq('id', targetId)
+          .eq('status', 'pending');
+
+        if (statusError) throw statusError;
+
+        // 3. Update Admin Wallet (qr_settings.admin_balance)
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
         
@@ -182,19 +192,28 @@ export default function BillPaymentRequests() {
       } else {
         updateData.rejection_reason = targetReason;
         
-        // Refund full amount (amount + charges) to user
+        // 2. Update Status to Rejected FIRST
+        const { error: statusError } = await supabase
+          .from('bill_submissions')
+          .update(updateData)
+          .eq('id', targetId)
+          .eq('status', 'pending');
+
+        if (statusError) throw statusError;
+
+        // 3. Refund full amount (amount + charges) to user
+        const { data: userData } = await supabase
+          .from('users_profiles')
+          .select('wallet_balance')
+          .eq('id', targetRequest.user_id)
+          .single();
+        
+        const currentUserBalance = Number(userData?.wallet_balance) || 0;
         await supabase
           .from('users_profiles')
           .update({ wallet_balance: currentUserBalance + amount + requestCharges })
           .eq('id', targetRequest.user_id);
       }
-
-      const { error } = await supabase
-        .from('bill_submissions')
-        .update(updateData)
-        .eq('id', targetId);
-
-      if (error) throw error;
 
       // 3. Notify User about their request status
       const { error: nError } = await supabase

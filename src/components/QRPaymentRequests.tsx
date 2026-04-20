@@ -113,24 +113,44 @@ export default function QRPaymentRequests() {
     
     setProcessingId(targetId);
     try {
-      // 1. Fetch user profile for charge percentage and current balance
-      const { data: userData, error: userFetchError } = await supabase
-        .from('users_profiles')
-        .select('charge_percentage, wallet_balance')
-        .eq('id', requests.find(r => r.id === targetId)?.user_id)
+      // 1. First, try to update the status to prevent race conditions
+      // This update will only succeed if the status is still 'pending'
+      const { data: currentReq, error: fetchError } = await supabase
+        .from('payment_submissions')
+        .select('status, amount, user_id')
+        .eq('id', targetId)
         .single();
       
-      if (userFetchError) throw userFetchError;
+      if (fetchError || !currentReq) throw new Error('Request not found');
+      if (currentReq.status !== 'pending') throw new Error('This request has already been processed');
 
+      const amount = currentReq.amount || 0;
       const updateData: any = { status: targetType };
-      const amount = requests.find(r => r.id === targetId)?.amount || 0;
 
       if (targetType === 'approved') {
+        // 2. Fetch user profile for charge percentage and current balance
+        const { data: userData, error: userFetchError } = await supabase
+          .from('users_profiles')
+          .select('charge_percentage, wallet_balance')
+          .eq('id', currentReq.user_id)
+          .single();
+        
+        if (userFetchError) throw userFetchError;
+
         const percentage = Number(userData.charge_percentage) || 0;
         const calculatedCharges = (amount * percentage) / 100;
         updateData.charges = calculatedCharges;
 
-        // Update Admin Wallet (qr_settings.admin_balance)
+        // 3. Update Status to Approved FIRST to lock the record
+        const { error: statusError } = await supabase
+          .from('payment_submissions')
+          .update(updateData)
+          .eq('id', targetId)
+          .eq('status', 'pending'); // Critical: only update if still pending
+
+        if (statusError) throw statusError;
+
+        // 4. Update Admin Wallet (qr_settings.admin_balance)
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
         
@@ -139,24 +159,23 @@ export default function QRPaymentRequests() {
           .update({ admin_balance: currentAdminBalance + calculatedCharges })
           .eq('id', 1);
 
-        // Update User Wallet (Add back amount - charges)
+        // 5. Update User Wallet (Add back amount - charges)
         const currentUserBalance = Number(userData.wallet_balance) || 0;
         await supabase
           .from('users_profiles')
           .update({ wallet_balance: currentUserBalance + (amount - calculatedCharges) })
-          .eq('id', requests.find(r => r.id === targetId)?.user_id);
+          .eq('id', currentReq.user_id);
 
       } else {
         updateData.rejection_reason = targetReason;
-        // No wallet update needed for rejection as no deduction happened on submission
+        const { error: statusError } = await supabase
+          .from('payment_submissions')
+          .update(updateData)
+          .eq('id', targetId)
+          .eq('status', 'pending');
+        
+        if (statusError) throw statusError;
       }
-
-      const { error } = await supabase
-        .from('payment_submissions')
-        .update(updateData)
-        .eq('id', targetId);
-
-      if (error) throw error;
 
       // 3. Notify User about their request status
       const { error: nError } = await supabase
