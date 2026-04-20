@@ -5,8 +5,18 @@ import { fileURLToPath } from "url";
 import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
+import https from "https";
 
 dotenv.config();
+
+// Global Error Handlers to prevent silent crashes
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[CRITICAL] Uncaught Exception:', err);
+});
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL || "",
@@ -110,103 +120,124 @@ async function startServer() {
 
   app.post("/api/send-whatsapp-proof", async (req, res) => {
     const { whatsapp_number, proof_url, credentials } = req.body;
-    console.log("Incoming WhatsApp proof request for:", whatsapp_number);
+    console.log("[WhatsApp] Request for:", whatsapp_number);
 
-    if (!whatsapp_number || !proof_url) {
-      return res.status(400).json({ error: "WhatsApp number and proof URL are required." });
-    }
-
-    if (!credentials || !credentials.access_token || !credentials.phone_number_id) {
-      return res.status(400).json({ error: "WhatsApp API credentials missing." });
+    if (!whatsapp_number || !proof_url || !credentials || !credentials.access_token || !credentials.phone_number_id) {
+      return res.status(400).json({ error: "Missing WhatsApp credentials or data." });
     }
 
     try {
       const { access_token, phone_number_id, sender_number } = credentials;
-      const url = `https://graph.facebook.com/v18.0/${phone_number_id}/messages`;
-
-      const payload = {
+      const data = JSON.stringify({
         messaging_product: "whatsapp",
         recipient_type: "individual",
-        to: whatsapp_number,
+        to: whatsapp_number.trim(),
         type: "image",
         image: {
           link: proof_url,
-          caption: `Payment Approved! Here is the proof of your submission. (Sent from ${sender_number || "Admin Portal"})`,
+          caption: `Payment Approved! (Sent from ${sender_number || "Admin Portal"})`,
         },
-      };
-
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
       });
 
-      const data: any = await response.json();
-      if (!response.ok) {
-        return res.status(response.status).json({ 
-          error: data.error?.message || "Failed to send WhatsApp message",
-          details: data.error
-        });
-      }
+      const options = {
+        hostname: 'graph.facebook.com',
+        path: `/v18.0/${phone_number_id.trim()}/messages`,
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${access_token.trim()}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data)
+        }
+      };
 
-      res.json({ success: true, message_id: data.messages?.[0]?.id });
+      const metaRequest = https.request(options, (metaRes) => {
+        let responseBody = '';
+        metaRes.on('data', (chunk) => responseBody += chunk);
+        metaRes.on('end', () => {
+          const parsed = JSON.parse(responseBody);
+          if (metaRes.statusCode && metaRes.statusCode >= 200 && metaRes.statusCode < 300) {
+            res.json({ success: true, message_id: parsed.messages?.[0]?.id });
+          } else {
+            res.status(metaRes.statusCode || 500).json({ 
+              error: parsed.error?.message || "Failed to send WhatsApp message",
+              details: parsed.error
+            });
+          }
+        });
+      });
+
+      metaRequest.on('error', (e) => { throw e; });
+      metaRequest.write(data);
+      metaRequest.end();
+
     } catch (error: any) {
-      console.error("Critical Error in WhatsApp handler:", error);
+      console.error("[WhatsApp] Critical Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   app.post("/api/send-push-notification", async (req, res) => {
     const { title, message, credentials } = req.body;
-    console.log("[OneSignal] Incoming request:", { title, message, appId: credentials?.app_id });
+    console.log("[OneSignal] Incoming request:", title);
 
-    if (!title || !message) {
-      return res.status(400).json({ error: "Title and message are required." });
-    }
-
-    if (!credentials || !credentials.app_id || !credentials.rest_api_key) {
-      console.error("[OneSignal] Missing credentials in request body");
-      return res.status(400).json({ error: "OneSignal API credentials missing." });
+    if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
+      return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
     }
 
     try {
       const { app_id, rest_api_key } = credentials;
-      const url = "https://onesignal.com/api/v1/notifications";
-
-      console.log("[OneSignal] Calling API...");
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${rest_api_key}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          app_id: app_id,
-          headings: { en: title },
-          contents: { en: message },
-          included_segments: ["Subscribed Users"],
-          isAnyWeb: true,
-          web_url: "https://www.usepay.in/admin",
-        }),
+      const data = JSON.stringify({
+        app_id: app_id.trim(),
+        headings: { en: title },
+        contents: { en: message },
+        included_segments: ["All"],
+        isAnyWeb: true,
+        web_url: "https://www.usepay.in/admin",
       });
 
-      const data: any = await response.json();
-      console.log("[OneSignal] API Status:", response.status);
-      console.log("[OneSignal] API Response:", JSON.stringify(data, null, 2));
+      const options = {
+        hostname: 'onesignal.com',
+        path: '/api/v1/notifications',
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${rest_api_key.trim()}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(data)
+        }
+      };
 
-      if (!response.ok) {
-        return res.status(response.status).json({ 
-          error: data.errors?.[0] || "Failed to send push notification",
-          details: data.errors
+      const osRequest = https.request(options, (osRes) => {
+        let responseBody = '';
+        osRes.on('data', (chunk) => responseBody += chunk);
+        osRes.on('end', () => {
+          try {
+            const parsed = JSON.parse(responseBody);
+            console.log("[OneSignal] API Response:", parsed);
+            if (osRes.statusCode && osRes.statusCode >= 200 && osRes.statusCode < 300) {
+              res.json({ success: true, id: parsed.id });
+            } else {
+              res.status(osRes.statusCode || 500).json({ 
+                error: parsed.errors?.[0] || "Failed to send push notification",
+                details: parsed.errors
+              });
+            }
+          } catch (e: any) {
+            console.error("[OneSignal] Parse Error:", responseBody);
+            res.status(500).json({ error: "Invalid response from OneSignal" });
+          }
         });
-      }
+      });
 
-      res.json({ success: true, id: data.id });
+      osRequest.on('error', (err) => {
+        console.error("[OneSignal] Network Error:", err);
+        res.status(500).json({ error: err.message });
+      });
+
+      osRequest.write(data);
+      osRequest.end();
+
     } catch (error: any) {
-      console.error("[OneSignal] Critical Error:", error);
+      console.error("[OneSignal] Execution Error:", error);
       res.status(500).json({ error: error.message });
     }
   });
