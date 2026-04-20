@@ -35,6 +35,7 @@ export default function Settings() {
     rest_api_key: ''
   });
 
+  const [playerId, setPlayerId] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
 
   const fetchSettings = async () => {
@@ -72,12 +73,6 @@ export default function Settings() {
         });
       }
 
-      // Check OneSignal Subscription Status
-      const OneSignal = (window as any).OneSignal;
-      if (OneSignal) {
-        setIsSubscribed(await OneSignal.User.PushSubscription.optedIn);
-      }
-
     } catch (err: any) {
       console.error('Error fetching settings:', err);
       setError('Failed to load settings');
@@ -88,6 +83,28 @@ export default function Settings() {
 
   useEffect(() => {
     fetchSettings();
+
+    // Check Subscription Status and Player ID
+    const checkStatus = async () => {
+      try {
+        const OneSignal = (window as any).OneSignal;
+        if (OneSignal) {
+          const pushEnabled = await OneSignal.Notifications.permission;
+          setIsSubscribed(pushEnabled === 'granted');
+          
+          const user = await OneSignal.User;
+          if (user?.PushSubscription?.id) {
+            setPlayerId(user.PushSubscription.id);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking OneSignal status:', err);
+      }
+    };
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleSave = async () => {
@@ -177,8 +194,10 @@ export default function Settings() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: 'Test Notification 🔔',
-          message: 'If you see this, your Push Notifications are working correctly!',
+          headings: { en: 'Test Notification 🔔' },
+          contents: { en: 'If you see this, your Push Notifications are working correctly!' },
+          included_segments: ["Subscribed Users", "All"],
+          isAnyWeb: true,
           credentials: {
             app_id: oneSignalSettings.app_id,
             rest_api_key: oneSignalSettings.rest_api_key
@@ -346,18 +365,28 @@ export default function Settings() {
 
               <div className="md:col-span-2 flex items-center justify-between p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
                 <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isSubscribed ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
-                    {isSubscribed ? <BellRing size={16} /> : <Bell size={16} />}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isSubscribed ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                    <BellRing size={20} />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-900">{isSubscribed ? 'Device Subscribed' : 'Device Not Subscribed'}</p>
-                    <p className="text-[10px] text-slate-500">Run this on your mobile to receive alerts.</p>
+                    <p className={`font-bold ${isSubscribed ? 'text-emerald-900' : 'text-amber-900'}`}>
+                      {isSubscribed ? 'Device Subscribed' : 'Device Not Subscribed'}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {isSubscribed 
+                        ? `Your Unique Player ID: ${playerId || 'Detecting...'}` 
+                        : 'Run this on your mobile to receive alerts.'}
+                    </p>
                   </div>
                 </div>
                 <button
                   onClick={handleSubscribe}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${isSubscribed ? 'bg-white text-slate-400 cursor-default' : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 shadow-md shadow-indigo-100'}`}
                   disabled={isSubscribed}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                    isSubscribed 
+                      ? 'bg-emerald-50 text-emerald-600 cursor-default' 
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md active:scale-95'
+                  }`}
                 >
                   {isSubscribed ? 'Subscribed ✓' : 'Subscribe Now'}
                 </button>
