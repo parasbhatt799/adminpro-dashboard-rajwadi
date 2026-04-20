@@ -155,6 +155,8 @@ export default function Settings() {
 
       console.log('Opening subscription prompt...');
       await OneSignal.Notifications.requestPermission();
+    } catch (err: any) {
+      console.error('Subscription error:', err);
       setError(err.message || 'Failed to subscribe');
     }
   };
