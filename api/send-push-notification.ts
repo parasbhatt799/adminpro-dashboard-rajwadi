@@ -1,11 +1,12 @@
 import https from 'https';
+import { createClient } from '@supabase/supabase-js';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { title, message, player_ids, credentials } = req.body;
+  const { title, message, player_ids, target, credentials } = req.body;
 
   if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
     return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
@@ -13,6 +14,29 @@ export default async function handler(req: any, res: any) {
 
   try {
     const { app_id, rest_api_key } = credentials;
+    let targetPlayerIds = player_ids || [];
+
+    // --- NEW: Server-side discovery of Admin Player IDs ---
+    if (target === 'admins') {
+      const supabaseAdmin = createClient(
+        process.env.VITE_SUPABASE_URL || "",
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+      );
+
+      const { data: admins, error } = await supabaseAdmin
+        .from('users_profiles')
+        .select('onesignal_id')
+        .eq('role', 'admin') // Only target admins
+        .not('onesignal_id', 'is', null);
+
+      if (!error && admins) {
+        const discoveredIds = admins.map(a => a.onesignal_id).filter(Boolean);
+        targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredIds])];
+      }
+      
+      console.log(`[OneSignal] Target mode: admins. Found ${targetPlayerIds.length} device IDs.`);
+    }
+
     const data: any = {
       app_id: app_id.trim(),
       headings: { en: title },
@@ -22,8 +46,8 @@ export default async function handler(req: any, res: any) {
     };
 
     // Target specific players if provided, otherwise fallback to segments
-    if (player_ids && player_ids.length > 0) {
-      data.include_player_ids = player_ids;
+    if (targetPlayerIds && targetPlayerIds.length > 0) {
+      data.include_player_ids = targetPlayerIds;
     } else {
       data.included_segments = ["Subscribed Users", "All"];
     }

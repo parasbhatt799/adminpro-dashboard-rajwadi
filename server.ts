@@ -177,7 +177,7 @@ async function startServer() {
   });
 
   app.post("/api/send-push-notification", async (req, res) => {
-    const { title, message, player_ids, credentials } = req.body;
+    const { title, message, player_ids, target, credentials } = req.body;
 
     if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
       return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
@@ -185,6 +185,22 @@ async function startServer() {
 
     try {
       const { app_id, rest_api_key } = credentials;
+      let targetPlayerIds = player_ids || [];
+
+      // Server-side discovery of Admin Player IDs
+      if (target === 'admins') {
+        const { data: admins, error } = await supabaseAdmin
+          .from('users_profiles')
+          .select('onesignal_id')
+          .eq('role', 'admin')
+          .not('onesignal_id', 'is', null);
+
+        if (!error && admins) {
+          const discoveredIds = admins.map(a => a.onesignal_id).filter(Boolean);
+          targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredIds])];
+        }
+      }
+
       const data: any = {
         app_id: app_id.trim(),
         headings: { en: title },
@@ -194,8 +210,8 @@ async function startServer() {
       };
 
       // Target specific players if provided, otherwise fallback to segments
-      if (player_ids && player_ids.length > 0) {
-        data.include_player_ids = player_ids;
+      if (targetPlayerIds && targetPlayerIds.length > 0) {
+        data.include_player_ids = targetPlayerIds;
       } else {
         data.included_segments = ["Subscribed Users", "All"];
       }

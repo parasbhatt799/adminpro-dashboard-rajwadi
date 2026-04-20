@@ -23,22 +23,8 @@ export async function sendAdminPushNotification(title: string, message: string) 
       return;
     }
 
-    // 2. Fetch all subscribed admins
-    const { data: admins, error: aError } = await supabase
-      .from('users_profiles')
-      .select('onesignal_id')
-      .not('onesignal_id', 'is', null);
-
-    if (aError || !admins || admins.length === 0) {
-      console.warn('[Push] No subscribed devices found.');
-      return;
-    }
-
-    const targetIds = admins.map(a => a.onesignal_id).filter(Boolean);
-
-    console.log('[Push] Triggering notification for:', title, 'to', targetIds.length, 'devices');
-
-    // 3. Call our backend API
+    // 2. Call our backend API with target: 'admins'
+    // We no longer fetch IDs on the client to avoid RLS security blocks
     const response = await fetch('/api/send-push-notification', {
       method: 'POST',
       headers: {
@@ -47,7 +33,7 @@ export async function sendAdminPushNotification(title: string, message: string) 
       body: JSON.stringify({
         title,
         message,
-        player_ids: targetIds, // Pass specific IDs for targeted delivery
+        target: 'admins', // Tell the server to find the admins
         credentials: {
           app_id: settings.app_id,
           rest_api_key: settings.rest_api_key
