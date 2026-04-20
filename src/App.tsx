@@ -43,23 +43,10 @@ import { motion, AnimatePresence } from 'motion/react';
 // OneSignal Initialization Helper
 const setupOneSignal = async (currentUserId: string) => {
   try {
-    const OneSignal = (window as any).OneSignal;
-    if (!OneSignal) return;
+    const OneSignalDeferred = (window as any).OneSignalDeferred;
+    if (!OneSignalDeferred) return;
 
-    // 1. Wait for SDK to be ready (v16 handles init differently sometimes)
-    let retryCount = 0;
-    while (typeof OneSignal.init !== 'function' && retryCount < 10) {
-      console.log('Waiting for OneSignal SDK to be ready...');
-      await new Promise(resolve => setTimeout(resolve, 500));
-      retryCount++;
-    }
-
-    if (typeof OneSignal.init !== 'function') {
-      console.warn('OneSignal.init still not found after retries.');
-      return;
-    }
-
-    // 2. Fetch App ID
+    // 1. Fetch App ID
     const { data: settings } = await supabase
       .from('onesignal_settings')
       .select('app_id')
@@ -68,25 +55,29 @@ const setupOneSignal = async (currentUserId: string) => {
 
     if (!settings?.app_id) return;
 
-    // 3. Initialize
-    await OneSignal.init({
-      appId: settings.app_id,
-      allowLocalhostAsSecureOrigin: true,
-      notifyButton: { enable: false },
-      serviceWorkerParam: { scope: '/' },
-      serviceWorkerPath: 'OneSignalSDKWorker.js',
+    // 2. Initialize via Deferred Queue
+    OneSignalDeferred.push(async (OneSignal: any) => {
+      await OneSignal.init({
+        appId: settings.app_id,
+        allowLocalhostAsSecureOrigin: true,
+        notifyButton: { enable: false },
+        serviceWorkerParam: { scope: '/' },
+        serviceWorkerPath: 'OneSignalSDKWorker.js',
+      });
+
+      // 3. Sync Player ID if logged in
+      if (currentUserId) {
+        const pushId = OneSignal.User.PushSubscription?.id;
+        if (pushId) {
+          await supabase
+            .from('users_profiles')
+            .update({ onesignal_id: pushId })
+            .eq('id', currentUserId);
+          console.log('OneSignal Sync Success:', pushId);
+        }
+      }
     });
 
-    // 4. Sync Player ID if logged in
-    const user = await OneSignal.User;
-    if (user?.PushSubscription?.id && currentUserId) {
-      await supabase
-        .from('users_profiles')
-        .update({ onesignal_id: user.PushSubscription.id })
-        .eq('id', currentUserId);
-        
-      console.log('OneSignal Sync Success:', user.PushSubscription.id);
-    }
   } catch (err) {
     console.error('OneSignal Setup Error:', err);
   }

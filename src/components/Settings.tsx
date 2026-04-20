@@ -87,26 +87,30 @@ export default function Settings() {
 
     // Check OneSignal Subscription Status & Player ID
     const checkStatus = async () => {
-      try {
-        const OneSignal = (window as any).OneSignal;
-        if (OneSignal && typeof OneSignal.init === 'function') {
-          // Check Notifications namespace
-          if (OneSignal.Notifications) {
-            const pushEnabled = OneSignal.Notifications.permission;
-            setIsSubscribed(pushEnabled === 'granted');
-          }
-          
-          // Check User namespace
-          if (OneSignal.User) {
-            const pushId = OneSignal.User.PushSubscription?.id;
-            if (pushId) {
-              setPlayerId(pushId);
+      const OneSignalDeferred = (window as any).OneSignalDeferred;
+      if (!OneSignalDeferred) return;
+
+      OneSignalDeferred.push(async (OneSignal: any) => {
+        try {
+          if (typeof OneSignal.init === 'function') {
+            // Check Notifications namespace
+            if (OneSignal.Notifications) {
+              const pushEnabled = OneSignal.Notifications.permission;
+              setIsSubscribed(pushEnabled === 'granted');
+            }
+            
+            // Check User namespace
+            if (OneSignal.User) {
+              const pushId = OneSignal.User.PushSubscription?.id;
+              if (pushId) {
+                setPlayerId(pushId);
+              }
             }
           }
+        } catch (err) {
+          // Silently handle if SDK is still proxying
         }
-      } catch (err) {
-        // Silently handle if SDK is still proxying
-      }
+      });
     };
 
     checkStatus();
@@ -153,29 +157,31 @@ export default function Settings() {
   };
 
   const handleSubscribe = async () => {
-    try {
-      const OneSignal = (window as any).OneSignal;
-      if (!OneSignal) {
-        setError('OneSignal SDK not loaded. Please ensure you have a stable internet connection and refresh.');
-        return;
-      }
-
-      // v16 API uses .Notifications, but we should check if it's initialized
-      if (OneSignal.Notifications) {
-        console.log('Opening subscription prompt (v16)...');
-        await OneSignal.Notifications.requestPermission();
-      } else if (typeof OneSignal.showNativePrompt === 'function') {
-        // Fallback for older versions or transitional states
-        console.log('Opening subscription prompt (Legacy)...');
-        await OneSignal.showNativePrompt();
-      } else {
-        setError('OneSignal is still initializing. Please wait a moment and try again.');
-        console.warn('OneSignal Notifications namespace not found yet:', OneSignal);
-      }
-    } catch (err: any) {
-      console.error('Subscription error:', err);
-      setError(err.message || 'Failed to open subscription prompt');
+    const OneSignalDeferred = (window as any).OneSignalDeferred;
+    if (!OneSignalDeferred) {
+      setError('OneSignal SDK not loaded. Please check your internet and refresh.');
+      return;
     }
+
+    OneSignalDeferred.push(async (OneSignal: any) => {
+      try {
+        // v16 API uses .Notifications, but we should check if it's initialized
+        if (OneSignal.Notifications) {
+          console.log('Opening subscription prompt (v16)...');
+          await OneSignal.Notifications.requestPermission();
+        } else if (typeof OneSignal.showNativePrompt === 'function') {
+          // Fallback for older versions or transitional states
+          console.log('Opening subscription prompt (Legacy)...');
+          await OneSignal.showNativePrompt();
+        } else {
+          setError('OneSignal is still initializing. Please wait a moment and try again.');
+          console.warn('OneSignal Notifications namespace not found yet:', OneSignal);
+        }
+      } catch (err: any) {
+        console.error('Subscription error:', err);
+        setError(err.message || 'Failed to open subscription prompt');
+      }
+    });
   };
 
   const handleTestNotification = async () => {
