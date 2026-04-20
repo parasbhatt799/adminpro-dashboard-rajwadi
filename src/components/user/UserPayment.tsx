@@ -2,6 +2,7 @@ import React, { useState, useEffect, type ChangeEvent } from 'react';
 import { QrCode, Receipt, IndianRupee, ArrowRight, ShieldCheck, CreditCard, Upload, Loader2, CheckCircle2, AlertCircle, FileText, Hash, ExternalLink, X, ChevronUp, Search, RotateCcw, Clock, XCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
+import { sendAdminPushNotification } from '../../lib/notifications';
 
 interface UserPaymentProps {
   userId: string;
@@ -379,6 +380,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       
       if (nError) {
         console.error('Bill Notification Error (Admin):', nError);
+      } else {
+        // 4. Send Push Notification to Admin (Mobile)
+        sendAdminPushNotification(
+          'New Bill Payment Request',
+          `User ${userProfile?.firm_name || userId} submitted a bill payment of ₹${billAmountNum}.`
+        );
       }
     } catch (err: any) {
       console.error('Error submitting bill:', err);
@@ -473,6 +480,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       
       if (nError) {
         console.error('QR Notification Error (Admin):', nError);
+      } else {
+        // 5. Send Push Notification to Admin (Mobile)
+        sendAdminPushNotification(
+          'New QR Payment Request',
+          `User ${userProfile?.firm_name || userId} submitted a QR payment of ₹${amountNum}.`
+        );
       }
     } catch (err: any) {
       console.error('Error submitting payment:', err);

@@ -7,7 +7,9 @@ import {
   CheckCircle2, 
   Key, 
   Hash, 
-  Phone
+  Phone,
+  Bell,
+  BellRing
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -26,23 +28,55 @@ export default function Settings() {
     sender_number: ''
   });
 
+  const [oneSignalSettings, setOneSignalSettings] = useState({
+    is_enabled: false,
+    app_id: '',
+    rest_api_key: ''
+  });
+
+  const [isSubscribed, setIsSubscribed] = useState(false);
+
   const fetchSettings = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. WhatsApp Settings
+      const { data: waData, error: waError } = await supabase
         .from('whatsapp_api_settings')
         .select('*')
         .eq('id', 1)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      if (data) {
+      if (waError && waError.code !== 'PGRST116') throw waError;
+      if (waData) {
         setWhatsappSettings({
-          is_active: data.is_active || false,
-          access_token: data.access_token || '',
-          phone_number_id: data.phone_number_id || '',
-          sender_number: data.sender_number || ''
+          is_active: waData.is_active || false,
+          access_token: waData.access_token || '',
+          phone_number_id: waData.phone_number_id || '',
+          sender_number: waData.sender_number || ''
         });
       }
+
+      // 2. OneSignal Settings
+      const { data: osData, error: osError } = await supabase
+        .from('onesignal_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      
+      if (osError && osError.code !== 'PGRST116') throw osError;
+      if (osData) {
+        setOneSignalSettings({
+          is_enabled: osData.is_enabled || false,
+          app_id: osData.app_id || '',
+          rest_api_key: osData.rest_api_key || ''
+        });
+      }
+
+      // Check OneSignal Subscription Status
+      const OneSignal = (window as any).OneSignal;
+      if (OneSignal) {
+        setIsSubscribed(await OneSignal.User.PushSubscription.optedIn);
+      }
+
     } catch (err: any) {
       console.error('Error fetching settings:', err);
       setError('Failed to load settings');
@@ -61,7 +95,8 @@ export default function Settings() {
     setSuccess(null);
 
     try {
-      const { error } = await supabase
+      // Save WhatsApp Settings
+      const { error: waError } = await supabase
         .from('whatsapp_api_settings')
         .upsert({
           id: 1,
@@ -69,7 +104,19 @@ export default function Settings() {
           updated_at: new Date().toISOString()
         });
 
-      if (error) throw error;
+      if (waError) throw waError;
+
+      // Save OneSignal Settings
+      const { error: osError } = await supabase
+        .from('onesignal_settings')
+        .upsert({
+          id: 1,
+          ...oneSignalSettings,
+          updated_at: new Date().toISOString()
+        });
+      
+      if (osError) throw osError;
+
       setSuccess('Settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
     } catch (err: any) {
@@ -77,6 +124,40 @@ export default function Settings() {
       setError(err.message || 'Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSubscribe = async () => {
+    try {
+      const OneSignal = (window as any).OneSignal;
+      if (!OneSignal) {
+        setError('OneSignal SDK not loaded yet. Please refresh page.');
+        return;
+      }
+
+      if (!oneSignalSettings.app_id) {
+        setError('Please save your OneSignal App ID first.');
+        return;
+      }
+
+      // Initialize if needed
+      await OneSignal.init({
+        appId: oneSignalSettings.app_id,
+        allowLocalhostAsSecureOrigin: true,
+      });
+
+      // Request Permission & Subscribe
+      await OneSignal.Notifications.requestPermission();
+      await OneSignal.User.PushSubscription.optIn();
+      
+      // Tag as admin
+      await OneSignal.User.addTag("role", "admin");
+
+      setIsSubscribed(true);
+      setSuccess('This device is now subscribed to Admin alerts!');
+    } catch (err: any) {
+      console.error('OneSignal Error:', err);
+      setError(err.message || 'Failed to subscribe');
     }
   };
 
@@ -170,6 +251,89 @@ export default function Settings() {
               <div className="text-xs text-amber-800 leading-relaxed">
                 <p className="font-bold mb-1">Important Note:</p>
                 When **WhatsApp API Status** is ON, the system will automatically send payment proof screenshots to the WhatsApp number associated with the QR code upon approval. Ensure your Meta App is correctly configured with these credentials to avoid failures.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* OneSignal Push Notifications Section */}
+        <section className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                <Bell size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Push Notifications (OneSignal)</h3>
+                <p className="text-xs text-slate-500">Enable real-time mobile push alerts for new requests.</p>
+              </div>
+            </div>
+            
+            <button 
+              onClick={() => setOneSignalSettings(prev => ({ ...prev, is_enabled: !prev.is_enabled }))}
+              className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ${oneSignalSettings.is_enabled ? 'bg-indigo-500' : 'bg-slate-200'}`}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${oneSignalSettings.is_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className="p-8 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">OneSignal App ID</label>
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    type="text"
+                    placeholder="e.g. 550e8400-e29b-41d4-a716..."
+                    value={oneSignalSettings.app_id}
+                    onChange={(e) => setOneSignalSettings(prev => ({ ...prev, app_id: e.target.value }))}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">REST API Key</label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    type="password"
+                    placeholder="Enter your REST API key..."
+                    value={oneSignalSettings.rest_api_key}
+                    onChange={(e) => setOneSignalSettings(prev => ({ ...prev, rest_api_key: e.target.value }))}
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="md:col-span-2 flex items-center justify-between p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center ${isSubscribed ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                    {isSubscribed ? <BellRing size={16} /> : <Bell size={16} />}
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">{isSubscribed ? 'Device Subscribed' : 'Device Not Subscribed'}</p>
+                    <p className="text-[10px] text-slate-500">Run this on your mobile to receive alerts.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSubscribe}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${isSubscribed ? 'bg-white text-slate-400 cursor-default' : 'bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 shadow-md shadow-indigo-100'}`}
+                  disabled={isSubscribed}
+                >
+                  {isSubscribed ? 'Subscribed ✓' : 'Subscribe Now'}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100/50 flex gap-3">
+              <AlertCircle className="text-amber-600 shrink-0" size={18} />
+              <div className="text-xs text-amber-800 leading-relaxed">
+                <p className="font-bold mb-1">How it works:</p>
+                1. Save your OneSignal credentials above. <br/>
+                2. Click **"Subscribe Now"** on your mobile phone browser. <br/>
+                3. The system will now send a push notification to your phone whenever a user submits a QR Payment, Bill, or KYC request.
               </div>
             </div>
           </div>
