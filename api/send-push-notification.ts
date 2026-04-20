@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { title, message, player_ids, target, credentials } = req.body;
+  const { title, message, player_ids, target, link, credentials } = req.body;
 
   if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
     return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
@@ -26,7 +26,7 @@ export default async function handler(req: any, res: any) {
       const { data: admins, error } = await supabaseAdmin
         .from('users_profiles')
         .select('onesignal_id')
-        .eq('role', 'admin') // Only target admins
+        .eq('role', 'admin') // We now sync admins to users_profiles with role='admin'
         .not('onesignal_id', 'is', null);
 
       if (!error && admins) {
@@ -42,7 +42,7 @@ export default async function handler(req: any, res: any) {
       headings: { en: title },
       contents: { en: message },
       isAnyWeb: true,
-      web_url: "https://www.usepay.in/admin",
+      web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/admin",
     };
 
     // Target specific players if provided, otherwise fallback to segments

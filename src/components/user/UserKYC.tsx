@@ -312,7 +312,8 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         // 5. Send Push Notification to Admin (Mobile)
         sendAdminPushNotification(
           'New KYC Request 👤',
-          `User ${userProfile?.name || userId} has submitted documents for verification.`
+          `User ${userProfile?.name || userId} has submitted documents for verification.`,
+          '/kyc-verification-requests'
         );
       }
 

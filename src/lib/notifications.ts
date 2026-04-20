@@ -4,7 +4,7 @@ import { supabase } from './supabase';
  * Trigger a push notification to all subscribed admins.
  * This calls our backend API which then interacts with OneSignal.
  */
-export async function sendAdminPushNotification(title: string, message: string) {
+export async function sendAdminPushNotification(title: string, message: string, link?: string) {
   try {
     // 1. Fetch OneSignal Credentials from DB
     const { data: settings, error: sError } = await supabase
@@ -24,7 +24,6 @@ export async function sendAdminPushNotification(title: string, message: string) 
     }
 
     // 2. Call our backend API with target: 'admins'
-    // We no longer fetch IDs on the client to avoid RLS security blocks
     const response = await fetch('/api/send-push-notification', {
       method: 'POST',
       headers: {
@@ -33,7 +32,8 @@ export async function sendAdminPushNotification(title: string, message: string) 
       body: JSON.stringify({
         title,
         message,
-        target: 'admins', // Tell the server to find the admins
+        target: 'admins',
+        link, // e.g. '/qr-payment-requests'
         credentials: {
           app_id: settings.app_id,
           rest_api_key: settings.rest_api_key

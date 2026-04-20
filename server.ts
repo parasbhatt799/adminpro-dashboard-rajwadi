@@ -177,7 +177,7 @@ async function startServer() {
   });
 
   app.post("/api/send-push-notification", async (req, res) => {
-    const { title, message, player_ids, target, credentials } = req.body;
+    const { title, message, player_ids, target, link, credentials } = req.body;
 
     if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
       return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
@@ -206,7 +206,7 @@ async function startServer() {
         headings: { en: title },
         contents: { en: message },
         isAnyWeb: true,
-        web_url: "https://www.usepay.in/admin",
+        web_url: link ? `https://www.usepay.in${link}` : "https://www.usepay.in/admin",
       };
 
       // Target specific players if provided, otherwise fallback to segments

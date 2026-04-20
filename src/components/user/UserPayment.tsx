@@ -385,7 +385,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // 4. Send Push Notification to Admin (Mobile)
         sendAdminPushNotification(
           'New Bill Payment Request 💳',
-          `User ${userProfile?.firm_name || userId} submitted a bill payment of ₹${billAmountNum}.`
+          `User ${userProfile?.firm_name || userId} submitted a bill payment of ₹${billAmountNum}.`,
+          '/bill-payment-requests'
         );
       }
     } catch (err: any) {
@@ -486,7 +487,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // 5. Send Push Notification to Admin (Mobile)
         sendAdminPushNotification(
           'New QR Payment Request 🔔',
-          `User ${userProfile?.firm_name || userId} submitted ₹${amountNum}. Review now!`
+          `User ${userProfile?.firm_name || userId} submitted ₹${amountNum}. Review now!`,
+          '/qr-payment-requests'
         );
       }
     } catch (err: any) {

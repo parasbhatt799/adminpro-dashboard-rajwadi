@@ -66,14 +66,28 @@ const setupOneSignal = async (currentUserId: string) => {
       });
 
       // 3. Sync Player ID if logged in
-      if (currentUserId) {
-        const pushId = OneSignal.User.PushSubscription?.id;
-        if (pushId) {
+      const pushId = OneSignal.User.PushSubscription?.id;
+      if (currentUserId && pushId) {
+        const userType = localStorage.getItem('userType');
+        
+        if (userType === 'admin') {
+          // Admins: Sync to users_profiles with 'admin' role so backend can find them
+          // We use mobile number as the ID for consistency with Admin login
+          await supabase
+            .from('users_profiles')
+            .upsert({ 
+              id: currentUserId, 
+              onesignal_id: pushId, 
+              role: 'admin' 
+            }, { onConflict: 'id' });
+          console.log('OneSignal Admin Sync Success:', pushId);
+        } else {
+          // Regular Users: Sync to their existing profile
           await supabase
             .from('users_profiles')
             .update({ onesignal_id: pushId })
             .eq('id', currentUserId);
-          console.log('OneSignal Sync Success:', pushId);
+          console.log('OneSignal User Sync Success:', pushId);
         }
       }
     });
