@@ -166,6 +166,7 @@ export default function StatementReport() {
       }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
+      'Card No': r.raw_data?.card_number || '****',
       'Description': r.type === 'BILL' 
         ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` 
         : `TxnId: ${r.reference}, OrderId: WeBCC...\n(${r.amount} - ${r.charges} Txn Charge)\nWallet Topup Through ${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
@@ -198,6 +199,7 @@ export default function StatementReport() {
         }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
+        r.raw_data?.card_number || '****',
         r.type === 'BILL' 
           ? `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}` 
           : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
@@ -209,7 +211,7 @@ export default function StatementReport() {
       ]);
 
       autoTable(doc, {
-        head: [['Payment Date', 'PaymentId', 'Transaction Type', 'Description', 'Credit Amount', 'Debit Amount', 'Balance', 'Payment From', 'Payment To']],
+        head: [['Payment Date', 'PaymentId', 'Transaction Type', 'Card No', 'Description', 'Credit Amount', 'Debit Amount', 'Balance', 'Payment From', 'Payment To']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [139, 92, 246] },
@@ -320,6 +322,7 @@ export default function StatementReport() {
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment Date</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">PaymentId</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Transaction<br/>Type</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap text-center">Card No</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] min-w-[300px]">Description</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Credit<br/>Amount</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Debit<br/>Amount</th>
@@ -341,6 +344,7 @@ export default function StatementReport() {
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT'}</td>
+                    <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">{r.raw_data?.card_number || '****'}</td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
                         <>
