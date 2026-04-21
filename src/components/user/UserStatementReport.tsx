@@ -47,7 +47,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       {
         let qrQuery = supabase
           .from('payment_submissions')
-          .select('*')
+          .select('*, qr_history(qr_name)')
           .eq('user_id', userId)
           .eq('status', 'approved');
 
@@ -66,7 +66,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           charges: Number(r.charges || 0),
           final_total: Number(r.amount) - Number(r.charges || 0),
           status: r.status,
-          raw_data: r
+          raw_data: { ...r, qr_name: r.qr_history?.qr_name }
         }));
       }
 
@@ -139,6 +139,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
+      'QR Name': r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : '-',
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
@@ -164,12 +165,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
+        r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : '-',
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
         r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
       ]);
       autoTable(doc, {
-        head: [['Payment Date', 'PaymentId', 'Transaction Type', 'Credit Amount', 'Debit Amount', 'Balance']],
+        head: [['Payment Date', 'PaymentId', 'Transaction Type', 'QR Name', 'Credit Amount', 'Debit Amount', 'Balance']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [139, 92, 246] },
@@ -248,6 +250,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment Date</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">PaymentId</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Transaction<br />Type</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">QR</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] min-w-[280px]">Description</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Credit<br />Amount</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Debit<br />Amount</th>
@@ -279,6 +282,9 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
                       {r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT'}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600">
+                      {r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : '-'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (

@@ -136,7 +136,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch Initial Requests - Fetch more for pagination/filtering
         const { data: qrReqs } = await supabase
           .from('payment_submissions')
-          .select('*')
+          .select('*, qr_history(qr_name)')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
         setQrRequests(qrReqs || []);
@@ -165,16 +165,26 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         event: '*', 
         schema: 'public', 
         table: 'payment_submissions'
-      }, (payload: any) => {
+      }, async (payload: any) => {
         if (payload.new && payload.new.user_id === userId) {
-          if (payload.eventType === 'INSERT') {
-            setQrRequests(prev => {
-              // Prevent duplicates
-              if (prev.some(req => req.id === payload.new.id)) return prev;
-              return [payload.new, ...prev];
-            });
-          } else if (payload.eventType === 'UPDATE') {
-            setQrRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            // Fetch the full record with join for real-time updates too
+            const { data: fullRecord } = await supabase
+              .from('payment_submissions')
+              .select('*, qr_history(qr_name)')
+              .eq('id', payload.new.id)
+              .single();
+            
+            const updatedRecord = fullRecord || payload.new;
+
+            if (payload.eventType === 'INSERT') {
+              setQrRequests(prev => {
+                if (prev.some(req => req.id === updatedRecord.id)) return prev;
+                return [updatedRecord, ...prev];
+              });
+            } else {
+              setQrRequests(prev => prev.map(req => req.id === updatedRecord.id ? updatedRecord : req));
+            }
           }
         }
         if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
@@ -725,9 +735,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     </div>
                   </div>
                   
-                  <div className="hidden md:grid grid-cols-8 gap-4 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                  <div className="hidden md:grid grid-cols-9 gap-4 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
                     <div className="col-span-1">Date / Time</div>
                     <div className="col-span-1">UTR ID</div>
+                    <div className="col-span-1">QR Name</div>
                     <div className="col-span-1 text-right">Amount</div>
                     <div className="col-span-1 text-right">Service Charge</div>
                     <div className="col-span-1 text-right">Credited Amount</div>
@@ -776,7 +787,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                     setExpandedRowId(expandedRowId === req.id ? null : req.id);
                                   }
                                 }}
-                                className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-8 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
+                                className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-9 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
                               >
                                 {/* Date / Time */}
                                 <div className="flex items-center gap-3">
@@ -793,6 +804,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 <div>
                                   <p className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md inline-block">
                                     {req.utr_id}
+                                  </p>
+                                </div>
+
+                                {/* QR Name */}
+                                <div>
+                                  <p className="text-[11px] font-bold text-slate-600">
+                                    {(req as any).qr_history?.qr_name || 'N/A'}
                                   </p>
                                 </div>
 

@@ -55,7 +55,7 @@ export default function UserReports({ userId }: UserReportsProps) {
         // Fetch QR Payments
         const { data: qrData } = await supabase
           .from('payment_submissions')
-          .select('*')
+          .select('*, qr_history(qr_name)')
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
@@ -96,8 +96,22 @@ export default function UserReports({ userId }: UserReportsProps) {
   // Processed Data
   const filteredData = useMemo(() => {
     let combined: any[] = [
-      ...qrRequests.map(r => ({ ...r, type: 'QR', reference: r.utr_id, net: Number(r.amount) - Number(r.charges || 0), remaining_balance: '-' })),
-      ...billRequests.map(r => ({ ...r, type: 'BILL', reference: r.card_number, net: -(Number(r.amount) + Number(r.charges || 0)), remaining_balance: r.remaining_balance || '-' }))
+      ...qrRequests.map(r => ({ 
+        ...r, 
+        type: 'QR', 
+        reference: r.utr_id, 
+        net: Number(r.amount) - Number(r.charges || 0), 
+        remaining_balance: '-',
+        qr_name: r.qr_history?.qr_name || 'N/A'
+      })),
+      ...billRequests.map(r => ({ 
+        ...r, 
+        type: 'BILL', 
+        reference: r.card_number, 
+        net: -(Number(r.amount) + Number(r.charges || 0)), 
+        remaining_balance: r.remaining_balance || '-',
+        qr_name: '-'
+      }))
     ];
 
     return combined.filter(item => {
@@ -186,6 +200,7 @@ export default function UserReports({ userId }: UserReportsProps) {
           'Date/Time': format(parseISO(i.created_at), 'yyyy-MM-dd hh:mm a'),
           'Type': i.type,
           'Reference': i.reference,
+          'QR Name': i.qr_name,
           'Amount': i.amount,
           'Service Charge': i.charges || 0,
           'Net Amount': i.net,
@@ -253,11 +268,12 @@ export default function UserReports({ userId }: UserReportsProps) {
 
     switch (activeReport) {
       case 'master':
-        columns = ['Date/Time', 'Type', 'Reference', 'Amount', 'Service Charge', 'Net Amount', 'Remaining Balance'];
+        columns = ['Date/Time', 'Type', 'Reference', 'QR Name', 'Amount', 'Service Charge', 'Net Amount', 'Remaining Balance'];
         body = filteredData.map(i => [
           format(parseISO(i.created_at), 'yyyy-MM-dd hh:mm a'),
           i.type,
           i.reference,
+          i.qr_name,
           `INR ${i.amount}`,
           `INR ${i.charges || 0}`,
           `INR ${i.net}`,
@@ -540,6 +556,7 @@ export default function UserReports({ userId }: UserReportsProps) {
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date / Time</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reference</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">QR</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Charge</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Net</th>
@@ -562,6 +579,9 @@ export default function UserReports({ userId }: UserReportsProps) {
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-xs font-bold text-slate-600">{item.reference}</p>
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="text-xs font-bold text-slate-600">{item.qr_name}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <p className="text-xs font-bold text-slate-900">₹{Number(item.amount).toLocaleString()}</p>
