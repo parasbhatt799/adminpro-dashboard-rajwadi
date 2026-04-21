@@ -376,7 +376,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                   <div>
                     <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Company Address</h4>
                     <p className="text-white font-bold leading-relaxed">
-                      4th floor AR Mall, Opp. Panvel Point, Mota Varachha, <br />Surat Gujarat 394101
+                      Varachha, <br />Surat Gujarat 394101
                     </p>
                   </div>
                 </div>
@@ -387,7 +387,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                   </div>
                   <div>
                     <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Phone Support</h4>
-                    <p className="text-white font-bold text-xl">+91 88499 07564</p>
+                    <p className="text-white font-bold text-xl">+91 </p>
                   </div>
                 </div>
 
