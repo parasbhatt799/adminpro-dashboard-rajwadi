@@ -629,7 +629,6 @@ export default function App() {
           } 
         >
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="users-list" element={<UsersList />} />
           <Route path="bank-upload" element={<BankManagement />} />
           <Route path="service-charge" element={<ServiceChargeManagement adminRole={adminRole} />} />
           <Route path="qr-payment-requests" element={<QRPaymentRequests />} />
@@ -654,6 +653,7 @@ export default function App() {
               <Route path="withdrawal-balance" element={<AdminWithdrawal />} />
               <Route path="qr-upload" element={<QRManagement />} />
               <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
+              <Route path="users-list" element={<UsersList />} />
             </>
           )}
         </Route>
