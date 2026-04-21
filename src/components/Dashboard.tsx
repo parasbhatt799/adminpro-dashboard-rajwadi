@@ -114,13 +114,14 @@ export default function Dashboard() {
         qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes, activeUsersRes] = await Promise.all([
+      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes, activeUsersRes, withdrawalRes] = await Promise.all([
         billQuery, 
         qrQuery, 
         pendingKycQuery, 
         pendingBillQuery,
         pendingQrQuery,
-        activeUsersQuery
+        activeUsersRes,
+        supabase.from('admin_withdrawals').select('amount')
       ]);
       
       const pendingKycCount = kycRes.count || 0;
@@ -130,13 +131,13 @@ export default function Dashboard() {
       
       const billData = billRes.data || [];
       const qrData = qrRes.data || [];
+      const withdrawalData = withdrawalRes.data || [];
       
       const rangeBillCharges = billData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
       const rangeQrCharges = qrData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
-      const rangeBillAmount = billData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-      const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+      const totalWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       
-      const rangeTotalCharges = rangeBillCharges + rangeQrCharges;
+      const rangeTotalCharges = rangeBillCharges + rangeQrCharges - (timeRange === 'all' ? totalWithdrawals : 0);
       const rangeTotalCCBill = rangeBillAmount;
 
       const dateDisplay = startDate && endDate 

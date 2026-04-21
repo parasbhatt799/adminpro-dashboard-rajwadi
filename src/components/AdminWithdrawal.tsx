@@ -37,24 +37,24 @@ export default function AdminWithdrawal() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Admin Balance
-      const { data: qrSettings, error: balanceError } = await supabase
-        .from('qr_settings')
-        .select('admin_balance')
-        .eq('id', 1)
-        .single();
+      // 1. Fetch Lifetime Service Charges
+      const [qrRes, billRes, withdrawalRes] = await Promise.all([
+        supabase.from('payment_submissions').select('charges').eq('status', 'approved'),
+        supabase.from('bill_submissions').select('charges').eq('status', 'approved'),
+        supabase.from('admin_withdrawals').select('*').order('created_at', { ascending: false })
+      ]);
       
-      if (balanceError) throw balanceError;
-      setBalance(Number(qrSettings?.admin_balance) || 0);
+      if (qrRes.error) throw qrRes.error;
+      if (billRes.error) throw billRes.error;
+      if (withdrawalRes.error) throw withdrawalRes.error;
 
-      // 2. Fetch Withdrawal History
-      const { data: withdrawalData, error: historyError } = await supabase
-        .from('admin_withdrawals')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (historyError) throw historyError;
-      setHistory(withdrawalData || []);
+      const totalQrCharges = (qrRes.data || []).reduce((acc, r) => acc + (Number(r.charges) || 0), 0);
+      const totalBillCharges = (billRes.data || []).reduce((acc, r) => acc + (Number(r.charges) || 0), 0);
+      const totalWithdrawals = (withdrawalRes.data || []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+
+      const calculatedBalance = totalQrCharges + totalBillCharges - totalWithdrawals;
+      setBalance(calculatedBalance);
+      setHistory(withdrawalRes.data || []);
 
     } catch (err) {
       console.error('Error fetching withdrawal data:', err);
