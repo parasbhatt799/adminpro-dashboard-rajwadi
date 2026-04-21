@@ -12,12 +12,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [activeTab, setActiveTab] = useState<'qr' | 'bill'>('qr');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [activeQrId, setActiveQrId] = useState<string | null>(null);
+  const [qrName, setQrName] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(true);
   const [banks, setBanks] = useState<{ id: string; bank_name: string }[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
   
   // QR Form state
   const [utrId, setUtrId] = useState('');
+  const [qrCardNumber, setQrCardNumber] = useState('');
   const [amount, setAmount] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -114,12 +116,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch Current Active QR ID from History
         const { data: activeQR } = await supabase
           .from('qr_history')
-          .select('id')
+          .select('id, qr_name')
           .eq('is_active', true)
           .single();
         
         if (activeQR) {
           setActiveQrId(activeQR.id);
+          setQrName(activeQR.qr_name);
         }
 
         // Fetch Banks
@@ -440,34 +443,35 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         return;
       }
 
-      // 1. Upload Screenshot
+      // 1. Upload proof
       const fileExt = file.name.split('.').pop();
       const fileName = `${userId}_${Date.now()}.${fileExt}`;
-      
+      const filePath = `payment_proofs/${fileName}`;
+
       const { error: uploadError } = await supabase.storage
         .from('payment_proofs')
-        .upload(fileName, file);
+        .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // 2. Get Public URL
       const { data: { publicUrl } } = supabase.storage
         .from('payment_proofs')
-        .getPublicUrl(fileName);
+        .getPublicUrl(filePath);
 
-        // 3. Save Transaction
-        const { data: newPayment, error: dbError } = await supabase
-          .from('payment_submissions')
-          .insert({
-            user_id: userId,
-            utr_id: utrId,
-            amount: parseFloat(amount),
-            proof_url: publicUrl,
-            status: 'pending',
-            qr_id: activeQrId
-          })
-          .select()
-          .single();
+      // 2. Insert record
+      const { data: newPayment, error: dbError } = await supabase
+        .from('payment_submissions')
+        .insert([{
+          user_id: userId,
+          qr_id: activeQrId,
+          utr_id: utrId,
+          card_number: qrCardNumber,
+          amount: parseFloat(amount),
+          proof_url: publicUrl,
+          status: 'pending'
+        }])
+        .select()
+        .single();
 
       if (dbError) throw dbError;
 
@@ -477,6 +481,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
       setSuccess('Payment submitted successfully! Our team will verify it soon.');
       setUtrId('');
+      setQrCardNumber('');
       setAmount('');
       setFile(null);
 
@@ -571,7 +576,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </div>
                     )}
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900">Scan QR to Pay</h3>
+                  <h3 className="text-xl font-bold text-indigo-600 mb-1">{qrName || 'Scan QR to Pay'}</h3>
+                  <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
                   <p className="text-sm text-slate-500 mt-2">Scan the QR code above and complete the payment using any UPI app.</p>
                 </div>
 
@@ -588,6 +594,23 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         maxLength={20}
                         placeholder="Enter UTR"
                         className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Card Number (Last 4 Digits)</label>
+                    <div className="relative">
+                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text"
+                        inputMode="numeric" 
+                        value={qrCardNumber}
+                        onChange={(e) => setQrCardNumber(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        maxLength={4}
+                        placeholder="Enter Last 4 Digits"
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
                         required
                       />
                     </div>
@@ -735,17 +758,18 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     </div>
                   </div>
                   
-                  <div className="hidden md:grid grid-cols-9 gap-4 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
-                    <div className="col-span-1">Date / Time</div>
-                    <div className="col-span-1">UTR ID</div>
-                    <div className="col-span-1">QR Name</div>
-                    <div className="col-span-1 text-right">Amount</div>
-                    <div className="col-span-1 text-right">Service Charge</div>
-                    <div className="col-span-1 text-right">Credited Amount</div>
-                    <div className="col-span-1">Reason</div>
-                    <div className="col-span-1 text-center">Status</div>
-                    <div className="col-span-1 text-right">Proof</div>
-                  </div>
+                   <div className="hidden md:grid grid-cols-10 gap-4 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                     <div className="col-span-1">Date / Time</div>
+                     <div className="col-span-1">UTR ID</div>
+                     <div className="col-span-1">Card No</div>
+                     <div className="col-span-1">QR Name</div>
+                     <div className="col-span-1 text-right">Amount</div>
+                     <div className="col-span-1 text-right">Service Charge</div>
+                     <div className="col-span-1 text-right">Credited Amount</div>
+                     <div className="col-span-1">Reason</div>
+                     <div className="col-span-1 text-center">Status</div>
+                     <div className="col-span-1 text-right">Proof</div>
+                   </div>
 
                   <div className="grid grid-cols-1 gap-3">
                     {(() => {
@@ -787,7 +811,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                     setExpandedRowId(expandedRowId === req.id ? null : req.id);
                                   }
                                 }}
-                                className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-9 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
+                               className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-10 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
                               >
                                 {/* Date / Time */}
                                 <div className="flex items-center gap-3">
@@ -800,12 +824,19 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                   </div>
                                 </div>
 
-                                {/* UTR ID */}
-                                <div>
-                                  <p className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md inline-block">
-                                    {req.utr_id}
-                                  </p>
-                                </div>
+                                 {/* UTR ID */}
+                                 <div>
+                                   <p className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md inline-block">
+                                     {req.utr_id}
+                                   </p>
+                                 </div>
+
+                                 {/* Card No */}
+                                 <div>
+                                   <p className="text-[11px] font-bold text-slate-900">
+                                     {req.card_number || '****'}
+                                   </p>
+                                 </div>
 
                                 {/* QR Name */}
                                 <div>

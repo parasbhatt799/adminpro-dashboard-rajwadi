@@ -102,7 +102,8 @@ export default function UserReports({ userId }: UserReportsProps) {
         reference: r.utr_id, 
         net: Number(r.amount) - Number(r.charges || 0), 
         remaining_balance: '-',
-        qr_name: r.qr_history?.qr_name || 'N/A'
+        qr_name: r.qr_history?.qr_name || 'N/A',
+        card_number: r.card_number || '****'
       })),
       ...billRequests.map(r => ({ 
         ...r, 
@@ -110,7 +111,8 @@ export default function UserReports({ userId }: UserReportsProps) {
         reference: r.card_number, 
         net: -(Number(r.amount) + Number(r.charges || 0)), 
         remaining_balance: r.remaining_balance || '-',
-        qr_name: '-'
+        qr_name: '-',
+        card_number: r.card_number || '****'
       }))
     ];
 
@@ -201,6 +203,7 @@ export default function UserReports({ userId }: UserReportsProps) {
           'Type': i.type,
           'Reference': i.reference,
           'QR Name': i.qr_name,
+          'Card No': i.card_number,
           'Amount': i.amount,
           'Service Charge': i.charges || 0,
           'Net Amount': i.net,
@@ -268,12 +271,13 @@ export default function UserReports({ userId }: UserReportsProps) {
 
     switch (activeReport) {
       case 'master':
-        columns = ['Date/Time', 'Type', 'Reference', 'QR Name', 'Amount', 'Service Charge', 'Net Amount', 'Remaining Balance'];
+        columns = ['Date/Time', 'Type', 'Reference', 'QR Name', 'Card No', 'Amount', 'Service Charge', 'Net Amount', 'Remaining Balance'];
         body = filteredData.map(i => [
           format(parseISO(i.created_at), 'yyyy-MM-dd hh:mm a'),
           i.type,
           i.reference,
           i.qr_name,
+          i.card_number,
           `INR ${i.amount}`,
           `INR ${i.charges || 0}`,
           `INR ${i.net}`,
@@ -557,6 +561,7 @@ export default function UserReports({ userId }: UserReportsProps) {
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reference</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">QR</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Card No</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Charge</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Net</th>
@@ -582,6 +587,9 @@ export default function UserReports({ userId }: UserReportsProps) {
                         </td>
                         <td className="px-6 py-4">
                           <p className="text-xs font-bold text-slate-600">{item.qr_name}</p>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <p className="text-xs font-bold text-slate-600">{item.card_number || '****'}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <p className="text-xs font-bold text-slate-900">₹{Number(item.amount).toLocaleString()}</p>

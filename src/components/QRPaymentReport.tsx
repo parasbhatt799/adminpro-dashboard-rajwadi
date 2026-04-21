@@ -27,6 +27,7 @@ interface QRPaymentRequest {
   utr_id: string;
   amount: number;
   charges: number;
+  card_number: string;
   proof_url: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
@@ -220,6 +221,7 @@ export default function QRPaymentReport() {
       'Firm Name': req.users_profiles?.firm_name || 'N/A',
       'UTR ID': req.utr_id,
       'QR Used': req.qr_history?.qr_name || 'Legacy',
+      'Card No': req.card_number || '****',
       'Status': req.status.toUpperCase(),
       'Amount': req.amount,
       'Service Charge': req.charges || 0,
@@ -231,6 +233,8 @@ export default function QRPaymentReport() {
       'Date': 'TOTAL',
       'Firm Name': '',
       'UTR ID': '',
+      'QR Used': '',
+      'Card No': '',
       'Status': '',
       'Amount': totals.amount,
       'Service Charge': totals.charges,
@@ -257,6 +261,7 @@ export default function QRPaymentReport() {
         req.users_profiles?.firm_name || 'N/A',
         req.utr_id,
         req.qr_history?.qr_name || 'Legacy',
+        req.card_number || '****',
         req.status.toUpperCase(),
         req.amount.toLocaleString(),
         (req.charges || 0).toLocaleString(),
@@ -265,11 +270,11 @@ export default function QRPaymentReport() {
 
       // Add footer
       const footer = [
-        ['TOTAL', '', '', '', '', totals.amount.toLocaleString(), totals.charges.toLocaleString(), totals.final.toLocaleString()]
+        ['TOTAL', '', '', '', '', '', totals.amount.toLocaleString(), totals.charges.toLocaleString(), totals.final.toLocaleString()]
       ];
 
       autoTable(doc, {
-        head: [['Date', 'Firm Name', 'UTR ID', 'QR Used', 'Status', 'Amount', 'Service Charge', 'Final Total']],
+        head: [['Date', 'Firm Name', 'UTR ID', 'QR Used', 'Card No', 'Status', 'Amount', 'Service Charge', 'Final Total']],
         body: tableData,
         foot: footer,
         theme: 'grid',
@@ -511,6 +516,7 @@ export default function QRPaymentReport() {
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Date / Firm</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">UTR ID</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Card No</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Used</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Service Charge</th>
@@ -551,6 +557,11 @@ export default function QRPaymentReport() {
                         </code>
                       </td>
                       <td className="px-6 py-4">
+                        <span className="text-[10px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded-lg">
+                          {req.card_number || '****'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
                         <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg flex items-center justify-center">
                           {req.qr_history?.qr_name || 'Legacy'}
                         </span>
@@ -588,7 +599,7 @@ export default function QRPaymentReport() {
                   {/* Summary Totals Row */}
                   <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
                     <td colSpan={2} className="px-6 py-4 text-slate-900 text-sm">TOTAL (Filtered Data)</td>
-                    <td className="px-6 py-4"></td> {/* Empty cell for QR Used column */}
+                    <td colSpan={2} className="px-6 py-4"></td> {/* Empty cells for QR and Card NO */}
                     <td className="px-6 py-4 text-right text-slate-900 text-sm">
                       ₹{calculateTotals(requests).amount.toLocaleString()}
                     </td>

@@ -32,6 +32,7 @@ interface QRPaymentRequest {
     name: string;
     firm_name: string;
   };
+  card_number: string;
   qr_history?: {
     qr_name: string;
     whatsapp_number?: string;
@@ -339,6 +340,7 @@ export default function QRPaymentRequests() {
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Firm / Date</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">UTR ID</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Card No</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">QR Used</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Service Charge</th>
@@ -393,6 +395,11 @@ export default function QRPaymentRequests() {
                         <code className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
                           {req.utr_id}
                         </code>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-xs font-bold text-slate-600 bg-slate-50 px-2 py-1 rounded-lg">
+                          {req.card_number || '****'}
+                        </span>
                       </td>
                        <td className="px-6 py-4">
                         <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
