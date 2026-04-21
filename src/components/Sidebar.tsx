@@ -38,7 +38,7 @@ const menuItems = [
   { id: 'bank-upload', label: 'Bank Upload', icon: Building2, path: '/bank-upload' },
   { id: 'reason-entry', label: 'Reason entry', icon: FileQuestion, path: '/reason-entry' },
   { id: 'service-charge', label: 'Service charge', icon: Receipt, path: '/service-charge' },
-  { id: 'withdrawal-balance', label: 'Withdrawal Balance', icon: TrendingDown, path: '/withdrawal-balance' },
+  { id: 'withdrawal-balance', label: 'Withdrawal Balance', icon: TrendingDown, path: '/withdrawal-balance', role: 'full' },
   {
     id: 'report-generate',
     label: 'Report Generate',
