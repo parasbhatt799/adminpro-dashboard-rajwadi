@@ -137,6 +137,9 @@ export default function Dashboard() {
       const rangeQrCharges = qrData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
       const totalWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       
+      const rangeBillAmount = billData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+      const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+      
       const rangeTotalCharges = rangeBillCharges + rangeQrCharges - (timeRange === 'all' ? totalWithdrawals : 0);
       const rangeTotalCCBill = rangeBillAmount;
 
