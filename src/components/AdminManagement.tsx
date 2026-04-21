@@ -12,6 +12,7 @@ interface AdminManagementProps {
  }
  
  export default function AdminManagement({ currentAdminId, adminRole, onLogout }: AdminManagementProps) {
+  const GOD_ADMIN_MOBILE = '7777077377';
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
@@ -117,6 +118,12 @@ interface AdminManagementProps {
   };
 
   const handleDeleteAdmin = async (mobileNumber: string) => {
+    // GOD ADMIN PROTECTION
+    if (mobileNumber === GOD_ADMIN_MOBILE) {
+      showModal('Action Denied', "This is the system's God Admin account. It is protected by internal security protocols and cannot be deleted.", 'error');
+      return;
+    }
+
     // LAST ADMIN PROTECTION (Only check for Full Admins)
     const adminToDelete = admins.find(a => a.mobile_number === mobileNumber);
     const isTargetFull = !adminToDelete?.role || adminToDelete.role.toLowerCase() === 'full';
@@ -176,6 +183,13 @@ interface AdminManagementProps {
 
   const handleUpdateRole = async () => {
     if (!editingAdmin) return;
+
+    // GOD ADMIN PROTECTION
+    if (editingAdmin.mobile_number === GOD_ADMIN_MOBILE) {
+      showModal('Action Denied', "The access level of the God Admin account cannot be modified.", 'error');
+      return;
+    }
+
     setActionLoading(true);
     try {
       const { error: dbError } = await supabase
@@ -197,6 +211,12 @@ interface AdminManagementProps {
   };
 
   const handleToggleStatus = async (admin: any) => {
+    const isGodAdmin = admin.mobile_number === GOD_ADMIN_MOBILE;
+    if (isGodAdmin) {
+      showModal('Action Denied', "The God Admin account is permanent and cannot be blocked.", 'error');
+      return;
+    }
+
     const isSelf = admin.mobile_number === currentAdminId;
     if (isSelf) {
       showModal('Action Denied', "You cannot block your own account. It would lock you out of the portal.", 'warning');
@@ -497,20 +517,26 @@ interface AdminManagementProps {
                         </div>
                         <div>
                           <p className="text-sm font-bold text-slate-900 leading-none">{admin.mobile_number}</p>
-                          <p className="text-[10px] text-emerald-500 font-black uppercase mt-1.5 flex items-center gap-1">
-                            <CheckCircle size={10} /> Verified Access
-                          </p>
+                          {admin.mobile_number === GOD_ADMIN_MOBILE ? (
+                            <p className="text-[10px] text-indigo-500 font-black uppercase mt-1.5 flex items-center gap-1">
+                              <Shield size={10} className="fill-indigo-500/10" /> God Mode Admin
+                            </p>
+                          ) : (
+                            <p className="text-[10px] text-emerald-500 font-black uppercase mt-1.5 flex items-center gap-1">
+                              <CheckCircle size={10} /> Verified Access
+                            </p>
+                          )}
                         </div>
                       </div>
                     </td>
                     <td className="px-8 py-5 text-center">
                       <button 
                         onClick={() => handleToggleStatus(admin)}
-                        disabled={admin.mobile_number === currentAdminId}
+                        disabled={admin.mobile_number === currentAdminId || admin.mobile_number === GOD_ADMIN_MOBILE}
                         className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
                           admin.status === 'Blocked' ? 'bg-rose-500' : 'bg-emerald-500'
-                        } ${admin.mobile_number === currentAdminId ? 'opacity-50 cursor-not-allowed' : 'hover:ring-4 hover:ring-slate-100'}`}
-                        title={admin.status === 'Blocked' ? 'Unblock Admin' : 'Block Admin'}
+                        } ${admin.mobile_number === currentAdminId || admin.mobile_number === GOD_ADMIN_MOBILE ? 'opacity-50 cursor-not-allowed' : 'hover:ring-4 hover:ring-slate-100'}`}
+                        title={admin.mobile_number === GOD_ADMIN_MOBILE ? 'God Admin is Permanent' : admin.status === 'Blocked' ? 'Unblock Admin' : 'Block Admin'}
                       >
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
                           admin.status === 'Blocked' ? 'left-1' : 'left-7'
@@ -529,16 +555,18 @@ interface AdminManagementProps {
                         }`}>
                           {admin.role === 'limited' ? 'Limited Admin' : 'Full Administrator'}
                         </span>
-                        <button 
-                          onClick={() => {
-                            setEditingAdmin(admin);
-                            setEditRole(admin.role || 'full');
-                          }}
-                          className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
-                        >
-                          <Shield size={10} /> Edit Access
-                        </button>
-                      </div>
+                          {admin.mobile_number !== GOD_ADMIN_MOBILE && (
+                            <button 
+                              onClick={() => {
+                                setEditingAdmin(admin);
+                                setEditRole(admin.role || 'full');
+                              }}
+                              className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
+                            >
+                              <Shield size={10} /> Edit Access
+                            </button>
+                          )}
+                        </div>
                     </td>
                     <td className="px-8 py-5">
                       <p className="text-xs text-slate-500 font-medium">
@@ -551,7 +579,17 @@ interface AdminManagementProps {
                         const isThisAdminFull = !admin.role || admin.role.toLowerCase() === 'full';
                         const totalFullAdmins = admins.filter(a => !a.role || a.role.toLowerCase() === 'full').length;
                         const isLastFullAdmin = isThisAdminFull && totalFullAdmins <= 1;
+                        const isGodAdmin = admin.mobile_number === GOD_ADMIN_MOBILE;
                         const isSelf = admin.mobile_number === currentAdminId;
+ 
+                        if (isGodAdmin) {
+                          return (
+                            <div className="flex items-center gap-1 text-indigo-600 justify-end">
+                              <Lock size={12} />
+                              <span className="text-[10px] font-black uppercase italic">Permanent</span>
+                            </div>
+                          );
+                        }
 
                         if (isSelf || isLastFullAdmin) {
                           return <span className="text-[10px] font-black text-slate-300 uppercase italic px-2">Protected</span>;
