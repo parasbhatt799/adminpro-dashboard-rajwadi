@@ -16,7 +16,7 @@ interface UserStatementReportProps {
 
 interface UnifiedRecord {
   id: string;
-  type: 'QR' | 'BILL';
+  type: 'QR' | 'BILL' | 'PAYOUT';
   date: string;
   reference: string;
   amount: number;
@@ -42,6 +42,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
     try {
       let qrMapped: any[] = [];
       let billMapped: any[] = [];
+      let payoutMapped: any[] = [];
 
       // 1. Fetch QR Payments for this user (approved only)
       {
@@ -58,7 +59,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         if (error) throw error;
         qrMapped = (data || []).map(r => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '0'),
+          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'QR',
           date: r.created_at,
           reference: r.utr_id || String(r.id || '').split('-')[0],
@@ -85,7 +86,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         if (error) throw error;
         billMapped = (data || []).map(r => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || '0'),
+          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'BILL',
           date: r.created_at,
           reference: r.customer_mobile || '0000000000',
@@ -97,8 +98,35 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         }));
       }
 
+      // 3. Fetch Payouts for this user (approved only)
+      {
+        let payoutQuery = supabase
+          .from('payout_submissions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('status', 'approved');
+
+        if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
+
+        const { data, error } = await payoutQuery;
+        if (error) throw error;
+        payoutMapped = (data || []).map(r => ({
+          id: String(r.id || ''),
+          numericId: String(r.id || '').split('-')[0].toUpperCase(),
+          type: 'PAYOUT',
+          date: r.created_at,
+          reference: r.transaction_id || 'N/A',
+          amount: Number(r.amount),
+          charges: Number(r.charge_amount || 0),
+          final_total: Number(r.amount) + Number(r.charge_amount || 0),
+          status: r.status,
+          raw_data: r
+        }));
+      }
+
       // Merge oldest first for running balance calculation
-      const merged = [...qrMapped, ...billMapped].sort((a, b) =>
+      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
@@ -108,6 +136,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         if (r.type === 'QR') {
           currentBalance += r.final_total;
         } else {
+          // BILL or PAYOUT: Wallet is deducted
           currentBalance -= r.final_total;
         }
         return { ...r, balance: currentBalance };
@@ -138,11 +167,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         hour12: true 
       }),
       'PaymentId': r.numericId,
-      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
-      'QR Name': r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : '-',
-      'Card No': r.type === 'QR' ? (r.raw_data?.card_number || '****') : (r.raw_data?.card_number || '****'),
+      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
+      'QR / Bank': r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : '-',
+      'Card / Account No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
-      'Debit Amount': r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
+      'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -165,11 +194,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           hour12: true 
         }),
         r.numericId,
-        r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
-        r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : '-',
-        r.raw_data?.card_number || '****',
+        r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
+        r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : '-',
+        r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
-        r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
+        (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
       ]);
       autoTable(doc, {
@@ -252,8 +281,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment Date</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">PaymentId</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Transaction<br />Type</th>
-                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">QR</th>
-                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Card No</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">QR / Bank</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Card / A/c No</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] min-w-[280px]">Description</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Credit<br />Amount</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Debit<br />Amount</th>
@@ -284,25 +313,31 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
-                      {r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT'}
+                      {r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600">
-                      {r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : '-'}
+                      {r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : r.raw_data?.card_bank || '-'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">
-                      {r.raw_data?.card_number || '****'}
+                      {r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
                         <>
-                          <div>CCBILLPAY Mobile:{r.reference} CardNo:{r.raw_data?.card_number || '0000'}</div>
+                          <div>CCBILLPAY Mobile: <span className='text-amber-600  font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600  font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
                           <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                        </>
+                      ) : r.type === 'PAYOUT' ? (
+                        <>
+                          <div className="font-bold text-slate-900">PAYOUT FOR: {r.raw_data?.account_holder_name}</div>
+                          <div className="text-[12px] text-slate-800">Bank: {r.raw_data?.bank_name} | IFSC: {r.raw_data?.ifsc_code}</div>
+                          <div className="text-amber-600 font-bold mt-1">Txn: {r.reference}</div>
+                          <div>({r.amount} + {r.charges} Txn Charge)</div>
                         </>
                       ) : (
                         <>
-                          <div className="break-all">TxnId: {r.reference}</div>
+                          <div className="break-all text-slate-600">PAYMENT <span className='text-amber-600  font-bold'>TxnId: {r.reference}</span></div>
                           <div>({r.amount} - {r.charges} Txn Charge)</div>
-                          <div>Wallet Topup Through CashFree3</div>
                         </>
                       )}
                     </td>
@@ -312,7 +347,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                         : '0'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {r.type === 'BILL'
+                      {(r.type === 'BILL' || r.type === 'PAYOUT')
                         ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0'}
                     </td>

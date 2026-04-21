@@ -25,7 +25,7 @@ interface SidebarProps {
   onLogout: () => void;
   isCollapsed: boolean;
   adminRole: string;
-  pendingCounts: { qr: number; bill: number; kyc: number };
+  pendingCounts: { qr: number; bill: number; kyc: number; payout: number };
 }
 
 const menuItems = [
@@ -33,6 +33,7 @@ const menuItems = [
   { id: 'users-list', label: 'Users list', icon: UserPlus, path: '/users-list' },
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: Receipt, path: '/bill-payment-requests' },
+  { id: 'payout-requests', label: 'Payout Request', icon: TrendingDown, path: '/payout-requests' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload' },
   { id: 'bank-upload', label: 'Bank Upload', icon: Building2, path: '/bank-upload' },
@@ -48,6 +49,7 @@ const menuItems = [
     subItems: [
       { label: 'QR Payment Report', path: '/reports/qr-payment' },
       { label: 'Bill Payment Report', path: '/reports/bill-payment' },
+      { label: 'Payout Report', path: '/reports/payout' },
       { label: 'Statement Report', path: '/reports/statement' }
     ]
   },
@@ -201,6 +203,11 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, pendingCount
                             {pendingCounts.bill}
                           </span>
                         )}
+                        {item.id === 'payout-requests' && pendingCounts.payout > 0 && (
+                          <span className="bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse">
+                            {pendingCounts.payout}
+                          </span>
+                        )}
                         {item.id === 'kyc-verification-requests' && pendingCounts.kyc > 0 && (
                           <span className="bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse">
                             {pendingCounts.kyc}
@@ -214,13 +221,14 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, pendingCount
                       <>
                         {((item.id === 'qr-payment-requests' && pendingCounts.qr > 0) ||
                           (item.id === 'bill-payment-requests' && pendingCounts.bill > 0) ||
+                          (item.id === 'payout-requests' && pendingCounts.payout > 0) ||
                           (item.id === 'kyc-verification-requests' && pendingCounts.kyc > 0)) && (
                           <div className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-slate-900 animate-pulse" />
                         )}
                       </>
                     )}
 
-                    {isActive && !isCollapsed && !['qr-payment-requests', 'bill-payment-requests', 'kyc-verification-requests'].includes(item.id) && (
+                    {isActive && !isCollapsed && !['qr-payment-requests', 'bill-payment-requests', 'payout-requests', 'kyc-verification-requests'].includes(item.id) && (
                       <motion.div
                         layoutId="active-pill"
                         className="ml-auto w-1.5 h-1.5 rounded-full bg-white"

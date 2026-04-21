@@ -16,8 +16,8 @@ import {
   Phone,
   IndianRupee,
   Search,
-  ShieldCheck,
-  ShieldAlert
+  ShieldAlert,
+  TrendingDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -108,39 +108,48 @@ export default function Dashboard() {
       let pendingBillQuery = supabase.from('bill_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingQrQuery = supabase.from('payment_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let activeUsersQuery = supabase.from('users_profiles').select('count', { count: 'exact', head: true }).eq('kyc_status', 'verified');
+      let payoutQuery = supabase.from('payout_submissions').select('amount, charge_amount').eq('status', 'approved');
+      let pendingPayoutQuery = supabase.from('payout_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
 
       if (startDate && endDate) {
         billQuery = billQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
         qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+        payoutQuery = payoutQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes, activeUsersRes, withdrawalRes] = await Promise.all([
+      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes, activeUsersRes, withdrawalRes, payoutRes, pendingPayoutRes] = await Promise.all([
         billQuery, 
         qrQuery, 
         pendingKycQuery, 
         pendingBillQuery,
         pendingQrQuery,
         activeUsersQuery,
-        supabase.from('admin_withdrawals').select('amount')
+        supabase.from('admin_withdrawals').select('amount'),
+        payoutQuery,
+        pendingPayoutQuery
       ]);
       
       const pendingKycCount = kycRes.count || 0;
       const pendingBillCount = pendingBillRes.count || 0;
       const pendingQrCount = pendingQrRes.count || 0;
+      const pendingPayoutCount = pendingPayoutRes.count || 0;
       const activeUsersCount = activeUsersRes.count || 0;
       
       const billData = billRes.data || [];
       const qrData = qrRes.data || [];
+      const payoutData = payoutRes.data || [];
       const withdrawalData = withdrawalRes.data || [];
       
       const rangeBillCharges = billData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
       const rangeQrCharges = qrData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
+      const rangePayoutCharges = payoutData.reduce((acc, curr) => acc + (Number(curr.charge_amount) || 0), 0) || 0;
       const totalWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       
       const rangeBillAmount = billData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+      const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       
-      const rangeTotalCharges = rangeBillCharges + rangeQrCharges - (timeRange === 'all' ? totalWithdrawals : 0);
+      const rangeTotalCharges = rangeBillCharges + rangeQrCharges + rangePayoutCharges - (timeRange === 'all' ? totalWithdrawals : 0);
       const rangeTotalCCBill = rangeBillAmount;
 
       const dateDisplay = startDate && endDate 
@@ -177,6 +186,13 @@ export default function Dashboard() {
           description: `Range: ${dateDisplay}`
         },
         {
+          title: "Payout Service Charge",
+          value: `₹${rangePayoutCharges.toLocaleString()}`,
+          icon: TrendingDown,
+          color: "bg-amber-600",
+          description: `Range: ${dateDisplay}`
+        },
+        {
           title: "Total User Wallet",
           value: `₹${totalWalletBalance.toLocaleString()}`,
           icon: Wallet,
@@ -192,18 +208,30 @@ export default function Dashboard() {
           description: `Range: ${dateDisplay}`
         },
         {
-          title: "Pending KYC",
-          value: pendingKycCount.toString(),
+          title: "Pending Actions",
+          value: (
+            <div className="flex flex-row items-center gap-1.5 mt-1">
+              <div className="flex flex-col items-center bg-emerald-50 px-2 py-1.5 rounded-xl border border-emerald-100/50 min-w-[42px]">
+                <span className="text-lg font-black text-emerald-700 leading-none">{pendingQrCount}</span>
+                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">QR</span>
+              </div>
+              <div className="flex flex-col items-center bg-indigo-50 px-2 py-1.5 rounded-xl border border-indigo-100/50 min-w-[42px]">
+                <span className="text-lg font-black text-indigo-700 leading-none">{pendingBillCount}</span>
+                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">Bill</span>
+              </div>
+              <div className="flex flex-col items-center bg-amber-50 px-2 py-1.5 rounded-xl border border-amber-100/50 min-w-[42px]">
+                <span className="text-lg font-black text-amber-700 leading-none">{pendingPayoutCount}</span>
+                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-tighter">Pay</span>
+              </div>
+              <div className="flex flex-col items-center bg-orange-50 px-2 py-1.5 rounded-xl border border-orange-100/50 min-w-[42px]">
+                <span className="text-lg font-black text-orange-700 leading-none">{pendingKycCount}</span>
+                <span className="text-[10px] font-bold text-orange-500 uppercase tracking-tighter">KYC</span>
+              </div>
+            </div>
+          ),
           icon: ShieldAlert,
-          color: "bg-orange-500",
-          description: "Awaiting Review"
-        },
-        {
-          title: "Pending Requests",
-          value: `${pendingQrCount} QR / ${pendingBillCount} Bill`,
-          icon: Clock,
           color: "bg-slate-700",
-          description: "Awaiting Action"
+          description: "All pending reviews"
         }
       ]);
     } catch (err) {
@@ -330,6 +358,18 @@ export default function Dashboard() {
     fetchStats();
     fetchRefundedRequests();
     fetchReasons();
+
+    // Real-time listener for stats refresh
+    const statsChannel = supabase
+      .channel('dashboard_stats_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, () => fetchStats())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(statsChannel);
+    };
   }, [fetchStats, fetchRefundedRequests, fetchReasons]);
 
   const rangeLabels: Record<TimeRange, string> = {

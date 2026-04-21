@@ -1,5 +1,10 @@
 import React, { useState, useEffect, type ChangeEvent } from 'react';
-import { QrCode, Receipt, IndianRupee, ArrowRight, ShieldCheck, CreditCard, Upload, Loader2, CheckCircle2, AlertCircle, FileText, Hash, ExternalLink, X, ChevronUp, Search, RotateCcw, Clock, XCircle } from 'lucide-react';
+import { 
+  QrCode, Receipt, IndianRupee, ArrowRight, ShieldCheck, CreditCard, 
+  Upload, Loader2, CheckCircle2, AlertCircle, FileText, Hash, 
+  ExternalLink, X, ChevronUp, Search, RotateCcw, Clock, XCircle,
+  Building2, User, History
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { sendAdminPushNotification } from '../../lib/notifications';
@@ -9,7 +14,7 @@ interface UserPaymentProps {
 }
 
 export default function UserPayment({ userId }: UserPaymentProps) {
-  const [activeTab, setActiveTab] = useState<'qr' | 'bill'>('qr');
+  const [activeTab, setActiveTab] = useState<'qr' | 'bill' | 'payout'>('qr');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [activeQrId, setActiveQrId] = useState<string | null>(null);
   const [qrName, setQrName] = useState<string | null>(null);
@@ -34,12 +39,25 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   });
   const [submittingBill, setSubmittingBill] = useState(false);
 
+  // Payout Form state
+  const [payoutForm, setPayoutForm] = useState({
+    bankName: '',
+    holderName: '',
+    accountNumber: '',
+    ifscCode: '',
+    amount: ''
+  });
+  const [submittingPayout, setSubmittingPayout] = useState(false);
+  const [payoutSettings, setPayoutSettings] = useState<any>(null);
+  const [payoutBanks, setPayoutBanks] = useState<any[]>([]);
+
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   // Request History state
   const [qrRequests, setQrRequests] = useState<any[]>([]);
   const [billRequests, setBillRequests] = useState<any[]>([]);
+  const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
 
@@ -57,6 +75,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [billEndDate, setBillEndDate] = useState('');
   const [billPage, setBillPage] = useState(1);
 
+  // Payout Filters & Pagination
+  const [payoutSearch, setPayoutSearch] = useState('');
+  const [payoutStatus, setPayoutStatus] = useState<'all' | 'pending' | 'processing' | 'approved' | 'rejected'>('all');
+  const [payoutStartDate, setPayoutStartDate] = useState('');
+  const [payoutEndDate, setPayoutEndDate] = useState('');
+  const [payoutPage, setPayoutPage] = useState(1);
+
   const itemsPerPage = 10;
 
   const clearQrFilters = () => {
@@ -73,6 +98,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     setBillStartDate('');
     setBillEndDate('');
     setBillPage(1);
+  };
+
+  const clearPayoutFilters = () => {
+    setPayoutSearch('');
+    setPayoutStatus('all');
+    setPayoutStartDate('');
+    setPayoutEndDate('');
+    setPayoutPage(1);
   };
 
   const [userBalance, setUserBalance] = useState<number>(0);
@@ -150,6 +183,31 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
         setBillRequests(billReqs || []);
+
+        // Fetch Payout Banks
+        const { data: pBankData } = await supabase
+          .from('bank_details')
+          .select('bank_name')
+          .eq('show_in_payout', true)
+          .eq('is_active', true)
+          .order('bank_name');
+        setPayoutBanks(pBankData || []);
+
+        // Fetch Payout Settings
+        const { data: pSettings } = await supabase
+          .from('payout_settings')
+          .select('*')
+          .eq('id', 1)
+          .single();
+        setPayoutSettings(pSettings);
+
+        // Fetch Payout Requests
+        const { data: pReqs } = await supabase
+          .from('payout_submissions')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        setPayoutRequests(pReqs || []);
 
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -229,6 +287,29 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         console.log('Bill Channel Status:', status);
       });
 
+    const payoutChannel = supabase
+      .channel('payout_submissions_realtime_v1')
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'payout_submissions'
+      }, (payload: any) => {
+        if (payload.new && payload.new.user_id === userId) {
+          if (payload.eventType === 'INSERT') {
+            setPayoutRequests(prev => {
+              if (prev.some(req => req.id === payload.new.id)) return prev;
+              return [payload.new, ...prev];
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            setPayoutRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
+          }
+        }
+        if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
+          setPayoutRequests(prev => prev.filter(req => req.id !== payload.old.id));
+        }
+      })
+      .subscribe();
+
     const profileChannel = supabase
       .channel(`profile_realtime_payment_${userId}`)
       .on('postgres_changes', {
@@ -280,6 +361,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     return () => {
       supabase.removeChannel(qrChannel);
       supabase.removeChannel(billChannel);
+      supabase.removeChannel(payoutChannel);
       supabase.removeChannel(profileChannel);
       supabase.removeChannel(settingsChannel);
       supabase.removeChannel(historyChannel);
@@ -407,6 +489,102 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setError(err.message || 'Failed to submit bill payment.');
     } finally {
       setSubmittingBill(false);
+    }
+  };
+
+  const calculatePayoutCharge = (amount: number) => {
+    if (!payoutSettings) return 0;
+    if (payoutSettings.is_percentage) {
+      return (amount * payoutSettings.fixed_charge) / 100;
+    }
+    return payoutSettings.fixed_charge;
+  };
+
+  const handlePayoutSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!payoutForm.bankName || !payoutForm.holderName || !payoutForm.accountNumber || !payoutForm.ifscCode || !payoutForm.amount) {
+      setError('Please fill all fields for payout.');
+      return;
+    }
+
+    setSubmittingPayout(true);
+    setError(null);
+    setSuccess(null);
+
+    const amountNum = parseFloat(payoutForm.amount);
+    if (payoutSettings && amountNum < payoutSettings.min_payout) {
+      setError(`Minimum payout amount is ₹${payoutSettings.min_payout}.`);
+      setSubmittingPayout(false);
+      return;
+    }
+    if (payoutSettings && amountNum > payoutSettings.max_payout) {
+      setError(`Maximum payout amount is ₹${payoutSettings.max_payout}.`);
+      setSubmittingPayout(false);
+      return;
+    }
+
+    const charge = calculatePayoutCharge(amountNum);
+    const totalDeduction = amountNum + charge;
+
+    // Fetch fresh balance and profiles to be safe
+    const { data: currentProf } = await supabase.from('users_profiles').select('wallet_balance').eq('id', userId).single();
+    const currentWallet = Number(currentProf?.wallet_balance) || 0;
+
+    if (currentWallet - totalDeduction < 250) {
+      setError("Your balance is insufficient. You must maintain at least ₹250 in your wallet.");
+      setSubmittingPayout(false);
+      return;
+    }
+
+    try {
+      // 1. Deduct from wallet balance only
+      const { error: balanceError } = await supabase
+        .from('users_profiles')
+        .update({ 
+          wallet_balance: currentWallet - totalDeduction
+        })
+        .eq('id', userId);
+
+      if (balanceError) throw balanceError;
+
+      // 2. Insert payout request
+      const { error: dbError } = await supabase
+        .from('payout_submissions')
+        .insert({
+          user_id: userId,
+          bank_name: payoutForm.bankName,
+          account_number: payoutForm.accountNumber,
+          ifsc_code: payoutForm.ifscCode,
+          account_holder_name: payoutForm.holderName,
+          amount: amountNum,
+          charge_amount: charge,
+          status: 'pending',
+          remaining_balance: currentWallet - totalDeduction
+        });
+
+      if (dbError) throw dbError;
+
+      setSuccess('Payout request submitted successfully! Total amount (including charges) has been debited from your wallet.');
+      setPayoutForm({
+        bankName: '',
+        holderName: '',
+        accountNumber: '',
+        ifscCode: '',
+        amount: ''
+      });
+
+      // 3. Notify Admin
+      sendAdminPushNotification(
+        'New Payout Request 💰',
+        `User ${userProfile?.firm_name || userId} requested a payout of ₹${amountNum}.`,
+        '/payout-requests'
+      );
+      
+    } catch (err: any) {
+      console.error('Error submitting payout:', err);
+      setError(err.message || 'Failed to submit payout.');
+    } finally {
+      setSubmittingPayout(false);
     }
   };
 
@@ -544,6 +722,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           >
             <Receipt size={18} />
             Bill Payment
+          </button>
+          <button
+            onClick={() => setActiveTab('payout')}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${
+              activeTab === 'payout' 
+                ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600' 
+                : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <History size={18} />
+            Payout Request
           </button>
         </div>
 
@@ -966,7 +1155,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </div>
                 </div>
               </motion.div>
-            ) : (
+            ) : activeTab === 'bill' ? (
               <motion.div
                 key="bill-tab"
                 initial={{ opacity: 0, x: 20 }}
@@ -1352,6 +1541,183 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </div>
                 </div>
               </motion.div>
+            ) : (
+              <motion.div
+                key="payout-tab"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                className="w-full space-y-12"
+              >
+                <div className="max-w-4xl mx-auto">
+                  <header className="mb-8 p-6 bg-amber-50 border border-amber-100 rounded-3xl flex items-center gap-6">
+                    <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center text-amber-600 shrink-0 shadow-sm border border-amber-200">
+                      <IndianRupee size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-amber-900">Withdraw Funds</h3>
+                      <p className="text-sm text-amber-600/80 font-medium">Request to move your wallet balance to your bank account.</p>
+                      {payoutSettings && (
+                        <div className="flex items-center gap-4 mt-2">
+                          <span className="text-xs font-bold text-amber-500 bg-white px-2 py-0.5 rounded-lg border border-amber-100">
+                            Min: ₹{payoutSettings.min_payout}
+                          </span>
+                          <span className="text-xs font-bold text-amber-500 bg-white px-2 py-0.5 rounded-lg border border-amber-100">
+                            Charge: {payoutSettings.is_percentage ? `${payoutSettings.fixed_charge}%` : `₹${payoutSettings.fixed_charge}`}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </header>
+
+                  <form onSubmit={handlePayoutSubmit} className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700">Bank Name:</label>
+                        <select 
+                          value={payoutForm.bankName}
+                          onChange={(e) => setPayoutForm({...payoutForm, bankName: e.target.value})}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all appearance-none"
+                          required
+                        >
+                          <option value="">-- Select Bank --</option>
+                          {payoutBanks.map(bank => (
+                            <option key={bank.bank_name} value={bank.bank_name}>{bank.bank_name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700">A/c Holder Name:</label>
+                        <input 
+                          type="text"
+                          value={payoutForm.holderName}
+                          onChange={(e) => setPayoutForm({...payoutForm, holderName: e.target.value})}
+                          placeholder="Enter Holder Name"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700">Account Number:</label>
+                        <input 
+                          type="text"
+                          value={payoutForm.accountNumber}
+                          onChange={(e) => setPayoutForm({...payoutForm, accountNumber: e.target.value.replace(/\D/g, '')})}
+                          placeholder="Enter Account Number"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700">IFSC Code:</label>
+                        <input 
+                          type="text"
+                          value={payoutForm.ifscCode}
+                          onChange={(e) => setPayoutForm({...payoutForm, ifscCode: e.target.value.toUpperCase()})}
+                          placeholder="Enter IFSC Code"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-bold text-slate-700">Amount:</label>
+                        <input 
+                          type="number"
+                          value={payoutForm.amount}
+                          onChange={(e) => setPayoutForm({...payoutForm, amount: e.target.value})}
+                          placeholder="0.00"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all font-bold"
+                          required
+                        />
+                      </div>
+                      <div className="flex items-end pb-0.5">
+                        <button 
+                          type="submit"
+                          disabled={submittingPayout}
+                          className="w-full px-12 py-[13px] bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-amber-100 flex items-center justify-center gap-2 disabled:opacity-50 uppercase whitespace-nowrap"
+                        >
+                          {submittingPayout ? <Loader2 className="animate-spin" size={20} /> : null}
+                          REQUEST PAYOUT
+                        </button>
+                      </div>
+                    </div>
+
+                    <AnimatePresence>
+                      {error && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold flex items-center gap-2"
+                        >
+                          <AlertCircle size={18} />
+                          {error}
+                        </motion.div>
+                      )}
+                      {success && (
+                        <motion.div 
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-bold flex items-center gap-2"
+                        >
+                          <CheckCircle2 size={18} />
+                          {success}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                  </form>
+                </div>
+
+                <div className="mt-12 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <h3 className="text-lg font-bold text-slate-900">Payout History</h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                       <select 
+                        value={payoutStatus}
+                        onChange={(e) => setPayoutStatus(e.target.value as any)}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-500/20 transition-all"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="processing">Processing</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                          type="text" 
+                          placeholder="Search Bank..."
+                          value={payoutSearch}
+                          onChange={(e) => setPayoutSearch(e.target.value)}
+                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none transition-all w-48 focus:border-amber-400"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {payoutRequests.filter(r => {
+                      const mSearch = r.bank_name.toLowerCase().includes(payoutSearch.toLowerCase());
+                      const mStatus = payoutStatus === 'all' || r.status === payoutStatus;
+                      return mSearch && mStatus;
+                    }).map((req) => (
+                      <PayoutRequestCard 
+                        key={req.id} 
+                        req={req} 
+                        settings={payoutSettings} 
+                        onViewProof={setSelectedProof}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -1398,6 +1764,170 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function PayoutRequestCard({ req, settings, onViewProof }: { req: any; settings: any; onViewProof: (url: string) => void; key?: any }) {
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [stage, setStage] = useState<1 | 2 | 3>(1);
+
+  useEffect(() => {
+    if ((req.status !== 'processing' && req.status !== 'pending') || !settings) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      const now = new Date().getTime();
+      
+      if (req.status === 'pending') {
+        const startTime = new Date(req.created_at).getTime();
+        const elapsedSecs = (now - startTime) / 1000;
+        const pendingLimitSecs = (settings.pending_time_mins || 15) * 60;
+        
+        setStage(1); 
+        if (elapsedSecs < pendingLimitSecs) {
+          setTimeLeft(Math.max(0, Math.floor(pendingLimitSecs - elapsedSecs)));
+        } else {
+          setTimeLeft(0);
+        }
+      } else if (req.status === 'processing' && req.processing_started_at) {
+        const startTime = new Date(req.processing_started_at).getTime();
+        const elapsedSecs = (now - startTime) / 1000;
+        
+        const stage1LimitSecs = settings.processing_time_1_mins * 60;
+        const stage2LimitSecs = settings.processing_time_2_mins * 60;
+
+        if (elapsedSecs < stage1LimitSecs) {
+          setStage(1);
+          setTimeLeft(Math.max(0, Math.floor(stage1LimitSecs - elapsedSecs)));
+        } else if (elapsedSecs < stage1LimitSecs + stage2LimitSecs) {
+          setStage(2);
+          setTimeLeft(Math.max(0, Math.floor((stage1LimitSecs + stage2LimitSecs) - elapsedSecs)));
+        } else {
+          setStage(3);
+          setTimeLeft(0);
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [req.status, req.processing_started_at, req.created_at, settings]);
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours > 0 ? `${hours.toString().padStart(2, '0')}:` : ''}${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4 hover:border-amber-200 transition-all ${req.status === 'processing' ? 'ring-2 ring-amber-500/5' : ''}`}>
+      <div className="flex flex-col md:flex-row gap-6 md:items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
+            <Building2 size={20} />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-900">{req.bank_name}</h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{new Date(req.created_at).toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-8">
+           <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1 text-right">Amount</p>
+            <p className="text-base font-black text-slate-900 text-right">₹{req.amount.toLocaleString()}</p>
+          </div>
+          <div className="w-px h-8 bg-slate-100"></div>
+          <div className="flex flex-col items-end min-w-[100px]">
+             <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+               req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
+               req.status === 'rejected' ? 'bg-rose-50 text-rose-500' :
+               req.status === 'processing' ? 'bg-amber-50 text-amber-600' :
+               'bg-slate-100 text-slate-600'
+             }`}>
+               {req.status === 'approved' ? 'Completed' : req.status}
+             </span>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-4 pt-2 border-t border-slate-50">
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          <User size={12} className="text-slate-300" />
+          {req.account_holder_name}
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          <CreditCard size={12} className="text-slate-300" />
+          ****{req.account_number.slice(-4)}
+        </div>
+        <div className="flex items-center gap-1.5 text-[11px] font-medium text-slate-500">
+          <ShieldCheck size={12} className="text-slate-300" />
+          {req.ifsc_code}
+        </div>
+      </div>
+
+      {(req.status === 'processing' || req.status === 'pending') && timeLeft !== null && (
+        <div className={`p-4 ${req.status === 'pending' ? 'bg-indigo-50/50 border-indigo-100' : 'bg-amber-50/50 border-amber-100'} border rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4`}>
+          <div className="flex items-center gap-4">
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${req.status === 'pending' ? 'bg-indigo-100 text-indigo-600' : stage === 1 ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600 animate-pulse'}`}>
+              <Clock size={16} />
+            </div>
+            <div>
+              <p className={`text-[10px] font-bold uppercase tracking-widest ${req.status === 'pending' ? 'text-indigo-500' : 'text-amber-500'}`}>
+                {req.status === 'pending' ? 'Phase 0: Waiting for Admin Approval' : stage === 1 ? 'Phase 1: Beneficiary Adding' : stage === 2 ? 'Phase 2: Final Processing' : 'Awaiting Completion'}
+              </p>
+              <p className="text-sm font-bold text-slate-700">
+                {req.status === 'pending' ? 'Estimated time to start processing.' : stage === 3 ? 'Almost done! Our team is finalizing your payment.' : 'Status will update automatically.'}
+              </p>
+            </div>
+          </div>
+          {((req.status === 'pending') || (req.status === 'processing' && stage < 3)) && (
+            <div className="flex flex-col items-end">
+              <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${req.status === 'pending' ? 'text-indigo-400' : 'text-amber-400'}`}>Time Remaining</p>
+              <p className={`text-xl font-black tabular-nums ${req.status === 'pending' ? 'text-indigo-600' : 'text-amber-600'}`}>
+                {formatTime(timeLeft)}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {req.status === 'rejected' && req.remark && (
+        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-4">
+          <AlertCircle className="text-rose-400 shrink-0" size={18} />
+          <p className="text-xs font-bold text-rose-600">Rejection Reason: <span className="text-rose-900">{req.remark}</span></p>
+        </div>
+      )}
+
+      {req.status === 'approved' && req.transaction_id && (
+        <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 flex items-center justify-between">
+           <div className="flex items-center gap-3">
+             <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
+               <ShieldCheck size={16} />
+             </div>
+             <div>
+               <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Transaction ID</p>
+               <p className="text-sm font-black text-slate-800">{req.transaction_id}</p>
+             </div>
+           </div>
+           
+           <div className="flex items-center gap-3">
+             {req.proof_url && (
+               <button 
+                 onClick={() => onViewProof(req.proof_url)}
+                 className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100 flex items-center gap-2"
+               >
+                 <Upload size={12} />
+                 View Proof
+               </button>
+             )}
+             <CheckCircle2 className="text-emerald-500" size={24} />
+           </div>
+        </div>
+      )}
     </div>
   );
 }

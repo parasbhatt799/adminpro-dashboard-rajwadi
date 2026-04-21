@@ -18,6 +18,7 @@ import KYCVerificationRequests from './components/KYCVerificationRequests';
 import ComplaintsManagement from './components/ComplaintsManagement';
 import QRPaymentReport from './components/QRPaymentReport';
 import BillPaymentReport from './components/BillPaymentReport';
+import PayoutReport from './components/PayoutReport';
 import StatementReport from './components/StatementReport';
 import HeadlineManagement from './components/HeadlineManagement';
 import PolicyManagement from './components/PolicyManagement';
@@ -27,6 +28,7 @@ import Login from './components/Login';
 import AgreementManagement from './components/AgreementManagement';
 import Settings from './components/Settings';
 import AdminWithdrawal from './components/AdminWithdrawal';
+import PayoutManagement from './components/PayoutManagement';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
@@ -127,7 +129,7 @@ interface AdminLayoutProps {
   userId: string;
   adminRole: string;
   totalHoldBalance: number;
-  pendingCounts: { qr: number; bill: number; kyc: number };
+  pendingCounts: { qr: number; bill: number; kyc: number; payout: number };
 }
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
@@ -369,20 +371,22 @@ export default function App() {
   const [unreadAdminCount, setUnreadAdminCount] = useState(0);
   const [showAdminNotifications, setShowAdminNotifications] = useState(false);
   const [totalHoldBalance, setTotalHoldBalance] = useState(0);
-  const [pendingCounts, setPendingCounts] = useState({ qr: 0, bill: 0, kyc: 0 });
+  const [pendingCounts, setPendingCounts] = useState({ qr: 0, bill: 0, kyc: 0, payout: 0 });
 
   const fetchPendingCounts = async () => {
     try {
-      const [qrRes, billRes, kycRes] = await Promise.all([
+      const [qrRes, billRes, kycRes, payoutRes] = await Promise.all([
         supabase.from('payment_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
         supabase.from('bill_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('kyc_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+        supabase.from('kyc_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('payout_submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending')
       ]);
 
       setPendingCounts({
         qr: qrRes.count || 0,
         bill: billRes.count || 0,
-        kyc: kycRes.count || 0
+        kyc: kycRes.count || 0,
+        payout: payoutRes.count || 0
       });
     } catch (err) {
       console.error('Error fetching pending counts:', err);
@@ -479,6 +483,11 @@ export default function App() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_submissions' }, () => fetchPendingCounts())
         .subscribe();
 
+      const payoutSub = supabase
+        .channel('payout_pending_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, () => fetchPendingCounts())
+        .subscribe();
+
       // 0. Hold Balance Listener
       const holdChannel = supabase
         .channel('admin_hold_realtime')
@@ -551,6 +560,7 @@ export default function App() {
         supabase.removeChannel(qrSub);
         supabase.removeChannel(billSub);
         supabase.removeChannel(kycSub);
+        supabase.removeChannel(payoutSub);
       };
     }
   }, [isAdmin, userId, adminRole]);
@@ -625,12 +635,14 @@ export default function App() {
           <Route path="service-charge" element={<ServiceChargeManagement adminRole={adminRole} />} />
           <Route path="qr-payment-requests" element={<QRPaymentRequests />} />
           <Route path="bill-payment-requests" element={<BillPaymentRequests />} />
+          <Route path="payout-requests" element={<PayoutManagement />} />
           <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
           <Route path="reason-entry" element={<ReasonManagement />} />
           <Route path="complaints-management" element={<ComplaintsManagement />} />
           <Route path="reports">
             <Route path="qr-payment" element={<QRPaymentReport />} />
             <Route path="bill-payment" element={<BillPaymentReport />} />
+            <Route path="payout" element={<PayoutReport />} />
             <Route path="statement" element={<StatementReport />} />
           </Route>
           <Route path="headlines" element={<HeadlineManagement />} />

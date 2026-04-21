@@ -404,7 +404,7 @@ export default function BillPaymentRequests() {
                             <CreditCard size={12} className="text-slate-400" />
                             {req.card_number.slice(-4)}
                           </p>
-                          <p className="text-[10px] font-mono text-slate-500">{req.card_bank}</p>
+                          <p className="text-[12px] font-mono text-slate-900 font-bold">{req.card_bank}</p>
                         </div>
                       </td>
                       <td className="px-6 py-4">

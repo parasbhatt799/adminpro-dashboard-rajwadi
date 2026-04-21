@@ -15,10 +15,10 @@ import autoTable from 'jspdf-autotable';
 
 interface UnifiedRecord {
   id: string;
-  type: 'QR' | 'BILL';
+  type: 'QR' | 'BILL' | 'PAYOUT';
   date: string;
   firm_name: string;
-  reference: string;
+  reference: string; // UTR for QR, Mobile for BILL, Transaction ID for PAYOUT
   amount: number;
   charges: number;
   final_total: number;
@@ -41,7 +41,7 @@ export default function StatementReport() {
   // Filters
   const [firmName, setFirmName] = useState('');
   const [exactAmount, setExactAmount] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL' | 'PAYOUT'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -69,6 +69,7 @@ export default function StatementReport() {
     try {
       let qrMapped: any[] = [];
       let billMapped: any[] = [];
+      let payoutMapped: any[] = [];
 
       // 1. Fetch QR Payments
       if (typeFilter === 'all' || typeFilter === 'QR') {
@@ -83,7 +84,7 @@ export default function StatementReport() {
         if (error) throw error;
         qrMapped = (data || []).map(r => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '0'),
+          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'QR',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
@@ -95,7 +96,7 @@ export default function StatementReport() {
           raw_data: r
         }));
       }
-
+      
       // 2. Fetch Bill Payments
       if (typeFilter === 'all' || typeFilter === 'BILL') {
         let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
@@ -109,7 +110,7 @@ export default function StatementReport() {
         if (error) throw error;
         billMapped = (data || []).map((r, idx) => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || '0'), 
+          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(), 
           type: 'BILL',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
@@ -122,8 +123,34 @@ export default function StatementReport() {
         }));
       }
 
+      // 3. Fetch Payouts
+      if (typeFilter === 'all' || typeFilter === 'PAYOUT') {
+        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
+
+        if (firmName) payoutQuery = payoutQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+        if (exactAmount) payoutQuery = payoutQuery.eq('amount', Number(exactAmount));
+        if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
+
+        const { data, error } = await payoutQuery;
+        if (error) throw error;
+        payoutMapped = (data || []).map(r => ({
+          id: String(r.id || ''),
+          numericId: String(r.id || '').split('-')[0].toUpperCase(),
+          type: 'PAYOUT',
+          date: r.created_at,
+          firm_name: r.users_profiles?.firm_name || 'N/A',
+          reference: r.transaction_id || 'N/A',
+          amount: Number(r.amount),
+          charges: Number(r.charge_amount || 0),
+          final_total: Number(r.amount) + Number(r.charge_amount || 0),
+          status: r.status,
+          raw_data: r
+        }));
+      }
+
       // Merge and Sort (Oldest first for running balance)
-      const merged = [...qrMapped, ...billMapped].sort((a, b) => 
+      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
@@ -133,7 +160,7 @@ export default function StatementReport() {
         if (r.type === 'QR') {
            currentBalance += r.final_total;
         } else {
-           // BILL: Assuming wallet is deducted
+           // BILL or PAYOUT: Wallet is deducted
            currentBalance -= r.final_total;
         }
         return { ...r, balance: currentBalance };
@@ -165,13 +192,15 @@ export default function StatementReport() {
         hour12: true 
       }),
       'PaymentId': r.numericId,
-      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
-      'Card No': r.raw_data?.card_number || '****',
+      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
+      'Card No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
       'Description': r.type === 'BILL' 
         ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` 
-        : `TxnId: ${r.reference}, OrderId: WeBCC...\n(${r.amount} - ${r.charges} Txn Charge)\nWallet Topup Through ${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
+        : r.type === 'PAYOUT'
+        ? `PAYOUT to ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name} A/c:${r.raw_data?.account_number})\nTxnId: ${r.reference}\n(${r.amount} + ${r.charges} Txn Charge)`
+        : `TxnId: ${r.reference},\n(${r.amount} - ${r.charges} Txn Charge)\n PAYMENT QR ${r.raw_data?.qr_history?.qr_name}`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
-      'Debit Amount': r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
+      'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
       'Payment From': r.type === 'QR' ? 'Admin' : '',
       'Payment To': r.firm_name
@@ -198,13 +227,15 @@ export default function StatementReport() {
           hour12: true 
         }),
         r.numericId,
-        r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT',
-        r.raw_data?.card_number || '****',
+        r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
+        r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
         r.type === 'BILL' 
           ? `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}` 
+          : r.type === 'PAYOUT'
+          ? `PAYOUT: ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name})`
           : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
-        r.type === 'BILL' ? r.final_total.toFixed(2) : '0.00',
+        (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
         r.type === 'QR' ? 'Admin' : '',
         r.firm_name
@@ -322,7 +353,8 @@ export default function StatementReport() {
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment Date</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">PaymentId</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Transaction<br/>Type</th>
-                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap text-center">Card No</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap text-center">Bank / QR</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap text-center">Card / Account No</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] min-w-[300px]">Description</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Credit<br/>Amount</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Debit<br/>Amount</th>
@@ -343,19 +375,31 @@ export default function StatementReport() {
                       {formatDateTimeSplit(r.date)}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
-                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.type === 'BILL' ? 'CCBILLPAY' : 'PAYMENT'}</td>
-                    <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">{r.raw_data?.card_number || '****'}</td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT'}</td>
+                    <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center uppercase">
+                      {r.type === 'QR' ? (r.raw_data?.qr_history?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : r.raw_data?.card_bank || '-'}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">
+                      {r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
+                    </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
                         <>
-                          <div>CCBILLPAY Mobile:{r.reference} CardNo:{r.raw_data?.card_number || '0000'}</div>
+                          <div>CCBILLPAY Mobile: <span className="text-amber-600 font-bold">{r.reference}</span> <br /> CardNo: <span className="text-amber-600 font-bold">{r.raw_data?.card_number || '0000'}</span></div>
                           <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                        </>
+                      ) : r.type === 'PAYOUT' ? (
+                        <>
+                          <div className="font-bold text-slate-900">{r.raw_data?.account_holder_name}</div>
+                          <div className="text-[11px] text-slate-500">{r.raw_data?.bank_name} | IFSC: {r.raw_data?.ifsc_code}</div>
+                          <div className="text-amber-600 font-bold mt-1">Txn: {r.reference}</div>
+                          <div>({r.amount} + {r.charges} Txn Charge)</div>
                         </>
                       ) : (
                         <>
-                          <div className="break-all">TxnId: {r.reference}, OrderId:<br/>WeBCC...{String(r.id || '').substring(0,8)}...</div>
+                          <div className="break-all text-amber-600 font-bold">TxnId: {r.reference}</div>
                           <div>({r.amount} - {r.charges} Txn Charge)</div>
-                          <div className="text-indigo-600 font-bold">Wallet Topup Through {r.raw_data?.qr_history?.qr_name || 'CashFree'}</div>
+                          <div className="text-slate-600 font-bold">PAYMENT QR <span className="text-amber-600">{r.raw_data?.qr_history?.qr_name}</span></div>
                         </>
                       )}
                     </td>
@@ -363,13 +407,13 @@ export default function StatementReport() {
                       {r.type === 'QR' ? r.final_total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {r.type === 'BILL' ? r.final_total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0'}
+                      {(r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#333] font-bold text-right">
                       {r.balance.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
-                      {r.type === 'QR' ? 'Admin' : ''}
+                      {r.type === 'QR' ? 'Admin' : r.type === 'PAYOUT' ? 'Bank' : ''}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
                       {r.firm_name}

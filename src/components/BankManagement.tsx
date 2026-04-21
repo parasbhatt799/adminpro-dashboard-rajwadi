@@ -23,6 +23,8 @@ interface Bank {
   bank_name: string;
   logo_url: string | null;
   is_active: boolean;
+  show_in_bill_payment: boolean;
+  show_in_payout: boolean;
   created_at: string;
 }
 
@@ -40,6 +42,8 @@ export default function BankManagement() {
 
   const [formData, setFormData] = useState({
     bank_name: '',
+    show_in_bill_payment: true,
+    show_in_payout: false
   });
 
   const fetchBanks = async () => {
@@ -121,6 +125,8 @@ export default function BankManagement() {
       setLogoPreview(null);
       setFormData({
         bank_name: '',
+        show_in_bill_payment: true,
+        show_in_payout: false
       });
       fetchBanks();
     } catch (err) {
@@ -135,6 +141,8 @@ export default function BankManagement() {
     setEditingBank(bank);
     setFormData({
       bank_name: bank.bank_name,
+      show_in_bill_payment: bank.show_in_bill_payment,
+      show_in_payout: bank.show_in_payout
     });
     setLogoPreview(bank.logo_url);
     setIsAdding(true);
@@ -190,6 +198,8 @@ export default function BankManagement() {
             setEditingBank(null);
             setFormData({
               bank_name: '',
+              show_in_bill_payment: true,
+              show_in_payout: false
             });
             setLogoPreview(null);
           }}
@@ -252,6 +262,36 @@ export default function BankManagement() {
                       placeholder="e.g. HDFC Bank"
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                     />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Bill Payment</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Show in Bill Pay</p>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, show_in_bill_payment: !formData.show_in_bill_payment})}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${formData.show_in_bill_payment ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                      >
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.show_in_bill_payment ? 'translate-x-5' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
+
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">Payout</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Show in Payouts</p>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={() => setFormData({...formData, show_in_payout: !formData.show_in_payout})}
+                        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${formData.show_in_payout ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                      >
+                        <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${formData.show_in_payout ? 'translate-x-5' : 'translate-x-1'}`} />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -367,6 +407,14 @@ export default function BankManagement() {
                       <span className={`text-[10px] font-bold uppercase tracking-wider ${bank.is_active ? 'text-emerald-600' : 'text-slate-400'}`}>
                         {bank.is_active ? 'Active' : 'Inactive'}
                       </span>
+                      <div className="flex items-center gap-1.5 ml-2">
+                        {bank.show_in_bill_payment && (
+                          <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded uppercase tracking-tighter">Bill Pay</span>
+                        )}
+                        {bank.show_in_payout && (
+                          <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded uppercase tracking-tighter">Payout</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
