@@ -120,7 +120,7 @@ export default function Dashboard() {
         pendingKycQuery, 
         pendingBillQuery,
         pendingQrQuery,
-        activeUsersRes,
+        activeUsersQuery,
         supabase.from('admin_withdrawals').select('amount')
       ]);
       
