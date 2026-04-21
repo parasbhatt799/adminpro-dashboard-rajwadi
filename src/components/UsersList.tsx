@@ -138,6 +138,7 @@ export default function UsersList() {
         'Mobile': u.mobile_number,
         'Email': u.email,
         'Wallet Balance': Number(u.wallet_balance || 0),
+        'Hold Balance': Number(u.hold_balance || 0),
         'Status': u.status,
         'KYC Status': u.kyc_status === 'verified' ? 'VERIFIED' : 'NOT VERIFIED',
         'User ID': u.id
@@ -190,13 +191,14 @@ export default function UsersList() {
         String(u.mobile_number || ''),
         String(u.email || ''),
         u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString('en-IN')}` : '0',
+        u.hold_balance ? `Rs. ${Number(u.hold_balance).toLocaleString('en-IN')}` : '0',
         String(u.status || ''),
         u.kyc_status === 'verified' ? 'VERIFIED' : 'NOT VERIFIED'
       ]);
 
       autoTable(doc, {
         startY: 40,
-        head: [['#', 'Join Date', 'Name', 'Mobile', 'Email', 'Wallet', 'Status', 'KYC']],
+        head: [['#', 'Join Date', 'Name', 'Mobile', 'Email', 'Wallet', 'Hold', 'Status', 'KYC']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -396,6 +398,7 @@ export default function UsersList() {
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">User Details</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Wallet Balance</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Hold Balance</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">KYC</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Joined Date</th>
@@ -449,6 +452,12 @@ export default function UsersList() {
                       <div className="flex items-center gap-2 text-indigo-600 font-bold">
                         <IndianRupee size={14} />
                         <span>{Number(user.wallet_balance || 0).toLocaleString()}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2 text-amber-600 font-bold">
+                        <IndianRupee size={14} />
+                        <span>{Number(user.hold_balance || 0).toLocaleString()}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
