@@ -26,6 +26,7 @@ import ChangePassword from './components/ChangePassword';
 import Login from './components/Login';
 import AgreementManagement from './components/AgreementManagement';
 import Settings from './components/Settings';
+import AdminWithdrawal from './components/AdminWithdrawal';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
@@ -640,6 +641,7 @@ export default function App() {
               <Route path="admin-management" element={<AdminManagement currentAdminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
               <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="withdrawal-balance" element={<AdminWithdrawal />} />
             </>
           )}
         </Route>

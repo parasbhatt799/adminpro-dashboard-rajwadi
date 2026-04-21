@@ -15,7 +15,8 @@ import {
   FileText,
   Shield,
   Lock,
-  Settings
+  Settings,
+  TrendingDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
@@ -37,6 +38,7 @@ const menuItems = [
   { id: 'bank-upload', label: 'Bank Upload', icon: Building2, path: '/bank-upload' },
   { id: 'reason-entry', label: 'Reason entry', icon: FileQuestion, path: '/reason-entry' },
   { id: 'service-charge', label: 'Service charge', icon: Receipt, path: '/service-charge' },
+  { id: 'withdrawal-balance', label: 'Withdrawal Balance', icon: TrendingDown, path: '/withdrawal-balance' },
   {
     id: 'report-generate',
     label: 'Report Generate',
