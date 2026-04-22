@@ -301,7 +301,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         .insert([{
           target_role: 'admin',
           title: 'New KYC Request',
-          message: `User ${userProfile?.name || userId} has submitted documents for verification.`,
+          message: `User ${userProfile?.firm_name || userProfile?.name || userId} has submitted documents for verification.`,
           link: '/kyc-verification-requests'
         }]);
 
@@ -312,7 +312,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
         // 5. Send Push Notification to Admin (Mobile)
         sendAdminPushNotification(
           'New KYC Request 👤',
-          `User ${userProfile?.name || userId} has submitted documents for verification.`,
+          `User ${userProfile?.firm_name || userProfile?.name || userId} has submitted documents for verification.`,
           '/kyc-verification-requests'
         );
       }

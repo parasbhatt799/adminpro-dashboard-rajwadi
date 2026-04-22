@@ -491,7 +491,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .insert([{
           target_role: 'admin',
           title: 'New Bill Payment Request',
-          message: `User ${userProfile?.firm_name || userId} submitted a bill payment of ₹${billAmountNum}.`,
+          message: `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a bill payment of ₹${billAmountNum}.`,
           link: '/bill-payment-requests'
         }]);
       
@@ -502,7 +502,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // 4. Send Push Notification to Admin (Mobile)
         sendAdminPushNotification(
           'New Bill Payment Request 💳',
-          `User ${userProfile?.firm_name || userId} submitted a bill payment of ₹${billAmountNum}.`,
+          `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a bill payment of ₹${billAmountNum}.`,
           '/bill-payment-requests'
         );
       }
@@ -598,7 +598,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       // 3. Notify Admin
       sendAdminPushNotification(
         'New Payout Request 💰',
-        `User ${userProfile?.firm_name || userId} requested a payout of ₹${amountNum}.`,
+        `User ${userProfile?.firm_name || userProfile?.name || userId} requested a payout of ₹${amountNum}.`,
         '/payout-requests'
       );
       
@@ -691,7 +691,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .insert([{
           target_role: 'admin',
           title: 'New QR Payment Request',
-          message: `User ${userProfile?.firm_name || userId} submitted a QR payment of ₹${amountNum}.`,
+          message: `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a QR payment of ₹${amountNum}.`,
           link: '/qr-payment-requests'
         }]);
       
@@ -702,7 +702,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // 5. Send Push Notification to Admin (Mobile)
         sendAdminPushNotification(
           'New QR Payment Request 🔔',
-          `User ${userProfile?.firm_name || userId} submitted ₹${amountNum}. Review now!`,
+          `User ${userProfile?.firm_name || userProfile?.name || userId} submitted ₹${amountNum}. Review now!`,
           '/qr-payment-requests'
         );
       }
