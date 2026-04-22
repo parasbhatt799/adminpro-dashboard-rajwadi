@@ -12,7 +12,9 @@ import {
   BellRing,
   Smartphone,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Volume2,
+  Music
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -42,7 +44,15 @@ export default function Settings() {
     logo_mini_url: '',
     favicon_url: '',
     watermark_url: '',
-    is_watermark_enabled: false
+    is_watermark_enabled: false,
+    qr_sound_url: '',
+    bill_sound_url: '',
+    payout_sound_url: '',
+    kyc_sound_url: '',
+    is_qr_sound_enabled: true,
+    is_bill_sound_enabled: true,
+    is_payout_sound_enabled: true,
+    is_kyc_sound_enabled: true
   });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -53,6 +63,11 @@ export default function Settings() {
   const [logoMiniPreview, setLogoMiniPreview] = useState<string | null>(null);
   const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
   const [watermarkPreview, setWatermarkPreview] = useState<string | null>(null);
+
+  const [qrSoundFile, setQrSoundFile] = useState<File | null>(null);
+  const [billSoundFile, setBillSoundFile] = useState<File | null>(null);
+  const [payoutSoundFile, setPayoutSoundFile] = useState<File | null>(null);
+  const [kycSoundFile, setKycSoundFile] = useState<File | null>(null);
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -93,10 +108,10 @@ export default function Settings() {
         });
       }
 
-      // 3. Branding Settings (from qr_settings)
+      // 3. Branding & Sound Settings (from qr_settings)
       const { data: qrData, error: qrError } = await supabase
         .from('qr_settings')
-        .select('logo_url, logo_mini_url, favicon_url, watermark_url, is_watermark_enabled')
+        .select('*')
         .eq('id', 1)
         .single();
       
@@ -107,7 +122,15 @@ export default function Settings() {
           logo_mini_url: qrData.logo_mini_url || '',
           favicon_url: qrData.favicon_url || '',
           watermark_url: qrData.watermark_url || '',
-          is_watermark_enabled: qrData.is_watermark_enabled || false
+          is_watermark_enabled: qrData.is_watermark_enabled || false,
+          qr_sound_url: qrData.qr_sound_url || '',
+          bill_sound_url: qrData.bill_sound_url || '',
+          payout_sound_url: qrData.payout_sound_url || '',
+          kyc_sound_url: qrData.kyc_sound_url || '',
+          is_qr_sound_enabled: qrData.is_qr_sound_enabled ?? true,
+          is_bill_sound_enabled: qrData.is_bill_sound_enabled ?? true,
+          is_payout_sound_enabled: qrData.is_payout_sound_enabled ?? true,
+          is_kyc_sound_enabled: qrData.is_kyc_sound_enabled ?? true
         });
         setLogoPreview(qrData.logo_url);
         setLogoMiniPreview(qrData.logo_mini_url);
@@ -192,6 +215,10 @@ export default function Settings() {
       let finalLogoMiniUrl = brandingSettings.logo_mini_url;
       let finalFaviconUrl = brandingSettings.favicon_url;
       let finalWatermarkUrl = brandingSettings.watermark_url;
+      let finalQrSoundUrl = brandingSettings.qr_sound_url;
+      let finalBillSoundUrl = brandingSettings.bill_sound_url;
+      let finalPayoutSoundUrl = brandingSettings.payout_sound_url;
+      let finalKycSoundUrl = brandingSettings.kyc_sound_url;
 
       if (logoFile) {
         const fileExt = logoFile.name.split('.').pop();
@@ -225,7 +252,6 @@ export default function Settings() {
         const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
         finalFaviconUrl = `${publicUrl}?t=${Date.now()}`;
       }
-
       if (watermarkFile) {
         const fileExt = watermarkFile.name.split('.').pop();
         const fileName = `system_watermark.${fileExt}`;
@@ -237,6 +263,36 @@ export default function Settings() {
         finalWatermarkUrl = `${publicUrl}?t=${Date.now()}`;
       }
 
+      // 4. Upload Sounds
+      if (qrSoundFile) {
+        const fileName = `sound_qr_${Date.now()}.mp3`;
+        const { error: uploadError } = await supabase.storage.from('site_assets').upload(fileName, qrSoundFile);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalQrSoundUrl = publicUrl;
+      }
+      if (billSoundFile) {
+        const fileName = `sound_bill_${Date.now()}.mp3`;
+        const { error: uploadError } = await supabase.storage.from('site_assets').upload(fileName, billSoundFile);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalBillSoundUrl = publicUrl;
+      }
+      if (payoutSoundFile) {
+        const fileName = `sound_payout_${Date.now()}.mp3`;
+        const { error: uploadError } = await supabase.storage.from('site_assets').upload(fileName, payoutSoundFile);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalPayoutSoundUrl = publicUrl;
+      }
+      if (kycSoundFile) {
+        const fileName = `sound_kyc_${Date.now()}.mp3`;
+        const { error: uploadError } = await supabase.storage.from('site_assets').upload(fileName, kycSoundFile);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalKycSoundUrl = publicUrl;
+      }
+
       const { error: qrError } = await supabase
         .from('qr_settings')
         .update({
@@ -245,6 +301,14 @@ export default function Settings() {
           favicon_url: finalFaviconUrl,
           watermark_url: finalWatermarkUrl,
           is_watermark_enabled: brandingSettings.is_watermark_enabled,
+          qr_sound_url: finalQrSoundUrl,
+          bill_sound_url: finalBillSoundUrl,
+          payout_sound_url: finalPayoutSoundUrl,
+          kyc_sound_url: finalKycSoundUrl,
+          is_qr_sound_enabled: brandingSettings.is_qr_sound_enabled,
+          is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
+          is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
+          is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled,
           updated_at: new Date().toISOString()
         })
         .eq('id', 1);
@@ -256,12 +320,24 @@ export default function Settings() {
         logo_mini_url: finalLogoMiniUrl,
         favicon_url: finalFaviconUrl,
         watermark_url: finalWatermarkUrl,
-        is_watermark_enabled: brandingSettings.is_watermark_enabled
+        is_watermark_enabled: brandingSettings.is_watermark_enabled,
+        qr_sound_url: finalQrSoundUrl,
+        bill_sound_url: finalBillSoundUrl,
+        payout_sound_url: finalPayoutSoundUrl,
+        kyc_sound_url: finalKycSoundUrl,
+        is_qr_sound_enabled: brandingSettings.is_qr_sound_enabled,
+        is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
+        is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
+        is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled
       });
       setLogoFile(null);
       setLogoMiniFile(null);
       setFaviconFile(null);
       setWatermarkFile(null);
+      setQrSoundFile(null);
+      setBillSoundFile(null);
+      setPayoutSoundFile(null);
+      setKycSoundFile(null);
 
       setSuccess('Settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
@@ -727,6 +803,70 @@ export default function Settings() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Notification Sounds Section */}
+        <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+            <div className="p-2.5 bg-rose-50 text-rose-600 rounded-2xl">
+              <Volume2 size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Notification Sounds</h3>
+              <p className="text-xs text-slate-500">Configure alert sounds for different request types.</p>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {[
+                { id: 'qr', label: 'QR Payment Request', sound: brandingSettings.qr_sound_url, enabled: brandingSettings.is_qr_sound_enabled, setFile: setQrSoundFile },
+                { id: 'bill', label: 'Bill Payment Request', sound: brandingSettings.bill_sound_url, enabled: brandingSettings.is_bill_sound_enabled, setFile: setBillSoundFile },
+                { id: 'payout', label: 'Payout Request', sound: brandingSettings.payout_sound_url, enabled: brandingSettings.is_payout_sound_enabled, setFile: setPayoutSoundFile },
+                { id: 'kyc', label: 'KYC Verification', sound: brandingSettings.kyc_sound_url, enabled: brandingSettings.is_kyc_sound_enabled, setFile: setKycSoundFile }
+              ].map((item) => (
+                <div key={item.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-bold text-slate-900">{item.label}</h4>
+                    <button
+                      onClick={() => setBrandingSettings(prev => ({ ...prev, [`is_${item.id}_sound_enabled`]: !prev[`is_${item.id}_sound_enabled` as keyof typeof prev] }))}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                        item.enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                      }`}
+                    >
+                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
+                        <Music size={14} />
+                        {item.sound ? 'Change Sound' : 'Upload Sound'}
+                        <input 
+                          type="file" 
+                          className="hidden" 
+                          accept="audio/mpeg,audio/wav"
+                          onChange={(e) => item.setFile(e.target.files?.[0] || null)}
+                        />
+                      </label>
+                    </div>
+                    {item.sound && (
+                      <button 
+                        onClick={() => {
+                          const audio = new Audio(item.sound);
+                          audio.play();
+                        }}
+                        className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all"
+                      >
+                        <Volume2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </section>

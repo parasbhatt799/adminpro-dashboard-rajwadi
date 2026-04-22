@@ -392,6 +392,22 @@ const AdminLayout = ({
 
 export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
+  const [soundSettings, setSoundSettings] = useState<any>(null);
+
+  // Fetch Sound Settings
+  const fetchSoundSettings = async () => {
+    try {
+      const { data } = await supabase
+        .from('qr_settings')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      if (data) setSoundSettings(data);
+    } catch (err) {
+      console.error('Error fetching sound settings:', err);
+    }
+  };
+
   const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [adminRole, setAdminRole] = useState(() => localStorage.getItem('adminRole') || 'full');
@@ -573,26 +589,59 @@ export default function App() {
       fetchAdminNotifications();
       fetchTotalHoldBalance();
       fetchPendingCounts();
+      fetchSoundSettings();
+
+      // Helper to play sound
+      const playNotificationSound = (type: 'qr' | 'bill' | 'kyc' | 'payout') => {
+        if (!soundSettings) return;
+        const isEnabled = soundSettings[`is_${type}_sound_enabled`];
+        const soundUrl = soundSettings[`${type}_sound_url`];
+        
+        if (isEnabled && soundUrl) {
+          const audio = new Audio(soundUrl);
+          audio.play().catch(e => console.error('Audio play error:', e));
+        }
+      };
 
       // Real-time Pending Counts Listeners
       const qrSub = supabase
         .channel('qr_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, () => fetchPendingCounts())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, (payload) => {
+          fetchPendingCounts();
+          if (payload.eventType === 'INSERT') playNotificationSound('qr');
+        })
         .subscribe();
 
       const billSub = supabase
         .channel('bill_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, () => fetchPendingCounts())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, (payload) => {
+          fetchPendingCounts();
+          if (payload.eventType === 'INSERT') playNotificationSound('bill');
+        })
         .subscribe();
 
       const kycSub = supabase
         .channel('kyc_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_submissions' }, () => fetchPendingCounts())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_submissions' }, (payload) => {
+          fetchPendingCounts();
+          if (payload.eventType === 'INSERT') playNotificationSound('kyc');
+        })
         .subscribe();
 
       const payoutSub = supabase
         .channel('payout_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, () => fetchPendingCounts())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, (payload) => {
+          fetchPendingCounts();
+          if (payload.eventType === 'INSERT') playNotificationSound('payout');
+        })
+        .subscribe();
+      
+      // Branding/Sound Settings Listener (to sync toggles in real-time)
+      const settingsSub = supabase
+        .channel('admin_settings_realtime')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
+          if (payload.new) setSoundSettings(payload.new);
+        })
         .subscribe();
 
       // 0. Hold Balance Listener
@@ -668,6 +717,7 @@ export default function App() {
         supabase.removeChannel(billSub);
         supabase.removeChannel(kycSub);
         supabase.removeChannel(payoutSub);
+        supabase.removeChannel(settingsSub);
       };
     }
   }, [isAdmin, userId, adminRole]);
