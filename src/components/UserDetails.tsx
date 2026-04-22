@@ -15,7 +15,8 @@ import {
   MapPin,
   CreditCard,
   Download,
-  Lock
+  Lock,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -280,6 +281,10 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
               )}
             </div>
             <h3 className="text-xl font-bold text-slate-900">{user.name}</h3>
+            <p className="text-xs font-bold text-slate-400 mt-2 flex items-center justify-center gap-1.5 bg-slate-50 py-1.5 px-3 rounded-lg border border-slate-100 w-fit mx-auto">
+              <Shield size={14} className="text-indigo-500" />
+              <span>ID: {user.id}</span>
+            </p>
             
             <div className="mt-6 flex justify-center">
               <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
@@ -314,7 +319,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
           <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-100">
             <h4 className="text-indigo-100 text-xs font-bold uppercase tracking-widest mb-4">Wallet Balance</h4>
             <div className="flex items-end justify-between">
-              <p className="text-3xl font-bold">₹{Number(user.wallet_balance || 0).toLocaleString()}</p>
+              <p className="text-3xl font-bold">₹{Number(user.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <CreditCard size={24} className="text-indigo-300" />
             </div>
           </div>
@@ -323,7 +328,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
             <div className="bg-amber-500 rounded-3xl p-6 text-white shadow-lg shadow-amber-100">
                <h4 className="text-amber-100 text-xs font-bold uppercase tracking-widest mb-4">Hold Balance</h4>
                <div className="flex items-end justify-between">
-                 <p className="text-3xl font-bold">₹{Number(user.hold_balance || 0).toLocaleString()}</p>
+                 <p className="text-3xl font-bold">₹{Number(user.hold_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                  <Lock size={24} className="text-amber-200" />
                </div>
                <p className="text-[10px] text-amber-100 mt-2 font-bold uppercase tracking-widest">Locked by Administrator</p>

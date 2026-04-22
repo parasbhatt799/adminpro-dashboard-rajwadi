@@ -159,42 +159,42 @@ export default function Dashboard() {
       setStats([
         {
           title: "Total QR Payments",
-          value: `₹${rangeQrAmount.toLocaleString()}`,
+          value: `₹${rangeQrAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: QrCode,
           color: "bg-blue-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Total CC Bill",
-          value: `₹${rangeTotalCCBill.toLocaleString()}`,
+          value: `₹${rangeTotalCCBill.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: CreditCard,
           color: "bg-purple-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "QR Payment Charges",
-          value: `₹${rangeQrCharges.toLocaleString()}`,
+          value: `₹${rangeQrCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: QrCode,
           color: "bg-emerald-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Bill Payment Charge",
-          value: `₹${rangeBillCharges.toLocaleString()}`,
+          value: `₹${rangeBillCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: CreditCard,
           color: "bg-indigo-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Payout Service Charge",
-          value: `₹${rangePayoutCharges.toLocaleString()}`,
+          value: `₹${rangePayoutCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: TrendingDown,
           color: "bg-amber-600",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Total User Wallet",
-          value: `₹${totalWalletBalance.toLocaleString()}`,
+          value: `₹${totalWalletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: Wallet,
           color: "bg-amber-500",
           description: "Lifetime Total",
@@ -202,7 +202,7 @@ export default function Dashboard() {
         },
         {
           title: "Total Service Charge",
-          value: `₹${rangeTotalCharges.toLocaleString()}`,
+          value: `₹${rangeTotalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           icon: TrendingUp,
           color: "bg-rose-500",
           description: `Range: ${dateDisplay}`
@@ -303,7 +303,7 @@ export default function Dashboard() {
             user_id: targetRequest.user_id,
             target_role: 'user',
             title: 'Bill Payment Approved',
-            message: `Your bill payment of ₹${amount.toLocaleString()} has been approved after review!`,
+            message: `Your bill payment of ₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} has been approved after review!`,
             link: '/user/reports'
           }]);
 
@@ -338,7 +338,7 @@ export default function Dashboard() {
             user_id: targetRequest.user_id,
             target_role: 'user',
             title: 'Bill Payment Rejected',
-            message: `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${customReason || reason}`,
+            message: `Your bill payment of ₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} was rejected. Reason: ${customReason || reason}`,
             link: '/user/reports'
           }]);
       }
@@ -577,17 +577,17 @@ export default function Dashboard() {
                         </td>
                         <td className="px-6 py-4 text-right">
                           <span className="text-sm font-bold text-slate-900 flex items-center justify-end font-mono">
-                            ₹{req.amount.toLocaleString()}
+                            ₹{req.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <span className="text-sm font-bold text-emerald-600 flex items-center justify-end font-mono">
-                            ₹{(req.charges || 0).toLocaleString()}
+                            ₹{(req.charges || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <span className="text-sm font-bold text-indigo-600 flex items-center justify-end font-mono">
-                            ₹{(Number(req.amount) + Number(req.charges || 0)).toLocaleString()}
+                            ₹{(Number(req.amount) + Number(req.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </td>
                         <td className="px-6 py-4 text-center">

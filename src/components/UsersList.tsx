@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Loader2,
   User as UserIcon,
+  Building2,
   IndianRupee
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -54,7 +55,7 @@ export default function UsersList() {
 
       // Search Filter
       if (searchTerm) {
-        query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`);
+        query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%,firm_name.ilike.%${searchTerm}%`);
       }
 
       // Status Filter
@@ -135,6 +136,7 @@ export default function UsersList() {
       const exportData = data.map(u => ({
         'Join Date': format(new Date(u.created_at), 'dd-MM-yyyy'),
         'User Name': u.name,
+        'Firm Name': u.firm_name || 'N/A',
         'Mobile': u.mobile_number,
         'Email': u.email,
         'Wallet Balance': Number(u.wallet_balance || 0),
@@ -188,17 +190,18 @@ export default function UsersList() {
         String(i + 1),
         u.created_at ? format(new Date(u.created_at), 'dd-MM-yyyy') : 'N/A',
         String(u.name || ''),
+        String(u.firm_name || 'N/A'),
         String(u.mobile_number || ''),
         String(u.email || ''),
-        u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString('en-IN')}` : '0',
-        u.hold_balance ? `Rs. ${Number(u.hold_balance).toLocaleString('en-IN')}` : '0',
+        u.wallet_balance ? `Rs. ${Number(u.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '0.00',
+        u.hold_balance ? `Rs. ${Number(u.hold_balance).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '0.00',
         String(u.status || ''),
         u.kyc_status === 'verified' ? 'VERIFIED' : 'NOT VERIFIED'
       ]);
 
       autoTable(doc, {
         startY: 40,
-        head: [['#', 'Join Date', 'Name', 'Mobile', 'Email', 'Wallet', 'Hold', 'Status', 'KYC']],
+        head: [['#', 'Join Date', 'Name', 'Firm Name', 'Mobile', 'Email', 'Wallet', 'Hold', 'Status', 'KYC']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
@@ -334,7 +337,7 @@ export default function UsersList() {
             type="text" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search users by name, email, mobile or ID..." 
+            placeholder="Search users by name, firm name, email, mobile or ID..." 
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
         </div>
@@ -395,14 +398,15 @@ export default function UsersList() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">User Details</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Wallet Balance</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Hold Balance</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">KYC</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Joined Date</th>
-                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">User Details</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Firm Name</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Wallet Balance</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hold Balance</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">KYC</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Joined Date</th>
+                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -415,7 +419,7 @@ export default function UsersList() {
                     onClick={() => setSelectedUser(user)}
                     className="hover:bg-slate-50 transition-colors group cursor-pointer"
                   >
-                    <td className="px-6 py-4">
+                    <td className="px-2 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm border border-indigo-100 group-hover:scale-110 transition-transform overflow-hidden">
                           {user.profile_photo_url ? (
@@ -426,42 +430,48 @@ export default function UsersList() {
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-bold text-slate-900 leading-none">{user.name}</p>
+                            <p className="text-xs font-bold text-slate-900 leading-none truncate max-w-[120px]">{user.name}</p>
                             <ChevronRight size={14} className="text-slate-300 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
                           </div>
-                          <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-1">
+                          <p className="text-[10px] font-medium text-slate-400 mt-1.5 flex items-center gap-1">
                             <Shield size={12} />
-                            ID: {user.id.slice(0, 8)}...
+                            ID: {user.id}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-2 py-4">
+                      <div className="flex items-center gap-2">
+                        <Building2 size={16} className="text-slate-400" />
+                        <span className="text-xs font-medium text-slate-700 truncate max-w-[150px]">{user.firm_name || 'N/A'}</span>
+                      </div>
+                    </td>
+                    <td className="px-2 py-4">
                       <div className="space-y-1.5">
-                        <p className="text-xs text-slate-500 flex items-center gap-2">
-                          <Mail size={14} className="text-slate-400" />
+                        <p className="text-[12px] text-slate-900 flex items-center gap-2 truncate max-w-[180px]">
+                          <Mail size={12} className="text-slate-400" />
                           {user.email}
                         </p>
-                        <p className="text-xs text-slate-500 flex items-center gap-2">
-                          <Phone size={14} className="text-slate-400" />
+                        <p className="text-[12px] text-slate-700 flex items-center gap-2">
+                          <Phone size={12} className="text-slate-400" />
                           {user.mobile_number}
                         </p>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-indigo-600 font-bold">
-                        <IndianRupee size={14} />
-                        <span>{Number(user.wallet_balance || 0).toLocaleString()}</span>
+                    <td className="px-2 py-4">
+                      <div className="flex items-center gap-2 text-[12px] text-indigo-600 font-bold">
+                        <IndianRupee size={12} />
+                        <span>{Number(user.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-amber-600 font-bold">
-                        <IndianRupee size={14} />
-                        <span>{Number(user.hold_balance || 0).toLocaleString()}</span>
+                    <td className="px-2 py-4">
+                      <div className="flex items-center gap-2 text-[12px] text-amber-600 font-bold">
+                        <IndianRupee size={12} />
+                        <span>{Number(user.hold_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                    <td className="px-2 py-4">
+                      <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
                         user.status === 'Active' ? 'text-emerald-600 bg-emerald-50' : 
                         user.status === 'Suspended' ? 'text-rose-600 bg-rose-50' : 
                         'text-amber-600 bg-amber-50'
@@ -469,25 +479,25 @@ export default function UsersList() {
                         {user.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-2 py-4">
                       <div className="flex items-center justify-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full shadow-sm ${
                           user.kyc_status === 'verified' ? 'bg-emerald-500 shadow-emerald-200 animate-pulse' : 'bg-amber-500 shadow-amber-200'
                         }`} />
-                        <span className={`text-[10px] font-bold uppercase tracking-wider ${
+                        <span className={`text-[8px] font-bold uppercase tracking-wider ${
                           user.kyc_status === 'verified' ? 'text-emerald-600' : 'text-amber-600'
                         }`}>
                           {user.kyc_status === 'verified' ? 'Verified' : 'Not Verified'}
                         </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-2 py-4">
                       <p className="text-xs text-slate-500 flex items-center gap-2">
                         <Calendar size={14} className="text-slate-400" />
                         {new Date(user.created_at).toLocaleDateString()}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-2 py-4 text-right">
                       <div className="flex items-center justify-end">
                         <button 
                           onClick={(e) => toggleBlockStatus(e, user.id, user.status)}
