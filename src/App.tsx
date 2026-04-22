@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -393,6 +393,11 @@ const AdminLayout = ({
 export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
   const [soundSettings, setSoundSettings] = useState<any>(null);
+  const soundSettingsRef = useRef<any>(null);
+
+  useEffect(() => {
+    soundSettingsRef.current = soundSettings;
+  }, [soundSettings]);
 
   // Fetch Sound Settings
   const fetchSoundSettings = async () => {
@@ -402,7 +407,10 @@ export default function App() {
         .select('*')
         .eq('id', 1)
         .single();
-      if (data) setSoundSettings(data);
+      if (data) {
+        setSoundSettings(data);
+        soundSettingsRef.current = data;
+      }
     } catch (err) {
       console.error('Error fetching sound settings:', err);
     }
@@ -593,9 +601,13 @@ export default function App() {
 
       // Helper to play sound
       const playNotificationSound = (type: 'qr' | 'bill' | 'kyc' | 'payout') => {
-        if (!soundSettings) return;
-        const isEnabled = soundSettings[`is_${type}_sound_enabled`];
-        const soundUrl = soundSettings[`${type}_sound_url`];
+        const settings = soundSettingsRef.current;
+        if (!settings) return;
+        
+        const isEnabled = settings[`is_${type}_sound_enabled`];
+        const soundUrl = settings[`${type}_sound_url`];
+        
+        console.log(`Attempting to play ${type} sound. Enabled: ${isEnabled}, URL: ${soundUrl}`);
         
         if (isEnabled && soundUrl) {
           const audio = new Audio(soundUrl);
@@ -606,33 +618,33 @@ export default function App() {
       // Real-time Pending Counts Listeners
       const qrSub = supabase
         .channel('qr_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payment_submissions' }, (payload) => {
           fetchPendingCounts();
-          if (payload.eventType === 'INSERT') playNotificationSound('qr');
+          playNotificationSound('qr');
         })
         .subscribe();
 
       const billSub = supabase
         .channel('bill_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bill_submissions' }, (payload) => {
           fetchPendingCounts();
-          if (payload.eventType === 'INSERT') playNotificationSound('bill');
+          playNotificationSound('bill');
         })
         .subscribe();
 
       const kycSub = supabase
         .channel('kyc_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_submissions' }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kyc_submissions' }, (payload) => {
           fetchPendingCounts();
-          if (payload.eventType === 'INSERT') playNotificationSound('kyc');
+          playNotificationSound('kyc');
         })
         .subscribe();
 
       const payoutSub = supabase
         .channel('payout_pending_realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, (payload) => {
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payout_submissions' }, (payload) => {
           fetchPendingCounts();
-          if (payload.eventType === 'INSERT') playNotificationSound('payout');
+          playNotificationSound('payout');
         })
         .subscribe();
       
@@ -640,7 +652,10 @@ export default function App() {
       const settingsSub = supabase
         .channel('admin_settings_realtime')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
-          if (payload.new) setSoundSettings(payload.new);
+          if (payload.new) {
+            setSoundSettings(payload.new);
+            soundSettingsRef.current = payload.new;
+          }
         })
         .subscribe();
 

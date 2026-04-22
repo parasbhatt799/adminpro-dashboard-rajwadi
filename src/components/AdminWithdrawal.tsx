@@ -148,7 +148,7 @@ export default function AdminWithdrawal() {
                 <span className="text-sm font-bold uppercase tracking-widest opacity-80">All Time Balance</span>
               </div>
               <div className="flex items-baseline gap-2 text-white">
-                <span className="text-4xl font-bold">₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                <span className="text-4xl font-bold">₹{balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
               <p className="text-indigo-200/60 text-xs font-bold uppercase tracking-widest mt-6">
                 Total Service Charge Collected
@@ -315,7 +315,7 @@ export default function AdminWithdrawal() {
                         <td className="px-8 py-5 text-right">
                           <div className="flex flex-col items-end">
                             <span className="text-md font-bold text-rose-600">
-                              -₹{Number(record.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                              -₹{Number(record.amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </span>
                             <div className="flex items-center gap-1 text-[9px] font-black text-rose-400 uppercase tracking-widest bg-rose-50 px-2 py-0.5 rounded-full mt-1">
                               Debited

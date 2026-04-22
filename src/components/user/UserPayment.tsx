@@ -1069,17 +1069,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                                 {/* Amount */}
                                 <div className="md:text-right">
-                                  <p className="text-sm font-bold text-slate-900">₹{req.amount}</p>
+                                  <p className="text-sm font-bold text-slate-900">₹{Number(req.amount).toFixed(2)}</p>
                                 </div>
 
                                 {/* Charges */}
                                 <div className="md:text-right">
-                                  <p className="text-sm font-bold text-emerald-600">₹{req.charges || 0}</p>
+                                  <p className="text-sm font-bold text-emerald-600">₹{Number(req.charges || 0).toFixed(2)}</p>
                                 </div>
 
                                 {/* Credited Amount */}
                                 <div className="md:text-right">
-                                  <p className="text-sm font-bold text-indigo-600">₹{(Number(req.amount) - Number(req.charges || 0)).toLocaleString()}</p>
+                                  <p className="text-sm font-bold text-indigo-600">₹{(Number(req.amount) - Number(req.charges || 0)).toFixed(2)}</p>
                                 </div>
 
                                 {/* Reason */}
@@ -1476,17 +1476,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                                 {/* Amount */}
                                 <div className="md:text-right">
-                                  <p className="text-sm font-bold text-slate-900">₹{req.amount}</p>
+                                  <p className="text-sm font-bold text-slate-900">₹{Number(req.amount).toFixed(2)}</p>
                                 </div>
 
                                 {/* Service Charge */}
                                 <div className="md:text-right">
-                                  <p className="text-sm font-bold text-rose-600">₹{req.charges || 0}</p>
+                                  <p className="text-sm font-bold text-rose-600">₹{Number(req.charges || 0).toFixed(2)}</p>
                                 </div>
 
                                 {/* Debited Amount */}
                                 <div className="md:text-right">
-                                  <p className="text-sm font-bold text-indigo-600">₹{(Number(req.amount) + Number(req.charges || 0)).toLocaleString()}</p>
+                                  <p className="text-sm font-bold text-indigo-600">₹{(Number(req.amount) + Number(req.charges || 0)).toFixed(2)}</p>
                                 </div>
 
                                 {/* Status */}

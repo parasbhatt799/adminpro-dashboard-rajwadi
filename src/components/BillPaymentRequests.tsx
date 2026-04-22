@@ -410,19 +410,19 @@ export default function BillPaymentRequests() {
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-slate-900 flex items-center">
                           <IndianRupee size={14} className="mr-0.5" />
-                          {req.amount.toLocaleString()}
+                          {req.amount.toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-bold text-emerald-600 flex items-center justify-end">
                           <IndianRupee size={14} className="mr-0.5" />
-                          {(req.charges || 0).toLocaleString()}
+                          {(req.charges || 0).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-bold text-indigo-600 flex items-center justify-end">
                           <IndianRupee size={14} className="mr-0.5" />
-                          {(Number(req.amount) + Number(req.charges || 0)).toLocaleString()}
+                          {(Number(req.amount) + Number(req.charges || 0)).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -632,23 +632,23 @@ export default function BillPaymentRequests() {
                 <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest">Bill Amount</span>
-                    <span className="text-lg font-bold text-indigo-900">₹{requests.find(r => r.id === showActionModal?.id)?.amount.toLocaleString()}</span>
+                    <span className="text-lg font-bold text-indigo-900">₹{requests.find(r => r.id === showActionModal?.id)?.amount.toFixed(2)}</span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold text-emerald-600 uppercase tracking-widest">Service Charge</span>
-                    <span className="text-lg font-bold text-emerald-900">₹{requests.find(r => r.id === showActionModal?.id)?.charges?.toLocaleString() || '0'}</span>
+                    <span className="text-lg font-bold text-emerald-900">₹{Number(requests.find(r => r.id === showActionModal?.id)?.charges || 0).toFixed(2)}</span>
                   </div>
                   <div className="pt-2 border-t border-indigo-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Debited</span>
                     <span className="text-lg font-bold text-slate-900">
                       ₹{(Number(requests.find(r => r.id === showActionModal?.id)?.amount || 0) + 
-                         Number(requests.find(r => r.id === showActionModal?.id)?.charges || 0)).toLocaleString()}
+                         Number(requests.find(r => r.id === showActionModal?.id)?.charges || 0)).toFixed(2)}
                     </span>
                   </div>
                 </div>
 
                 <p className="text-xs text-slate-500 text-center px-4">
-                  Approving this will credit <span className="font-bold text-emerald-600">₹{requests.find(r => r.id === showActionModal?.id)?.charges?.toLocaleString()}</span> to the admin wallet.
+                  Approving this will credit <span className="font-bold text-emerald-600">₹{Number(requests.find(r => r.id === showActionModal?.id)?.charges || 0).toFixed(2)}</span> to the admin wallet.
                 </p>
               </div>
 

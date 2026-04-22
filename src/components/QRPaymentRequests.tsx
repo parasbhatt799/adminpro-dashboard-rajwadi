@@ -409,19 +409,19 @@ export default function QRPaymentRequests() {
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-slate-900 flex items-center">
                           <IndianRupee size={14} className="mr-0.5" />
-                          {req.amount.toLocaleString()}
+                          {req.amount.toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-indigo-600 flex items-center">
                           <IndianRupee size={14} className="mr-0.5" />
-                          {(req as any).charges || 0}
+                          {Number((req as any).charges || 0).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-emerald-600 flex items-center">
                           <IndianRupee size={14} className="mr-0.5" />
-                          {(Number(req.amount) - Number((req as any).charges || 0)).toLocaleString()}
+                          {(Number(req.amount) - Number((req as any).charges || 0)).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -649,7 +649,7 @@ export default function QRPaymentRequests() {
                       </div>
                       <div>
                         <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Amount</p>
-                        <p className="text-sm font-bold text-emerald-900">₹{selectedProof.amount.toLocaleString()}</p>
+                        <p className="text-sm font-bold text-emerald-900">₹{selectedProof.amount.toFixed(2)}</p>
                       </div>
                     </div>
                   </div>

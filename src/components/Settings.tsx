@@ -840,26 +840,30 @@ export default function Settings() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
                     <div className="flex-1">
-                      <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all shadow-sm">
-                        <Music size={14} />
-                        {item.sound ? 'Change Sound' : 'Upload Sound'}
+                      <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all shadow-sm w-full">
+                        <Music size={14} className="shrink-0" />
+                        <span className="truncate">{item.sound ? 'Change Sound' : 'Upload Sound'}</span>
                         <input 
                           type="file" 
                           className="hidden" 
-                          accept="audio/mpeg,audio/wav"
-                          onChange={(e) => item.setFile(e.target.files?.[0] || null)}
+                          accept="audio/mpeg"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) item.setFile(file);
+                          }}
                         />
                       </label>
                     </div>
                     {item.sound && (
-                      <button 
+                      <button
                         onClick={() => {
                           const audio = new Audio(item.sound);
-                          audio.play();
+                          audio.play().catch(err => console.error('Preview play error:', err));
                         }}
-                        className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all"
+                        className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all shrink-0"
+                        title="Play Preview"
                       >
                         <Volume2 size={16} />
                       </button>

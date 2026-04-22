@@ -403,7 +403,7 @@ export default function UserReports({ userId }: UserReportsProps) {
           </div>
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Amount</p>
-            <p className="text-2xl font-bold text-slate-900">₹{stats.totalAmount.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-slate-900">₹{stats.totalAmount.toFixed(2)}</p>
           </div>
         </motion.div>
 
@@ -418,7 +418,7 @@ export default function UserReports({ userId }: UserReportsProps) {
           </div>
           <div>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Charges</p>
-            <p className="text-2xl font-bold text-slate-900">₹{stats.totalCharges.toLocaleString()}</p>
+            <p className="text-2xl font-bold text-slate-900">₹{stats.totalCharges.toFixed(2)}</p>
           </div>
         </motion.div>
       </div>
@@ -592,19 +592,19 @@ export default function UserReports({ userId }: UserReportsProps) {
                           <p className="text-xs font-bold text-slate-600">{item.card_number || '****'}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <p className="text-xs font-bold text-slate-900">₹{Number(item.amount).toLocaleString()}</p>
+                          <p className="text-xs font-bold text-slate-900">₹{Number(item.amount).toFixed(2)}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
-                          <p className="text-xs font-bold text-rose-500">₹{Number(item.charges || 0).toLocaleString()}</p>
+                          <p className="text-xs font-bold text-rose-500">₹{Number(item.charges || 0).toFixed(2)}</p>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <p className={`text-xs font-bold ${item.net > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {item.net > 0 ? '+' : ''}₹{item.net.toLocaleString()}
+                            {item.net > 0 ? '+' : ''}₹{item.net.toFixed(2)}
                           </p>
                         </td>
                         <td className="px-6 py-4 text-right">
                           <p className="text-xs font-bold text-slate-900">
-                            {item.remaining_balance === '-' ? '-' : `₹${Number(item.remaining_balance).toLocaleString()}`}
+                            {item.remaining_balance === '-' ? '-' : `₹${Number(item.remaining_balance).toFixed(2)}`}
                           </p>
                         </td>
                       </tr>
@@ -628,10 +628,10 @@ export default function UserReports({ userId }: UserReportsProps) {
                     {dailySummary.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4 text-xs font-bold text-slate-900">{format(parseISO(item.date), 'dd MMM yyyy')}</td>
-                        <td className="px-6 py-4 text-right text-xs font-bold text-emerald-600">₹{item.qr.toLocaleString()}</td>
-                        <td className="px-6 py-4 text-right text-xs font-bold text-indigo-600">₹{item.bill.toLocaleString()}</td>
-                        <td className="px-6 py-4 text-right text-xs font-bold text-rose-500">₹{item.charges.toLocaleString()}</td>
-                        <td className="px-6 py-4 text-right text-xs font-bold text-slate-900">₹{item.net.toLocaleString()}</td>
+                        <td className="px-6 py-4 text-right text-xs font-bold text-emerald-600">₹{item.qr.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right text-xs font-bold text-indigo-600">₹{item.bill.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right text-xs font-bold text-rose-500">₹{item.charges.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-right text-xs font-bold text-slate-900">₹{item.net.toFixed(2)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -646,15 +646,15 @@ export default function UserReports({ userId }: UserReportsProps) {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-slate-600">QR Service Charges</span>
-                          <span className="text-sm font-bold text-slate-900">₹{serviceChargeData.qrCharges.toLocaleString()}</span>
+                          <span className="text-sm font-bold text-slate-900">₹{serviceChargeData.qrCharges.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-slate-600">Bill Service Charges</span>
-                          <span className="text-sm font-bold text-slate-900">₹{serviceChargeData.billCharges.toLocaleString()}</span>
+                          <span className="text-sm font-bold text-slate-900">₹{serviceChargeData.billCharges.toFixed(2)}</span>
                         </div>
                         <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
                           <span className="text-base font-bold text-slate-900">Combined Total</span>
-                          <span className="text-xl font-bold text-indigo-600">₹{serviceChargeData.total.toLocaleString()}</span>
+                          <span className="text-xl font-bold text-indigo-600">₹{serviceChargeData.total.toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
@@ -670,16 +670,16 @@ export default function UserReports({ userId }: UserReportsProps) {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-slate-600">Total QR Credited</span>
-                          <span className="text-sm font-bold text-emerald-600">+ ₹{settlementData.qrCredited.toLocaleString()}</span>
+                          <span className="text-sm font-bold text-emerald-600">+ ₹{settlementData.qrCredited.toFixed(2)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium text-slate-600">Total Bill Debited</span>
-                          <span className="text-sm font-bold text-rose-600">- ₹{settlementData.billDebited.toLocaleString()}</span>
+                          <span className="text-sm font-bold text-rose-600">- ₹{settlementData.billDebited.toFixed(2)}</span>
                         </div>
                         <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
                           <span className="text-base font-bold text-slate-900">Final Balance</span>
                           <span className={`text-xl font-bold ${settlementData.balance >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            ₹{settlementData.balance.toLocaleString()}
+                            ₹{settlementData.balance.toFixed(2)}
                           </span>
                         </div>
                       </div>
