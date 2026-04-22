@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { 
-  Wallet, 
+import {
+  Wallet,
   Clock,
   QrCode,
   CreditCard,
@@ -26,7 +26,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
           .select('*')
           .eq('id', userId)
           .single();
-        
+
         setUserProfile(profile);
 
         // Fetch Status counts / amounts
@@ -145,13 +145,13 @@ export default function UserDashboard({ userId }: { userId: string }) {
     <div className="space-y-8 relative min-h-[70vh]">
       {/* Dashboard Watermark */}
       {watermark.enabled && watermark.logo && (
-        <div 
+        <div
           className="fixed inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0"
           style={{ opacity: 0.04 }}
         >
-          <img 
-            src={watermark.logo} 
-            alt="Watermark" 
+          <img
+            src={watermark.logo}
+            alt="Watermark"
             className="w-[1100px] h-auto object-contain transform -rotate-[30deg] translate-y-10 -translate-x-5"
           />
         </div>
@@ -159,7 +159,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
       <div className="relative z-10 space-y-8">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Welcome back, {userProfile?.name || 'User'}!</h2>
+          <h2 className="text-2xl font-bold text-slate-900">WELCOME BACK, {userProfile?.name || 'User'}!</h2>
           <p className="text-slate-500 mt-1">Here's what's happening with your account today.</p>
         </div>
 
@@ -176,7 +176,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
               >
                 {stat.title === "Hold Balance" && (
                   <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full flex items-center justify-center translate-x-4 -translate-y-4 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform">
-                     <Lock size={12} className="text-amber-500" />
+                    <Lock size={12} className="text-amber-500" />
                   </div>
                 )}
                 <div className="flex items-center justify-between mb-4">
