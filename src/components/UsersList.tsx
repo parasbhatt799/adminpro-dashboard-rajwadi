@@ -398,15 +398,15 @@ export default function UsersList() {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">User Details</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Firm Name</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Contact</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Wallet Balance</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hold Balance</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">KYC</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Joined Date</th>
-                  <th className="px-2 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">User Details</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Firm Name</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Contact</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Wallet Balance</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Hold Balance</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Status</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">KYC</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Joined Date</th>
+                  <th className="px-2 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -492,7 +492,7 @@ export default function UsersList() {
                       </div>
                     </td>
                     <td className="px-2 py-4">
-                      <p className="text-xs text-slate-500 flex items-center gap-2">
+                      <p className="text-[12px] text-slate-500 flex items-center gap-2">
                         <Calendar size={14} className="text-slate-400" />
                         {new Date(user.created_at).toLocaleDateString()}
                       </p>
