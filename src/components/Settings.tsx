@@ -10,7 +10,9 @@ import {
   Phone,
   Bell,
   BellRing,
-  Smartphone
+  Smartphone,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -34,6 +36,23 @@ export default function Settings() {
     app_id: '',
     rest_api_key: ''
   });
+
+  const [brandingSettings, setBrandingSettings] = useState({
+    logo_url: '',
+    logo_mini_url: '',
+    favicon_url: '',
+    watermark_url: '',
+    is_watermark_enabled: false
+  });
+
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoMiniFile, setLogoMiniFile] = useState<File | null>(null);
+  const [faviconFile, setFaviconFile] = useState<File | null>(null);
+  const [watermarkFile, setWatermarkFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [logoMiniPreview, setLogoMiniPreview] = useState<string | null>(null);
+  const [faviconPreview, setFaviconPreview] = useState<string | null>(null);
+  const [watermarkPreview, setWatermarkPreview] = useState<string | null>(null);
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -72,6 +91,28 @@ export default function Settings() {
           app_id: osData.app_id || '',
           rest_api_key: osData.rest_api_key || ''
         });
+      }
+
+      // 3. Branding Settings (from qr_settings)
+      const { data: qrData, error: qrError } = await supabase
+        .from('qr_settings')
+        .select('logo_url, logo_mini_url, favicon_url, watermark_url, is_watermark_enabled')
+        .eq('id', 1)
+        .single();
+      
+      if (qrError && qrError.code !== 'PGRST116') throw qrError;
+      if (qrData) {
+        setBrandingSettings({
+          logo_url: qrData.logo_url || '',
+          logo_mini_url: qrData.logo_mini_url || '',
+          favicon_url: qrData.favicon_url || '',
+          watermark_url: qrData.watermark_url || '',
+          is_watermark_enabled: qrData.is_watermark_enabled || false
+        });
+        setLogoPreview(qrData.logo_url);
+        setLogoMiniPreview(qrData.logo_mini_url);
+        setFaviconPreview(qrData.favicon_url);
+        setWatermarkPreview(qrData.watermark_url);
       }
 
     } catch (err: any) {
@@ -145,6 +186,82 @@ export default function Settings() {
         });
 
       if (osError) throw osError;
+
+      // 3. Save Branding Settings
+      let finalLogoUrl = brandingSettings.logo_url;
+      let finalLogoMiniUrl = brandingSettings.logo_mini_url;
+      let finalFaviconUrl = brandingSettings.favicon_url;
+      let finalWatermarkUrl = brandingSettings.watermark_url;
+
+      if (logoFile) {
+        const fileExt = logoFile.name.split('.').pop();
+        const fileName = `system_logo.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('site_assets')
+          .upload(fileName, logoFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalLogoUrl = `${publicUrl}?t=${Date.now()}`;
+      }
+
+      if (logoMiniFile) {
+        const fileExt = logoMiniFile.name.split('.').pop();
+        const fileName = `system_logo_mini.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('site_assets')
+          .upload(fileName, logoMiniFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalLogoMiniUrl = `${publicUrl}?t=${Date.now()}`;
+      }
+
+      if (faviconFile) {
+        const fileExt = faviconFile.name.split('.').pop();
+        const fileName = `system_favicon.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('site_assets')
+          .upload(fileName, faviconFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalFaviconUrl = `${publicUrl}?t=${Date.now()}`;
+      }
+
+      if (watermarkFile) {
+        const fileExt = watermarkFile.name.split('.').pop();
+        const fileName = `system_watermark.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('site_assets')
+          .upload(fileName, watermarkFile, { upsert: true });
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalWatermarkUrl = `${publicUrl}?t=${Date.now()}`;
+      }
+
+      const { error: qrError } = await supabase
+        .from('qr_settings')
+        .update({
+          logo_url: finalLogoUrl,
+          logo_mini_url: finalLogoMiniUrl,
+          favicon_url: finalFaviconUrl,
+          watermark_url: finalWatermarkUrl,
+          is_watermark_enabled: brandingSettings.is_watermark_enabled,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', 1);
+
+      if (qrError) throw qrError;
+
+      setBrandingSettings({
+        logo_url: finalLogoUrl,
+        logo_mini_url: finalLogoMiniUrl,
+        favicon_url: finalFaviconUrl,
+        watermark_url: finalWatermarkUrl,
+        is_watermark_enabled: brandingSettings.is_watermark_enabled
+      });
+      setLogoFile(null);
+      setLogoMiniFile(null);
+      setFaviconFile(null);
+      setWatermarkFile(null);
 
       setSuccess('Settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
@@ -423,6 +540,192 @@ export default function Settings() {
                 1. Save your OneSignal credentials above. <br/>
                 2. Click **"Subscribe Now"** on your mobile phone browser. <br/>
                 3. The system will now send a push notification to your phone whenever a user submits a QR Payment, Bill, or KYC request.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Branding Settings Section */}
+        <section className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-50 bg-slate-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                <ImageIcon size={20} />
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">Branding & Identity</h3>
+                <p className="text-xs text-slate-500">Customize the portal logo and browser icon.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Logo Upload */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Main Logo (Full Sidebar)</label>
+                <div className="flex items-start gap-6">
+                  <div className="w-32 h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl overflow-hidden flex items-center justify-center shrink-0">
+                    {logoPreview ? (
+                      <img src={logoPreview} alt="Logo Preview" className="w-full h-full object-contain p-2" />
+                    ) : (
+                      <ImageIcon size={32} className="text-slate-200" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Best size: 512x128px (PNG).
+                    </p>
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 cursor-pointer transition-all shadow-md shadow-indigo-100">
+                      <Upload size={16} />
+                      Upload Logo
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setLogoFile(file);
+                            setLogoPreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mini Logo Upload */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Mini Logo (Collapsed Sidebar)</label>
+                <div className="flex items-start gap-6">
+                  <div className="w-32 h-32 bg-slate-50 border-2 border-dashed border-slate-200 rounded-3xl overflow-hidden flex items-center justify-center shrink-0">
+                    {logoMiniPreview ? (
+                      <img src={logoMiniPreview} alt="Mini Logo Preview" className="w-full h-full object-contain p-2" />
+                    ) : (
+                      <ImageIcon size={32} className="text-slate-200" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Best size: 128x128px (PNG).
+                    </p>
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 cursor-pointer transition-all shadow-md shadow-emerald-100">
+                      <Upload size={16} />
+                      Upload Mini Logo
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setLogoMiniFile(file);
+                            setLogoMiniPreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Favicon Upload */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Browser Favicon</label>
+                <div className="flex items-start gap-6">
+                  <div className="w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center shrink-0">
+                    {faviconPreview ? (
+                      <img src={faviconPreview} alt="Favicon Preview" className="w-full h-full object-contain p-3" />
+                    ) : (
+                      <ImageIcon size={24} className="text-slate-200" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Best size: 32x32px (PNG/ICO).
+                    </p>
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 cursor-pointer transition-all shadow-md">
+                      <Upload size={16} />
+                      Upload Icon
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/png,image/x-icon,image/vnd.microsoft.icon"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setFaviconFile(file);
+                            setFaviconPreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Watermark Logo Upload */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Dedicated Watermark Logo</label>
+                <div className="flex items-start gap-6">
+                  <div className="w-20 h-20 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl overflow-hidden flex items-center justify-center shrink-0">
+                    {watermarkPreview ? (
+                      <img src={watermarkPreview} alt="Watermark Preview" className="w-full h-full object-contain p-3" />
+                    ) : (
+                      <ImageIcon size={24} className="text-slate-200" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Used specifically for dashboard background. Transparent PNG recommended.
+                    </p>
+                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 cursor-pointer transition-all shadow-md">
+                      <Upload size={16} />
+                      Upload Watermark
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setWatermarkFile(file);
+                            setWatermarkPreview(URL.createObjectURL(file));
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Watermark Toggle */}
+              <div className="pt-6 border-t border-slate-50">
+                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-indigo-600">
+                      <ImageIcon size={20} />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Dashboard Watermark</h4>
+                      <p className="text-[10px] text-slate-500 font-medium">Show a subtle logo watermark on user dashboard background.</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setBrandingSettings(prev => ({ ...prev, is_watermark_enabled: !prev.is_watermark_enabled }))}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                      brandingSettings.is_watermark_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        brandingSettings.is_watermark_enabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           </div>

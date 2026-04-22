@@ -430,6 +430,24 @@ export default function App() {
   useEffect(() => {
     fetchSystemStatus();
 
+    // Fetch and set initial branding (Favicon)
+    const fetchBranding = async () => {
+      const { data } = await supabase.from('qr_settings').select('favicon_url').eq('id', 1).single();
+      if (data?.favicon_url) {
+        updateFavicon(data.favicon_url);
+      }
+    };
+    fetchBranding();
+
+    // Global Branding Listener (Favicon)
+    const brandingChannel = supabase.channel('global_branding')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new && payload.new.favicon_url) {
+          updateFavicon(payload.new.favicon_url);
+        }
+      })
+      .subscribe();
+
     // Subscribe to system status changes
     const channel = supabase
       .channel('system_status_realtime')
@@ -441,8 +459,19 @@ export default function App() {
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(brandingChannel);
     };
   }, []);
+
+  const updateFavicon = (url: string) => {
+    let link: HTMLLinkElement | null = document.querySelector("link[rel*='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    link.href = url;
+  };
   
   // Admin Notification States
   const [adminNotifications, setAdminNotifications] = useState<any[]>([]);

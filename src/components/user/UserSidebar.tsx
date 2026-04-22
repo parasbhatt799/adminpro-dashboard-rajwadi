@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../../lib/supabase';
 import {
   CreditCard,
   FileText,
@@ -28,6 +29,36 @@ const menuItems = [
 ];
 
 export default function UserSidebar({ onLogout, isCollapsed }: UserSidebarProps) {
+  const [branding, setBranding] = useState<{logo: string, mini: string, fav: string}>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
+
+  useEffect(() => {
+    const fetchBranding = async () => {
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url').eq('id', 1).single();
+      if (data) {
+        setBranding({
+          logo: data.logo_url || '/logo.png',
+          mini: data.logo_mini_url || data.favicon_url || '/fav.png',
+          fav: data.favicon_url || '/fav.png'
+        });
+      }
+    };
+    fetchBranding();
+
+    const channel = supabase.channel('branding_user')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new) {
+          setBranding({
+            logo: payload.new.logo_url || '/logo.png',
+            mini: payload.new.logo_mini_url || payload.new.favicon_url || '/fav.png',
+            fav: payload.new.favicon_url || '/fav.png'
+          });
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   return (
     <motion.div
       initial={false}
@@ -35,17 +66,17 @@ export default function UserSidebar({ onLogout, isCollapsed }: UserSidebarProps)
       className="bg-slate-900 text-slate-300 h-screen flex flex-col border-r border-slate-800 overflow-hidden shrink-0 relative"
     >
       {/* Header */}
-      <div className="p-4 h-16 flex items-center justify-between border-b border-slate-800 shrink-0">
-        <Link to="/" className="flex items-center gap-3 overflow-hidden group">
+      <div className="px-4 h-20 flex items-center justify-between border-b border-slate-800 shrink-0">
+        <Link to="/" className="flex items-center gap-3 overflow-hidden group w-full">
           {isCollapsed ? (
-            <img src="/fav.png" alt="Logo" className="w-10 h-10 object-contain transition-transform group-hover:scale-110" />
+            <img src={branding.mini} alt="Logo" className="w-10 h-10 object-contain transition-transform group-hover:scale-110 mx-auto" />
           ) : (
             <motion.img
-              src="/logo.png"
+              src={branding.logo}
               alt="Logo"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="h-9 object-contain transition-transform group-hover:scale-105"
+              className="h-12 w-auto max-w-full object-contain transition-transform group-hover:scale-105"
             />
           )}
         </Link>
