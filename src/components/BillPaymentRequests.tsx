@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Receipt, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
+import {
+  Receipt,
+  CheckCircle2,
+  XCircle,
+  Loader2,
   Search,
   IndianRupee,
   Clock,
@@ -48,6 +48,8 @@ export default function BillPaymentRequests() {
   const [currentPage, setCurrentPage] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isBillEnabled, setIsBillEnabled] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
   const itemsPerPage = 10;
 
   const clearFilters = () => {
@@ -95,9 +97,43 @@ export default function BillPaymentRequests() {
     }
   };
 
+  const fetchBillSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('qr_settings')
+        .select('is_bill_enabled')
+        .eq('id', 1)
+        .single();
+      if (!error && data) {
+        setIsBillEnabled(data.is_bill_enabled ?? true);
+      }
+    } catch (err) {
+      console.error('Error fetching bill settings:', err);
+    }
+  };
+
+  const handleToggleBill = async () => {
+    const newValue = !isBillEnabled;
+    setIsBillEnabled(newValue);
+    setSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_bill_enabled: newValue })
+        .eq('id', 1);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error updating bill setting:', err);
+      setIsBillEnabled(!newValue); // revert on error
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
     fetchReasons();
+    fetchBillSettings();
   }, [filter]);
 
   const handleRefund = async (id: string) => {
@@ -149,7 +185,7 @@ export default function BillPaymentRequests() {
     const targetReason = customReason || reason;
 
     if (!targetId) return;
-    
+
     setProcessingId(targetId);
     try {
       // 1. Fetch user current balance
@@ -162,7 +198,7 @@ export default function BillPaymentRequests() {
         .select('status, amount, charges')
         .eq('id', targetId)
         .single();
-      
+
       if (fetchError || !currentReq) throw new Error('Request not found');
       if (currentReq.status !== 'pending') throw new Error('This request has already been processed');
 
@@ -183,7 +219,7 @@ export default function BillPaymentRequests() {
         // 3. Update Admin Wallet (qr_settings.admin_balance)
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-        
+
         await supabase
           .from('qr_settings')
           .update({ admin_balance: currentAdminBalance + requestCharges })
@@ -191,7 +227,7 @@ export default function BillPaymentRequests() {
 
       } else {
         updateData.rejection_reason = targetReason;
-        
+
         // 2. Update Status to Rejected FIRST
         const { error: statusError } = await supabase
           .from('bill_submissions')
@@ -207,7 +243,7 @@ export default function BillPaymentRequests() {
           .select('wallet_balance')
           .eq('id', targetRequest.user_id)
           .single();
-        
+
         const currentUserBalance = Number(userData?.wallet_balance) || 0;
         await supabase
           .from('users_profiles')
@@ -222,12 +258,12 @@ export default function BillPaymentRequests() {
           user_id: targetRequest.user_id,
           target_role: 'user',
           title: `Bill Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
-          message: targetType === 'approved' 
+          message: targetType === 'approved'
             ? `Your bill payment of ₹${amount.toLocaleString()} has been approved!`
             : `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
           link: '/user/reports'
         }]);
-      
+
       if (nError) console.error('Bill Status Notification Error:', nError);
 
       setRequests(prev => prev.map(req => req.id === targetId ? { ...req, ...updateData } : req));
@@ -243,23 +279,23 @@ export default function BillPaymentRequests() {
   };
 
   const filteredRequests = requests.filter(req => {
-    const matchesSearch = 
+    const matchesSearch =
       req.customer_mobile.includes(searchQuery) ||
       req.card_owner_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const reqDate = new Date(req.created_at);
     reqDate.setHours(0, 0, 0, 0);
-    
+
     const start = startDate ? new Date(startDate) : null;
     if (start) start.setHours(0, 0, 0, 0);
-    
+
     const end = endDate ? new Date(endDate) : null;
     if (end) end.setHours(0, 0, 0, 0);
-    
+
     const matchesStartDate = !start || reqDate >= start;
     const matchesEndDate = !end || reqDate <= end;
-    
+
     return matchesSearch && matchesStartDate && matchesEndDate;
   });
 
@@ -280,12 +316,12 @@ export default function BillPaymentRequests() {
           <h2 className="text-2xl font-bold text-slate-900">Bill Payment Requests</h2>
           <p className="text-slate-500 mt-1">Manage and process user bill payment submissions.</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-end gap-3">
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="text-xs font-bold text-slate-700 outline-none bg-transparent"
@@ -294,15 +330,15 @@ export default function BillPaymentRequests() {
             <div className="w-px h-6 bg-slate-100 mx-1"></div>
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="text-xs font-bold text-slate-700 outline-none bg-transparent"
               />
             </div>
           </div>
-          <button 
+          <button
             onClick={clearFilters}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
             title="Clear All Filters"
@@ -311,25 +347,45 @@ export default function BillPaymentRequests() {
           </button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search Mobile, Name or Firm..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-64"
             />
           </div>
-          <select 
-            value={filter}
-            onChange={(e) => setFilter(e.target.value as any)}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-            <option value="refunded">Refund Policy</option>
-          </select>
+          <div className="flex flex-col items-end gap-1.5">
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${isBillEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>
+                Bill Payments Service {isBillEnabled ? 'ON' : 'OFF'}
+              </span>
+              <button
+                onClick={handleToggleBill}
+                disabled={savingSettings}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
+                  isBillEnabled ? 'bg-emerald-500' : 'bg-slate-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                    isBillEnabled ? 'translate-x-5' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value as any)}
+              className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="refunded">Refund Policy</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -366,7 +422,7 @@ export default function BillPaymentRequests() {
               ) : (
                 paginatedRequests.map((req) => (
                   <React.Fragment key={req.id}>
-                    <tr 
+                    <tr
                       onClick={() => {
                         if (req.status === 'rejected') {
                           setRejectionRowId(rejectionRowId === req.id ? null : req.id);
@@ -427,12 +483,11 @@ export default function BillPaymentRequests() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="space-y-1">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                            req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
-                            'bg-amber-50 text-amber-600'
-                          }`}>
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                              req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
+                                  'bg-amber-50 text-amber-600'
+                            }`}>
                             {req.status === 'pending' && <Clock size={10} />}
                             {req.status === 'approved' && <CheckCircle2 size={10} />}
                             {req.status === 'rejected' && <XCircle size={10} />}
@@ -441,7 +496,7 @@ export default function BillPaymentRequests() {
                           </span>
                           {req.status === 'rejected' && (req as any).rejection_reason && (
                             <div className="flex flex-col gap-1">
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setRejectionRowId(rejectionRowId === req.id ? null : req.id);
@@ -457,7 +512,7 @@ export default function BillPaymentRequests() {
                       <td className="px-6 py-4 text-right">
                         {req.status === 'pending' && (
                           <div className="flex items-center justify-end gap-2">
-                            <button 
+                            <button
                               onClick={() => setRejectionRowId(rejectionRowId === req.id ? null : req.id)}
                               disabled={processingId === req.id}
                               className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${rejectionRowId === req.id ? 'bg-rose-100 text-rose-600' : 'text-rose-500 hover:bg-rose-50'}`}
@@ -465,7 +520,7 @@ export default function BillPaymentRequests() {
                             >
                               <XCircle size={20} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => setShowActionModal({ id: req.id, type: 'approved' })}
                               disabled={processingId === req.id}
                               className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
@@ -477,7 +532,7 @@ export default function BillPaymentRequests() {
                         )}
                         {req.status === 'approved' && (
                           <div className="flex items-center justify-end">
-                            <button 
+                            <button
                               onClick={() => handleRefund(req.id)}
                               disabled={processingId === req.id}
                               className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50"
@@ -492,7 +547,7 @@ export default function BillPaymentRequests() {
                     {rejectionRowId === req.id && (
                       <tr>
                         <td colSpan={8} className="px-6 py-4 bg-rose-50/30 border-y border-rose-100/50">
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="flex flex-col md:flex-row items-end gap-4"
@@ -502,7 +557,7 @@ export default function BillPaymentRequests() {
                                 <div className="flex-1 w-full">
                                   <label className="block text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Select Rejection Reason</label>
                                   <div className="flex gap-2">
-                                    <select 
+                                    <select
                                       value={reason}
                                       onChange={(e) => setReason(e.target.value)}
                                       className="flex-1 px-4 py-2.5 bg-white border border-rose-100 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
@@ -515,7 +570,7 @@ export default function BillPaymentRequests() {
                                   </div>
                                 </div>
                                 <div className="flex gap-2">
-                                  <button 
+                                  <button
                                     onClick={() => {
                                       setRejectionRowId(null);
                                       setReason('');
@@ -524,7 +579,7 @@ export default function BillPaymentRequests() {
                                   >
                                     Cancel
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => handleStatusUpdate(req.id, 'rejected')}
                                     disabled={!reason || processingId === req.id}
                                     className="px-6 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center gap-2 disabled:opacity-50"
@@ -545,7 +600,7 @@ export default function BillPaymentRequests() {
                                     <p className="text-sm font-bold text-slate-900">{(req as any).rejection_reason || 'No reason provided'}</p>
                                   </div>
                                 </div>
-                                <button 
+                                <button
                                   onClick={() => setRejectionRowId(null)}
                                   className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors flex items-center justify-center shadow-sm"
                                   title="Shrink"
@@ -573,7 +628,7 @@ export default function BillPaymentRequests() {
             Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRequests.length)}</span> of <span className="text-slate-900 font-bold">{filteredRequests.length}</span> requests
           </p>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -585,17 +640,16 @@ export default function BillPaymentRequests() {
                 <button
                   key={i + 1}
                   onClick={() => setCurrentPage(i + 1)}
-                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
-                    currentPage === i + 1 
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i + 1
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
                       : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
-                  }`}
+                    }`}
                 >
                   {i + 1}
                 </button>
               ))}
             </div>
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
               className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -610,7 +664,7 @@ export default function BillPaymentRequests() {
       <AnimatePresence>
         {showActionModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -620,14 +674,14 @@ export default function BillPaymentRequests() {
                 <h3 className="text-lg font-bold text-slate-900">
                   Approve Request
                 </h3>
-                <button 
+                <button
                   onClick={() => setShowActionModal(null)}
                   className="text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   <XCircle size={20} />
                 </button>
               </div>
-              
+
               <div className="p-6 space-y-4">
                 <div className="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
                   <div className="flex items-center justify-between mb-2">
@@ -641,8 +695,8 @@ export default function BillPaymentRequests() {
                   <div className="pt-2 border-t border-indigo-100 flex items-center justify-between">
                     <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Debited</span>
                     <span className="text-lg font-bold text-slate-900">
-                      ₹{(Number(requests.find(r => r.id === showActionModal?.id)?.amount || 0) + 
-                         Number(requests.find(r => r.id === showActionModal?.id)?.charges || 0)).toFixed(2)}
+                      ₹{(Number(requests.find(r => r.id === showActionModal?.id)?.amount || 0) +
+                        Number(requests.find(r => r.id === showActionModal?.id)?.charges || 0)).toFixed(2)}
                     </span>
                   </div>
                 </div>
@@ -653,13 +707,13 @@ export default function BillPaymentRequests() {
               </div>
 
               <div className="p-6 bg-slate-50 flex gap-3">
-                <button 
+                <button
                   onClick={() => setShowActionModal(null)}
                   className="flex-1 px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={() => handleStatusUpdate()}
                   disabled={processingId !== null}
                   className="flex-1 px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all flex items-center justify-center gap-2"

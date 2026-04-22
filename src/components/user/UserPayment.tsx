@@ -58,6 +58,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [qrRequests, setQrRequests] = useState<any[]>([]);
   const [billRequests, setBillRequests] = useState<any[]>([]);
   const [payoutRequests, setPayoutRequests] = useState<any[]>([]);
+  const [isBillEnabled, setIsBillEnabled] = useState(true);
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [selectedProof, setSelectedProof] = useState<string | null>(null);
 
@@ -156,6 +157,21 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         if (activeQR) {
           setActiveQrId(activeQR.id);
           setQrName(activeQR.qr_name);
+        }
+
+        // Fetch Global Settings (QR & Bill status)
+        const { data: globalSettings } = await supabase
+          .from('qr_settings')
+          .select('is_bill_enabled')
+          .eq('id', 1)
+          .single();
+        
+        if (globalSettings) {
+          setIsBillEnabled(globalSettings.is_bill_enabled ?? true);
+          // Auto-switch if bill is active but disabled
+          if (!globalSettings.is_bill_enabled && activeTab === 'bill') {
+            setActiveTab('qr');
+          }
         }
 
         // Fetch Banks
@@ -361,6 +377,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         } else {
           setQrUrl(null);
         }
+
+        // Sync Bill status
+        const billEnabled = payload.new.is_bill_enabled ?? true;
+        setIsBillEnabled(billEnabled);
+        if (!billEnabled && activeTab === 'bill') {
+          setActiveTab('qr');
+        }
       })
       .subscribe();
 
@@ -388,7 +411,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       supabase.removeChannel(settingsChannel);
       supabase.removeChannel(historyChannel);
     };
-  }, [userId]);
+  }, [userId, activeTab]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -1196,6 +1219,29 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                 exit={{ opacity: 0, x: -20 }}
                 className="w-full space-y-12"
               >
+                {!isBillEnabled ? (
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-12 text-center max-w-4xl mx-auto">
+                    <div className="w-24 h-24 bg-amber-50 rounded-3xl flex items-center justify-center text-amber-500 mx-auto mb-6">
+                      <Clock size={48} />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Service Temporarily Offline</h3>
+                    <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
+                      Our Bill Payment service is currently under maintenance or temporarily disabled by the administrator. Please check back later or use QR payment for urgent transactions.
+                    </p>
+                    <div className="mt-8 flex justify-center">
+                      <button 
+                        onClick={() => setActiveTab('qr')}
+                        className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                      >
+                        <QrCode size={20} />
+                        Use QR Payment Instead
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                  {/* Bill Form */}
+                  <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 md:p-12 relative overflow-hidden">
                 <div className="max-w-4xl mx-auto">
                   <form onSubmit={handleBillSubmit} className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -1573,8 +1619,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     })()}
                   </div>
                 </div>
-              </motion.div>
-            ) : (
+              </div>
+            </>
+            )}
+          </motion.div>
+        ) : (
               <motion.div
                 key="payout-tab"
                 initial={{ opacity: 0, x: 20 }}

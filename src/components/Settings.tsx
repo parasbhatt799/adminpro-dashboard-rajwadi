@@ -14,7 +14,8 @@ import {
   Upload,
   Image as ImageIcon,
   Volume2,
-  Music
+  Music,
+  Receipt
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -52,7 +53,8 @@ export default function Settings() {
     is_qr_sound_enabled: true,
     is_bill_sound_enabled: true,
     is_payout_sound_enabled: true,
-    is_kyc_sound_enabled: true
+    is_kyc_sound_enabled: true,
+    is_bill_enabled: true
   });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -130,7 +132,8 @@ export default function Settings() {
           is_qr_sound_enabled: qrData.is_qr_sound_enabled ?? true,
           is_bill_sound_enabled: qrData.is_bill_sound_enabled ?? true,
           is_payout_sound_enabled: qrData.is_payout_sound_enabled ?? true,
-          is_kyc_sound_enabled: qrData.is_kyc_sound_enabled ?? true
+          is_kyc_sound_enabled: qrData.is_kyc_sound_enabled ?? true,
+          is_bill_enabled: qrData.is_bill_enabled ?? true
         });
         setLogoPreview(qrData.logo_url);
         setLogoMiniPreview(qrData.logo_mini_url);
@@ -309,6 +312,7 @@ export default function Settings() {
           is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
           is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
           is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled,
+          is_bill_enabled: brandingSettings.is_bill_enabled,
           updated_at: new Date().toISOString()
         })
         .eq('id', 1);
@@ -328,7 +332,8 @@ export default function Settings() {
         is_qr_sound_enabled: brandingSettings.is_qr_sound_enabled,
         is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
         is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
-        is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled
+        is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled,
+        is_bill_enabled: brandingSettings.is_bill_enabled
       });
       setLogoFile(null);
       setLogoMiniFile(null);
@@ -803,6 +808,45 @@ export default function Settings() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Service Controls Section */}
+        <section className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+            <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl">
+              <SettingsIcon size={24} />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Service Controls</h3>
+              <p className="text-xs text-slate-500">Enable or disable specific system services.</p>
+            </div>
+          </div>
+
+          <div className="p-6 space-y-4">
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-indigo-600">
+                  <Receipt size={20} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">Bill Payment Service</h4>
+                  <p className="text-[10px] text-slate-500 font-medium">When disabled, users cannot submit new bill payments.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBrandingSettings(prev => ({ ...prev, is_bill_enabled: !prev.is_bill_enabled }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  brandingSettings.is_bill_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    brandingSettings.is_bill_enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
         </section>
