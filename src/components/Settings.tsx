@@ -900,10 +900,10 @@ export default function Settings() {
                         />
                       </label>
                     </div>
-                    {item.sound && (
+                    {item.sound || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3' ? (
                       <button
                         onClick={() => {
-                          const audio = new Audio(item.sound);
+                          const audio = new Audio(item.sound || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
                           audio.play().catch(err => console.error('Preview play error:', err));
                         }}
                         className="p-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all shrink-0"
@@ -911,7 +911,7 @@ export default function Settings() {
                       >
                         <Volume2 size={16} />
                       </button>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               ))}

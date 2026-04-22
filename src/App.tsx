@@ -602,16 +602,36 @@ export default function App() {
       // Helper to play sound
       const playNotificationSound = (type: 'qr' | 'bill' | 'kyc' | 'payout') => {
         const settings = soundSettingsRef.current;
-        if (!settings) return;
+        if (!settings) {
+          console.warn(`[Sound] Settings not loaded yet for ${type}`);
+          return;
+        }
         
-        const isEnabled = settings[`is_${type}_sound_enabled`];
-        const soundUrl = settings[`${type}_sound_url`];
+        // Default to enabled (true) if null/undefined in DB
+        const isEnabled = settings[`is_${type}_sound_enabled`] ?? true;
         
-        console.log(`Attempting to play ${type} sound. Enabled: ${isEnabled}, URL: ${soundUrl}`);
+        // Use default sounds if URL is missing
+        const defaultSounds: Record<string, string> = {
+          qr: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // Ding
+          bill: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+          kyc: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+          payout: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
+        };
+
+        const soundUrl = settings[`${type}_sound_url`] || defaultSounds[type];
+        
+        console.log(`[Sound] Attempting to play ${type} sound. Enabled: ${isEnabled}, URL: ${soundUrl}`);
         
         if (isEnabled && soundUrl) {
           const audio = new Audio(soundUrl);
-          audio.play().catch(e => console.error('Audio play error:', e));
+          audio.play()
+            .then(() => console.log(`[Sound] ${type} sound played successfully.`))
+            .catch(e => {
+              console.error(`[Sound] Playback failed for ${type}:`, e.message);
+              if (e.name === 'NotAllowedError') {
+                console.warn('[Sound] Playback blocked by browser. User interaction required.');
+              }
+            });
         }
       };
 
