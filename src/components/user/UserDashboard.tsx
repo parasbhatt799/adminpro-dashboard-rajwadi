@@ -159,7 +159,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
       <div className="relative z-10 space-y-8">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">WELCOME BACK, {userProfile?.name || 'User'}!</h2>
+          <h2 className="text-2xl font-bold text-slate-900">𝐖𝐄𝐋𝐂𝐎𝐌𝐄 𝐁𝐀𝐂𝐊 🙏 {userProfile?.name || 'User'}!</h2>
           <p className="text-slate-500 mt-1">Here's what's happening with your account today.</p>
         </div>
 
