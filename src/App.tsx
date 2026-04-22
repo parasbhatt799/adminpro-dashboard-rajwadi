@@ -618,33 +618,41 @@ export default function App() {
       // Real-time Pending Counts Listeners
       const qrSub = supabase
         .channel('qr_pending_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payment_submissions' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, (payload) => {
           fetchPendingCounts();
-          playNotificationSound('qr');
+          if (payload.eventType === 'INSERT') {
+            playNotificationSound('qr');
+          }
         })
         .subscribe();
 
       const billSub = supabase
         .channel('bill_pending_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bill_submissions' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, (payload) => {
           fetchPendingCounts();
-          playNotificationSound('bill');
+          if (payload.eventType === 'INSERT') {
+            playNotificationSound('bill');
+          }
         })
         .subscribe();
 
       const kycSub = supabase
         .channel('kyc_pending_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'kyc_submissions' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_submissions' }, (payload) => {
           fetchPendingCounts();
-          playNotificationSound('kyc');
+          if (payload.eventType === 'INSERT') {
+            playNotificationSound('kyc');
+          }
         })
         .subscribe();
 
       const payoutSub = supabase
         .channel('payout_pending_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payout_submissions' }, (payload) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, (payload) => {
           fetchPendingCounts();
-          playNotificationSound('payout');
+          if (payload.eventType === 'INSERT') {
+            playNotificationSound('payout');
+          }
         })
         .subscribe();
       
