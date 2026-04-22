@@ -29,6 +29,7 @@ import AgreementManagement from './components/AgreementManagement';
 import Settings from './components/Settings';
 import AdminWithdrawal from './components/AdminWithdrawal';
 import PayoutManagement from './components/PayoutManagement';
+import DeveloperLogs from './components/DeveloperLogs';
 import UserPanel from './components/user/UserPanel';
 import UserPayment from './components/user/UserPayment';
 import UserReports from './components/user/UserReports';
@@ -42,6 +43,9 @@ import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Tr
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
+import { AlertTriangle, Cog, RefreshCw } from 'lucide-react';
+
+const DEVELOPER_MOBILE = '9999099999';
 
 // OneSignal Initialization Helper
 const setupOneSignal = async (currentUserId: string) => {
@@ -60,6 +64,8 @@ const setupOneSignal = async (currentUserId: string) => {
 
     // 2. Initialize via Deferred Queue
     OneSignalDeferred.push(async (OneSignal: any) => {
+      if (OneSignal.initialized) return;
+      
       await OneSignal.init({
         appId: settings.app_id,
         allowLocalhostAsSecureOrigin: true,
@@ -115,6 +121,34 @@ const PageUnderConstruction = ({ tab }: { tab: string }) => (
   </div>
 );
 
+const MaintenanceOverlay = ({ message }: { message: string }) => (
+  <div className="fixed inset-0 z-[9999] bg-slate-900 flex items-center justify-center p-6 overflow-hidden">
+    <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      className="max-w-md w-full bg-white rounded-[40px] p-10 text-center shadow-2xl relative z-10"
+    >
+      <div className="w-24 h-24 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-8 shadow-inner border border-rose-100">
+        <AlertTriangle size={48} className="text-rose-500 animate-pulse" />
+      </div>
+      <h1 className="text-3xl font-black text-slate-900 mb-4 tracking-tight">System Locked</h1>
+      <p className="text-slate-500 text-sm leading-relaxed mb-8">
+        {message || "The platform is currently undergoing critical security updates. We will be back online shortly."}
+      </p>
+      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 mb-8">
+        <div className="flex items-center justify-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-widest">
+          <RefreshCw size={14} className="animate-spin" />
+          Checking System Status...
+        </div>
+      </div>
+      <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.2em]">
+        Authorized Access Only
+      </p>
+    </motion.div>
+  </div>
+);
+
 interface AdminLayoutProps {
   handleLogout: () => void;
   isSidebarCollapsed: boolean;
@@ -130,6 +164,7 @@ interface AdminLayoutProps {
   adminRole: string;
   totalHoldBalance: number;
   pendingCounts: { qr: number; bill: number; kyc: number; payout: number };
+  isDeveloper: boolean;
 }
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
@@ -166,7 +201,8 @@ const AdminLayout = ({
   userId,
   adminRole,
   totalHoldBalance,
-  pendingCounts
+  pendingCounts,
+  isDeveloper
 }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -180,6 +216,7 @@ const AdminLayout = ({
         isCollapsed={isSidebarCollapsed}
         adminRole={adminRole}
         pendingCounts={pendingCounts}
+        isDeveloper={isDeveloper}
       />
       
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
@@ -359,12 +396,53 @@ export default function App() {
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [adminRole, setAdminRole] = useState(() => localStorage.getItem('adminRole') || 'full');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSystemEnabled, setIsSystemEnabled] = useState(true);
+  const [maintenanceMessage, setMaintenanceMessage] = useState("");
+  const [isStatusLoading, setIsStatusLoading] = useState(true);
+
+  const isDeveloper = userId === DEVELOPER_MOBILE;
 
   useEffect(() => {
     if ((window as any).OneSignal) {
       setupOneSignal(userId);
     }
   }, [userId]);
+
+  const fetchSystemStatus = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_status')
+        .select('*')
+        .eq('id', 1)
+        .single();
+      
+      if (!error && data) {
+        setIsSystemEnabled(data.is_enabled);
+        setMaintenanceMessage(data.message);
+      }
+    } catch (err) {
+      console.error('Error fetching system status:', err);
+    } finally {
+      setIsStatusLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSystemStatus();
+
+    // Subscribe to system status changes
+    const channel = supabase
+      .channel('system_status_realtime')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_status' }, (payload) => {
+        setIsSystemEnabled(payload.new.is_enabled);
+        setMaintenanceMessage(payload.new.message);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
   
   // Admin Notification States
   const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
@@ -591,6 +669,22 @@ export default function App() {
     setAdminRole('full');
   };
 
+  if (isStatusLoading) {
+    return (
+      <div className="h-screen w-screen bg-slate-900 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
+          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Waking up secure kernels...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // SYSTEM KILL SWITCH BLOCK
+  if (!isSystemEnabled && !isDeveloper) {
+    return <MaintenanceOverlay message={maintenanceMessage} />;
+  }
+
   return (
     <Router>
       <Routes>
@@ -624,6 +718,7 @@ export default function App() {
                 adminRole={adminRole}
                 totalHoldBalance={totalHoldBalance}
                 pendingCounts={pendingCounts}
+                isDeveloper={isDeveloper}
               />
             )
           } 
@@ -654,6 +749,7 @@ export default function App() {
               <Route path="qr-upload" element={<QRManagement />} />
               <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
               <Route path="users-list" element={<UsersList />} />
+              <Route path="developer-logs" element={<DeveloperLogs />} />
             </>
           )}
         </Route>

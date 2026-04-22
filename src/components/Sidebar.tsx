@@ -26,6 +26,7 @@ interface SidebarProps {
   isCollapsed: boolean;
   adminRole: string;
   pendingCounts: { qr: number; bill: number; kyc: number; payout: number };
+  isDeveloper: boolean;
 }
 
 const menuItems = [
@@ -60,13 +61,17 @@ const menuItems = [
   { id: 'admin-management', label: 'Admin Management', icon: Shield, path: '/admin-management', role: 'full' },
   { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password', role: 'full' },
   { id: 'settings', label: 'Business Settings', icon: Settings, path: '/settings', role: 'full' },
+  { id: 'developer-logs', label: 'System Logs', icon: FileText, path: '/developer-logs', role: 'developer' },
 ];
 
-export default function Sidebar({ onLogout, isCollapsed, adminRole, pendingCounts }: SidebarProps) {
+export default function Sidebar({ onLogout, isCollapsed, adminRole, pendingCounts, isDeveloper }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const filteredMenuItems = menuItems.filter(item => !item.role || item.role === adminRole);
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.role === 'developer') return isDeveloper;
+    return !item.role || item.role === adminRole;
+  });
   const [reportsExpanded, setReportsExpanded] = useState(() => {
     return location.pathname.startsWith('/reports');
   });
