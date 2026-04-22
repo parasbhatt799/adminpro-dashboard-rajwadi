@@ -51,6 +51,7 @@ interface PayoutSettings {
   pending_time_mins: number;
   min_payout: number;
   max_payout: number;
+  is_enabled: boolean;
 }
 
 export default function PayoutManagement() {
@@ -659,16 +660,33 @@ export default function PayoutManagement() {
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Max. Payout</label>
-                      <input 
-                        type="number"
-                        value={settings.max_payout}
-                        onChange={e => setSettings({...settings, max_payout: Number(e.target.value)})}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                      />
-                    </div>
-                  </div>
+                     <div className="space-y-2">
+                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Max. Payout</label>
+                       <input 
+                         type="number"
+                         value={settings.max_payout}
+                         onChange={e => setSettings({...settings, max_payout: Number(e.target.value)})}
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                       />
+                     </div>
+ 
+                     <div className="flex flex-col justify-end pb-1">
+                       <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                         <div className="pr-4">
+                           <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Payout Status</h4>
+                         </div>
+                         <button
+                           type="button"
+                           onClick={() => setSettings({...settings, is_enabled: !settings.is_enabled})}
+                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${settings.is_enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                         >
+                           <span
+                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.is_enabled ? 'translate-x-6' : 'translate-x-1'}`}
+                           />
+                         </button>
+                       </div>
+                     </div>
+                   </div>
 
                   <button 
                     type="submit"

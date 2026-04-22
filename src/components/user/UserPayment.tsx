@@ -201,6 +201,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           .single();
         setPayoutSettings(pSettings);
 
+        // If payout is disabled and active tab is payout, switch to qr
+        if (pSettings && !pSettings.is_enabled && activeTab === 'payout') {
+          setActiveTab('qr');
+        }
+
         // Fetch Payout Requests
         const { data: pReqs } = await supabase
           .from('payout_submissions')
@@ -310,6 +315,22 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       })
       .subscribe();
 
+    const payoutSettingsChannel = supabase
+      .channel('payout_settings_realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'payout_settings',
+        filter: 'id=eq.1'
+      }, (payload: any) => {
+        console.log('Payout settings updated:', payload.new);
+        setPayoutSettings(payload.new);
+        if (payload.new && !payload.new.is_enabled && activeTab === 'payout') {
+          setActiveTab('qr');
+        }
+      })
+      .subscribe();
+
     const profileChannel = supabase
       .channel(`profile_realtime_payment_${userId}`)
       .on('postgres_changes', {
@@ -362,6 +383,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       supabase.removeChannel(qrChannel);
       supabase.removeChannel(billChannel);
       supabase.removeChannel(payoutChannel);
+      supabase.removeChannel(payoutSettingsChannel);
       supabase.removeChannel(profileChannel);
       supabase.removeChannel(settingsChannel);
       supabase.removeChannel(historyChannel);
@@ -723,16 +745,27 @@ export default function UserPayment({ userId }: UserPaymentProps) {
             <Receipt size={18} />
             Bill Payment
           </button>
+          
           <button
-            onClick={() => setActiveTab('payout')}
+            onClick={() => {
+              if (payoutSettings?.is_enabled !== false) {
+                setActiveTab('payout');
+              }
+            }}
+            disabled={payoutSettings?.is_enabled === false}
             className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${
-              activeTab === 'payout' 
-                ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600' 
-                : 'text-slate-500 hover:bg-slate-50'
+              payoutSettings?.is_enabled === false 
+                ? 'opacity-40 grayscale cursor-not-allowed text-slate-400' 
+                : activeTab === 'payout' 
+                  ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600' 
+                  : 'text-slate-500 hover:bg-slate-50'
             }`}
           >
             <History size={18} />
             Payout Request
+            {payoutSettings?.is_enabled === false && (
+              <span className="text-[8px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded-md border border-slate-200">OFF</span>
+            )}
           </button>
         </div>
 
