@@ -556,53 +556,53 @@ export default function UserReports({ userId }: UserReportsProps) {
               {activeReport === 'master' && (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50/50 border-b border-slate-100">
+                    <tr className="bg-slate-50/50 border-b border-slate-100 text-center">
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date / Time</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Type</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reference</th>
                       <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">QR</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">Card No</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Charge</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Net</th>
-                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">Remaining Balance</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Card No</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amount</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Charge</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Net</th>
+                      <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Remaining Balance</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
                     {filteredData.map((item, idx) => (
                       <tr key={idx} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-slate-900">{format(parseISO(item.created_at), 'dd MMM yyyy')}</p>
                           <p className="text-[10px] text-slate-400 font-medium">{format(parseISO(item.created_at), 'hh:mm a')}</p>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
                             item.type === 'QR' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'
                           }`}>
                             {item.type}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-slate-600">{item.reference}</p>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-slate-600">{item.qr_name}</p>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-slate-600">{item.card_number || '****'}</p>
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-slate-900">₹{Number(item.amount).toFixed(2)}</p>
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-rose-500">₹{Number(item.charges || 0).toFixed(2)}</p>
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-center">
                           <p className={`text-xs font-bold ${item.net > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {item.net > 0 ? '+' : ''}₹{item.net.toFixed(2)}
                           </p>
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-slate-900">
                             {item.remaining_balance === '-' ? '-' : `₹${Number(item.remaining_balance).toFixed(2)}`}
                           </p>

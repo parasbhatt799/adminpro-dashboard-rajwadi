@@ -188,11 +188,9 @@ export default function BillPaymentRequests() {
 
     setProcessingId(targetId);
     try {
-      // 1. Fetch user current balance
       const targetRequest = requests.find(r => r.id === targetId);
       if (!targetRequest) throw new Error('Request not found');
 
-      // 1. First, check status to prevent race conditions
       const { data: currentReq, error: fetchError } = await supabase
         .from('bill_submissions')
         .select('status, amount, charges')
@@ -207,7 +205,6 @@ export default function BillPaymentRequests() {
       const updateData: any = { status: targetType };
 
       if (targetType === 'approved') {
-        // 2. Update Status to Approved FIRST to lock the record
         const { error: statusError } = await supabase
           .from('bill_submissions')
           .update(updateData)
@@ -216,7 +213,6 @@ export default function BillPaymentRequests() {
 
         if (statusError) throw statusError;
 
-        // 3. Update Admin Wallet (qr_settings.admin_balance)
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
 
@@ -227,8 +223,6 @@ export default function BillPaymentRequests() {
 
       } else {
         updateData.rejection_reason = targetReason;
-
-        // 2. Update Status to Rejected FIRST
         const { error: statusError } = await supabase
           .from('bill_submissions')
           .update(updateData)
@@ -237,7 +231,6 @@ export default function BillPaymentRequests() {
 
         if (statusError) throw statusError;
 
-        // 3. Refund full amount (amount + charges) to user
         const { data: userData } = await supabase
           .from('users_profiles')
           .select('wallet_balance')
@@ -251,7 +244,7 @@ export default function BillPaymentRequests() {
           .eq('id', targetRequest.user_id);
       }
 
-      // 3. Notify User about their request status
+      // 3. Notify User (In-app)
       const { error: nError } = await supabase
         .from('notifications')
         .insert([{
@@ -265,6 +258,39 @@ export default function BillPaymentRequests() {
         }]);
 
       if (nError) console.error('Bill Status Notification Error:', nError);
+
+      // 3.5 Trigger Push Notification
+      try {
+        const { data: userProfile } = await supabase
+          .from('users_profiles')
+          .select('onesignal_id')
+          .eq('id', targetRequest.user_id)
+          .single();
+
+        if (userProfile?.onesignal_id) {
+          const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+          if (osSettings?.app_id && osSettings?.rest_api_key) {
+            await fetch('/api/send-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: `Bill Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
+                message: targetType === 'approved'
+                  ? `Your bill payment of ₹${amount.toLocaleString()} has been approved!`
+                  : `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
+                player_ids: [userProfile.onesignal_id],
+                link: '/user/reports',
+                credentials: {
+                  app_id: osSettings.app_id,
+                  rest_api_key: osSettings.rest_api_key
+                }
+              })
+            });
+          }
+        }
+      } catch (pushErr) {
+        console.error('Push Notification Error:', pushErr);
+      }
 
       setRequests(prev => prev.map(req => req.id === targetId ? { ...req, ...updateData } : req));
       setRejectionRowId(null);

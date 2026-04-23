@@ -150,6 +150,37 @@ export default function PayoutManagement() {
           message: `Your payout of ₹${req.amount.toLocaleString()} is now being processed. This usually takes 45-55 minutes.`,
           link: '/user/reports'
         }]);
+
+        // Trigger Push Notification
+        try {
+          const { data: userProfile } = await supabase
+            .from('users_profiles')
+            .select('onesignal_id')
+            .eq('id', req.user_id)
+            .single();
+
+          if (userProfile?.onesignal_id) {
+            const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+            if (osSettings?.app_id && osSettings?.rest_api_key) {
+              await fetch('/api/send-push-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  title: 'Payout Processing Started',
+                  message: `Your payout of ₹${req.amount.toLocaleString()} is now being processed.`,
+                  player_ids: [userProfile.onesignal_id],
+                  link: '/user/reports',
+                  credentials: {
+                    app_id: osSettings.app_id,
+                    rest_api_key: osSettings.rest_api_key
+                  }
+                })
+              });
+            }
+          }
+        } catch (pushErr) {
+          console.error('Push Notification Error:', pushErr);
+        }
       }
     } catch (err) {
       console.error('Error starting processing:', err);
@@ -195,7 +226,7 @@ export default function PayoutManagement() {
 
       if (statusError) throw statusError;
 
-      // 3. Notify User
+      // 3. Notify User (In-app)
       await supabase.from('notifications').insert([{
         user_id: req.user_id,
         target_role: 'user',
@@ -203,6 +234,37 @@ export default function PayoutManagement() {
         message: `Your payout of ₹${req.amount.toLocaleString()} was rejected. Reason: ${rejectReason}. Funds have been returned to your wallet.`,
         link: '/user/reports'
       }]);
+
+      // 3.5 Trigger Push Notification
+      try {
+        const { data: userProfileData } = await supabase
+          .from('users_profiles')
+          .select('onesignal_id')
+          .eq('id', req.user_id)
+          .single();
+
+        if (userProfileData?.onesignal_id) {
+          const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+          if (osSettings?.app_id && osSettings?.rest_api_key) {
+            await fetch('/api/send-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: 'Payout Rejected',
+                message: `Your payout of ₹${req.amount.toLocaleString()} was rejected. Reason: ${rejectReason}`,
+                player_ids: [userProfileData.onesignal_id],
+                link: '/user/reports',
+                credentials: {
+                  app_id: osSettings.app_id,
+                  rest_api_key: osSettings.rest_api_key
+                }
+              })
+            });
+          }
+        }
+      } catch (pushErr) {
+        console.error('Push Notification Error:', pushErr);
+      }
 
       setShowRejectModal(null);
       setRejectReason('');
@@ -252,7 +314,7 @@ export default function PayoutManagement() {
 
       if (error) throw error;
 
-      // 2. Notify User
+      // 2. Notify User (In-app)
       await supabase.from('notifications').insert([{
         user_id: req.user_id,
         target_role: 'user',
@@ -260,6 +322,37 @@ export default function PayoutManagement() {
         message: `Your payout of ₹${req.amount.toLocaleString()} has been completed successfully! Trans ID: ${transactionId}`,
         link: '/user/reports'
       }]);
+
+      // 2.5 Trigger Push Notification
+      try {
+        const { data: userProfile } = await supabase
+          .from('users_profiles')
+          .select('onesignal_id')
+          .eq('id', req.user_id)
+          .single();
+
+        if (userProfile?.onesignal_id) {
+          const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+          if (osSettings?.app_id && osSettings?.rest_api_key) {
+            await fetch('/api/send-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: 'Payout Completed',
+                message: `Your payout of ₹${req.amount.toLocaleString()} has been completed!`,
+                player_ids: [userProfile.onesignal_id],
+                link: '/user/reports',
+                credentials: {
+                  app_id: osSettings.app_id,
+                  rest_api_key: osSettings.rest_api_key
+                }
+              })
+            });
+          }
+        }
+      } catch (pushErr) {
+        console.error('Push Notification Error:', pushErr);
+      }
 
       setShowCompleteModal(null);
       setTransactionId('');

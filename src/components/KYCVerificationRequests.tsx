@@ -98,6 +98,50 @@ export default function KYCVerificationRequests() {
 
       if (profileError) throw profileError;
 
+      // 3. Notify User (In-app)
+      await supabase.from('notifications').insert([{
+        user_id: userId,
+        target_role: 'user',
+        title: `KYC Verification ${newStatus === 'approved' ? 'Approved' : 'Rejected'}`,
+        message: newStatus === 'approved' 
+          ? 'Your KYC documents have been successfully verified!' 
+          : `Your KYC verification was rejected. Reason: ${rejectionReason}`,
+        link: '/user/dashboard'
+      }]);
+
+      // 3.5 Trigger Push Notification
+      try {
+        const { data: userProfile } = await supabase
+          .from('users_profiles')
+          .select('onesignal_id')
+          .eq('id', userId)
+          .single();
+
+        if (userProfile?.onesignal_id) {
+          const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+          if (osSettings?.app_id && osSettings?.rest_api_key) {
+            await fetch('/api/send-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: `KYC Verification ${newStatus === 'approved' ? 'Approved' : 'Rejected'}`,
+                message: newStatus === 'approved' 
+                  ? 'Your KYC documents have been successfully verified!' 
+                  : `Your KYC verification was rejected.`,
+                player_ids: [userProfile.onesignal_id],
+                link: '/user/dashboard',
+                credentials: {
+                  app_id: osSettings.app_id,
+                  rest_api_key: osSettings.rest_api_key
+                }
+              })
+            });
+          }
+        }
+      } catch (pushErr) {
+        console.error('Push Notification Error:', pushErr);
+      }
+
       setSubmissions(prev => prev.map(s => s.id === submissionId ? { ...s, status: newStatus, rejection_reason: rejectionReason } : s));
       setShowRejectModal(null);
       setRejectionReason('');

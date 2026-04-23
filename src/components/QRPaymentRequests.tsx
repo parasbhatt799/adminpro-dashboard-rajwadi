@@ -114,11 +114,9 @@ export default function QRPaymentRequests() {
     
     setProcessingId(targetId);
     try {
-      // 1. First, try to update the status to prevent race conditions
-      // This update will only succeed if the status is still 'pending'
       const { data: currentReq, error: fetchError } = await supabase
         .from('payment_submissions')
-        .select('status, amount, user_id')
+        .select('status, amount, user_id, proof_url')
         .eq('id', targetId)
         .single();
       
@@ -129,7 +127,6 @@ export default function QRPaymentRequests() {
       const updateData: any = { status: targetType };
 
       if (targetType === 'approved') {
-        // 2. Fetch user profile for charge percentage and current balance
         const { data: userData, error: userFetchError } = await supabase
           .from('users_profiles')
           .select('charge_percentage, wallet_balance')
@@ -142,16 +139,14 @@ export default function QRPaymentRequests() {
         const calculatedCharges = (amount * percentage) / 100;
         updateData.charges = calculatedCharges;
 
-        // 3. Update Status to Approved FIRST to lock the record
         const { error: statusError } = await supabase
           .from('payment_submissions')
           .update(updateData)
           .eq('id', targetId)
-          .eq('status', 'pending'); // Critical: only update if still pending
+          .eq('status', 'pending');
 
         if (statusError) throw statusError;
 
-        // 4. Update Admin Wallet (qr_settings.admin_balance)
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
         
@@ -160,7 +155,6 @@ export default function QRPaymentRequests() {
           .update({ admin_balance: currentAdminBalance + calculatedCharges })
           .eq('id', 1);
 
-        // 5. Update User Wallet (Add back amount - charges)
         const currentUserBalance = Number(userData.wallet_balance) || 0;
         await supabase
           .from('users_profiles')
@@ -178,11 +172,11 @@ export default function QRPaymentRequests() {
         if (statusError) throw statusError;
       }
 
-      // 3. Notify User about their request status
+      // 3. Notify User (In-app)
       const { error: nError } = await supabase
         .from('notifications')
         .insert([{
-          user_id: requests.find(r => r.id === targetId)?.user_id,
+          user_id: currentReq.user_id,
           target_role: 'user',
           title: `QR Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
           message: targetType === 'approved' 
@@ -192,24 +186,50 @@ export default function QRPaymentRequests() {
         }]);
       
       if (nError) console.error('QR Status Notification Error:', nError);
+
+      // 3.5 Trigger Push Notification
+      try {
+        const { data: userProfile } = await supabase
+          .from('users_profiles')
+          .select('onesignal_id')
+          .eq('id', currentReq.user_id)
+          .single();
+
+        if (userProfile?.onesignal_id) {
+          const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+          if (osSettings?.app_id && osSettings?.rest_api_key) {
+            await fetch('/api/send-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: `QR Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
+                message: targetType === 'approved' 
+                  ? `Your QR payment of ₹${amount.toLocaleString()} has been approved!`
+                  : `Your QR payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
+                player_ids: [userProfile.onesignal_id],
+                link: '/user/payment',
+                credentials: {
+                  app_id: osSettings.app_id,
+                  rest_api_key: osSettings.rest_api_key
+                }
+              })
+            });
+          }
+        }
+      } catch (pushErr) {
+        console.error('Push Notification Error:', pushErr);
+      }
  
       // 4. Send WhatsApp Notification if enabled (Approved only)
       if (targetType === 'approved') {
         try {
-          // Fetch settings to check if active
           const { data: ws } = await supabase.from('whatsapp_api_settings').select('*').eq('id', 1).single();
-          
           if (ws?.is_active) {
-            const currentReq = requests.find(r => r.id === targetId);
-            const targetMobile = currentReq?.qr_history?.whatsapp_number;
-            
+            const currentReqData = requests.find(r => r.id === targetId);
+            const targetMobile = currentReqData?.qr_history?.whatsapp_number;
             if (targetMobile) {
-              // Clean number and ensure country code (91 for India)
               let cleanNumber = targetMobile.replace(/\D/g, '');
-              if (cleanNumber.length === 10) {
-                cleanNumber = '91' + cleanNumber;
-              }
-
+              if (cleanNumber.length === 10) cleanNumber = '91' + cleanNumber;
               await fetch('/api/send-whatsapp-proof', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -227,7 +247,6 @@ export default function QRPaymentRequests() {
           }
         } catch (wsErr) {
           console.error('WhatsApp Notification Error:', wsErr);
-          // Don't fail the whole approval if WhatsApp fails, but log it
         }
       }
 
