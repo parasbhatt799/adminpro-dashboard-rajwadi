@@ -74,13 +74,13 @@ const setupOneSignal = async (currentUserId: string) => {
         serviceWorkerPath: 'OneSignalSDKWorker.js',
       });
 
-      // 3. Sync ID if logged in
+      // 3. Sync ID or Cleanup if logged out
+      const pushId = OneSignal.User.PushSubscription?.id;
+      
       if (currentUserId) {
         // Always associate this device with the user's ID in OneSignal
-        // This is critical for targeting by external_user_id
         OneSignal.login(currentUserId);
 
-        const pushId = OneSignal.User.PushSubscription?.id;
         if (pushId) {
           // 1. Clear this pushId from any other users to ensure uniqueness
           // This prevents notification leaks if multiple users share a device
@@ -113,6 +113,16 @@ const setupOneSignal = async (currentUserId: string) => {
             console.log('OneSignal User Sync Success:', pushId);
           }
         }
+      } else if (pushId) {
+        // Logged out: Aggressively clear this device from any user profiles in our DB
+        await supabase
+          .from('users_profiles')
+          .update({ onesignal_id: null })
+          .eq('onesignal_id', pushId);
+        
+        // Also tell OneSignal to logout
+        OneSignal.logout();
+        console.log('OneSignal Cleaned (Logged Out):', pushId);
       }
     });
 

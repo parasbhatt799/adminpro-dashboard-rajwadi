@@ -230,12 +230,15 @@ async function startServer() {
       const hasValidTarget = cleanPlayerIds.length > 0 || cleanExternalIds.length > 0;
 
       if (hasValidTarget) {
+        // IMPORTANT: Explicitly clear segments to prevent accidental broadcasting
+        data.included_segments = []; 
+        
         if (cleanPlayerIds.length > 0) {
           data.include_player_ids = cleanPlayerIds;
           data.include_subscription_ids = cleanPlayerIds;
         }
         if (cleanExternalIds.length > 0) {
-          data.include_external_user_id_auth_hash = undefined; // Ensure not using hash
+          data.include_external_user_id_auth_hash = undefined;
           data.include_external_user_ids = cleanExternalIds.map((id: any) => String(id));
         }
       } else if (target === 'all' || target === 'broadcast') {
