@@ -82,11 +82,17 @@ const setupOneSignal = async (currentUserId: string) => {
 
         const pushId = OneSignal.User.PushSubscription?.id;
         if (pushId) {
+          // 1. Clear this pushId from any other users to ensure uniqueness
+          // This prevents notification leaks if multiple users share a device
+          await supabase
+            .from('users_profiles')
+            .update({ onesignal_id: null })
+            .eq('onesignal_id', pushId);
+
           const userType = localStorage.getItem('userType');
           
           if (userType === 'admin') {
             // Admins: Sync to users_profiles with 'admin' role so backend can find them
-            // We use mobile number as the ID for consistency with Admin login
             await supabase
               .from('users_profiles')
               .upsert({ 
@@ -96,10 +102,13 @@ const setupOneSignal = async (currentUserId: string) => {
               }, { onConflict: 'id' });
             console.log('OneSignal Admin Sync Success:', pushId);
           } else {
-            // Regular Users: Sync to their existing profile
+            // Regular Users: Sync to their existing profile and ensure role is 'user'
             await supabase
               .from('users_profiles')
-              .update({ onesignal_id: pushId })
+              .update({ 
+                onesignal_id: pushId,
+                role: 'user' 
+              })
               .eq('id', currentUserId);
             console.log('OneSignal User Sync Success:', pushId);
           }
