@@ -186,18 +186,21 @@ async function startServer() {
     try {
       const { app_id, rest_api_key } = credentials;
       let targetPlayerIds = player_ids || [];
+      let externalUserIds = req.body.external_user_ids || [];
 
       // Server-side discovery of Admin Player IDs
       if (target === 'admins') {
         const { data: admins, error } = await supabaseAdmin
           .from('users_profiles')
-          .select('onesignal_id')
-          .eq('role', 'admin')
-          .not('onesignal_id', 'is', null);
+          .select('id, onesignal_id')
+          .eq('role', 'admin');
 
         if (!error && admins) {
-          const discoveredIds = admins.map(a => a.onesignal_id).filter(Boolean);
-          targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredIds])];
+          const discoveredPlayerIds = admins.map(a => a.onesignal_id).filter(Boolean);
+          const discoveredExternalIds = admins.map(a => a.id).filter(Boolean);
+          
+          targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredPlayerIds])];
+          externalUserIds = [...new Set([...externalUserIds, ...discoveredExternalIds])];
         }
       }
 
@@ -209,10 +212,20 @@ async function startServer() {
         web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
       };
 
-      // Target specific players if provided, otherwise fallback to segments
-      if (targetPlayerIds && targetPlayerIds.length > 0) {
-        data.include_player_ids = targetPlayerIds;
-      } else {
+      // Target specific players if provided
+      const hasTarget = targetPlayerIds.length > 0 || externalUserIds.length > 0;
+
+      if (hasTarget) {
+        if (targetPlayerIds.length > 0) {
+          // Send to both for maximum compatibility
+          data.include_player_ids = targetPlayerIds;
+          data.include_subscription_ids = targetPlayerIds;
+        }
+        if (externalUserIds.length > 0) {
+          data.include_external_user_ids = externalUserIds.map((id: any) => String(id));
+        }
+      } else if (!target) {
+        // Only broadcast if NO target is specified at all
         data.included_segments = ["Subscribed Users", "All"];
       }
 

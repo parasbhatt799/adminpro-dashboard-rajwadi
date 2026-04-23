@@ -111,32 +111,24 @@ export default function KYCVerificationRequests() {
 
       // 3.5 Trigger Push Notification
       try {
-        const { data: userProfile } = await supabase
-          .from('users_profiles')
-          .select('onesignal_id')
-          .eq('id', userId)
-          .single();
-
-        if (userProfile?.onesignal_id) {
-          const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
-          if (osSettings?.app_id && osSettings?.rest_api_key) {
-            await fetch('/api/send-push-notification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                title: `KYC Verification ${newStatus === 'approved' ? 'Approved' : 'Rejected'}`,
-                message: newStatus === 'approved' 
-                  ? 'Your KYC documents have been successfully verified!' 
-                  : `Your KYC verification was rejected.`,
-                player_ids: [userProfile.onesignal_id],
-                link: '/user/dashboard',
-                credentials: {
-                  app_id: osSettings.app_id,
-                  rest_api_key: osSettings.rest_api_key
-                }
-              })
-            });
-          }
+        const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+        if (osSettings?.app_id && osSettings?.rest_api_key) {
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: `KYC Verification ${newStatus === 'approved' ? 'Approved' : 'Rejected'}`,
+              message: newStatus === 'approved' 
+                ? 'Your KYC documents have been successfully verified!' 
+                : `Your KYC verification was rejected.`,
+              external_user_ids: [userId],
+              link: '/user/dashboard',
+              credentials: {
+                app_id: osSettings.app_id,
+                rest_api_key: osSettings.rest_api_key
+              }
+            })
+          });
         }
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);

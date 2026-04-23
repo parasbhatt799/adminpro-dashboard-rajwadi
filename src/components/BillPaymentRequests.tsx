@@ -261,32 +261,24 @@ export default function BillPaymentRequests() {
 
       // 3.5 Trigger Push Notification
       try {
-        const { data: userProfile } = await supabase
-          .from('users_profiles')
-          .select('onesignal_id')
-          .eq('id', targetRequest.user_id)
-          .single();
-
-        if (userProfile?.onesignal_id) {
-          const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
-          if (osSettings?.app_id && osSettings?.rest_api_key) {
-            await fetch('/api/send-push-notification', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                title: `Bill Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
-                message: targetType === 'approved'
-                  ? `Your bill payment of ₹${amount.toLocaleString()} has been approved!`
-                  : `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
-                player_ids: [userProfile.onesignal_id],
-                link: '/user/reports',
-                credentials: {
-                  app_id: osSettings.app_id,
-                  rest_api_key: osSettings.rest_api_key
-                }
-              })
-            });
-          }
+        const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
+        if (osSettings?.app_id && osSettings?.rest_api_key) {
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: `Bill Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
+              message: targetType === 'approved'
+                ? `Your bill payment of ₹${amount.toLocaleString()} has been approved!`
+                : `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
+              external_user_ids: [targetRequest.user_id],
+              link: '/user/reports',
+              credentials: {
+                app_id: osSettings.app_id,
+                rest_api_key: osSettings.rest_api_key
+              }
+            })
+          });
         }
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);
