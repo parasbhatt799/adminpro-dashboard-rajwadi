@@ -418,14 +418,14 @@ export default function BillPaymentRequests() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Firm / Date</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Customer Details</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Card Info</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Amount</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Service Charge</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Debited Amount</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Firm / Date</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Customer Details</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Card Info</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Amount</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Charge</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Debited</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -454,73 +454,74 @@ export default function BillPaymentRequests() {
                       }}
                       className={`hover:bg-slate-50/50 transition-colors ${rejectionRowId === req.id ? 'bg-rose-50/30' : ''} ${req.status === 'rejected' ? 'cursor-pointer' : ''}`}
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
+                      <td className="px-3 py-4">
+                        <div className="flex items-center gap-3 text-left">
+                          <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0">
                             <User size={16} />
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-slate-900">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap">
                               {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id.slice(0, 8)}`}
                             </p>
-                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
-                              {new Date(req.created_at).toLocaleDateString()} {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                              {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
-                          <p className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                            <Phone size={12} className="text-slate-400" />
+                          <p className="text-[11px] font-bold text-slate-900 flex items-center justify-center gap-1.5">
+                            <Phone size={10} className="text-slate-400" />
                             {req.customer_mobile}
                           </p>
-                          <p className="text-xs text-slate-500 font-medium">{req.card_owner_name}</p>
+                          <p className="text-[10px] text-slate-500 font-medium">{req.card_owner_name}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
-                          <p className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                          <p className="text-[11px] font-bold text-slate-900 flex items-center justify-center gap-1.5">
                             <CreditCard size={12} className="text-slate-400" />
                             {req.card_number.slice(-4)}
                           </p>
-                          <p className="text-[12px] font-mono text-slate-900 font-bold">{req.card_bank}</p>
+                          <p className="text-[11px] font-mono text-indigo-600 font-bold">{req.card_bank}</p>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm font-bold text-slate-900 flex items-center">
-                          <IndianRupee size={14} className="mr-0.5" />
+                      <td className="px-3 py-4 text-center">
+                        <span className="text-xs font-bold text-slate-900 flex items-center justify-center">
+                          <IndianRupee size={12} className="mr-0.5" />
                           {req.amount.toFixed(2)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-emerald-600 flex items-center justify-end">
-                          <IndianRupee size={14} className="mr-0.5" />
+                      <td className="px-3 py-4 text-center">
+                        <span className="text-xs font-bold text-indigo-600 flex items-center justify-center">
+                          <IndianRupee size={12} className="mr-0.5" />
                           {(req.charges || 0).toFixed(2)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-sm font-bold text-indigo-600 flex items-center justify-end">
-                          <IndianRupee size={14} className="mr-0.5" />
-                          {(Number(req.amount) + Number(req.charges || 0)).toFixed(2)}
+                      <td className="px-3 py-4 text-center">
+                        <span className="text-xs font-bold text-emerald-600 flex items-center justify-center">
+                          <IndianRupee size={12} className="mr-0.5" />
+                          {(Number(req.amount) - Number(req.charges || 0)).toFixed(2)}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                              req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                                req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
-                                  'bg-amber-50 text-amber-600'
-                            }`}>
-                            {req.status === 'pending' && <Clock size={10} />}
-                            {req.status === 'approved' && <CheckCircle2 size={10} />}
-                            {req.status === 'rejected' && <XCircle size={10} />}
-                            {req.status === 'refunded' && <RotateCcw size={10} />}
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
+                            req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                            req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
+                            'bg-amber-50 text-amber-600'
+                          }`}>
+                            {req.status === 'pending' && <Clock size={8} />}
+                            {req.status === 'approved' && <CheckCircle2 size={8} />}
+                            {req.status === 'rejected' && <XCircle size={8} />}
+                            {req.status === 'refunded' && <RotateCcw size={8} />}
                             {req.status === 'refunded' ? 'Refund Policy' : req.status}
                           </span>
                           {req.status === 'rejected' && (req as any).rejection_reason && (
                             <div className="flex flex-col gap-1">
-                              <button
+                              <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setRejectionRowId(rejectionRowId === req.id ? null : req.id);
@@ -660,18 +661,33 @@ export default function BillPaymentRequests() {
               Previous
             </button>
             <div className="flex items-center gap-1">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i + 1}
-                  onClick={() => setCurrentPage(i + 1)}
-                  className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i + 1
-                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                      : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
-                    }`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+              {(() => {
+                const pages = [];
+                const maxVisible = 5;
+                let start = Math.max(1, currentPage - 2);
+                let end = Math.min(totalPages, start + maxVisible - 1);
+                
+                if (end - start + 1 < maxVisible) {
+                  start = Math.max(1, end - maxVisible + 1);
+                }
+
+                for (let i = start; i <= end; i++) {
+                  pages.push(
+                    <button
+                      key={i}
+                      onClick={() => setCurrentPage(i)}
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
+                        currentPage === i 
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                          : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                      }`}
+                    >
+                      {i}
+                    </button>
+                  );
+                }
+                return pages;
+              })()}
             </div>
             <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}

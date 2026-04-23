@@ -71,6 +71,8 @@ export default function PayoutManagement() {
   const [success, setSuccess] = useState<string | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Fetch Payout Settings
   const fetchSettings = async () => {
@@ -394,6 +396,16 @@ export default function PayoutManagement() {
     return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const currentRequests = filteredRequests.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, searchQuery]);
+
   const getTimerDisplay = (req: PayoutRequest) => {
     if (req.status !== 'processing' || !req.processing_started_at || !settings) return null;
 
@@ -505,7 +517,7 @@ export default function PayoutManagement() {
                   </div>
                 </div>
               ) : (
-                filteredRequests.map((req) => {
+                currentRequests.map((req) => {
                   const timer = getTimerDisplay(req);
                   return (
                     <motion.div 
@@ -522,7 +534,9 @@ export default function PayoutManagement() {
                             </div>
                             <div>
                               <h3 className="text-lg font-bold text-slate-900">{req.users_profiles?.firm_name || 'Anonymous User'}</h3>
-                              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{new Date(req.created_at).toLocaleString()}</p>
+                              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+                                {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </p>
                             </div>
                             <div className="ml-auto">
                               <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
@@ -598,15 +612,16 @@ export default function PayoutManagement() {
                             <>
                               <button 
                                 onClick={() => handleStartProcessing(req.id)}
-                                disabled={processingId === req.id}
-                                className="w-full lg:w-40 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                                disabled={processingId !== null}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50"
                               >
-                                {processingId === req.id ? <Loader2 className="animate-spin" size={18} /> : <Clock size={18} />}
-                                Start Process
+                                {processingId === req.id ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
+                                Start Processing
                               </button>
                               <button 
                                 onClick={() => setShowRejectModal(req.id)}
-                                className="w-full lg:w-40 border border-rose-100 bg-rose-50 hover:bg-rose-100 text-rose-600 px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                                disabled={processingId !== null}
+                                className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 px-6 py-3 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                               >
                                 <XCircle size={18} />
                                 Reject
@@ -617,29 +632,24 @@ export default function PayoutManagement() {
                             <>
                               <button 
                                 onClick={() => setShowCompleteModal(req.id)}
-                                className="w-full lg:w-40 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
                               >
                                 <CheckCircle2 size={18} />
-                                Complete
+                                Complete Payout
                               </button>
                               <button 
                                 onClick={() => setShowRejectModal(req.id)}
-                                className="w-full lg:w-40 text-slate-400 hover:text-rose-600 px-4 py-1 text-xs font-bold transition-all"
+                                className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 px-6 py-3 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
                               >
-                                Reject instead
+                                <XCircle size={18} />
+                                Reject
                               </button>
                             </>
                           )}
-                          {req.status === 'approved' && (
-                            <div className="text-center p-2 bg-emerald-50 rounded-xl border border-emerald-100">
-                              <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Trans ID</p>
-                              <p className="text-xs font-black text-emerald-900">{req.transaction_id}</p>
-                            </div>
-                          )}
-                          {req.status === 'rejected' && (
-                            <div className="max-w-[160px] p-2 bg-rose-50 rounded-xl border border-rose-100 overflow-hidden">
-                              <p className="text-[10px] font-bold text-rose-600 uppercase tracking-widest">Reason</p>
-                              <p className="text-xs text-rose-900 truncate">{req.remark}</p>
+                          {(req.status === 'approved' || req.status === 'rejected') && (
+                            <div className="text-center p-4">
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Processed On</p>
+                              <p className="text-xs font-bold text-slate-600">{new Date(req.created_at).toLocaleDateString()}</p>
                             </div>
                           )}
                         </div>
@@ -649,6 +659,60 @@ export default function PayoutManagement() {
                 })
               )}
             </div>
+
+            {/* Payout Pagination */}
+            {!loading && filteredRequests.length > 0 && (
+              <div className="mt-8 flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
+                <p className="text-sm text-slate-500 font-medium">
+                  Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRequests.length)}</span> of <span className="text-slate-900 font-bold">{filteredRequests.length}</span> requests
+                </p>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <div className="flex items-center gap-1">
+                    {(() => {
+                      const pages = [];
+                      const maxVisible = 5;
+                      let start = Math.max(1, currentPage - 2);
+                      let end = Math.min(totalPages, start + maxVisible - 1);
+                      
+                      if (end - start + 1 < maxVisible) {
+                        start = Math.max(1, end - maxVisible + 1);
+                      }
+
+                      for (let i = start; i <= end; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i)}
+                            className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
+                              currentPage === i 
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                                : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        );
+                      }
+                      return pages;
+                    })()}
+                  </div>
+                  <button 
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
         ) : (
           <motion.div 
