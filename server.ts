@@ -192,14 +192,11 @@ async function startServer() {
       if (target === 'admins') {
         const { data: admins, error } = await supabaseAdmin
           .from('users_profiles')
-          .select('id, onesignal_id')
+          .select('id')
           .eq('role', 'admin');
 
         if (!error && admins) {
-          const discoveredPlayerIds = admins.map(a => a.onesignal_id).filter(Boolean);
           const discoveredExternalIds = admins.map(a => a.id).filter(Boolean);
-          
-          targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredPlayerIds])];
           externalUserIds = [...new Set([...externalUserIds, ...discoveredExternalIds])];
         }
       }
@@ -211,20 +208,6 @@ async function startServer() {
         isAnyWeb: true,
         web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
       };
-
-      // Double-check: If external_user_ids are provided but targetPlayerIds are empty,
-      // try to find onesignal_ids in our DB as a backup.
-      if (externalUserIds.length > 0 && targetPlayerIds.length === 0) {
-        const { data: profiles } = await supabaseAdmin
-          .from('users_profiles')
-          .select('onesignal_id')
-          .in('id', externalUserIds.map((id: any) => String(id)));
-        
-        if (profiles) {
-          const extraIds = profiles.map(p => p.onesignal_id).filter(Boolean);
-          targetPlayerIds = [...new Set([...targetPlayerIds, ...extraIds])];
-        }
-      }
 
       // Target specific players if provided
       const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
