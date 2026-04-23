@@ -219,8 +219,9 @@ async function startServer() {
         app_id: app_id.trim(),
         headings: { en: title },
         contents: { en: message },
-        isAnyWeb: true,
         web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
+        // NEVER broadcast by default
+        included_segments: [],
       };
 
       // 3. Target specific players if provided
@@ -230,24 +231,19 @@ async function startServer() {
       const hasValidTarget = cleanPlayerIds.length > 0 || cleanExternalIds.length > 0;
 
       if (hasValidTarget) {
-        // IMPORTANT: Explicitly clear segments to prevent accidental broadcasting
-        data.included_segments = []; 
-        
         if (cleanPlayerIds.length > 0) {
-          data.include_player_ids = cleanPlayerIds;
           data.include_subscription_ids = cleanPlayerIds;
         }
         if (cleanExternalIds.length > 0) {
-          data.include_external_user_id_auth_hash = undefined;
           data.include_external_user_ids = cleanExternalIds.map((id: any) => String(id));
         }
       } else if (target === 'all' || target === 'broadcast') {
-        // Only broadcast if explicitly requested
+        // Only broadcast if explicitly requested via 'target' parameter
         data.included_segments = ["Subscribed Users", "All"];
       } else {
-        // No target found and no broadcast requested - do nothing to avoid privacy leaks
-        console.warn('[Push] No target found for notification:', title);
-        return res.status(400).json({ error: "No valid target found. Ensure user is subscribed." });
+        // Strict Fail: Do not send anything if no target is found
+        console.warn('[Push] Target resolution failed for:', title);
+        return res.status(400).json({ error: "No valid target found. Notification blocked for privacy." });
       }
 
       const bodyData = JSON.stringify(data);
