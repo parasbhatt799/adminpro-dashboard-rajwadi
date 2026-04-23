@@ -212,23 +212,34 @@ async function startServer() {
         web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
       };
 
-      // Target specific players if provided
-      const hasTarget = targetPlayerIds.length > 0 || externalUserIds.length > 0;
-
-      if (hasTarget) {
-        if (targetPlayerIds.length > 0) {
-          // Filter out any non-string values
-          const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
-          if (cleanPlayerIds.length > 0) {
-            data.include_player_ids = cleanPlayerIds;
-            data.include_subscription_ids = cleanPlayerIds;
-          }
+      // Double-check: If external_user_ids are provided but targetPlayerIds are empty,
+      // try to find onesignal_ids in our DB as a backup.
+      if (externalUserIds.length > 0 && targetPlayerIds.length === 0) {
+        const { data: profiles } = await supabaseAdmin
+          .from('users_profiles')
+          .select('onesignal_id')
+          .in('id', externalUserIds.map((id: any) => String(id)));
+        
+        if (profiles) {
+          const extraIds = profiles.map(p => p.onesignal_id).filter(Boolean);
+          targetPlayerIds = [...new Set([...targetPlayerIds, ...extraIds])];
         }
-        if (externalUserIds.length > 0) {
-          const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
-          if (cleanExternalIds.length > 0) {
-            data.include_external_user_ids = cleanExternalIds.map((id: any) => String(id));
-          }
+      }
+
+      // Target specific players if provided
+      const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
+      const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
+      
+      const hasValidTarget = cleanPlayerIds.length > 0 || cleanExternalIds.length > 0;
+
+      if (hasValidTarget) {
+        if (cleanPlayerIds.length > 0) {
+          data.include_player_ids = cleanPlayerIds;
+          data.include_subscription_ids = cleanPlayerIds;
+        }
+        if (cleanExternalIds.length > 0) {
+          data.include_external_user_id_auth_hash = undefined; // Ensure not using hash
+          data.include_external_user_ids = cleanExternalIds.map((id: any) => String(id));
         }
       } else if (target === 'all' || target === 'broadcast') {
         // Only broadcast if explicitly requested
@@ -236,7 +247,7 @@ async function startServer() {
       } else {
         // No target found and no broadcast requested - do nothing to avoid privacy leaks
         console.warn('[Push] No target found for notification:', title);
-        return res.status(400).json({ error: "No valid target (player_ids or external_user_ids) found." });
+        return res.status(400).json({ error: "No valid target found. Ensure user is subscribed." });
       }
 
       const bodyData = JSON.stringify(data);
