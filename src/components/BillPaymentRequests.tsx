@@ -261,6 +261,12 @@ export default function BillPaymentRequests() {
 
       // 3.5 Trigger Push Notification
       try {
+        const { data: userProfile } = await supabase
+          .from('users_profiles')
+          .select('onesignal_id')
+          .eq('id', targetRequest.user_id)
+          .single();
+
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
           await fetch('/api/send-push-notification', {
@@ -271,6 +277,7 @@ export default function BillPaymentRequests() {
               message: targetType === 'approved'
                 ? `Your bill payment of ₹${amount.toLocaleString()} has been approved!`
                 : `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
+              player_ids: userProfile?.onesignal_id ? [userProfile.onesignal_id] : [],
               external_user_ids: [targetRequest.user_id],
               link: '/user/reports',
               credentials: {

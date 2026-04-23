@@ -816,8 +816,20 @@ export default function App() {
     setUserId(id);
   };
 
-   const handleLogout = () => {
-    // 1. OneSignal Logout to clear association
+  const handleLogout = async () => {
+    // 1. Clear OneSignal association in DB
+    if (userId) {
+      try {
+        await supabase
+          .from('users_profiles')
+          .update({ onesignal_id: null })
+          .eq('id', userId);
+      } catch (err) {
+        console.error('Error clearing OneSignal ID:', err);
+      }
+    }
+
+    // 2. OneSignal Logout to clear association in their system
     const OneSignalDeferred = (window as any).OneSignalDeferred;
     if (OneSignalDeferred) {
       OneSignalDeferred.push((OneSignal: any) => {
