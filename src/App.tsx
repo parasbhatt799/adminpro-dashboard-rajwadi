@@ -602,17 +602,11 @@ export default function App() {
       // Helper to play sound
       const playNotificationSound = (type: 'qr' | 'bill' | 'kyc' | 'payout') => {
         const settings = soundSettingsRef.current;
-        if (!settings) {
-          console.warn(`[Sound] Settings not loaded yet for ${type}`);
-          return;
-        }
+        if (!settings) return;
         
-        // Default to enabled (true) if null/undefined in DB
         const isEnabled = settings[`is_${type}_sound_enabled`] ?? true;
-        
-        // Use default sounds if URL is missing
         const defaultSounds: Record<string, string> = {
-          qr: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3', // Ding
+          qr: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
           bill: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
           kyc: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
           payout: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
@@ -620,18 +614,9 @@ export default function App() {
 
         const soundUrl = settings[`${type}_sound_url`] || defaultSounds[type];
         
-        console.log(`[Sound] Attempting to play ${type} sound. Enabled: ${isEnabled}, URL: ${soundUrl}`);
-        
         if (isEnabled && soundUrl) {
           const audio = new Audio(soundUrl);
-          audio.play()
-            .then(() => console.log(`[Sound] ${type} sound played successfully.`))
-            .catch(e => {
-              console.error(`[Sound] Playback failed for ${type}:`, e.message);
-              if (e.name === 'NotAllowedError') {
-                console.warn('[Sound] Playback blocked by browser. User interaction required.');
-              }
-            });
+          audio.play().catch(() => {});
         }
       };
 
@@ -676,7 +661,7 @@ export default function App() {
         })
         .subscribe();
       
-      // Branding/Sound Settings Listener (to sync toggles in real-time)
+      // Branding/Sound Settings Listener
       const settingsSub = supabase
         .channel('admin_settings_realtime')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
@@ -687,26 +672,18 @@ export default function App() {
         })
         .subscribe();
 
-      // 0. Hold Balance Listener
+      // Hold Balance Listener
       const holdChannel = supabase
         .channel('admin_hold_realtime')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'users_profiles' 
-        }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'users_profiles' }, () => {
           fetchTotalHoldBalance();
         })
         .subscribe();
 
-      // 1. Notification Listener
+      // Notification Listener
       const notifChannel = supabase
         .channel('admin_notifications_realtime')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
-          table: 'notifications'
-        }, (payload: any) => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, (payload: any) => {
           const notification = payload.new;
           if (notification && (notification.target_role === 'admin' || !notification.user_id)) {
             fetchAdminNotifications();
@@ -714,8 +691,7 @@ export default function App() {
         })
         .subscribe();
 
-      // 2. Security & Session Listener
-      // Instantly logout if senior admin blocks this account or changes its role
+      // Security & Session Listener
       const securityChannel = supabase
         .channel(`admin_security_${userId}`)
         .on('postgres_changes', {
@@ -724,30 +700,9 @@ export default function App() {
           table: 'admin_profiles',
           filter: `mobile_number=eq.${userId}`
         }, (payload) => {
-          console.log('Admin Security Event Received:', payload);
           const { status, role, password } = payload.new;
-          
-          // 1. Check for blocking
-          if (status === 'Blocked') {
-            console.warn('CRITICAL: Admin account blocked. Terminating session.');
+          if (status === 'Blocked' || (role && role !== adminRole) || password) {
             handleLogout();
-            return;
-          }
-
-          // 2. Check for role changes
-          if (role && role !== adminRole) {
-            console.warn('SECURITY: Admin role modified. Refreshing session.');
-            handleLogout();
-            return;
-          }
-
-          // 3. Check for password changes (triggered when another admin resets it)
-          // Since we don't store the password in state, any update to the password field 
-          // that satisfies this row filter should trigger a session refresh.
-          if (password) {
-            console.warn('SECURITY: Admin password modified. Terminating session.');
-            handleLogout();
-            return;
           }
         })
         .subscribe();
@@ -764,6 +719,80 @@ export default function App() {
       };
     }
   }, [isAdmin, userId, adminRole]);
+
+  // User Notification Sound logic
+  useEffect(() => {
+    if (isUser && userId) {
+      const playUserSound = () => {
+        const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
+        const audio = new Audio(soundUrl);
+        audio.play().catch(() => {});
+      };
+
+      const qrSub = supabase
+        .channel(`user_qr_status_${userId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'payment_submissions',
+          filter: `user_id=eq.${userId}`
+        }, (payload) => {
+          if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
+            playUserSound();
+          }
+        })
+        .subscribe();
+
+      const billSub = supabase
+        .channel(`user_bill_status_${userId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'bill_submissions',
+          filter: `user_id=eq.${userId}`
+        }, (payload) => {
+          if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
+            playUserSound();
+          }
+        })
+        .subscribe();
+        
+      const payoutSub = supabase
+        .channel(`user_payout_status_${userId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'payout_submissions',
+          filter: `user_id=eq.${userId}`
+        }, (payload) => {
+          if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
+            playUserSound();
+          }
+        })
+        .subscribe();
+
+      const kycSub = supabase
+        .channel(`user_kyc_status_${userId}`)
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'users_profiles',
+          filter: `id=eq.${userId}`
+        }, (payload) => {
+          if (payload.new.kyc_status === 'verified' || payload.new.kyc_status === 'rejected') {
+            playUserSound();
+          }
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(qrSub);
+        supabase.removeChannel(billSub);
+        supabase.removeChannel(payoutSub);
+        supabase.removeChannel(kycSub);
+      };
+    }
+  }, [isUser, userId]);
 
   const handleLogin = (id: string, userType: 'admin' | 'user', role?: string) => {
     localStorage.setItem('userId', id);
@@ -802,7 +831,6 @@ export default function App() {
     );
   }
 
-  // SYSTEM KILL SWITCH BLOCK
   if (!isSystemEnabled && !isDeveloper) {
     return <MaintenanceOverlay message={maintenanceMessage} />;
   }
@@ -810,39 +838,27 @@ export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<HomePage isAdmin={isAdmin} isUser={isUser} onLogout={handleLogout} />} />
         <Route 
-          path="/" 
           element={
-            <HomePage 
-              isAdmin={isAdmin} 
-              isUser={isUser} 
-              onLogout={handleLogout} 
+            !isAdmin ? <Navigate to="/login" replace /> : 
+            <AdminLayout 
+              handleLogout={handleLogout}
+              isSidebarCollapsed={isSidebarCollapsed}
+              setIsSidebarCollapsed={setIsSidebarCollapsed}
+              showAdminNotifications={showAdminNotifications}
+              setShowAdminNotifications={setShowAdminNotifications}
+              unreadAdminCount={unreadAdminCount}
+              adminNotifications={adminNotifications}
+              handleDeleteAdminNotification={handleDeleteAdminNotification}
+              handleClearAllAdminNotifications={handleClearAllAdminNotifications}
+              fetchAdminNotifications={fetchAdminNotifications}
+              userId={userId}
+              adminRole={adminRole}
+              totalHoldBalance={totalHoldBalance}
+              pendingCounts={pendingCounts}
+              isDeveloper={isDeveloper}
             />
-          } 
-        />
-        <Route 
-          element={
-            !isAdmin ? (
-              <Navigate to="/login" replace />
-            ) : (
-              <AdminLayout 
-                handleLogout={handleLogout}
-                isSidebarCollapsed={isSidebarCollapsed}
-                setIsSidebarCollapsed={setIsSidebarCollapsed}
-                showAdminNotifications={showAdminNotifications}
-                setShowAdminNotifications={setShowAdminNotifications}
-                unreadAdminCount={unreadAdminCount}
-                adminNotifications={adminNotifications}
-                handleDeleteAdminNotification={handleDeleteAdminNotification}
-                handleClearAllAdminNotifications={handleClearAllAdminNotifications}
-                fetchAdminNotifications={fetchAdminNotifications}
-                userId={userId}
-                adminRole={adminRole}
-                totalHoldBalance={totalHoldBalance}
-                pendingCounts={pendingCounts}
-                isDeveloper={isDeveloper}
-              />
-            )
           } 
         >
           <Route path="dashboard" element={<Dashboard />} />
@@ -877,13 +893,7 @@ export default function App() {
         </Route>
         <Route 
           path="/user" 
-          element={
-            !isUser ? (
-              <Navigate to="/login" replace />
-            ) : (
-              <UserPanel onLogout={handleLogout} userId={userId} />
-            )
-          } 
+          element={!isUser ? <Navigate to="/login" replace /> : <UserPanel onLogout={handleLogout} userId={userId} />} 
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<UserDashboard userId={userId} />} />
@@ -897,13 +907,9 @@ export default function App() {
         <Route 
           path="/login" 
           element={
-            isAdmin ? (
-              <Navigate to="/dashboard" replace />
-            ) : isUser ? (
-              <Navigate to="/user/dashboard" replace />
-            ) : (
-              <Login onLogin={handleLogin} />
-            )
+            isAdmin ? <Navigate to="/dashboard" replace /> : 
+            isUser ? <Navigate to="/user/dashboard" replace /> : 
+            <Login onLogin={handleLogin} />
           } 
         />
       </Routes>

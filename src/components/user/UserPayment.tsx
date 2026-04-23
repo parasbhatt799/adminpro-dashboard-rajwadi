@@ -1003,17 +1003,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     </div>
                   </div>
                   
-                   <div className="hidden md:grid grid-cols-10 gap-4 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                   <div className="hidden md:grid grid-cols-10 gap-6 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">
                      <div className="col-span-1">Date / Time</div>
                      <div className="col-span-1">UTR ID</div>
                      <div className="col-span-1">Card No</div>
                      <div className="col-span-1">QR Name</div>
-                     <div className="col-span-1 text-right">Amount</div>
-                     <div className="col-span-1 text-right">Service Charge</div>
-                     <div className="col-span-1 text-right">Credited Amount</div>
+                     <div className="col-span-1">Amount</div>
+                     <div className="col-span-1">Service Charge</div>
+                     <div className="col-span-1">Credited Amount</div>
                      <div className="col-span-1">Reason</div>
-                     <div className="col-span-1 text-center">Status</div>
-                     <div className="col-span-1 text-right">Proof</div>
+                     <div className="col-span-1">Status</div>
+                     <div className="col-span-1">Proof</div>
                    </div>
 
                   <div className="grid grid-cols-1 gap-3">
@@ -1059,54 +1059,54 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-10 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
                               >
                                 {/* Date / Time */}
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center justify-center gap-3">
                                   <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center text-emerald-600 shrink-0">
                                     <QrCode size={16} />
                                   </div>
-                                  <div>
+                                  <div className="text-left">
                                     <p className="text-[11px] font-bold text-slate-900">{new Date(req.created_at).toLocaleDateString()}</p>
                                     <p className="text-[10px] text-slate-400 font-medium">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                                   </div>
                                 </div>
 
                                  {/* UTR ID */}
-                                 <div>
+                                 <div className="text-center">
                                    <p className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md inline-block">
                                      {req.utr_id}
                                    </p>
                                  </div>
 
                                  {/* Card No */}
-                                 <div>
+                                 <div className="text-center">
                                    <p className="text-[11px] font-bold text-slate-900">
                                      {req.card_number || '****'}
                                    </p>
                                  </div>
 
                                 {/* QR Name */}
-                                <div>
+                                <div className="text-center">
                                   <p className="text-[11px] font-bold text-slate-600">
                                     {(req as any).qr_history?.qr_name || 'N/A'}
                                   </p>
                                 </div>
 
                                 {/* Amount */}
-                                <div className="md:text-right">
+                                <div className="text-center">
                                   <p className="text-sm font-bold text-slate-900">₹{Number(req.amount).toFixed(2)}</p>
                                 </div>
 
                                 {/* Charges */}
-                                <div className="md:text-right">
+                                <div className="text-center">
                                   <p className="text-sm font-bold text-emerald-600">₹{Number(req.charges || 0).toFixed(2)}</p>
                                 </div>
 
                                 {/* Credited Amount */}
-                                <div className="md:text-right">
+                                <div className="text-center">
                                   <p className="text-sm font-bold text-indigo-600">₹{(Number(req.amount) - Number(req.charges || 0)).toFixed(2)}</p>
                                 </div>
 
                                 {/* Reason */}
-                                <div className="max-w-[120px]">
+                                <div className="flex justify-center">
                                   {req.status === 'rejected' ? (
                                     <button 
                                       onClick={(e) => {
@@ -1123,7 +1123,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 </div>
 
                                 {/* Status */}
-                                <div className="flex md:justify-center">
+                                <div className="flex justify-center">
                                   <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
                                     req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
                                     req.status === 'rejected' ? 'bg-rose-50 text-rose-500' :
@@ -1134,7 +1134,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 </div>
 
                                 {/* Proof */}
-                                <div className="flex md:justify-end">
+                                <div className="flex justify-center">
                                   {req.proof_url && (
                                     <button 
                                       onClick={(e) => {

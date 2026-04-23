@@ -1,20 +1,47 @@
 import { useState, useEffect } from 'react';
-import {
-  Wallet,
-  Clock,
-  QrCode,
-  CreditCard,
-  Loader2,
-  Lock
+import { 
+  Wallet, 
+  Clock, 
+  QrCode, 
+  CreditCard, 
+  Loader2, 
+  Lock,
+  Filter,
+  Calendar,
+  ChevronDown
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  startOfDay, 
+  endOfDay, 
+  subDays, 
+  startOfToday, 
+  format 
+} from 'date-fns';
 import { supabase } from '../../lib/supabase';
+
+type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
 
 export default function UserDashboard({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [watermark, setWatermark] = useState<{ enabled: boolean; logo: string | null }>({ enabled: false, logo: null });
+  const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [customRange, setCustomRange] = useState({ 
+    start: format(new Date(), 'yyyy-MM-dd'), 
+    end: format(new Date(), 'yyyy-MM-dd') 
+  });
+  const [showFilter, setShowFilter] = useState(false);
+
+  const rangeLabels: Record<DateFilter, string> = {
+    today: 'Today',
+    yesterday: 'Yesterday',
+    '7days': 'Last 7 Days',
+    '30days': 'Last 30 Days',
+    all: 'All Time',
+    custom: 'Custom Range'
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -29,28 +56,64 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
         setUserProfile(profile);
 
-        // Fetch Status counts / amounts
+        // Date range logic
+        let startDate: string | null = null;
+        let endDate: string | null = null;
+        const now = new Date();
+
+        if (dateFilter === 'today') {
+          startDate = startOfDay(now).toISOString();
+          endDate = endOfDay(now).toISOString();
+        } else if (dateFilter === 'yesterday') {
+          startDate = startOfDay(subDays(now, 1)).toISOString();
+          endDate = endOfDay(subDays(now, 1)).toISOString();
+        } else if (dateFilter === '7days') {
+          startDate = startOfDay(subDays(now, 6)).toISOString();
+          endDate = endOfDay(now).toISOString();
+        } else if (dateFilter === '30days') {
+          startDate = startOfDay(subDays(now, 29)).toISOString();
+          endDate = endOfDay(now).toISOString();
+        } else if (dateFilter === 'custom' && customRange.start && customRange.end) {
+          startDate = startOfDay(new Date(customRange.start)).toISOString();
+          endDate = endOfDay(new Date(customRange.end)).toISOString();
+        }
+
+        let qrQuery = supabase
+          .from('payment_submissions')
+          .select('amount')
+          .eq('user_id', userId)
+          .eq('status', 'approved');
+
+        let billQuery = supabase
+          .from('bill_submissions')
+          .select('amount')
+          .eq('user_id', userId)
+          .eq('status', 'approved');
+
+        let pendingQrQuery = supabase
+          .from('payment_submissions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'pending');
+
+        let pendingBillQuery = supabase
+          .from('bill_submissions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'pending');
+
+        if (startDate && endDate) {
+          qrQuery = qrQuery.gte('created_at', startDate).lte('created_at', endDate);
+          billQuery = billQuery.gte('created_at', startDate).lte('created_at', endDate);
+          pendingQrQuery = pendingQrQuery.gte('created_at', startDate).lte('created_at', endDate);
+          pendingBillQuery = pendingBillQuery.gte('created_at', startDate).lte('created_at', endDate);
+        }
+
         const [qrRes, billRes, pendingQrRes, pendingBillRes, qrSettingsRes] = await Promise.all([
-          supabase
-            .from('payment_submissions')
-            .select('amount')
-            .eq('user_id', userId)
-            .eq('status', 'approved'),
-          supabase
-            .from('bill_submissions')
-            .select('amount')
-            .eq('user_id', userId)
-            .eq('status', 'approved'),
-          supabase
-            .from('payment_submissions')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('status', 'pending'),
-          supabase
-            .from('bill_submissions')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId)
-            .eq('status', 'pending'),
+          qrQuery,
+          billQuery,
+          pendingQrQuery,
+          pendingBillQuery,
           supabase
             .from('qr_settings')
             .select('watermark_url, is_watermark_enabled')
@@ -131,7 +194,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [dateFilter, customRange]);
 
   if (loading) {
     return (
@@ -158,9 +221,71 @@ export default function UserDashboard({ userId }: { userId: string }) {
       )}
 
       <div className="relative z-10 space-y-8">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">𝐖𝐄𝐋𝐂𝐎𝐌𝐄 𝐁𝐀𝐂𝐊 🙏 {userProfile?.name || 'User'}!</h2>
-          <p className="text-slate-500 mt-1">Here's what's happening with your account today.</p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">𝐖𝐄𝐋𝐂𝐎𝐌𝐄 𝐁𝐀𝐂𝐊 🙏 {userProfile?.name || 'User'}!</h2>
+            <p className="text-slate-500 mt-1">Here's what's happening with your account today.</p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+            {dateFilter === 'custom' && (
+              <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
+                <input 
+                  type="date" 
+                  value={customRange.start}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
+                />
+                <span className="text-slate-300 text-xs">to</span>
+                <input 
+                  type="date" 
+                  value={customRange.end}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
+                />
+              </div>
+            )}
+
+            <div className="relative">
+              <button 
+                onClick={() => setShowFilter(!showFilter)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:border-indigo-300 transition-all shadow-sm"
+              >
+                <Calendar size={18} className="text-indigo-500" />
+                {rangeLabels[dateFilter]}
+                <ChevronDown size={16} className={`text-slate-400 transition-transform ${showFilter ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {showFilter && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => setShowFilter(false)}></div>
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-2 w-48 bg-white rounded-2xl border border-slate-100 shadow-xl z-20 py-2"
+                    >
+                      {(Object.keys(rangeLabels) as DateFilter[]).map((range) => (
+                        <button
+                          key={range}
+                          onClick={() => {
+                            setDateFilter(range);
+                            setShowFilter(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 ${
+                            dateFilter === range ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'
+                          }`}
+                        >
+                          {rangeLabels[range]}
+                        </button>
+                      ))}
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
