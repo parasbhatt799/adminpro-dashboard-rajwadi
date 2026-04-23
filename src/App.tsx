@@ -77,6 +77,9 @@ const setupOneSignal = async (currentUserId: string) => {
       // 3. Sync Player ID if logged in
       const pushId = OneSignal.User.PushSubscription?.id;
       if (currentUserId && pushId) {
+        // Associate this device with the user's ID in OneSignal
+        OneSignal.login(currentUserId);
+
         const userType = localStorage.getItem('userType');
         
         if (userType === 'admin') {
@@ -810,7 +813,15 @@ export default function App() {
     setUserId(id);
   };
 
-  const handleLogout = () => {
+   const handleLogout = () => {
+    // 1. OneSignal Logout to clear association
+    const OneSignalDeferred = (window as any).OneSignalDeferred;
+    if (OneSignalDeferred) {
+      OneSignalDeferred.push((OneSignal: any) => {
+        OneSignal.logout();
+      });
+    }
+
     localStorage.removeItem('userId');
     localStorage.removeItem('userType');
     localStorage.removeItem('adminRole');

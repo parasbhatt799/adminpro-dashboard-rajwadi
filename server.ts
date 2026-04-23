@@ -217,16 +217,26 @@ async function startServer() {
 
       if (hasTarget) {
         if (targetPlayerIds.length > 0) {
-          // Send to both for maximum compatibility
-          data.include_player_ids = targetPlayerIds;
-          data.include_subscription_ids = targetPlayerIds;
+          // Filter out any non-string values
+          const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
+          if (cleanPlayerIds.length > 0) {
+            data.include_player_ids = cleanPlayerIds;
+            data.include_subscription_ids = cleanPlayerIds;
+          }
         }
         if (externalUserIds.length > 0) {
-          data.include_external_user_ids = externalUserIds.map((id: any) => String(id));
+          const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
+          if (cleanExternalIds.length > 0) {
+            data.include_external_user_ids = cleanExternalIds.map((id: any) => String(id));
+          }
         }
-      } else if (!target) {
-        // Only broadcast if NO target is specified at all
+      } else if (target === 'all' || target === 'broadcast') {
+        // Only broadcast if explicitly requested
         data.included_segments = ["Subscribed Users", "All"];
+      } else {
+        // No target found and no broadcast requested - do nothing to avoid privacy leaks
+        console.warn('[Push] No target found for notification:', title);
+        return res.status(400).json({ error: "No valid target (player_ids or external_user_ids) found." });
       }
 
       const bodyData = JSON.stringify(data);
