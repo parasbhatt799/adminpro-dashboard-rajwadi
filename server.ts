@@ -188,7 +188,7 @@ async function startServer() {
       let targetPlayerIds = player_ids || [];
       let externalUserIds = req.body.external_user_ids || [];
 
-      // Server-side discovery of Admin Player IDs
+      // 1. Server-side discovery of Admin IDs if targeted
       if (target === 'admins') {
         const { data: admins, error } = await supabaseAdmin
           .from('users_profiles')
@@ -201,6 +201,20 @@ async function startServer() {
         }
       }
 
+      // 2. Resolve current onesignal_ids from DB for all externalUserIds
+      // This ensures we always target the device currently associated with the user
+      if (externalUserIds.length > 0) {
+        const { data: profiles } = await supabaseAdmin
+          .from('users_profiles')
+          .select('onesignal_id')
+          .in('id', externalUserIds.map((id: any) => String(id)));
+        
+        if (profiles) {
+          const freshPlayerIds = profiles.map(p => p.onesignal_id).filter(Boolean);
+          targetPlayerIds = [...new Set([...targetPlayerIds, ...freshPlayerIds])];
+        }
+      }
+
       const data: any = {
         app_id: app_id.trim(),
         headings: { en: title },
@@ -209,7 +223,7 @@ async function startServer() {
         web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
       };
 
-      // Target specific players if provided
+      // 3. Target specific players if provided
       const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
       const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
       

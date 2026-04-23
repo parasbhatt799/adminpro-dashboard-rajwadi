@@ -277,7 +277,6 @@ export default function BillPaymentRequests() {
               message: targetType === 'approved'
                 ? `Your bill payment of ₹${amount.toLocaleString()} has been approved!`
                 : `Your bill payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
-              player_ids: userProfile?.onesignal_id ? [userProfile.onesignal_id] : [],
               external_user_ids: [targetRequest.user_id],
               link: '/user/reports',
               credentials: {

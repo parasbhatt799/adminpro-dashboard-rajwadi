@@ -127,7 +127,6 @@ export default function KYCVerificationRequests() {
               message: newStatus === 'approved' 
                 ? 'Your KYC documents have been successfully verified!' 
                 : `Your KYC verification was rejected.`,
-              player_ids: userProfile?.onesignal_id ? [userProfile.onesignal_id] : [],
               external_user_ids: [userId],
               link: '/user/dashboard',
               credentials: {

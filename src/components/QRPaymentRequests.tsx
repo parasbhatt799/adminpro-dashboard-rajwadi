@@ -205,7 +205,6 @@ export default function QRPaymentRequests() {
               message: targetType === 'approved' 
                 ? `Your QR payment of ₹${amount.toLocaleString()} has been approved!`
                 : `Your QR payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
-              player_ids: userProfile?.onesignal_id ? [userProfile.onesignal_id] : [],
               external_user_ids: [currentReq.user_id],
               link: '/user/payment',
               credentials: {

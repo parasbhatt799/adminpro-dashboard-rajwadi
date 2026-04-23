@@ -167,7 +167,6 @@ export default function PayoutManagement() {
               body: JSON.stringify({
                 title: 'Payout Processing Started',
                 message: `Your payout of ₹${req.amount.toLocaleString()} is now being processed.`,
-                player_ids: userProfile?.onesignal_id ? [userProfile.onesignal_id] : [],
                 external_user_ids: [req.user_id],
                 link: '/user/reports',
                 credentials: {
@@ -250,7 +249,6 @@ export default function PayoutManagement() {
             body: JSON.stringify({
               title: 'Payout Rejected',
               message: `Your payout of ₹${req.amount.toLocaleString()} was rejected. Reason: ${rejectReason}`,
-              player_ids: userProfileData?.onesignal_id ? [userProfileData.onesignal_id] : [],
               external_user_ids: [req.user_id],
               link: '/user/reports',
               credentials: {
@@ -337,7 +335,6 @@ export default function PayoutManagement() {
             body: JSON.stringify({
               title: 'Payout Completed',
               message: `Your payout of ₹${req.amount.toLocaleString()} has been completed!`,
-              player_ids: userProfile?.onesignal_id ? [userProfile.onesignal_id] : [],
               external_user_ids: [req.user_id],
               link: '/user/reports',
               credentials: {
