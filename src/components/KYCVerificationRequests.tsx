@@ -33,6 +33,9 @@ interface KYCSubmission {
     name: string;
     mobile_number: string;
     email: string;
+    distributor_profiles?: {
+      firm_name: string;
+    } | null;
   };
 }
 
@@ -52,7 +55,7 @@ export default function KYCVerificationRequests() {
     try {
       let query = supabase
         .from('kyc_submissions')
-        .select('*, users_profiles(name, mobile_number, email)')
+        .select('*, users_profiles(name, mobile_number, email, distributor_profiles:distributor_id(firm_name))')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -196,6 +199,7 @@ export default function KYCVerificationRequests() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">User Details</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Distributor</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Submitted Date</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
@@ -204,14 +208,14 @@ export default function KYCVerificationRequests() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center">
+                  <td colSpan={5} className="px-6 py-12 text-center">
                     <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
                     <p className="text-sm text-slate-500 font-medium">Loading submissions...</p>
                   </td>
                 </tr>
               ) : filteredSubmissions.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center">
+                  <td colSpan={5} className="px-6 py-12 text-center">
                     <ShieldCheck className="text-slate-200 mx-auto mb-4" size={48} />
                     <p className="text-slate-500 font-medium">No KYC requests found</p>
                   </td>
@@ -229,6 +233,16 @@ export default function KYCVerificationRequests() {
                           <p className="text-xs text-slate-500">{sub.users_profiles?.mobile_number}</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {sub.users_profiles?.distributor_profiles?.firm_name ? (
+                        <div>
+                          <p className="text-sm font-bold text-slate-900">{sub.users_profiles.distributor_profiles.firm_name}</p>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Distributor</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-300 italic font-medium">Direct User</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-xs text-slate-500 flex items-center gap-2">

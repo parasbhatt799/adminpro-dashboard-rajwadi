@@ -348,10 +348,11 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
             <div className="space-y-4 text-left">
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name (Optional)</label>
+                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">First Name <span className="text-rose-500">*</span></label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
+                      required
                       type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       style={{ textTransform: 'uppercase' }}
@@ -362,10 +363,11 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name (Optional)</label>
+                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Middle Name <span className="text-rose-500">*</span></label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
+                      required
                       type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       style={{ textTransform: 'uppercase' }}
@@ -376,10 +378,11 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                   </div>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name (Optional)</label>
+                  <label className="sm:w-24 text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Last Name <span className="text-rose-500">*</span></label>
                   <div className="relative flex-1">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
+                      required
                       type="text"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       style={{ textTransform: 'uppercase' }}
