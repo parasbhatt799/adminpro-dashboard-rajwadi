@@ -425,8 +425,7 @@ export default function BillPaymentRequests() {
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Customer Details</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Card Info</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Amount</th>
-                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Admin Profit</th>
-                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Charge</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center text-rose-500">Charge</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Debited</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Actions</th>
@@ -435,14 +434,14 @@ export default function BillPaymentRequests() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
               ) : filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <Receipt className="text-slate-200 mx-auto mb-4" size={48} />
                     <p className="text-slate-500 font-medium">No bill requests found</p>
                   </td>
@@ -499,12 +498,6 @@ export default function BillPaymentRequests() {
                       </td>
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-rose-600 flex items-center justify-center">
-                          <IndianRupee size={12} className="mr-0.5" />
-                          {(req.charges || 0).toFixed(2)}
-                        </span>
-                      </td>
-                      <td className="px-3 py-4 text-center">
-                        <span className="text-xs font-bold text-indigo-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
                           {(req.charges || 0).toFixed(2)}
                         </span>
