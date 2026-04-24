@@ -113,6 +113,7 @@ export default function DistributorBillPayments({ userId }: DistributorBillPayme
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">User / Firm</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest">Bill Details</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Amount</th>
+                <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">My Profit</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
                 <th className="px-6 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-right">Date</th>
               </tr>
@@ -120,13 +121,13 @@ export default function DistributorBillPayments({ userId }: DistributorBillPayme
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <Loader2 className="animate-spin text-emerald-600 mx-auto" size={32} />
                   </td>
                 </tr>
               ) : filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
+                  <td colSpan={6} className="px-6 py-12 text-center">
                     <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mx-auto mb-4">
                       <Receipt size={32} />
                     </div>
@@ -150,6 +151,16 @@ export default function DistributorBillPayments({ userId }: DistributorBillPayme
                         {Number(req.amount).toLocaleString()}
                       </span>
                       <p className="text-[10px] text-slate-400">Charges: ₹{req.charges}</p>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {req.status === 'approved' ? (
+                        <span className="text-sm font-bold text-emerald-600 flex items-center justify-center bg-emerald-50 px-3 py-1 rounded-lg">
+                          <IndianRupee size={14} className="mr-0.5" />
+                          {Number(req.distributor_share || 0).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-300 italic">Pending</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
