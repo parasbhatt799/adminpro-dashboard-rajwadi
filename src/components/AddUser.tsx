@@ -60,7 +60,6 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
     hold_input: '0',
     role: initialData?.role || 'user',
     admin_base_qr_charge: initialData?.admin_base_qr_charge?.toString() || '0',
-    admin_base_bill_charge: initialData?.admin_base_bill_charge?.toString() || '0',
     distributor_id: initialData?.distributor_id || ''
   });
 
@@ -160,7 +159,6 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
         status: initialData?.status || 'Active',
         role: isDistributorView ? 'user' : formData.role,
         admin_base_qr_charge: isDistributorView ? distributorBaseCharge : (parseFloat(formData.admin_base_qr_charge) || 0),
-        admin_base_bill_charge: isDistributorView ? 0 : (parseFloat(formData.admin_base_bill_charge) || 0),
         distributor_id: isDistributorView ? (initialData?.distributor_id || null) : (formData.distributor_id || null),
         service_charge_enabled: isDistributorView ? false : formData.service_charge_enabled,
         custom_service_charge: isDistributorView ? 0 : (parseFloat(formData.custom_service_charge) || 0)
@@ -538,7 +536,7 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                             try {
                               const { data, error } = await supabase
                                 .from('users_profiles')
-                                .select('admin_base_qr_charge, admin_base_bill_charge')
+                                .select('admin_base_qr_charge')
                                 .eq('id', distId)
                                 .single();
                               
@@ -546,8 +544,7 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                               if (data) {
                                 setFormData(prev => ({
                                   ...prev,
-                                  admin_base_qr_charge: data.admin_base_qr_charge?.toString() || '0',
-                                  admin_base_bill_charge: data.admin_base_bill_charge?.toString() || '0'
+                                  admin_base_qr_charge: data.admin_base_qr_charge?.toString() || '0'
                                 }));
                               }
                             } catch (err) {
@@ -556,7 +553,7 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                               setIsFetchingDistributor(false);
                             }
                           } else {
-                            setFormData(prev => ({ ...prev, admin_base_qr_charge: '0', admin_base_bill_charge: '0' }));
+                            setFormData(prev => ({ ...prev, admin_base_qr_charge: '0' }));
                           }
                         }}
                       >
