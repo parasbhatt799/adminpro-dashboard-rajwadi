@@ -10,13 +10,15 @@ import {
   Building2,
   IndianRupee,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import AddUser from '../AddUser';
 import UserDetails from '../UserDetails';
+import UserStatementReport from './UserStatementReport';
 
 interface DistributorUsersProps {
   userId: string;
@@ -29,6 +31,7 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [viewingStatementUserId, setViewingStatementUserId] = useState<string | null>(null);
   const [distributorBaseCharge, setDistributorBaseCharge] = useState(0);
 
   const fetchDistributorProfile = async () => {
@@ -89,6 +92,28 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
           fetchUsers();
         }}
       />
+    );
+  }
+
+  if (viewingStatementUserId) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setViewingStatementUserId(null)}
+            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <ArrowLeft size={20} />
+          </button>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">User Statement</h2>
+            <p className="text-sm text-slate-500 font-medium">
+              Viewing history for: <span className="text-indigo-600 font-bold">{users.find(u => u.id === viewingStatementUserId)?.firm_name || users.find(u => u.id === viewingStatementUserId)?.name}</span>
+            </p>
+          </div>
+        </div>
+        <UserStatementReport userId={viewingStatementUserId} />
+      </div>
     );
   }
 
@@ -160,6 +185,7 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">User Details</th>
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Firm Name</th>
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">KYC Status</th>
+                  <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">Reports</th>
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
@@ -198,6 +224,15 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
                           {user.kyc_status === 'verified' ? 'Verified' : 'Pending'}
                         </span>
                       </div>
+                    </td>
+                    <td className="px-6 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        onClick={() => setViewingStatementUserId(user.id)}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-bold uppercase tracking-wider hover:bg-indigo-100 transition-colors"
+                      >
+                        <FileText size={14} />
+                        Statement
+                      </button>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button className="p-2 text-slate-400 hover:text-emerald-600 transition-colors">
