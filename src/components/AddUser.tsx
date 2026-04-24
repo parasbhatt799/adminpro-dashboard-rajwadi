@@ -60,8 +60,11 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
     hold_input: '0',
     role: initialData?.role || 'user',
     admin_base_qr_charge: initialData?.admin_base_qr_charge?.toString() || '0',
+    admin_base_bill_charge: initialData?.admin_base_bill_charge?.toString() || '0',
     distributor_id: initialData?.distributor_id || ''
   });
+
+  const [isFetchingDistributor, setIsFetchingDistributor] = useState(false);
 
   const [distributors, setDistributors] = useState<any[]>([]);
 
@@ -157,6 +160,7 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
         status: initialData?.status || 'Active',
         role: isDistributorView ? 'user' : formData.role,
         admin_base_qr_charge: isDistributorView ? distributorBaseCharge : (parseFloat(formData.admin_base_qr_charge) || 0),
+        admin_base_bill_charge: isDistributorView ? 0 : (parseFloat(formData.admin_base_bill_charge) || 0),
         distributor_id: isDistributorView ? (initialData?.distributor_id || null) : (formData.distributor_id || null),
         service_charge_enabled: isDistributorView ? false : formData.service_charge_enabled,
         custom_service_charge: isDistributorView ? 0 : (parseFloat(formData.custom_service_charge) || 0)
@@ -525,7 +529,36 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                       <select
                         className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
                         value={formData.distributor_id}
-                        onChange={(e) => setFormData({ ...formData, distributor_id: e.target.value })}
+                        onChange={async (e) => {
+                          const distId = e.target.value;
+                          setFormData(prev => ({ ...prev, distributor_id: distId }));
+                          
+                          if (distId) {
+                            setIsFetchingDistributor(true);
+                            try {
+                              const { data, error } = await supabase
+                                .from('users_profiles')
+                                .select('admin_base_qr_charge, admin_base_bill_charge')
+                                .eq('id', distId)
+                                .single();
+                              
+                              if (error) throw error;
+                              if (data) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  admin_base_qr_charge: data.admin_base_qr_charge?.toString() || '0',
+                                  admin_base_bill_charge: data.admin_base_bill_charge?.toString() || '0'
+                                }));
+                              }
+                            } catch (err) {
+                              console.error('Error fetching distributor rates:', err);
+                            } finally {
+                              setIsFetchingDistributor(false);
+                            }
+                          } else {
+                            setFormData(prev => ({ ...prev, admin_base_qr_charge: '0', admin_base_bill_charge: '0' }));
+                          }
+                        }}
                       >
                         <option value="">NONE (DIRECT USER)</option>
                         {distributors.map(dist => (
@@ -534,9 +567,20 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                           </option>
                         ))}
                       </select>
+                      {isFetchingDistributor && (
+                        <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                          <Loader2 size={16} className="animate-spin text-indigo-500" />
+                        </div>
+                      )}
                     </div>
                     <p className="text-[10px] text-slate-400 mt-2 font-medium uppercase tracking-wider ml-1">
-                      Choose which distributor will manage this user and earn profit margin.
+                      {formData.distributor_id ? (
+                        <span className="text-indigo-600 font-bold">
+                          Selected distributor QR base charge: {formData.admin_base_qr_charge}%
+                        </span>
+                      ) : (
+                        "Choose which distributor will manage this user and earn profit margin."
+                      )}
                     </p>
                   </div>
                 )}
