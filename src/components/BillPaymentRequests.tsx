@@ -205,6 +205,32 @@ export default function BillPaymentRequests() {
       const updateData: any = { status: targetType };
 
       if (targetType === 'approved') {
+        // 1. Calculate Profit Split
+        const { data: userData } = await supabase
+          .from('users_profiles')
+          .select('distributor_id, charge_percentage')
+          .eq('id', targetRequest.user_id)
+          .single();
+
+        let adminShare = requestCharges;
+        let distributorProfit = 0;
+
+        if (userData?.distributor_id) {
+          const { data: distProfile } = await supabase
+            .from('users_profiles')
+            .select('admin_base_bill_charge')
+            .eq('id', userData.distributor_id)
+            .single();
+          
+          const adminBasePercentage = Number(distProfile?.admin_base_bill_charge) || 0;
+          adminShare = (amount * adminBasePercentage) / 100;
+          distributorProfit = requestCharges - adminShare;
+        }
+
+        updateData.admin_share = adminShare;
+        updateData.distributor_share = distributorProfit;
+
+        // 2. Update status and shares
         const { error: statusError } = await supabase
           .from('bill_submissions')
           .update(updateData)
@@ -213,13 +239,42 @@ export default function BillPaymentRequests() {
 
         if (statusError) throw statusError;
 
+        // 3. Update Admin Balance
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
 
         await supabase
           .from('qr_settings')
-          .update({ admin_balance: currentAdminBalance + requestCharges })
+          .update({ admin_balance: currentAdminBalance + adminShare })
           .eq('id', 1);
+
+        // 4. Update Distributor Wallet if applicable
+        if (distributorProfit > 0 && userData?.distributor_id) {
+          const { data: distributorData } = await supabase
+            .from('users_profiles')
+            .select('commission_balance')
+            .eq('id', userData.distributor_id)
+            .single();
+
+          if (distributorData) {
+            const currentDistBalance = Number(distributorData.commission_balance) || 0;
+            await supabase
+              .from('users_profiles')
+              .update({ commission_balance: currentDistBalance + distributorProfit })
+              .eq('id', userData.distributor_id);
+
+            // Notify Distributor
+            await supabase
+              .from('notifications')
+              .insert([{
+                user_id: userData.distributor_id,
+                target_role: 'user',
+                title: 'Bill Profit Earned!',
+                message: `You earned ₹${distributorProfit.toFixed(2)} profit from a sub-user's Bill payment.`,
+                link: '/user/reports'
+              }]);
+          }
+        }
 
       } else {
         updateData.rejection_reason = targetReason;
@@ -420,6 +475,8 @@ export default function BillPaymentRequests() {
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Customer Details</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Card Info</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Amount</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Admin Profit</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Dist. Profit</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Charge</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Debited</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
@@ -429,14 +486,14 @@ export default function BillPaymentRequests() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
               ) : filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Receipt className="text-slate-200 mx-auto mb-4" size={48} />
                     <p className="text-slate-500 font-medium">No bill requests found</p>
                   </td>
@@ -490,6 +547,33 @@ export default function BillPaymentRequests() {
                           <IndianRupee size={12} className="mr-0.5" />
                           {req.amount.toFixed(2)}
                         </span>
+                      </td>
+                       <td className="px-3 py-4 text-center">
+                        <span className="text-xs font-bold text-rose-600 flex items-center justify-center">
+                          <IndianRupee size={12} className="mr-0.5" />
+                          {req.admin_share !== null && req.admin_share !== undefined ? 
+                            Number(req.admin_share).toFixed(2) : 
+                            (req.users_profiles?.distributor_id ?
+                              ((req.amount * Number(req.users_profiles?.admin_base_bill_charge || 0)) / 100).toFixed(2) :
+                              Number(req.charges || 0).toFixed(2)
+                            )
+                          }
+                        </span>
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        {req.distributor_share !== null && req.distributor_share !== undefined ? (
+                          <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
+                            <IndianRupee size={12} className="mr-0.5" />
+                            {Number(req.distributor_share).toFixed(2)}
+                          </span>
+                        ) : req.users_profiles?.distributor_id ? (
+                          <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
+                            <IndianRupee size={12} className="mr-0.5" />
+                            {((req.amount * (Number(req.users_profiles?.charge_percentage || 0) - Number(req.users_profiles?.admin_base_bill_charge || 0))) / 100).toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300">N/A</span>
+                        )}
                       </td>
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-indigo-600 flex items-center justify-center">

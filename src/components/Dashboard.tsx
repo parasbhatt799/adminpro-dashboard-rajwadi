@@ -156,12 +156,10 @@ export default function Dashboard() {
         if (curr.admin_share !== null && curr.admin_share !== undefined) {
           return acc + Number(curr.admin_share);
         }
-        
+
         let adminShare = Number(curr.charges) || 0;
         const profile = curr.users_profiles;
-
-        // Admin only splits profit if the manager is still a DISTRIBUTOR
-        if (profile?.distributor_id && profile?.admin_base_qr_charge !== undefined) {
+        if (profile?.distributor_id) {
           const adminBasePercentage = Number(profile.admin_base_qr_charge) || 0;
           adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
         }
@@ -177,18 +175,13 @@ export default function Dashboard() {
 
         let adminShare = Number(curr.charges) || 0;
         const profile = curr.users_profiles;
-
-        // Admin only splits profit if the manager is still a DISTRIBUTOR
-        if (profile?.distributor_id && profile?.admin_base_bill_charge !== undefined) {
+        if (profile?.distributor_id) {
           const adminBasePercentage = Number(profile.admin_base_bill_charge) || 0;
           adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
         }
         return acc + adminShare;
       }, 0);
 
-      // Payout charges are usually fixed or simpler, but we'll apply same logic if needed
-      // Currently payout submissions don't seem to have a distributor split logic in the code, 
-      // but let's keep it as is or apply if there's a base charge.
       const rangePayoutCharges = payoutData.reduce((acc, curr) => acc + (Number(curr.charge_amount) || 0), 0) || 0;
       const rangeWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
 

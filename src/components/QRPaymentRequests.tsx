@@ -156,6 +156,9 @@ export default function QRPaymentRequests() {
           distributorProfit = totalCharges - adminShare;
         }
 
+        updateData.admin_share = adminShare;
+        updateData.distributor_share = distributorProfit;
+
         const { error: statusError } = await supabase
           .from('payment_submissions')
           .update(updateData)
@@ -480,14 +483,22 @@ export default function QRPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-rose-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
-                          {req.users_profiles?.distributor_id ?
-                            ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100).toFixed(2) :
-                            Number((req as any).charges || 0).toFixed(2)
+                          {req.admin_share !== null && req.admin_share !== undefined ? 
+                            Number(req.admin_share).toFixed(2) : 
+                            (req.users_profiles?.distributor_id ?
+                              ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100).toFixed(2) :
+                              Number((req as any).charges || 0).toFixed(2)
+                            )
                           }
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        {req.users_profiles?.distributor_id ? (
+                        {req.distributor_share !== null && req.distributor_share !== undefined ? (
+                          <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
+                            <IndianRupee size={12} className="mr-0.5" />
+                            {Number(req.distributor_share).toFixed(2)}
+                          </span>
+                        ) : req.users_profiles?.distributor_id ? (
                           <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
                             <IndianRupee size={12} className="mr-0.5" />
                             {((req.amount * (Number(req.users_profiles?.charge_percentage || 0) - Number(req.users_profiles?.admin_base_qr_charge || 0))) / 100).toFixed(2)}
@@ -495,6 +506,7 @@ export default function QRPaymentRequests() {
                         ) : (
                           <span className="text-[10px] text-slate-300">N/A</span>
                         )}
+                        
                       </td>
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-emerald-600 flex items-center justify-center">
