@@ -500,7 +500,7 @@ export default function BillPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-emerald-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
-                          {(Number(req.amount) - Number(req.charges || 0)).toFixed(2)}
+                          {(Number(req.amount) + Number(req.charges || 0)).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
