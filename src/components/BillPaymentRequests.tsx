@@ -215,17 +215,8 @@ export default function BillPaymentRequests() {
         let adminShare = requestCharges;
         let distributorProfit = 0;
 
-        if (userData?.distributor_id) {
-          const { data: distProfile } = await supabase
-            .from('users_profiles')
-            .select('admin_base_bill_charge')
-            .eq('id', userData.distributor_id)
-            .single();
-          
-          const adminBasePercentage = Number(distProfile?.admin_base_bill_charge) || 0;
-          adminShare = (amount * adminBasePercentage) / 100;
-          distributorProfit = requestCharges - adminShare;
-        }
+        // Note: Distributor commission disabled for Bill Payments as per request.
+        // The full charge now goes to the Admin.
 
         updateData.admin_share = adminShare;
         updateData.distributor_share = distributorProfit;
