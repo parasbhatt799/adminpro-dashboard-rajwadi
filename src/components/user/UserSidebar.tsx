@@ -11,7 +11,8 @@ import {
   ChevronRight,
   KeyRound,
   Wallet,
-  Receipt
+  Receipt,
+  FileBarChart
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink, Link } from 'react-router-dom';
@@ -38,6 +39,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
     { id: 'my-users', label: 'My Users', icon: ClipboardList, path: '/user/my-users' },
     { id: 'users-qr-requests', label: 'Users QR Requests', icon: FileText, path: '/user/users-qr-requests' },
     { id: 'users-bill-payments', label: 'Users Bill Payment', icon: Receipt, path: '/user/users-bill-payments' },
+    { id: 'users-statement', label: 'Users Statement', icon: FileBarChart, path: '/user/users-statement' },
     { id: 'withdrawal', label: 'Withdraw Commission', icon: Wallet, path: '/user/withdrawal' },
   ] : [];
 

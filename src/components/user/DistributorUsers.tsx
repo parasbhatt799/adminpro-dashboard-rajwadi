@@ -95,28 +95,6 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
     );
   }
 
-  if (viewingStatementUserId) {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setViewingStatementUserId(null)}
-            className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">User Statement</h2>
-            <p className="text-sm text-slate-500 font-medium">
-              Viewing history for: <span className="text-indigo-600 font-bold">{users.find(u => u.id === viewingStatementUserId)?.firm_name || users.find(u => u.id === viewingStatementUserId)?.name}</span>
-            </p>
-          </div>
-        </div>
-        <UserStatementReport userId={viewingStatementUserId} />
-      </div>
-    );
-  }
-
   if (selectedUser) {
     return (
       <UserDetails 

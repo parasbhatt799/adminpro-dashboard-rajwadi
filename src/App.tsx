@@ -42,6 +42,7 @@ import DistributorUsers from './components/user/DistributorUsers';
 import DistributorQRRequests from './components/user/DistributorQRRequests';
 import DistributorWithdrawal from './components/user/DistributorWithdrawal';
 import DistributorBillPayments from './components/user/DistributorBillPayments';
+import DistributorStatementReport from './components/user/DistributorStatementReport';
 import AdminDistributorWithdrawals from './components/AdminDistributorWithdrawals';
 import DistributorsList from './components/DistributorsList';
 import HomePage from './components/HomePage';
@@ -957,6 +958,7 @@ export default function App() {
           <Route path="my-users" element={<DistributorUsers userId={userId} />} />
           <Route path="users-qr-requests" element={<DistributorQRRequests userId={userId} />} />
           <Route path="users-bill-payments" element={<DistributorBillPayments userId={userId} />} />
+          <Route path="users-statement" element={<DistributorStatementReport userId={userId} />} />
           <Route path="withdrawal" element={<DistributorWithdrawal userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
           <Route path="policies" element={<UserPolicies userId={userId} />} />
