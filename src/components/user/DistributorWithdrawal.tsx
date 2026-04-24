@@ -53,12 +53,20 @@ export default function DistributorWithdrawal({ userId }: { userId: string }) {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select('commission_balance, name')
+        .select('commission_balance, name, bank_details')
         .eq('id', userId)
         .single();
       
       if (error) throw error;
       setProfile(data);
+      if (data?.bank_details && typeof data.bank_details === 'object') {
+        setBankDetails({
+          bankName: data.bank_details.bankName || '',
+          accountNumber: data.bank_details.accountNumber || '',
+          ifscCode: data.bank_details.ifscCode || '',
+          accountHolder: data.bank_details.accountHolder || ''
+        });
+      }
     } catch (err) {
       console.error('Error fetching profile:', err);
     }
@@ -119,6 +127,12 @@ export default function DistributorWithdrawal({ userId }: { userId: string }) {
         }]);
 
       if (error) throw error;
+
+      // Update user's default bank details in profile
+      await supabase
+        .from('users_profiles')
+        .update({ bank_details: bankDetails })
+        .eq('id', userId);
 
       setSuccess('Withdrawal request submitted successfully!');
       setAmount('');

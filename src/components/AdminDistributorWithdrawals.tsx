@@ -13,7 +13,10 @@ import {
   AlertCircle,
   RotateCcw,
   ExternalLink,
-  ChevronUp
+  ChevronUp,
+  Eye,
+  Copy,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -27,6 +30,7 @@ export default function AdminDistributorWithdrawals() {
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
   const [remark, setRemark] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [viewingRequest, setViewingRequest] = useState<any>(null);
   const itemsPerPage = 10;
 
   const fetchRequests = async () => {
@@ -240,17 +244,15 @@ export default function AdminDistributorWithdrawals() {
                         </span>
                       </td>
                       <td className="px-8 py-4">
-                        <div className="text-center">
+                        <div className="flex flex-col items-center">
                           <button 
-                            onClick={() => {
-                              navigator.clipboard.writeText(`${req.bank_details?.bankName}\n${req.bank_details?.accountHolder}\n${req.bank_details?.accountNumber}\n${req.bank_details?.ifscCode}`);
-                              alert('Bank details copied!');
-                            }}
-                            className="text-[10px] font-black text-indigo-600 hover:underline uppercase tracking-wider"
+                            onClick={() => setViewingRequest(req)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-indigo-100 transition-colors"
                           >
-                            Copy Details
+                            <Eye size={12} />
+                            View Detail
                           </button>
-                          <p className="text-[10px] text-slate-500 mt-1">{req.bank_details?.bankName}</p>
+                          <p className="text-[10px] text-slate-500 mt-1.5 font-medium">{req.bank_details?.bankName}</p>
                         </div>
                       </td>
                       <td className="px-8 py-4 text-center">
@@ -325,6 +327,98 @@ export default function AdminDistributorWithdrawals() {
           </table>
         </div>
       </div>
+      <AnimatePresence>
+        {viewingRequest && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setViewingRequest(null)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="relative w-full max-w-md bg-white rounded-[32px] shadow-2xl overflow-hidden"
+            >
+              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm border border-slate-100">
+                    <Building2 size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 leading-none">Bank Details</h3>
+                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Payout Information</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setViewingRequest(null)}
+                  className="p-2 hover:bg-slate-200 rounded-xl transition-colors text-slate-400"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Bank Name</p>
+                    <p className="text-sm font-bold text-slate-900">{viewingRequest.bank_details?.bankName}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Account Holder</p>
+                    <p className="text-sm font-bold text-slate-900">{viewingRequest.bank_details?.accountHolder}</p>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Account Number</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-mono font-bold text-indigo-600">{viewingRequest.bank_details?.accountNumber}</p>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(viewingRequest.bank_details?.accountNumber);
+                          alert('Copied!');
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">IFSC Code</p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-mono font-bold text-slate-900">{viewingRequest.bank_details?.ifscCode}</p>
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(viewingRequest.bank_details?.ifscCode);
+                          alert('Copied!');
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                      >
+                        <Copy size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <button 
+                  onClick={() => {
+                    const text = `Bank: ${viewingRequest.bank_details?.bankName}\nHolder: ${viewingRequest.bank_details?.accountHolder}\nAcc: ${viewingRequest.bank_details?.accountNumber}\nIFSC: ${viewingRequest.bank_details?.ifscCode}`;
+                    navigator.clipboard.writeText(text);
+                    alert('All details copied!');
+                  }}
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+                >
+                  <Copy size={18} />
+                  Copy All Details
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
