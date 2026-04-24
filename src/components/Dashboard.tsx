@@ -104,29 +104,12 @@ export default function Dashboard() {
       // 3. Transactions (Filtered by Date)
       let billQuery = supabase
         .from('bill_submissions')
-        .select(`
-          amount, 
-          charges, 
-          user:user_id(
-            distributor_id,
-            admin_base_bill_charge,
-            distributor:distributor_id(admin_base_bill_charge, role)
-          )
-        `)
+        .select('*, users_profiles!user_id(*)')
         .eq('status', 'approved');
 
       let qrQuery = supabase
         .from('payment_submissions')
-        .select(`
-          amount, 
-          charges, 
-          user_id,
-          user:user_id(
-            distributor_id,
-            admin_base_qr_charge,
-            distributor:distributor_id(admin_base_qr_charge, role)
-          )
-        `)
+        .select('*, users_profiles!user_id(*)')
         .eq('status', 'approved');
 
       let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
@@ -169,12 +152,17 @@ export default function Dashboard() {
 
       // Calculate Admin's share for QR Charges
       const rangeQrCharges = qrData.reduce((acc, curr: any) => {
+        // Use pre-calculated admin_share if available
+        if (curr.admin_share !== null && curr.admin_share !== undefined) {
+          return acc + Number(curr.admin_share);
+        }
+        
         let adminShare = Number(curr.charges) || 0;
-        const user = curr.user;
+        const profile = curr.users_profiles;
 
         // Admin only splits profit if the manager is still a DISTRIBUTOR
-        if (user?.distributor_id && user?.distributor && user.distributor.role === 'distributor') {
-          const adminBasePercentage = Number(user.distributor.admin_base_qr_charge) || 0;
+        if (profile?.distributor_id && profile?.admin_base_qr_charge !== undefined) {
+          const adminBasePercentage = Number(profile.admin_base_qr_charge) || 0;
           adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
         }
         return acc + adminShare;
@@ -182,12 +170,17 @@ export default function Dashboard() {
 
       // Calculate Admin's share for Bill Charges
       const rangeBillCharges = billData.reduce((acc, curr: any) => {
+        // Use pre-calculated admin_share if available
+        if (curr.admin_share !== null && curr.admin_share !== undefined) {
+          return acc + Number(curr.admin_share);
+        }
+
         let adminShare = Number(curr.charges) || 0;
-        const user = curr.user;
+        const profile = curr.users_profiles;
 
         // Admin only splits profit if the manager is still a DISTRIBUTOR
-        if (user?.distributor_id && user?.distributor && user.distributor.role === 'distributor') {
-          const adminBasePercentage = Number(user.distributor.admin_base_bill_charge) || 0;
+        if (profile?.distributor_id && profile?.admin_base_bill_charge !== undefined) {
+          const adminBasePercentage = Number(profile.admin_base_bill_charge) || 0;
           adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
         }
         return acc + adminShare;

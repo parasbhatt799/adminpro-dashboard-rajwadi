@@ -506,9 +506,9 @@ export default function BillPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                              req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                                req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
-                                  'bg-amber-50 text-amber-600'
+                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                              req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
+                                'bg-amber-50 text-amber-600'
                             }`}>
                             {req.status === 'pending' && <Clock size={8} />}
                             {req.status === 'approved' && <CheckCircle2 size={8} />}
@@ -674,8 +674,8 @@ export default function BillPaymentRequests() {
                       key={i}
                       onClick={() => setCurrentPage(i)}
                       className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                          : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                         }`}
                     >
                       {i}
