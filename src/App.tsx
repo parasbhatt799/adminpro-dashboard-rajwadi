@@ -38,6 +38,11 @@ import UserPolicies from './components/user/UserPolicies';
 import UserStatementReport from './components/user/UserStatementReport';
 import UserDashboard from './components/user/UserDashboard';
 import UserChangePassword from './components/user/UserChangePassword';
+import DistributorUsers from './components/user/DistributorUsers';
+import DistributorQRRequests from './components/user/DistributorQRRequests';
+import DistributorWithdrawal from './components/user/DistributorWithdrawal';
+import AdminDistributorWithdrawals from './components/AdminDistributorWithdrawals';
+import DistributorsList from './components/DistributorsList';
 import HomePage from './components/HomePage';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -908,6 +913,9 @@ export default function App() {
         >
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="bank-upload" element={<BankManagement />} />
+          <Route path="users" element={<UsersList adminRole={adminRole} />} />
+          <Route path="distributors" element={<DistributorsList />} />
+          <Route path="distributor-withdrawals" element={<AdminDistributorWithdrawals />} />
           <Route path="service-charge" element={<ServiceChargeManagement adminRole={adminRole} />} />
           <Route path="qr-payment-requests" element={<QRPaymentRequests />} />
           <Route path="bill-payment-requests" element={<BillPaymentRequests />} />
@@ -945,9 +953,13 @@ export default function App() {
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="reports" element={<UserReports userId={userId} />} />
           <Route path="statement" element={<UserStatementReport userId={userId} />} />
+          <Route path="my-users" element={<DistributorUsers userId={userId} />} />
+          <Route path="users-qr-requests" element={<DistributorQRRequests userId={userId} />} />
+          <Route path="withdrawal" element={<DistributorWithdrawal userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
           <Route path="policies" element={<UserPolicies userId={userId} />} />
           <Route path="change-password" element={<UserChangePassword userId={userId} onLogout={handleLogout} />} />
+          
         </Route>
         <Route 
           path="/login" 

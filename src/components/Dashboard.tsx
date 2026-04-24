@@ -1,6 +1,6 @@
-import { 
-  Wallet, 
-  TrendingUp, 
+import {
+  Wallet,
+  TrendingUp,
   Clock,
   Loader2,
   CreditCard,
@@ -22,12 +22,12 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { 
-  startOfDay, 
-  endOfDay, 
-  subDays, 
-  startOfYesterday, 
-  endOfYesterday, 
+import {
+  startOfDay,
+  endOfDay,
+  subDays,
+  startOfYesterday,
+  endOfYesterday,
   format,
   parseISO
 } from 'date-fns';
@@ -90,69 +90,123 @@ export default function Dashboard() {
         .select('admin_balance')
         .eq('id', 1)
         .single();
-      
+
       const adminWalletBalance = Number(qrSettingsData?.admin_balance) || 0;
 
       // 2. Total Users Wallet Balance (Always Lifetime)
       const { data: usersData, error: usersError } = await supabase
         .from('users_profiles')
         .select('wallet_balance');
-      
+
       if (usersError) throw usersError;
       const totalWalletBalance = usersData?.reduce((acc, user) => acc + (Number(user.wallet_balance) || 0), 0) || 0;
 
       // 3. Transactions (Filtered by Date)
-      let billQuery = supabase.from('bill_submissions').select('amount, charges').eq('status', 'approved');
-      let qrQuery = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved');
+      let billQuery = supabase
+        .from('bill_submissions')
+        .select(`
+          amount, 
+          charges, 
+          user:user_id(
+            distributor_id,
+            admin_base_bill_charge,
+            distributor:distributor_id(admin_base_bill_charge, role)
+          )
+        `)
+        .eq('status', 'approved');
+
+      let qrQuery = supabase
+        .from('payment_submissions')
+        .select(`
+          amount, 
+          charges, 
+          user_id,
+          user:user_id(
+            distributor_id,
+            admin_base_qr_charge,
+            distributor:distributor_id(admin_base_qr_charge, role)
+          )
+        `)
+        .eq('status', 'approved');
+
       let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingBillQuery = supabase.from('bill_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let pendingQrQuery = supabase.from('payment_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
       let activeUsersQuery = supabase.from('users_profiles').select('count', { count: 'exact', head: true }).eq('kyc_status', 'verified');
       let payoutQuery = supabase.from('payout_submissions').select('amount, charge_amount').eq('status', 'approved');
       let pendingPayoutQuery = supabase.from('payout_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
+      let withdrawalQuery = supabase.from('admin_withdrawals').select('amount');
 
       if (startDate && endDate) {
         billQuery = billQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
         qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
         payoutQuery = payoutQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
+        withdrawalQuery = withdrawalQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
       const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes, activeUsersRes, withdrawalRes, payoutRes, pendingPayoutRes] = await Promise.all([
-        billQuery, 
-        qrQuery, 
-        pendingKycQuery, 
+        billQuery,
+        qrQuery,
+        pendingKycQuery,
         pendingBillQuery,
         pendingQrQuery,
         activeUsersQuery,
-        supabase.from('admin_withdrawals').select('amount'),
+        withdrawalQuery,
         payoutQuery,
         pendingPayoutQuery
       ]);
-      
+
       const pendingKycCount = kycRes.count || 0;
       const pendingBillCount = pendingBillRes.count || 0;
       const pendingQrCount = pendingQrRes.count || 0;
       const pendingPayoutCount = pendingPayoutRes.count || 0;
       const activeUsersCount = activeUsersRes.count || 0;
-      
+
       const billData = billRes.data || [];
       const qrData = qrRes.data || [];
       const payoutData = payoutRes.data || [];
       const withdrawalData = withdrawalRes.data || [];
-      
-      const rangeBillCharges = billData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
-      const rangeQrCharges = qrData.reduce((acc, curr) => acc + (Number(curr.charges) || 0), 0) || 0;
+
+      // Calculate Admin's share for QR Charges
+      const rangeQrCharges = qrData.reduce((acc, curr: any) => {
+        let adminShare = Number(curr.charges) || 0;
+        const user = curr.user;
+
+        // Admin only splits profit if the manager is still a DISTRIBUTOR
+        if (user?.distributor_id && user?.distributor && user.distributor.role === 'distributor') {
+          const adminBasePercentage = Number(user.distributor.admin_base_qr_charge) || 0;
+          adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
+        }
+        return acc + adminShare;
+      }, 0);
+
+      // Calculate Admin's share for Bill Charges
+      const rangeBillCharges = billData.reduce((acc, curr: any) => {
+        let adminShare = Number(curr.charges) || 0;
+        const user = curr.user;
+
+        // Admin only splits profit if the manager is still a DISTRIBUTOR
+        if (user?.distributor_id && user?.distributor && user.distributor.role === 'distributor') {
+          const adminBasePercentage = Number(user.distributor.admin_base_bill_charge) || 0;
+          adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
+        }
+        return acc + adminShare;
+      }, 0);
+
+      // Payout charges are usually fixed or simpler, but we'll apply same logic if needed
+      // Currently payout submissions don't seem to have a distributor split logic in the code, 
+      // but let's keep it as is or apply if there's a base charge.
       const rangePayoutCharges = payoutData.reduce((acc, curr) => acc + (Number(curr.charge_amount) || 0), 0) || 0;
-      const totalWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-      
+      const rangeWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
+
       const rangeBillAmount = billData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-      
-      const rangeTotalCharges = rangeBillCharges + rangeQrCharges + rangePayoutCharges - (timeRange === 'all' ? totalWithdrawals : 0);
+
+      const rangeTotalCharges = rangeBillCharges + rangeQrCharges + rangePayoutCharges - rangeWithdrawals;
       const rangeTotalCCBill = rangeBillAmount;
 
-      const dateDisplay = startDate && endDate 
+      const dateDisplay = startDate && endDate
         ? `${format(startDate, 'dd MMM')} - ${format(endDate, 'dd MMM')}`
         : 'Lifetime';
 
@@ -248,7 +302,7 @@ export default function Dashboard() {
         .select('*, users_profiles(name, firm_name)')
         .eq('status', 'refunded')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setRefundedRequests(data || []);
     } catch (err) {
@@ -284,7 +338,7 @@ export default function Dashboard() {
         // 1. Credit charges to Admin Wallet
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-        
+
         await supabase
           .from('qr_settings')
           .update({ admin_balance: currentAdminBalance + requestCharges })
@@ -314,7 +368,7 @@ export default function Dashboard() {
           .select('wallet_balance')
           .eq('id', targetRequest.user_id)
           .single();
-        
+
         const currentUserBalance = Number(userData?.wallet_balance) || 0;
 
         await supabase
@@ -325,9 +379,9 @@ export default function Dashboard() {
         // 2. Update status to rejected
         await supabase
           .from('bill_submissions')
-          .update({ 
-            status: 'rejected', 
-            rejection_reason: customReason || reason 
+          .update({
+            status: 'rejected',
+            rejection_reason: customReason || reason
           })
           .eq('id', id);
 
@@ -365,6 +419,8 @@ export default function Dashboard() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_withdrawals' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'users_profiles' }, () => fetchStats())
       .subscribe();
 
     return () => {
@@ -392,20 +448,20 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
           {timeRange === 'custom' && (
             <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={customDates.start}
                 onChange={(e) => setCustomDates(prev => ({ ...prev, start: e.target.value }))}
                 className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
               />
               <span className="text-slate-300 text-xs">to</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={customDates.end}
                 onChange={(e) => setCustomDates(prev => ({ ...prev, end: e.target.value }))}
                 className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
               />
-              <button 
+              <button
                 onClick={fetchStats}
                 className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-500 transition-colors"
                 title="Apply Filter"
@@ -416,7 +472,7 @@ export default function Dashboard() {
           )}
 
           <div className="relative">
-            <button 
+            <button
               onClick={() => setShowFilter(!showFilter)}
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:border-indigo-300 transition-all shadow-sm"
             >
@@ -429,7 +485,7 @@ export default function Dashboard() {
               {showFilter && (
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowFilter(false)}></div>
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -442,9 +498,8 @@ export default function Dashboard() {
                           setTimeRange(range);
                           setShowFilter(false);
                         }}
-                        className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 ${
-                          timeRange === range ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'
-                        }`}
+                        className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 ${timeRange === range ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'
+                          }`}
                       >
                         {rangeLabels[range]}
                       </button>
@@ -484,7 +539,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-                
+
                 <div className="mt-6 relative z-10">
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{stat.title}</p>
                   <h3 className="text-3xl font-bold text-slate-900 mt-2 font-mono tracking-tight group-hover:text-indigo-600 transition-colors">
@@ -598,7 +653,7 @@ export default function Dashboard() {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center justify-end gap-2">
-                            <button 
+                            <button
                               onClick={() => setRejectionRowId(rejectionRowId === req.id ? null : req.id)}
                               disabled={processingId === req.id}
                               className={`p-2 rounded-xl transition-all shadow-sm ${rejectionRowId === req.id ? 'bg-rose-100 text-rose-600 ring-4 ring-rose-50' : 'bg-rose-50 text-rose-500 hover:bg-rose-100'}`}
@@ -606,7 +661,7 @@ export default function Dashboard() {
                             >
                               <XCircle size={20} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleAction(req.id, 'approved')}
                               disabled={processingId === req.id}
                               className="p-2 bg-emerald-50 text-emerald-500 hover:bg-emerald-100 rounded-xl transition-all shadow-sm"
@@ -620,14 +675,14 @@ export default function Dashboard() {
                       {rejectionRowId === req.id && (
                         <tr>
                           <td colSpan={8} className="px-6 py-4 bg-rose-50/30 border-y border-rose-100/50">
-                            <motion.div 
+                            <motion.div
                               initial={{ opacity: 0, scale: 0.98 }}
                               animate={{ opacity: 1, scale: 1 }}
                               className="flex flex-col md:flex-row items-end gap-4"
                             >
                               <div className="flex-1 w-full">
                                 <label className="block text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Select Rejection Reason</label>
-                                <select 
+                                <select
                                   value={reason}
                                   onChange={(e) => setReason(e.target.value)}
                                   className="w-full px-4 py-2 bg-white border border-rose-100 rounded-xl text-xs font-bold outline-none focus:ring-2 focus:ring-rose-500/20"
@@ -639,13 +694,13 @@ export default function Dashboard() {
                                 </select>
                               </div>
                               <div className="flex gap-2 shrink-0">
-                                <button 
+                                <button
                                   onClick={() => setRejectionRowId(null)}
                                   className="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
                                 >
                                   Cancel
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => handleAction(req.id, 'rejected')}
                                   disabled={!reason || processingId === req.id}
                                   className="px-6 py-2 bg-rose-600 text-white text-xs font-bold rounded-xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-200 flex items-center gap-2 disabled:opacity-50"

@@ -13,16 +13,18 @@ import {
   Shield
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useState, type FormEvent, type ChangeEvent } from 'react';
+import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { supabase } from '../lib/supabase';
 
 interface AddUserProps {
   onBack: () => void;
   onSuccess: () => void;
   initialData?: any;
+  isDistributorView?: boolean;
+  distributorBaseCharge?: number;
 }
 
-export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps) {
+export default function AddUser({ onBack, onSuccess, initialData, isDistributorView, distributorBaseCharge = 0 }: AddUserProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
@@ -55,8 +57,27 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
     custom_service_charge: initialData?.custom_service_charge?.toString() || '',
     hold_balance: initialData?.hold_balance?.toString() || '0',
     is_hold_active: (initialData?.hold_balance || 0) > 0,
-    hold_input: '0'
+    hold_input: '0',
+    role: initialData?.role || 'user',
+    admin_base_qr_charge: initialData?.admin_base_qr_charge?.toString() || '0',
+    distributor_id: initialData?.distributor_id || ''
   });
+
+  const [distributors, setDistributors] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isDistributorView) {
+      const fetchDistributors = async () => {
+        const { data } = await supabase
+          .from('users_profiles')
+          .select('id, firm_name, name')
+          .eq('role', 'distributor')
+          .eq('status', 'Active');
+        if (data) setDistributors(data);
+      };
+      fetchDistributors();
+    }
+  }, [isDistributorView]);
 
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -96,12 +117,12 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
 
       if (checkError) throw checkError;
 
-      if (existingUser && (!initialData || existingUser.id !== initialData.id)) {
+      if (existingUser && (!initialData?.id || existingUser.id !== initialData.id)) {
         throw new Error(`A user with mobile number ${formData.mobile_number} already exists.`);
       }
 
       let profile_photo_url = initialData?.profile_photo_url || null;
-      const generatedPassword = !initialData ? generatePassword() : null;
+      const generatedPassword = !initialData?.id ? generatePassword() : null;
 
       // 1. Upload photo if selected
       if (profilePhoto) {
@@ -131,15 +152,25 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
         home_address: formData.home_address,
         firm_name: formData.firm_name,
         firm_address: formData.firm_address,
-        charge_percentage: parseFloat(formData.charge_percentage) || 0,
-        service_charge_enabled: formData.service_charge_enabled,
-        custom_service_charge: parseFloat(formData.custom_service_charge) || 0,
+        charge_percentage: Number(formData.charge_percentage) || 0,
         profile_photo_url,
-        status: initialData?.status || 'Active'
+        status: initialData?.status || 'Active',
+        role: isDistributorView ? 'user' : formData.role,
+        admin_base_qr_charge: isDistributorView ? distributorBaseCharge : (parseFloat(formData.admin_base_qr_charge) || 0),
+        distributor_id: isDistributorView ? (initialData?.distributor_id || null) : (formData.distributor_id || null),
+        service_charge_enabled: isDistributorView ? false : formData.service_charge_enabled,
+        custom_service_charge: isDistributorView ? 0 : (parseFloat(formData.custom_service_charge) || 0)
       };
 
+      // Validation for Distributors
+      if (isDistributorView) {
+        if (userData.charge_percentage <= distributorBaseCharge) {
+          throw new Error(`Charge percentage must be higher than your base charge of ${distributorBaseCharge}%.`);
+        }
+      }
+
       // Handle Hold Balance Logic
-      if (initialData) {
+      if (initialData?.id) {
         let finalWallet = Number(initialData.wallet_balance || 0);
         let finalHold = Number(initialData.hold_balance || 0);
 
@@ -179,13 +210,13 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
         userData.hold_balance = finalHold;
       }
 
-      if (!initialData) {
+      if (!initialData?.id) {
         userData.password = generatedPassword;
         userData.must_change_password = true;
         userData.kyc_status = 'pending';
       }
 
-      if (initialData) {
+      if (initialData?.id) {
         const { error: updateError } = await supabase
           .from('users_profiles')
           .update(userData)
@@ -273,9 +304,9 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
           <ArrowLeft size={24} />
         </button>
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">{initialData ? 'Update User' : 'Add New User'}</h2>
+          <h2 className="text-2xl font-bold text-slate-900">{initialData?.id ? 'Update User' : 'Add New User'}</h2>
           <p className="text-slate-500 text-sm">
-            {initialData ? `Updating information for ${initialData.name}` : 'Fill in the details below to register a new user in the system.'}
+            {initialData?.id ? `Updating information for ${initialData.name}` : 'Fill in the details below to register a new user in the system.'}
           </p>
         </div>
       </div>
@@ -437,6 +468,82 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
             </div>
           </div>
 
+          {!isDistributorView && (
+            <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
+              <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                <Shield size={20} className="text-indigo-600" />
+                Role & Account Settings
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="flex flex-col justify-center">
+                  <label className="flex items-center gap-3 cursor-pointer group">
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        className="sr-only"
+                        checked={formData.role === 'distributor'}
+                        disabled={initialData?.role === 'distributor'}
+                        onChange={(e) => setFormData({ ...formData, role: e.target.checked ? 'distributor' : 'user' })}
+                      />
+                      <div className={`w-12 h-6 rounded-full transition-colors ${formData.role === 'distributor' ? 'bg-indigo-600' : 'bg-slate-200'} ${initialData?.role === 'distributor' ? 'opacity-60 cursor-not-allowed' : ''}`}></div>
+                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.role === 'distributor' ? 'translate-x-6' : ''}`}></div>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-slate-700">Make this user a Distributor</span>
+                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
+                        {initialData?.role === 'distributor' ? 'Permanent Distributor (Cannot revert)' : `Currently: ${formData.role === 'distributor' ? 'Distributor' : 'Standard User'}`}
+                      </span>
+                    </div>
+                  </label>
+                </div>
+                {formData.role === 'distributor' && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                  >
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Admin Base QR Charge (%)</label>
+                    <div className="relative">
+                      <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input
+                        type="number"
+                        step="0.01"
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-bold text-indigo-600"
+                        placeholder="0.00"
+                        value={formData.admin_base_qr_charge}
+                        onChange={(e) => setFormData({ ...formData, admin_base_qr_charge: e.target.value })}
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2">This is the fixed cost the distributor pays to the admin.</p>
+                  </motion.div>
+                )}
+
+                {!isDistributorView && (
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Assign to Distributor (Parent)</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <select
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
+                        value={formData.distributor_id}
+                        onChange={(e) => setFormData({ ...formData, distributor_id: e.target.value })}
+                      >
+                        <option value="">NONE (DIRECT USER)</option>
+                        {distributors.map(dist => (
+                          <option key={dist.id} value={dist.id}>
+                            {dist.firm_name ? `${dist.firm_name} (${dist.name})` : dist.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium uppercase tracking-wider ml-1">
+                      Choose which distributor will manage this user and earn profit margin.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
             <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
               <Percent size={20} className="text-indigo-600" />
@@ -458,49 +565,58 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
                     onChange={(e) => setFormData({ ...formData, charge_percentage: e.target.value })}
                   />
                 </div>
+                {isDistributorView && (
+                  <p className="text-[10px] text-amber-600 mt-2 font-bold uppercase tracking-widest">
+                    Must be higher than your base charge: {distributorBaseCharge}%
+                  </p>
+                )}
               </div>
 
-              <div className="flex flex-col justify-center">
-                <label className="flex items-center gap-3 cursor-pointer group">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      className="sr-only"
-                      checked={formData.service_charge_enabled}
-                      onChange={(e) => setFormData({ ...formData, service_charge_enabled: e.target.checked })}
-                    />
-                    <div className={`w-12 h-6 rounded-full transition-colors ${formData.service_charge_enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}></div>
-                    <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.service_charge_enabled ? 'translate-x-6' : ''}`}></div>
+              {!isDistributorView && (
+                <>
+                  <div className="flex flex-col justify-center">
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          className="sr-only"
+                          checked={formData.service_charge_enabled}
+                          onChange={(e) => setFormData({ ...formData, service_charge_enabled: e.target.checked })}
+                        />
+                        <div className={`w-12 h-6 rounded-full transition-colors ${formData.service_charge_enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}></div>
+                        <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.service_charge_enabled ? 'translate-x-6' : ''}`}></div>
+                      </div>
+                      <span className="text-sm font-bold text-slate-700">Service Charge On/Off</span>
+                    </label>
                   </div>
-                  <span className="text-sm font-bold text-slate-700">Service Charge On/Off</span>
-                </label>
-              </div>
 
-              {formData.service_charge_enabled && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  className="md:col-span-2"
-                >
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Service Charge (Optional)</label>
-                  <div className="relative">
-                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      placeholder="0.00"
-                      value={formData.custom_service_charge}
-                      onChange={(e) => setFormData({ ...formData, custom_service_charge: e.target.value })}
-                    />
-                  </div>
-                </motion.div>
+                  {formData.service_charge_enabled && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="md:col-span-2"
+                    >
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Custom Service Charge (Optional)</label>
+                      <div className="relative">
+                        <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input
+                          type="number"
+                          step="0.01"
+                          className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                          placeholder="0.00"
+                          value={formData.custom_service_charge}
+                          onChange={(e) => setFormData({ ...formData, custom_service_charge: e.target.value })}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+                </>
               )}
             </div>
           </div>
 
           {/* Hold Balance Management Section */}
-          {initialData && (
+          {initialData && !isDistributorView && (
             <div className="bg-amber-50 rounded-3xl border border-amber-100 shadow-sm p-8">
               <h3 className="font-bold text-amber-900 mb-6 flex items-center gap-2">
                 <Shield size={20} className="text-amber-600" />
@@ -578,7 +694,7 @@ export default function AddUser({ onBack, onSuccess, initialData }: AddUserProps
               className="px-10 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-              {initialData ? 'Update User' : 'Save User'}
+              {initialData?.id ? 'Update User' : 'Save User'}
             </button>
           </div>
         </div>

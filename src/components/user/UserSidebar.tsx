@@ -9,7 +9,8 @@ import {
   LayoutDashboard,
   ChevronLeft,
   ChevronRight,
-  KeyRound
+  KeyRound,
+  Wallet
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink, Link } from 'react-router-dom';
@@ -17,6 +18,7 @@ import { NavLink, Link } from 'react-router-dom';
 interface UserSidebarProps {
   onLogout: () => void;
   isCollapsed: boolean;
+  role?: string;
 }
 
 const menuItems = [
@@ -28,8 +30,25 @@ const menuItems = [
   { id: 'change-password', label: 'Security', icon: KeyRound, path: '/user/change-password' },
 ];
 
-export default function UserSidebar({ onLogout, isCollapsed }: UserSidebarProps) {
+export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebarProps) {
   const [branding, setBranding] = useState<{logo: string, mini: string, fav: string}>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
+
+  const distributorItems = role === 'distributor' ? [
+    { id: 'my-users', label: 'My Users', icon: ClipboardList, path: '/user/my-users' },
+    { id: 'users-qr-requests', label: 'Users QR Requests', icon: FileText, path: '/user/users-qr-requests' },
+    { id: 'withdrawal', label: 'Withdraw Commission', icon: Wallet, path: '/user/withdrawal' },
+  ] : [];
+
+  const finalMenuItems = [
+    ...menuItems.slice(0, 1),
+    ...distributorItems,
+    ...menuItems.slice(1).filter(item => {
+      if (role === 'distributor' && (item.id === 'payment' || item.id === 'statement')) {
+        return false;
+      }
+      return true;
+    })
+  ];
 
   useEffect(() => {
     const fetchBranding = async () => {
@@ -85,7 +104,7 @@ export default function UserSidebar({ onLogout, isCollapsed }: UserSidebarProps)
       {/* Nav */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 no-scrollbar">
         <nav className="space-y-1">
-          {menuItems.map((item) => {
+          {finalMenuItems.map((item) => {
             const Icon = item.icon;
             return (
               <NavLink

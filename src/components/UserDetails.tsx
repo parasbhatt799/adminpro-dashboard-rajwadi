@@ -27,9 +27,10 @@ interface UserDetailsProps {
   onBack: () => void;
   onEdit: (user: any) => void;
   onDelete: () => void;
+  isDistributorView?: boolean;
 }
 
-export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDetailsProps) {
+export default function UserDetails({ user, onBack, onEdit, onDelete, isDistributorView }: UserDetailsProps) {
   const [activeTab, setActiveTab] = useState<'firm' | 'kyc'>('firm');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -324,7 +325,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
             </div>
           </div>
 
-          {Number(user.hold_balance || 0) > 0 && (
+          {Number(user.hold_balance || 0) > 0 && !isDistributorView && (
             <div className="bg-amber-500 rounded-3xl p-6 text-white shadow-lg shadow-amber-100">
                <h4 className="text-amber-100 text-xs font-bold uppercase tracking-widest mb-4">Hold Balance</h4>
                <div className="flex items-end justify-between">
@@ -369,20 +370,22 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
                     <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">QR Service Charge (%)</p>
                     <div className="flex items-center gap-2 text-indigo-600">
                       <Percent size={20} />
-                      <p className="text-2xl font-bold">{user.charge_percentage}%</p>
+                      <p className="text-2xl font-bold">{user.charge_percentage}</p>
                     </div>
                   </div>
-                  <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Service Charge On/Off</p>
-                    <div className="flex items-center gap-3">
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.service_charge_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                        {user.service_charge_enabled ? 'Enabled' : 'Disabled'}
-                      </span>
-                      {user.service_charge_enabled && (
-                        <p className="text-lg font-bold text-slate-900">₹{user.custom_service_charge}</p>
-                      )}
+                  {!isDistributorView && (
+                    <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Service Charge On/Off</p>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.service_charge_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                          {user.service_charge_enabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        {user.service_charge_enabled && (
+                          <p className="text-lg font-bold text-slate-900">₹{user.custom_service_charge}</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -451,13 +454,15 @@ export default function UserDetails({ user, onBack, onEdit, onDelete }: UserDeta
               <Edit3 size={20} className="text-indigo-600" />
               Update Information
             </button>
-            <button 
-              onClick={() => setShowDeleteConfirm(true)}
-              className="flex-1 flex items-center justify-center gap-2 py-4 bg-rose-50 border border-rose-100 rounded-2xl font-bold text-rose-600 hover:bg-rose-100 transition-all shadow-sm active:scale-95"
-            >
-              <Trash2 size={20} />
-              Delete User Account
-            </button>
+            {!isDistributorView && (
+              <button 
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex-1 flex items-center justify-center gap-2 py-4 bg-rose-50 border border-rose-100 rounded-2xl font-bold text-rose-600 hover:bg-rose-100 transition-all shadow-sm active:scale-95"
+              >
+                <Trash2 size={20} />
+                Delete User Account
+              </button>
+            )}
           </div>
         </div>
       </div>

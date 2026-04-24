@@ -11,6 +11,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { 
   startOfDay, 
   endOfDay, 
@@ -26,6 +27,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [distributor, setDistributor] = useState<any>(null);
   const [watermark, setWatermark] = useState<{ enabled: boolean; logo: string | null }>({ enabled: false, logo: null });
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
   const [customRange, setCustomRange] = useState({ 
@@ -50,11 +52,12 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
         const { data: profile } = await supabase
           .from('users_profiles')
-          .select('*')
+          .select('*, distributor:distributor_id(name, firm_name)')
           .eq('id', userId)
           .single();
 
         setUserProfile(profile);
+        setDistributor((profile as any)?.distributor);
 
         // Date range logic
         let startDate: string | null = null;
@@ -134,8 +137,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
         setStats([
           {
-            title: "Total Balance",
-            value: `₹${(Number(profile?.wallet_balance) || 0).toLocaleString()}`,
+            title: profile?.role === 'distributor' ? "Commission Wallet" : "Total Balance",
+            value: `₹${(Number(profile?.role === 'distributor' ? profile?.commission_balance : profile?.wallet_balance) || 0).toLocaleString()}`,
             trend: "neutral",
             icon: Wallet,
             color: "bg-emerald-500"
@@ -148,27 +151,29 @@ export default function UserDashboard({ userId }: { userId: string }) {
             color: "bg-amber-500",
             subtitle: "Locked by Admin"
           }] : []),
-          {
-            title: "QR Payment",
-            value: `₹${qrTotal.toLocaleString()}`,
-            trend: "neutral",
-            icon: QrCode,
-            color: "bg-blue-500"
-          },
-          {
-            title: "Bill Payment",
-            value: `₹${billTotal.toLocaleString()}`,
-            trend: "neutral",
-            icon: CreditCard,
-            color: "bg-purple-500"
-          },
-          {
-            title: "Pending Requests",
-            value: totalPending.toString(),
-            trend: "neutral",
-            icon: Clock,
-            color: "bg-amber-500"
-          }
+          ...(profile?.role !== 'distributor' ? [
+            {
+              title: "QR Payment",
+              value: `₹${qrTotal.toLocaleString()}`,
+              trend: "neutral",
+              icon: QrCode,
+              color: "bg-blue-500"
+            },
+            {
+              title: "Bill Payment",
+              value: `₹${billTotal.toLocaleString()}`,
+              trend: "neutral",
+              icon: CreditCard,
+              color: "bg-purple-500"
+            },
+            {
+              title: "Pending Requests",
+              value: totalPending.toString(),
+              trend: "neutral",
+              icon: Clock,
+              color: "bg-amber-500"
+            }
+          ] : [])
         ]);
       } catch (err) {
         console.error('Error fetching dashboard stats:', err);
@@ -222,9 +227,31 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
       <div className="relative z-10 space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h2 className="text-2xl font-bold text-slate-900">𝐖𝐄𝐋𝐂𝐎𝐌𝐄 𝐁𝐀𝐂𝐊 🙏 {userProfile?.name || 'User'}!</h2>
-            <p className="text-slate-500 mt-1">Here's what's happening with your account today.</p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-6">
+            <div>
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
+                {userProfile?.role === 'distributor' && (
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-indigo-200">
+                      Distributor
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                      ID: {userId}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <p className="text-slate-500 mt-1">Welcome back, {userProfile?.name || 'User'}! Here's your business overview.</p>
+              {distributor && userProfile?.role !== 'distributor' && (
+                <div className="mt-2 flex items-center gap-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Managed By:</span>
+                  <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg border border-indigo-100">
+                    {distributor.firm_name || distributor.name}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">

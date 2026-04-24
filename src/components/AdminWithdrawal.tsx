@@ -37,10 +37,24 @@ export default function AdminWithdrawal() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Lifetime Service Charges
-      const [qrRes, billRes, withdrawalRes] = await Promise.all([
-        supabase.from('payment_submissions').select('charges').eq('status', 'approved'),
-        supabase.from('bill_submissions').select('charges').eq('status', 'approved'),
+      // 1. Fetch Lifetime Service Charges with joins for fallback calculation
+      const [qrRes, billRes, payoutRes, withdrawalRes] = await Promise.all([
+        supabase.from('payment_submissions')
+          .select(`
+            charges, 
+            amount, 
+            admin_share,
+            user:user_id(
+              distributor_id,
+              admin_base_qr_charge,
+              distributor:distributor_id(admin_base_qr_charge, role)
+            )
+          `)
+          .eq('status', 'approved'),
+        supabase.from('bill_submissions')
+          .select(`charges, admin_share`)
+          .eq('status', 'approved'),
+        supabase.from('payout_submissions').select('charge_amount').eq('status', 'approved'),
         supabase.from('admin_withdrawals').select('*').order('created_at', { ascending: false })
       ]);
       
@@ -48,11 +62,34 @@ export default function AdminWithdrawal() {
       if (billRes.error) throw billRes.error;
       if (withdrawalRes.error) throw withdrawalRes.error;
 
-      const totalQrCharges = (qrRes.data || []).reduce((acc, r) => acc + (Number(r.charges) || 0), 0);
-      const totalBillCharges = (billRes.data || []).reduce((acc, r) => acc + (Number(r.charges) || 0), 0);
+      // Calculate QR Charges (with split logic)
+      const totalQrCharges = (qrRes.data || []).reduce((acc, curr: any) => {
+        // 1. If we have a stored share (frozen data), use it directly
+        if (curr.admin_share !== null && curr.admin_share !== undefined) {
+          return acc + Number(curr.admin_share);
+        }
+        // 2. Fallback: Split profit if distributor exists
+        let adminShare = Number(curr.charges) || 0;
+        const user = curr.user;
+        if (user?.distributor_id && user?.distributor && user.distributor.role === 'distributor') {
+          const adminBasePercentage = Number(user.distributor.admin_base_qr_charge) || 0;
+          adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
+        }
+        return acc + adminShare;
+      }, 0);
+
+      // Calculate Bill Charges (Always full for admin)
+      const totalBillCharges = (billRes.data || []).reduce((acc, curr: any) => {
+        if (curr.admin_share !== null && curr.admin_share !== undefined) {
+          return acc + Number(curr.admin_share);
+        }
+        return acc + (Number(curr.charges) || 0);
+      }, 0);
+
+      const totalPayoutCharges = (payoutRes.data || []).reduce((acc, r) => acc + (Number(r.charge_amount) || 0), 0);
       const totalWithdrawals = (withdrawalRes.data || []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
 
-      const calculatedBalance = totalQrCharges + totalBillCharges - totalWithdrawals;
+      const calculatedBalance = totalQrCharges + totalBillCharges + totalPayoutCharges - totalWithdrawals;
       setBalance(calculatedBalance);
       setHistory(withdrawalRes.data || []);
 

@@ -387,14 +387,12 @@ export default function BillPaymentRequests() {
               <button
                 onClick={handleToggleBill}
                 disabled={savingSettings}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${
-                  isBillEnabled ? 'bg-emerald-500' : 'bg-slate-200'
-                }`}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${isBillEnabled ? 'bg-emerald-500' : 'bg-slate-200'
+                  }`}
               >
                 <span
-                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                    isBillEnabled ? 'translate-x-5' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${isBillEnabled ? 'translate-x-5' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
@@ -507,12 +505,11 @@ export default function BillPaymentRequests() {
                       </td>
                       <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                            req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                            req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
-                            'bg-amber-50 text-amber-600'
-                          }`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                              req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
+                                  'bg-amber-50 text-amber-600'
+                            }`}>
                             {req.status === 'pending' && <Clock size={8} />}
                             {req.status === 'approved' && <CheckCircle2 size={8} />}
                             {req.status === 'rejected' && <XCircle size={8} />}
@@ -521,7 +518,7 @@ export default function BillPaymentRequests() {
                           </span>
                           {req.status === 'rejected' && (req as any).rejection_reason && (
                             <div className="flex flex-col gap-1">
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setRejectionRowId(rejectionRowId === req.id ? null : req.id);
@@ -666,7 +663,7 @@ export default function BillPaymentRequests() {
                 const maxVisible = 5;
                 let start = Math.max(1, currentPage - 2);
                 let end = Math.min(totalPages, start + maxVisible - 1);
-                
+
                 if (end - start + 1 < maxVisible) {
                   start = Math.max(1, end - maxVisible + 1);
                 }
@@ -676,11 +673,10 @@ export default function BillPaymentRequests() {
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i)}
-                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
-                        currentPage === i 
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
                           : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
-                      }`}
+                        }`}
                     >
                       {i}
                     </button>

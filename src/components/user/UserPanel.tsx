@@ -129,6 +129,16 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     }
   }, [userProfile]);
 
+  // Route Protection for Distributors
+  useEffect(() => {
+    if (userProfile?.role === 'distributor') {
+      const restrictedPaths = ['/user/payment', '/user/statement', '/user/reports'];
+      if (restrictedPaths.includes(location.pathname)) {
+        navigate('/user/dashboard', { replace: true });
+      }
+    }
+  }, [location.pathname, userProfile, navigate]);
+
 
   if (loading) {
     return (
@@ -302,7 +312,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         )}
       </AnimatePresence>
 
-      <UserSidebar onLogout={onLogout} isCollapsed={isSidebarCollapsed} />
+      <UserSidebar onLogout={onLogout} isCollapsed={isSidebarCollapsed} role={userProfile?.role} />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
@@ -327,10 +337,17 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
 
           <div className="flex items-center gap-4">
             <LiveClock colorClass="text-emerald-700" />
-            <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
-              <Wallet className="text-emerald-600" size={18} />
-              <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-            </div>
+            {userProfile?.role === 'distributor' ? (
+              <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="Commission Wallet">
+                <Wallet className="text-indigo-600" size={18} />
+                <span className="text-sm font-bold text-indigo-700">₹{(Number(userProfile?.commission_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
+                <Wallet className="text-emerald-600" size={18} />
+                <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            )}
 
             {Number(userProfile?.hold_balance || 0) > 0 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl" title="Hold Balance (Locked)">

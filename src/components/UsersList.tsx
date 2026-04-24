@@ -58,8 +58,10 @@ export default function UsersList() {
         query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%,firm_name.ilike.%${searchTerm}%`);
       }
 
-      // Status Filter
-      if (statusFilter !== 'All') {
+      // Role/Status Filter
+      if (statusFilter === 'distributor') {
+        query = query.eq('role', 'distributor');
+      } else if (statusFilter !== 'All') {
         query = query.eq('status', statusFilter);
       }
 
@@ -350,6 +352,7 @@ export default function UsersList() {
             <option value="All">All Status</option>
             <option value="Active">Active Only</option>
             <option value="Suspended">Suspended Only</option>
+            <option value="distributor">Distributors</option>
           </select>
           <button 
             type="button"
@@ -478,6 +481,11 @@ export default function UsersList() {
                       }`}>
                         {user.status}
                       </span>
+                      {user.role === 'distributor' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-indigo-600 text-white shadow-sm shadow-indigo-200 ml-1">
+                          Distributor
+                        </span>
+                      )}
                     </td>
                     <td className="px-2 py-4">
                       <div className="flex items-center justify-center gap-1.5">

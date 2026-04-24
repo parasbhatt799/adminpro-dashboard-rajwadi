@@ -17,7 +17,8 @@ import {
   Shield,
   Lock,
   Settings,
-  TrendingDown
+  TrendingDown,
+  Wallet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
@@ -33,9 +34,11 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { id: 'users-list', label: 'Users list', icon: UserPlus, path: '/users-list', role: 'full' },
+  { id: 'distributors', label: 'Distributors', icon: Building2, path: '/distributors', role: 'full' },
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: Receipt, path: '/bill-payment-requests' },
   { id: 'payout-requests', label: 'Payout Request', icon: TrendingDown, path: '/payout-requests' },
+  { id: 'distributor-withdrawals', label: 'Dist. Withdrawals', icon: Wallet, path: '/distributor-withdrawals', role: 'full' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },
   { id: 'bank-upload', label: 'Bank Upload', icon: Building2, path: '/bank-upload' },

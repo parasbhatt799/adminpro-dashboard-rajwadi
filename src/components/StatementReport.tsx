@@ -73,7 +73,16 @@ export default function StatementReport() {
 
       // 1. Fetch QR Payments
       if (typeFilter === 'all' || typeFilter === 'QR') {
-        let qrQuery = supabase.from('payment_submissions').select('*, users_profiles!inner(firm_name), qr_history(qr_name)').eq('status', 'approved');
+        let qrQuery = supabase.from('payment_submissions').select(`
+          *, 
+          users_profiles!inner(
+            firm_name, 
+            distributor_id, 
+            admin_base_qr_charge, 
+            charge_percentage
+          ), 
+          qr_history(qr_name)
+        `).eq('status', 'approved');
         
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
@@ -149,8 +158,34 @@ export default function StatementReport() {
         }));
       }
 
+      // Fetch Distributor Firm Names for QR records that have a distributor_id
+      const distributorIds = Array.from(new Set(qrMapped.filter(r => r.raw_data.users_profiles?.distributor_id).map(r => r.raw_data.users_profiles.distributor_id)));
+      
+      let distributorMap: Record<string, string> = {};
+      if (distributorIds.length > 0) {
+        const { data: distData } = await supabase
+          .from('users_profiles')
+          .select('id, firm_name')
+          .in('id', distributorIds);
+        
+        if (distData) {
+          distData.forEach(d => {
+            distributorMap[d.id] = d.firm_name;
+          });
+        }
+      }
+
+      // Final mapping with distributor firm names
+      const finalQrMapped = qrMapped.map(r => {
+        const distId = r.raw_data.users_profiles?.distributor_id;
+        if (distId && distributorMap[distId]) {
+          return { ...r, distributor_firm: distributorMap[distId] };
+        }
+        return r;
+      });
+
       // Merge and Sort (Oldest first for running balance)
-      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
+      const merged = [...finalQrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
@@ -398,7 +433,27 @@ export default function StatementReport() {
                       ) : (
                         <>
                           <div className="break-all text-amber-600 font-bold">TxnId: {r.reference}</div>
-                          <div>({r.amount} - {r.charges} Txn Charge)</div>
+                          {r.raw_data.users_profiles?.distributor_id ? (
+                            <div className="bg-slate-50/50 border border-slate-100 rounded p-2 my-1 max-w-[200px]">
+                              <div className="flex justify-between text-[11px] mb-0.5">
+                                <span className="text-slate-500">Admin Profit:</span>
+                                <span className="font-bold text-rose-600">
+                                  ₹{((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-[11px] mb-1">
+                                <span className="text-slate-500">Dist. Profit:</span>
+                                <span className="font-bold text-amber-600">
+                                  ₹{(Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 uppercase font-black border-t border-slate-100 pt-1 mt-1 leading-tight">
+                                Recipient: {(r as any).distributor_firm || 'N/A'}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-slate-500 text-[11px]">({r.amount} - {r.charges} Txn Charge)</div>
+                          )}
                           <div className="text-slate-600 font-bold">PAYMENT QR <span className="text-amber-600">{r.raw_data?.qr_history?.qr_name}</span></div>
                         </>
                       )}

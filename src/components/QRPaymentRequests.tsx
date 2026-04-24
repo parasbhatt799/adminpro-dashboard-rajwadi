@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  QrCode, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
-  ExternalLink, 
+import {
+  QrCode,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  ExternalLink,
   Search,
   Filter,
   IndianRupee,
@@ -68,7 +68,7 @@ export default function QRPaymentRequests() {
     try {
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(name, firm_name), qr_history(qr_name, whatsapp_number)')
+        .select('*, users_profiles(name, firm_name, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -111,7 +111,7 @@ export default function QRPaymentRequests() {
     const targetReason = customReason || reason;
 
     if (!targetId) return;
-    
+
     setProcessingId(targetId);
     try {
       const { data: currentReq, error: fetchError } = await supabase
@@ -119,7 +119,7 @@ export default function QRPaymentRequests() {
         .select('status, amount, user_id, proof_url')
         .eq('id', targetId)
         .single();
-      
+
       if (fetchError || !currentReq) throw new Error('Request not found');
       if (currentReq.status !== 'pending') throw new Error('This request has already been processed');
 
@@ -129,15 +129,32 @@ export default function QRPaymentRequests() {
       if (targetType === 'approved') {
         const { data: userData, error: userFetchError } = await supabase
           .from('users_profiles')
-          .select('charge_percentage, wallet_balance')
+          .select('charge_percentage, wallet_balance, distributor_id, admin_base_qr_charge')
           .eq('id', currentReq.user_id)
           .single();
-        
+
         if (userFetchError) throw userFetchError;
 
-        const percentage = Number(userData.charge_percentage) || 0;
-        const calculatedCharges = (amount * percentage) / 100;
-        updateData.charges = calculatedCharges;
+        const userPercentage = Number(userData.charge_percentage) || 0;
+        const totalCharges = (amount * userPercentage) / 100;
+        updateData.charges = totalCharges;
+
+        // Logic for Distributor Profit Sharing
+        let adminShare = totalCharges;
+        let distributorProfit = 0;
+
+        if (userData.distributor_id) {
+          // Fetch the current base charge from the Distributor's profile
+          const { data: distProfile } = await supabase
+            .from('users_profiles')
+            .select('admin_base_qr_charge')
+            .eq('id', userData.distributor_id)
+            .single();
+
+          const adminBasePercentage = Number(distProfile?.admin_base_qr_charge) || 0;
+          adminShare = (amount * adminBasePercentage) / 100;
+          distributorProfit = totalCharges - adminShare;
+        }
 
         const { error: statusError } = await supabase
           .from('payment_submissions')
@@ -147,19 +164,49 @@ export default function QRPaymentRequests() {
 
         if (statusError) throw statusError;
 
+        // Update Admin Balance (Only Admin's Share)
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-        
+
         await supabase
           .from('qr_settings')
-          .update({ admin_balance: currentAdminBalance + calculatedCharges })
+          .update({ admin_balance: currentAdminBalance + adminShare })
           .eq('id', 1);
 
+        // Update User Wallet (Amount - Total Charges)
         const currentUserBalance = Number(userData.wallet_balance) || 0;
         await supabase
           .from('users_profiles')
-          .update({ wallet_balance: currentUserBalance + (amount - calculatedCharges) })
+          .update({ wallet_balance: currentUserBalance + (amount - totalCharges) })
           .eq('id', currentReq.user_id);
+
+        // Update Distributor Wallet if applicable (Commission Wallet)
+        if (distributorProfit > 0 && userData.distributor_id) {
+          const { data: distributorData } = await supabase
+            .from('users_profiles')
+            .select('commission_balance')
+            .eq('id', userData.distributor_id)
+            .single();
+
+          if (distributorData) {
+            const currentDistBalance = Number(distributorData.commission_balance) || 0;
+            await supabase
+              .from('users_profiles')
+              .update({ commission_balance: currentDistBalance + distributorProfit })
+              .eq('id', userData.distributor_id);
+
+            // Notify Distributor
+            await supabase
+              .from('notifications')
+              .insert([{
+                user_id: userData.distributor_id,
+                target_role: 'user',
+                title: 'Profit Earned!',
+                message: `You earned ₹${distributorProfit.toFixed(2)} profit from a sub-user's QR payment.`,
+                link: '/user/statement'
+              }]);
+          }
+        }
 
       } else {
         updateData.rejection_reason = targetReason;
@@ -168,7 +215,7 @@ export default function QRPaymentRequests() {
           .update(updateData)
           .eq('id', targetId)
           .eq('status', 'pending');
-        
+
         if (statusError) throw statusError;
       }
 
@@ -179,12 +226,12 @@ export default function QRPaymentRequests() {
           user_id: currentReq.user_id,
           target_role: 'user',
           title: `QR Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
-          message: targetType === 'approved' 
+          message: targetType === 'approved'
             ? `Your QR payment of ₹${amount.toLocaleString()} has been approved!`
             : `Your QR payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
           link: '/user/payment'
         }]);
-      
+
       if (nError) console.error('QR Status Notification Error:', nError);
 
       // 3.5 Trigger Push Notification
@@ -202,7 +249,7 @@ export default function QRPaymentRequests() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               title: `QR Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
-              message: targetType === 'approved' 
+              message: targetType === 'approved'
                 ? `Your QR payment of ₹${amount.toLocaleString()} has been approved!`
                 : `Your QR payment of ₹${amount.toLocaleString()} was rejected. Reason: ${targetReason}`,
               external_user_ids: [currentReq.user_id],
@@ -217,7 +264,7 @@ export default function QRPaymentRequests() {
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);
       }
- 
+
       // 4. Send WhatsApp Notification if enabled (Approved only)
       if (targetType === 'approved') {
         try {
@@ -262,22 +309,22 @@ export default function QRPaymentRequests() {
   };
 
   const filteredRequests = requests.filter(req => {
-    const matchesSearch = 
+    const matchesSearch =
       req.utr_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const reqDate = new Date(req.created_at);
     reqDate.setHours(0, 0, 0, 0);
-    
+
     const start = startDate ? new Date(startDate) : null;
     if (start) start.setHours(0, 0, 0, 0);
-    
+
     const end = endDate ? new Date(endDate) : null;
     if (end) end.setHours(0, 0, 0, 0);
-    
+
     const matchesStartDate = !start || reqDate >= start;
     const matchesEndDate = !end || reqDate <= end;
-    
+
     return matchesSearch && matchesStartDate && matchesEndDate;
   });
 
@@ -302,8 +349,8 @@ export default function QRPaymentRequests() {
           <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 className="text-xs font-bold text-slate-700 outline-none bg-transparent"
@@ -312,15 +359,15 @@ export default function QRPaymentRequests() {
             <div className="w-px h-6 bg-slate-100 mx-1"></div>
             <div className="flex flex-col">
               <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
                 className="text-xs font-bold text-slate-700 outline-none bg-transparent"
               />
             </div>
           </div>
-          <button 
+          <button
             onClick={clearFilters}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
             title="Clear All Filters"
@@ -329,15 +376,15 @@ export default function QRPaymentRequests() {
           </button>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
+            <input
+              type="text"
               placeholder="Search Firm or UTR..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-64"
             />
           </div>
-          <select 
+          <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
             className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
@@ -360,7 +407,8 @@ export default function QRPaymentRequests() {
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Card No</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">QR Used</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Amount</th>
-                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Charge</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Admin Profit</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Dist. Profit</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Credited</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Proof</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
@@ -370,14 +418,14 @@ export default function QRPaymentRequests() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
               ) : filteredRequests.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center">
+                  <td colSpan={10} className="px-6 py-12 text-center">
                     <QrCode className="text-slate-200 mx-auto mb-4" size={48} />
                     <p className="text-slate-500 font-medium">No payment requests found</p>
                   </td>
@@ -385,7 +433,7 @@ export default function QRPaymentRequests() {
               ) : (
                 paginatedRequests.map((req) => (
                   <React.Fragment key={req.id}>
-                    <tr 
+                    <tr
                       onClick={() => {
                         if (req.status === 'rejected') {
                           setRejectionRowId(rejectionRowId === req.id ? null : req.id);
@@ -418,7 +466,7 @@ export default function QRPaymentRequests() {
                           {req.card_number || '****'}
                         </span>
                       </td>
-                       <td className="px-3 py-4 text-center">
+                      <td className="px-3 py-4 text-center">
                         <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
                           {req.qr_history?.qr_name || 'Legacy QR'}
                         </span>
@@ -430,10 +478,23 @@ export default function QRPaymentRequests() {
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <span className="text-xs font-bold text-indigo-600 flex items-center justify-center">
+                        <span className="text-xs font-bold text-rose-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
-                          {Number((req as any).charges || 0).toFixed(2)}
+                          {req.users_profiles?.distributor_id ?
+                            ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100).toFixed(2) :
+                            Number((req as any).charges || 0).toFixed(2)
+                          }
                         </span>
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        {req.users_profiles?.distributor_id ? (
+                          <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
+                            <IndianRupee size={12} className="mr-0.5" />
+                            {((req.amount * (Number(req.users_profiles?.charge_percentage || 0) - Number(req.users_profiles?.admin_base_qr_charge || 0))) / 100).toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300">N/A</span>
+                        )}
                       </td>
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-emerald-600 flex items-center justify-center">
@@ -442,7 +503,7 @@ export default function QRPaymentRequests() {
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <button 
+                        <button
                           onClick={() => setSelectedProof(req)}
                           className="flex items-center justify-center gap-1 mx-auto text-[10px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors group"
                         >
@@ -452,11 +513,10 @@ export default function QRPaymentRequests() {
                       </td>
                       <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${
-                            req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                            'bg-amber-50 text-amber-600'
-                          }`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                              req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                'bg-amber-50 text-amber-600'
+                            }`}>
                             {req.status === 'pending' && <Clock size={8} />}
                             {req.status === 'approved' && <CheckCircle2 size={8} />}
                             {req.status === 'rejected' && <XCircle size={8} />}
@@ -467,7 +527,7 @@ export default function QRPaymentRequests() {
                       <td className="px-3 py-4 text-right whitespace-nowrap">
                         {req.status === 'pending' && (
                           <div className="flex items-center justify-end gap-2">
-                            <button 
+                            <button
                               onClick={() => setRejectionRowId(rejectionRowId === req.id ? null : req.id)}
                               disabled={processingId === req.id}
                               className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${rejectionRowId === req.id ? 'bg-rose-100 text-rose-600' : 'text-rose-500 hover:bg-rose-50'}`}
@@ -475,7 +535,7 @@ export default function QRPaymentRequests() {
                             >
                               <XCircle size={20} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => handleStatusUpdate(req.id, 'approved')}
                               disabled={processingId === req.id}
                               className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
@@ -490,7 +550,7 @@ export default function QRPaymentRequests() {
                     {rejectionRowId === req.id && (
                       <tr>
                         <td colSpan={8} className="px-6 py-4 bg-rose-50/30 border-y border-rose-100/50">
-                          <motion.div 
+                          <motion.div
                             initial={{ opacity: 0, y: -10 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="flex flex-col md:flex-row items-end gap-4"
@@ -500,7 +560,7 @@ export default function QRPaymentRequests() {
                                 <div className="flex-1 w-full">
                                   <label className="block text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Select Rejection Reason</label>
                                   <div className="flex gap-2">
-                                    <select 
+                                    <select
                                       value={reason}
                                       onChange={(e) => setReason(e.target.value)}
                                       className="flex-1 px-4 py-2.5 bg-white border border-rose-100 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
@@ -513,7 +573,7 @@ export default function QRPaymentRequests() {
                                   </div>
                                 </div>
                                 <div className="flex gap-2">
-                                  <button 
+                                  <button
                                     onClick={() => {
                                       setRejectionRowId(null);
                                       setReason('');
@@ -522,7 +582,7 @@ export default function QRPaymentRequests() {
                                   >
                                     Cancel
                                   </button>
-                                  <button 
+                                  <button
                                     onClick={() => handleStatusUpdate(req.id, 'rejected')}
                                     disabled={!reason || processingId === req.id}
                                     className="px-6 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center gap-2 disabled:opacity-50"
@@ -543,7 +603,7 @@ export default function QRPaymentRequests() {
                                     <p className="text-sm font-bold text-slate-900">{(req as any).rejection_reason || 'No reason provided'}</p>
                                   </div>
                                 </div>
-                                <button 
+                                <button
                                   onClick={() => setRejectionRowId(null)}
                                   className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-colors flex items-center justify-center shadow-sm"
                                   title="Shrink"
@@ -571,7 +631,7 @@ export default function QRPaymentRequests() {
             Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRequests.length)}</span> of <span className="text-slate-900 font-bold">{filteredRequests.length}</span> requests
           </p>
           <div className="flex items-center gap-2">
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
               className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -584,7 +644,7 @@ export default function QRPaymentRequests() {
                 const maxVisible = 5;
                 let start = Math.max(1, currentPage - 2);
                 let end = Math.min(totalPages, start + maxVisible - 1);
-                
+
                 if (end - start + 1 < maxVisible) {
                   start = Math.max(1, end - maxVisible + 1);
                 }
@@ -594,11 +654,10 @@ export default function QRPaymentRequests() {
                     <button
                       key={i}
                       onClick={() => setCurrentPage(i)}
-                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
-                        currentPage === i 
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                      className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i
+                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
                           : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
-                      }`}
+                        }`}
                     >
                       {i}
                     </button>
@@ -607,7 +666,7 @@ export default function QRPaymentRequests() {
                 return pages;
               })()}
             </div>
-            <button 
+            <button
               onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
               className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -622,14 +681,14 @@ export default function QRPaymentRequests() {
       <AnimatePresence>
         {selectedProof && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-4xl max-h-[95vh] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             >
               <div className="absolute top-4 right-4 z-10">
-                <button 
+                <button
                   onClick={() => {
                     setSelectedProof(null);
                     setReason('');
@@ -639,11 +698,11 @@ export default function QRPaymentRequests() {
                   <X size={20} />
                 </button>
               </div>
-              
+
               <div className="flex-1 bg-slate-50 flex items-center justify-center overflow-hidden p-2 md:p-4">
-                <img 
-                  src={selectedProof.proof_url} 
-                  alt="Payment Proof" 
+                <img
+                  src={selectedProof.proof_url}
+                  alt="Payment Proof"
                   className="max-w-full max-h-[calc(95vh-200px)] object-contain rounded-xl"
                   referrerPolicy="no-referrer"
                 />
@@ -673,7 +732,7 @@ export default function QRPaymentRequests() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <button 
+                    <button
                       onClick={async () => {
                         try {
                           const response = await fetch(selectedProof.proof_url);
@@ -696,11 +755,11 @@ export default function QRPaymentRequests() {
                     >
                       <Download size={20} />
                     </button>
-                    
+
                     {selectedProof.status === 'pending' && (
                       <div className="flex items-center gap-3 border-l border-slate-100 pl-3">
                         <div className="flex flex-col gap-1 min-w-[200px]">
-                          <select 
+                          <select
                             value={reason}
                             onChange={(e) => setReason(e.target.value)}
                             className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
@@ -711,7 +770,7 @@ export default function QRPaymentRequests() {
                             ))}
                           </select>
                         </div>
-                        <button 
+                        <button
                           onClick={() => handleStatusUpdate(selectedProof.id, 'rejected')}
                           disabled={!reason || processingId === selectedProof.id}
                           className="px-4 py-2 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 transition-all shadow-lg shadow-rose-100 flex items-center gap-2 disabled:opacity-50"
@@ -719,7 +778,7 @@ export default function QRPaymentRequests() {
                           {processingId === selectedProof.id ? <Loader2 className="animate-spin" size={16} /> : <XCircle size={16} />}
                           Reject
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleStatusUpdate(selectedProof.id, 'approved')}
                           disabled={processingId === selectedProof.id}
                           className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 disabled:opacity-50"
