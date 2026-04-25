@@ -69,29 +69,35 @@ export default function StatementReport() {
     try {
       let openingBalance = 0;
       
-      // Calculate Opening Balance if firm and start date are provided
-      if (firmName.trim() && startDate) {
-        const { data: userProfile } = await supabase
-          .from('users_profiles')
-          .select('id')
-          .ilike('firm_name', firmName.trim())
-          .single();
+      // Calculate Opening Balance if start date is provided
+      if (startDate) {
+        let queryQr = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+        let queryBill = supabase.from('bill_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+        let queryPayout = supabase.from('payout_submissions').select('amount, charge_amount').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
 
-        if (userProfile) {
-          const userId = userProfile.id;
-          
-          const [qrPre, billPre, payoutPre] = await Promise.all([
-            supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
-            supabase.from('bill_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
-            supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`)
-          ]);
+        // If a specific firm is searched, filter pre-balance by that firm
+        if (firmName.trim()) {
+          const { data: userProfile } = await supabase
+            .from('users_profiles')
+            .select('id')
+            .ilike('firm_name', firmName.trim())
+            .single();
 
-          const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
-          const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
-          const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
-          
-          openingBalance = qrTotal - billTotal - payoutTotal;
+          if (userProfile) {
+            const userId = userProfile.id;
+            queryQr = queryQr.eq('user_id', userId);
+            queryBill = queryBill.eq('user_id', userId);
+            queryPayout = queryPayout.eq('user_id', userId);
+          }
         }
+
+        const [qrPre, billPre, payoutPre] = await Promise.all([queryQr, queryBill, queryPayout]);
+
+        const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+        const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
+        const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
+        
+        openingBalance = qrTotal - billTotal - payoutTotal;
       }
 
       let qrMapped: any[] = [];
