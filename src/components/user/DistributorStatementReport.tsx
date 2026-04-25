@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Search, 
-  Loader2, 
+import {
+  FileText,
+  Search,
+  Loader2,
   User,
   FileSpreadsheet,
   ChevronRight,
@@ -19,7 +19,7 @@ interface UnifiedRecord {
   type: 'QR' | 'BILL' | 'PAYOUT';
   date: string;
   firm_name: string;
-  reference: string; 
+  reference: string;
   amount: number;
   charges: number;
   final_total: number;
@@ -52,7 +52,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         .select('firm_name')
         .eq('distributor_id', userId)
         .not('firm_name', 'is', null);
-      
+
       if (error) throw error;
       setAllFirms(Array.from(new Set(data.map(d => d.firm_name))).sort());
     } catch (err) { console.error('Firm fetch error:', err); }
@@ -86,9 +86,9 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           ), 
           qr_history(qr_name)
         `)
-        .eq('status', 'approved')
-        .eq('users_profiles.distributor_id', userId);
-        
+          .eq('status', 'approved')
+          .eq('users_profiles.distributor_id', userId);
+
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
@@ -109,16 +109,16 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           raw_data: r
         }));
       }
-      
+
       // 2. Fetch Bill Payments
       if (typeFilter === 'all' || typeFilter === 'BILL') {
         let billQuery = supabase.from('bill_submissions').select(`
           *, 
           users_profiles!inner(firm_name, distributor_id)
         `)
-        .eq('status', 'approved')
-        .eq('users_profiles.distributor_id', userId);
-        
+          .eq('status', 'approved')
+          .eq('users_profiles.distributor_id', userId);
+
         if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
@@ -127,7 +127,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         if (error) throw error;
         billMapped = (data || []).map((r) => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(), 
+          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'BILL',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
@@ -146,8 +146,8 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           *, 
           users_profiles!inner(firm_name, distributor_id)
         `)
-        .eq('status', 'approved')
-        .eq('users_profiles.distributor_id', userId);
+          .eq('status', 'approved')
+          .eq('users_profiles.distributor_id', userId);
 
         if (firmName) payoutQuery = payoutQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
@@ -171,7 +171,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
       }
 
       // Merge and Sort (Oldest first for running balance)
-      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
+      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
@@ -179,9 +179,9 @@ export default function DistributorStatementReport({ userId }: { userId: string 
       let currentBalance = 0;
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
         if (r.type === 'QR') {
-           currentBalance += r.final_total;
+          currentBalance += r.final_total;
         } else {
-           currentBalance -= r.final_total;
+          currentBalance -= r.final_total;
         }
         return { ...r, balance: currentBalance };
       });
@@ -216,11 +216,11 @@ export default function DistributorStatementReport({ userId }: { userId: string 
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
       'Card/Account No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
       'Firm Name': r.firm_name,
-      'Description': r.type === 'BILL' 
-        ? `CCBILLPAY Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}` 
+      'Description': r.type === 'BILL'
+        ? `CCBILLPAY Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`
         : r.type === 'PAYOUT'
-        ? `PAYOUT: ${r.raw_data?.account_holder_name} (Txn: ${r.reference})`
-        : `Txn: ${r.reference} (QR: ${r.raw_data?.qr_history?.qr_name})`,
+          ? `PAYOUT: ${r.raw_data?.account_holder_name} (Txn: ${r.reference})`
+          : `Txn: ${r.reference} (QR: ${r.raw_data?.qr_history?.qr_name})`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
     }));
@@ -255,7 +255,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           <p className="text-slate-500 mt-1">Generate unified transaction statements for all your sub-users.</p>
         </div>
         <div className="flex items-center gap-2">
-           <button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-100">
+          <button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-100">
             <FileSpreadsheet size={16} /> Excel Report
           </button>
         </div>
@@ -263,17 +263,17 @@ export default function DistributorStatementReport({ userId }: { userId: string 
 
       {/* Filters */}
       <div className="flex flex-wrap gap-4 items-center bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-        
+
         <div className="flex-1 min-w-[200px] relative">
           <div className="relative">
             <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            <input 
-              type="text" 
-              placeholder="Search Firm Name..." 
-              value={firmName} 
-              onFocus={() => setShowSuggestions(true)} 
-              onChange={(e) => { setFirmName(e.target.value); setShowSuggestions(true); }} 
-              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" 
+            <input
+              type="text"
+              placeholder="Search Firm Name..."
+              value={firmName}
+              onFocus={() => setShowSuggestions(true)}
+              onChange={(e) => { setFirmName(e.target.value); setShowSuggestions(true); }}
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             />
           </div>
           <AnimatePresence>
@@ -293,7 +293,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         </div>
 
         {/* Type Filter */}
-        <select 
+        <select
           value={typeFilter}
           onChange={(e: any) => setTypeFilter(e.target.value)}
           className="px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
@@ -331,8 +331,8 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-2 text-sm text-slate-600">
             <span>Show</span>
-            <select 
-              value={displayCount} 
+            <select
+              value={displayCount}
               onChange={(e) => setDisplayCount(Number(e.target.value))}
               className="border border-slate-200 rounded-lg px-2 py-1 outline-none font-bold"
             >
@@ -379,11 +379,10 @@ export default function DistributorStatementReport({ userId }: { userId: string 
                     <td className="px-6 py-4">{formatDateTimeSplit(r.date)}</td>
                     <td className="px-6 py-4 text-[13px] font-bold text-slate-400">{r.numericId}</td>
                     <td className="px-6 py-4">
-                      <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider ${
-                        r.type === 'QR' ? 'bg-emerald-50 text-emerald-600' : 
-                        r.type === 'BILL' ? 'bg-indigo-50 text-indigo-600' : 
-                        'bg-amber-50 text-amber-600'
-                      }`}>
+                      <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider ${r.type === 'QR' ? 'bg-emerald-50 text-emerald-600' :
+                          r.type === 'BILL' ? 'bg-indigo-50 text-indigo-600' :
+                            'bg-amber-50 text-amber-600'
+                        }`}>
                         {r.type === 'BILL' ? 'CCBILL' : r.type}
                       </span>
                     </td>

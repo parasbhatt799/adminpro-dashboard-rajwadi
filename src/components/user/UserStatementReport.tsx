@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Search, 
-  Loader2, 
+import {
+  FileText,
+  Search,
+  Loader2,
   FileSpreadsheet,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -158,13 +158,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
   const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
     const exportData = dataToExport.map(r => ({
-      'Payment Date': new Date(r.date).toLocaleString('en-IN', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: true 
+      'Payment Date': new Date(r.date).toLocaleString('en-IN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
       }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
@@ -185,13 +185,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
       const dataToExport = records.slice(0, displayCount);
       const tableData = dataToExport.map(r => [
-        new Date(r.date).toLocaleString('en-IN', { 
-          year: 'numeric', 
-          month: '2-digit', 
-          day: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          hour12: true 
+        new Date(r.date).toLocaleString('en-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
         }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
