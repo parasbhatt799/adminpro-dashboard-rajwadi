@@ -127,89 +127,18 @@ export default function QRPaymentRequests() {
       const updateData: any = { status: targetType };
 
       if (targetType === 'approved') {
-        const { data: userData, error: userFetchError } = await supabase
-          .from('users_profiles')
-          .select('charge_percentage, wallet_balance, distributor_id, admin_base_qr_charge')
-          .eq('id', currentReq.user_id)
-          .single();
+        const { data: rpcData, error: rpcError } = await supabase.rpc('approve_qr_payment', {
+          p_payment_id: targetId
+        });
 
-        if (userFetchError) throw userFetchError;
+        if (rpcError) throw rpcError;
+        if (!rpcData.success) throw new Error(rpcData.message);
 
-        const userPercentage = Number(userData.charge_percentage) || 0;
-        const totalCharges = (amount * userPercentage) / 100;
-        updateData.charges = totalCharges;
-
-        // Logic for Distributor Profit Sharing
-        let adminShare = totalCharges;
-        let distributorProfit = 0;
-
-        if (userData.distributor_id) {
-          // Fetch the current base charge from the Distributor's profile
-          const { data: distProfile } = await supabase
-            .from('users_profiles')
-            .select('admin_base_qr_charge')
-            .eq('id', userData.distributor_id)
-            .single();
-
-          const adminBasePercentage = Number(distProfile?.admin_base_qr_charge) || 0;
-          adminShare = (amount * adminBasePercentage) / 100;
-          distributorProfit = totalCharges - adminShare;
-        }
-
-        updateData.admin_share = adminShare;
-        updateData.distributor_share = distributorProfit;
-
-        const { error: statusError } = await supabase
-          .from('payment_submissions')
-          .update(updateData)
-          .eq('id', targetId)
-          .eq('status', 'pending');
-
-        if (statusError) throw statusError;
-
-        // Update Admin Balance (Only Admin's Share)
-        const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
-        const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-
-        await supabase
-          .from('qr_settings')
-          .update({ admin_balance: currentAdminBalance + adminShare })
-          .eq('id', 1);
-
-        // Update User Wallet (Amount - Total Charges)
-        const currentUserBalance = Number(userData.wallet_balance) || 0;
-        await supabase
-          .from('users_profiles')
-          .update({ wallet_balance: currentUserBalance + (amount - totalCharges) })
-          .eq('id', currentReq.user_id);
-
-        // Update Distributor Wallet if applicable (Commission Wallet)
-        if (distributorProfit > 0 && userData.distributor_id) {
-          const { data: distributorData } = await supabase
-            .from('users_profiles')
-            .select('commission_balance')
-            .eq('id', userData.distributor_id)
-            .single();
-
-          if (distributorData) {
-            const currentDistBalance = Number(distributorData.commission_balance) || 0;
-            await supabase
-              .from('users_profiles')
-              .update({ commission_balance: currentDistBalance + distributorProfit })
-              .eq('id', userData.distributor_id);
-
-            // Notify Distributor
-            await supabase
-              .from('notifications')
-              .insert([{
-                user_id: userData.distributor_id,
-                target_role: 'user',
-                title: 'Profit Earned!',
-                message: `You earned ₹${distributorProfit.toFixed(2)} profit from a sub-user's QR payment.`,
-                link: '/user/statement'
-              }]);
-          }
-        }
+        // Update local state with the results from RPC
+        const result = rpcData.data;
+        updateData.charges = result.total_charges;
+        updateData.admin_share = result.admin_share;
+        updateData.distributor_share = result.distributor_share;
 
       } else {
         updateData.rejection_reason = targetReason;

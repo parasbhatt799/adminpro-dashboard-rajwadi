@@ -40,6 +40,23 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
   const fetchStatement = async () => {
     setLoading(true);
     try {
+      let openingBalance = 0;
+      
+      // Calculate Opening Balance if start date is provided
+      if (startDate) {
+        const [qrPre, billPre, payoutPre] = await Promise.all([
+          supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
+          supabase.from('bill_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
+          supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`)
+        ]);
+
+        const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+        const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
+        const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
+        
+        openingBalance = qrTotal - billTotal - payoutTotal;
+      }
+
       let qrMapped: any[] = [];
       let billMapped: any[] = [];
       let payoutMapped: any[] = [];
@@ -131,7 +148,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       );
 
       // Running Balance
-      let currentBalance = 0;
+      let currentBalance = openingBalance;
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
         if (r.type === 'QR') {
           currentBalance += r.final_total;

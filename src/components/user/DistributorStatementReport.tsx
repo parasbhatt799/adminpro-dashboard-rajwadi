@@ -72,6 +72,33 @@ export default function DistributorStatementReport({ userId }: { userId: string 
     setLoading(true);
 
     try {
+      let openingBalance = 0;
+
+      // Calculate Opening Balance if firm and start date are provided
+      if (firmName.trim() && startDate) {
+        const { data: userProfile } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .ilike('firm_name', firmName.trim())
+          .eq('distributor_id', userId)
+          .single();
+
+        if (userProfile) {
+          const targetUserId = userProfile.id;
+          const [qrPre, billPre, payoutPre] = await Promise.all([
+            supabase.from('payment_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
+            supabase.from('bill_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
+            supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`)
+          ]);
+
+          const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+          const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
+          const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
+          
+          openingBalance = qrTotal - billTotal - payoutTotal;
+        }
+      }
+
       let qrMapped: any[] = [];
       let billMapped: any[] = [];
       let payoutMapped: any[] = [];
@@ -175,8 +202,8 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
-      // Compute Running Balance (This is tricky for a multi-user view, but we'll follow the Admin's logic)
-      let currentBalance = 0;
+      // Compute Running Balance
+      let currentBalance = openingBalance;
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
         if (r.type === 'QR') {
           currentBalance += r.final_total;
