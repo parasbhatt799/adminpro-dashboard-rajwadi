@@ -134,6 +134,21 @@ export default function BillPaymentRequests() {
     fetchRequests();
     fetchReasons();
     fetchBillSettings();
+
+    const channel = supabase
+      .channel('admin_bill_realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'bill_submissions'
+      }, () => {
+        fetchRequests();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [filter]);
 
   const handleRefund = async (id: string) => {

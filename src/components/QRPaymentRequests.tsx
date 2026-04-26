@@ -103,6 +103,24 @@ export default function QRPaymentRequests() {
   useEffect(() => {
     fetchRequests();
     fetchReasons();
+
+    const channel = supabase
+      .channel('admin_qr_realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'payment_submissions'
+      }, () => {
+        // Refresh requests without showing the full page loader for a smoother experience
+        // We'll call a version of fetchRequests that doesn't set loading(true) if we want,
+        // but for now, standard fetchRequests is fine.
+        fetchRequests();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [filter]);
 
   const handleStatusUpdate = async (id: string, type: 'approved' | 'rejected', customReason?: string) => {
