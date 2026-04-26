@@ -10,9 +10,13 @@ import {
   Camera,
   Save,
   Loader2,
-  Shield
+  Shield,
+  Copy,
+  Check,
+  ExternalLink,
+  X
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { supabase } from '../lib/supabase';
 
@@ -62,6 +66,10 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
     admin_base_qr_charge: initialData?.admin_base_qr_charge?.toString() || '0',
     distributor_id: initialData?.distributor_id || ''
   });
+
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [credentials, setCredentials] = useState({ id: '', password: '' });
+  const [copied, setCopied] = useState(false);
 
   const [isFetchingDistributor, setIsFetchingDistributor] = useState(false);
 
@@ -279,15 +287,14 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
             throw new Error(result.error || 'Server error');
           }
 
-          alert(`User created successfully!\n\nCredentials have been sent to ${formData.email}.\n\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
+          setCredentials({ id: formData.mobile_number, password: generatedPassword });
+          setShowCredentialsModal(true);
         } catch (emailErr) {
           console.error('Error calling email API:', emailErr);
-          const errorMessage = emailErr instanceof Error ? emailErr.message : 'Unknown error';
-          alert(`User created successfully, but email delivery failed.\n\nError: ${errorMessage}\n\nCredentials for manual sharing:\nID: ${formData.mobile_number}\nPassword: ${generatedPassword}`);
+          setCredentials({ id: formData.mobile_number, password: generatedPassword });
+          setShowCredentialsModal(true);
         }
       }
-
-      onSuccess();
     } catch (err: any) {
       console.error('Error saving user:', err);
       setError(err.message || 'Failed to save user. Please check your Supabase table setup.');
@@ -743,6 +750,84 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
           </div>
         </div>
       </form>
+
+      {/* Credentials Modal */}
+      <AnimatePresence>
+        {showCredentialsModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white rounded-[2.5rem] shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden"
+            >
+              <div className="p-8 text-center border-b border-slate-50 bg-slate-50/50">
+                <div className="w-20 h-20 bg-emerald-100 rounded-3xl flex items-center justify-center text-emerald-600 mx-auto mb-6 shadow-lg shadow-emerald-100/50">
+                  <Shield size={40} />
+                </div>
+                <h3 className="text-2xl font-bold text-slate-900">User Created Successfully!</h3>
+                <p className="text-slate-500 text-sm mt-2">Credentials for manual sharing</p>
+              </div>
+
+              <div className="p-8 space-y-4">
+                <div className="space-y-4 bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                  <div className="flex items-center justify-between group">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">User ID (Mobile)</span>
+                      <span className="text-lg font-mono font-bold text-slate-900">{credentials.id}</span>
+                    </div>
+                  </div>
+                  <div className="h-px bg-slate-200/50" />
+                  <div className="flex items-center justify-between group">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Password</span>
+                      <span className="text-lg font-mono font-bold text-indigo-600">{credentials.password}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const textToCopy = `ID: ${credentials.id}\npassword: ${credentials.password}\nURL: ${window.location.origin}`;
+                    navigator.clipboard.writeText(textToCopy);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition-all active:scale-[0.98] ${
+                    copied 
+                      ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-100' 
+                      : 'bg-white border-2 border-slate-200 text-slate-700 hover:border-indigo-500 hover:text-indigo-600 hover:bg-indigo-50/30 shadow-sm'
+                  }`}
+                >
+                  {copied ? (
+                    <>
+                      <Check size={20} />
+                      Copied to Clipboard!
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={20} />
+                      Copy Credentials & URL
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <div className="p-8 bg-slate-50 flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowCredentialsModal(false);
+                    onSuccess();
+                  }}
+                  className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2"
+                >
+                  Done & Back to List
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
