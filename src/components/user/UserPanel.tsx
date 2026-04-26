@@ -56,7 +56,17 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         .select('*')
         .eq('id', userId)
         .single();
-      if (error) throw error;
+      
+      if (error) {
+        // If user not found (e.g. deleted by admin), log out
+        if (error.code === 'PGRST116') {
+          console.warn('Profile not found, logging out...');
+          onLogout();
+          return;
+        }
+        throw error;
+      }
+      
       setUserProfile(data);
 
       // Database handles welcome dialog state now
@@ -113,6 +123,15 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
       }, (payload) => {
         console.log('Profile updated in real-time:', payload.new);
         setUserProfile(payload.new);
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'users_profiles',
+        filter: `id=eq.${userId}`
+      }, () => {
+        console.log('Profile deleted in real-time, logging out...');
+        onLogout();
       })
       .subscribe();
 

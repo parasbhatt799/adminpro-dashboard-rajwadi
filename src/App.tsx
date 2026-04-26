@@ -815,6 +815,15 @@ export default function App() {
             playUserSound();
           }
         })
+        .on('postgres_changes', {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'users_profiles',
+          filter: `id=eq.${userId}`
+        }, () => {
+          console.log('User deleted, logging out...');
+          handleLogout();
+        })
         .subscribe();
 
       return () => {
