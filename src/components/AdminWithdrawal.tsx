@@ -9,7 +9,9 @@ import {
   Calendar,
   MessageSquare,
   IndianRupee,
-  CheckCircle2
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -25,8 +27,13 @@ interface WithdrawalRecord {
 export default function AdminWithdrawal() {
   const [balance, setBalance] = useState<number>(0);
   const [history, setHistory] = useState<WithdrawalRecord[]>([]);
+  const [totalWithdrawalAmount, setTotalWithdrawalAmount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 8;
   
   // Form state
   const [amount, setAmount] = useState('');
@@ -91,6 +98,7 @@ export default function AdminWithdrawal() {
 
       const calculatedBalance = totalQrCharges + totalBillCharges + totalPayoutCharges - totalWithdrawals;
       setBalance(calculatedBalance);
+      setTotalWithdrawalAmount(totalWithdrawals);
       setHistory(withdrawalRes.data || []);
 
     } catch (err) {
@@ -158,6 +166,11 @@ export default function AdminWithdrawal() {
       setProcessing(false);
     }
   };
+
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentItems = history.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(history.length / itemsPerPage);
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
@@ -287,7 +300,7 @@ export default function AdminWithdrawal() {
             transition={{ delay: 0.2 }}
             className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full min-h-[600px]"
           >
-            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
                   <History size={20} />
@@ -295,6 +308,13 @@ export default function AdminWithdrawal() {
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">Withdrawal History</h3>
                   <p className="text-xs text-slate-500 font-medium">Recent transactions from your admin wallet.</p>
+                </div>
+              </div>
+              
+              <div className="text-right bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Total Withdrawn</p>
+                <div className="text-xl font-bold text-rose-600">
+                  ₹{totalWithdrawalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
               </div>
             </div>
@@ -326,7 +346,7 @@ export default function AdminWithdrawal() {
                       </td>
                     </tr>
                   ) : (
-                    history.map((record, index) => (
+                    currentItems.map((record, index) => (
                       <motion.tr 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -368,6 +388,31 @@ export default function AdminWithdrawal() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="p-5 border-t border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <span className="text-xs font-medium text-slate-500">
+                  Showing <span className="font-bold text-slate-900">{indexOfFirstItem + 1}</span> to <span className="font-bold text-slate-900">{Math.min(indexOfLastItem, history.length)}</span> of <span className="font-bold text-slate-900">{history.length}</span> entries
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 transition-colors shadow-sm"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       </div>

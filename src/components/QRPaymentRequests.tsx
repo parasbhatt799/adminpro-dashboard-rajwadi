@@ -232,6 +232,7 @@ export default function QRPaymentRequests() {
       setCharges('0');
       setReason('');
       if (selectedProof?.id === targetId) setSelectedProof(null);
+      window.location.reload();
     } catch (err: any) {
       console.error('Error updating status:', err);
       alert('Failed to update status: ' + (err.message || 'Unknown error'));

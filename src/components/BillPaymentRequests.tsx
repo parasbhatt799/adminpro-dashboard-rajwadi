@@ -300,6 +300,7 @@ export default function BillPaymentRequests() {
       setReason('');
       setCharges('');
       setShowActionModal(null);
+      window.location.reload();
     } catch (err: any) {
       console.error('Error updating status:', err);
     } finally {
