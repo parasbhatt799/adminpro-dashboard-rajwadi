@@ -6,9 +6,12 @@ ADD COLUMN IF NOT EXISTS whatsapp_number TEXT;
 CREATE TABLE IF NOT EXISTS public.whatsapp_api_settings (
     id INTEGER PRIMARY KEY DEFAULT 1,
     is_active BOOLEAN DEFAULT FALSE,
+    provider TEXT DEFAULT 'meta',
     access_token TEXT,
     phone_number_id TEXT,
     sender_number TEXT,
+    aisensy_api_key TEXT,
+    aisensy_campaign_name TEXT,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -23,3 +26,8 @@ CREATE POLICY "whatsapp_settings_all" ON public.whatsapp_api_settings FOR ALL US
 INSERT INTO public.whatsapp_api_settings (id, is_active)
 VALUES (1, false)
 ON CONFLICT (id) DO NOTHING;
+
+-- 6. Add new columns if table already exists
+ALTER TABLE public.whatsapp_api_settings ADD COLUMN IF NOT EXISTS provider TEXT DEFAULT 'meta';
+ALTER TABLE public.whatsapp_api_settings ADD COLUMN IF NOT EXISTS aisensy_api_key TEXT;
+ALTER TABLE public.whatsapp_api_settings ADD COLUMN IF NOT EXISTS aisensy_campaign_name TEXT;

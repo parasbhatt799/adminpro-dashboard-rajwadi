@@ -231,11 +231,7 @@ export default function QRPaymentRequests() {
                 body: JSON.stringify({
                   whatsapp_number: cleanNumber,
                   proof_url: currentReq.proof_url,
-                  credentials: {
-                    access_token: ws.access_token,
-                    phone_number_id: ws.phone_number_id,
-                    sender_number: ws.sender_number
-                  }
+                  credentials: ws
                 })
               });
             }

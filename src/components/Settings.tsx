@@ -29,9 +29,12 @@ export default function Settings() {
 
   const [whatsappSettings, setWhatsappSettings] = useState({
     is_active: false,
+    provider: 'meta',
     access_token: '',
     phone_number_id: '',
-    sender_number: ''
+    sender_number: '',
+    aisensy_api_key: '',
+    aisensy_campaign_name: ''
   });
 
   const [oneSignalSettings, setOneSignalSettings] = useState({
@@ -88,9 +91,12 @@ export default function Settings() {
       if (waData) {
         setWhatsappSettings({
           is_active: waData.is_active || false,
+          provider: waData.provider || 'meta',
           access_token: waData.access_token || '',
           phone_number_id: waData.phone_number_id || '',
-          sender_number: waData.sender_number || ''
+          sender_number: waData.sender_number || '',
+          aisensy_api_key: waData.aisensy_api_key || '',
+          aisensy_campaign_name: waData.aisensy_campaign_name || ''
         });
       }
 
@@ -460,47 +466,99 @@ export default function Settings() {
 
           <div className="p-8 space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number ID</label>
-                <div className="relative">
-                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="text"
-                    placeholder="e.g. 1092837465..."
-                    value={whatsappSettings.phone_number_id}
-                    onChange={(e) => setWhatsappSettings(prev => ({ ...prev, phone_number_id: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sender Mobile Number</label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="text"
-                    placeholder="e.g. 919876543210"
-                    value={whatsappSettings.sender_number}
-                    onChange={(e) => setWhatsappSettings(prev => ({ ...prev, sender_number: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
-                  />
-                </div>
-              </div>
-
               <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">System Access Token (Meta API)</label>
-                <div className="relative">
-                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <textarea 
-                    rows={3}
-                    placeholder="Enter your Meta Cloud API permanent access token..."
-                    value={whatsappSettings.access_token}
-                    onChange={(e) => setWhatsappSettings(prev => ({ ...prev, access_token: e.target.value }))}
-                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono resize-none"
-                  />
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">WhatsApp Provider</label>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => setWhatsappSettings(prev => ({ ...prev, provider: 'meta' }))}
+                    className={`flex-1 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold ${whatsappSettings.provider === 'meta' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                  >
+                    Meta Cloud API (Official)
+                  </button>
+                  <button 
+                    onClick={() => setWhatsappSettings(prev => ({ ...prev, provider: 'aisensy' }))}
+                    className={`flex-1 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold ${whatsappSettings.provider === 'aisensy' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
+                  >
+                    AiSensy API
+                  </button>
                 </div>
               </div>
+
+              {whatsappSettings.provider === 'meta' ? (
+                <>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number ID</label>
+                    <div className="relative">
+                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="e.g. 1092837465..."
+                        value={whatsappSettings.phone_number_id}
+                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, phone_number_id: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sender Mobile Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="e.g. 919876543210"
+                        value={whatsappSettings.sender_number}
+                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, sender_number: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">System Access Token (Meta API)</label>
+                    <div className="relative">
+                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <textarea 
+                        rows={3}
+                        placeholder="Enter your Meta Cloud API permanent access token..."
+                        value={whatsappSettings.access_token}
+                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, access_token: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono resize-none"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy API Key</label>
+                    <div className="relative">
+                      <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="Enter your AiSensy API Key..."
+                        value={whatsappSettings.aisensy_api_key}
+                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, aisensy_api_key: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Approved Campaign Name (Template)</label>
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="e.g. payment_proof_notification"
+                        value={whatsappSettings.aisensy_campaign_name}
+                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, aisensy_campaign_name: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="bg-amber-50 rounded-2xl p-4 border border-amber-100/50 flex gap-3">
