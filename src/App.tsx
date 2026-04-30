@@ -484,7 +484,11 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchSystemStatus();
+    // Timeout fallback: if Supabase is unreachable, don't block on the loading spinner
+    const fallbackTimer = setTimeout(() => {
+      setIsStatusLoading(false);
+    }, 6000);
+    fetchSystemStatus().finally(() => clearTimeout(fallbackTimer));
 
     // Fetch and set initial branding (Favicon)
     const fetchBranding = async () => {
@@ -852,16 +856,14 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    // 1. Clear OneSignal association in DB
+    // 1. Clear OneSignal association in DB (best-effort, don't block logout)
     if (userId) {
-      try {
-        await supabase
-          .from('users_profiles')
-          .update({ onesignal_id: null })
-          .eq('id', userId);
-      } catch (err) {
-        console.error('Error clearing OneSignal ID:', err);
-      }
+      supabase
+        .from('users_profiles')
+        .update({ onesignal_id: null })
+        .eq('id', userId)
+        .then(() => {})
+        .catch(err => console.warn('OneSignal DB clear failed (non-blocking):', err));
     }
 
     // 2. OneSignal Logout to clear association in their system

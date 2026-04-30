@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
 import ChangePassword from './ChangePassword';
+import ErrorBoundary from '../ErrorBoundary';
 import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
@@ -506,7 +507,11 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto">
-            <Outlet />
+            <React.Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="animate-spin text-emerald-600" /></div>}>
+              <ErrorBoundary>
+                <Outlet />
+              </ErrorBoundary>
+            </React.Suspense>
           </div>
         </div>
 

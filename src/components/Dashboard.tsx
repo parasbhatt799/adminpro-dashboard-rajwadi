@@ -189,52 +189,57 @@ export default function Dashboard() {
       const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
 
-      const rangeTotalCharges = rangeBillCharges + rangeQrCharges + rangePayoutCharges - rangeWithdrawals;
-      const rangeTotalCCBill = rangeBillAmount;
+      const rangeTotalCharges = (rangeBillCharges || 0) + (rangeQrCharges || 0) + (rangePayoutCharges || 0) - (rangeWithdrawals || 0);
+      const rangeTotalCCBill = rangeBillAmount || 0;
 
       const dateDisplay = startDate && endDate
         ? `${format(startDate, 'dd MMM')} - ${format(endDate, 'dd MMM')}`
         : 'Lifetime';
 
+      const formatCurrency = (val: number) => {
+        if (isNaN(val) || val === null || val === undefined) return '₹0.00';
+        return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      };
+
       setStats([
         {
           title: "Total QR Payments",
-          value: `₹${rangeQrAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          value: formatCurrency(rangeQrAmount),
           icon: QrCode,
           color: "bg-blue-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Total CC Bill",
-          value: `₹${rangeTotalCCBill.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          value: formatCurrency(rangeTotalCCBill),
           icon: CreditCard,
           color: "bg-purple-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "QR Payment Charges",
-          value: `₹${rangeQrCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          value: formatCurrency(rangeQrCharges),
           icon: QrCode,
           color: "bg-emerald-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Bill Payment Charge",
-          value: `₹${rangeBillCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          value: formatCurrency(rangeBillCharges),
           icon: CreditCard,
           color: "bg-indigo-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Payout Service Charge",
-          value: `₹${rangePayoutCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          value: formatCurrency(rangePayoutCharges),
           icon: TrendingDown,
           color: "bg-amber-600",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Total User Wallet",
-          value: `₹${totalWalletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          value: formatCurrency(totalWalletBalance),
           icon: Wallet,
           color: "bg-amber-500",
           description: "Lifetime Total",
@@ -242,7 +247,7 @@ export default function Dashboard() {
         },
         {
           title: "Total Service Charge",
-          value: `₹${rangeTotalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          value: formatCurrency(rangeTotalCharges),
           icon: TrendingUp,
           color: "bg-rose-500",
           description: `Range: ${dateDisplay}`

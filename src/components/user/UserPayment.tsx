@@ -54,6 +54,21 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  // Auto-clear banners after 6 seconds
+  useEffect(() => {
+    if (error) {
+      const t = setTimeout(() => setError(null), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [error]);
+
+  useEffect(() => {
+    if (success) {
+      const t = setTimeout(() => setSuccess(null), 6000);
+      return () => clearTimeout(t);
+    }
+  }, [success]);
+
   // Request History state
   const [qrRequests, setQrRequests] = useState<any[]>([]);
   const [billRequests, setBillRequests] = useState<any[]>([]);
@@ -264,11 +279,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                 if (prev.some(req => req.id === updatedRecord.id)) return prev;
                 return [updatedRecord, ...prev];
               });
-            } else {
+            } else if (payload.eventType === 'UPDATE') {
               setQrRequests(prev => prev.map(req => req.id === updatedRecord.id ? updatedRecord : req));
             }
-          }
-        }
+          } // closes: if (payload.eventType === 'INSERT' || 'UPDATE')
+        } // closes: if (payload.new && payload.new.user_id === userId)
         if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
           setQrRequests(prev => prev.filter(req => req.id !== payload.old.id));
         }
@@ -282,9 +297,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         schema: 'public', 
         table: 'bill_submissions'
       }, (payload: any) => {
-        console.log('Bill Real-time Event:', payload.eventType, payload.new?.id);
-        
-        // Handle UPDATE event
         if (payload.eventType === 'UPDATE' && payload.new) {
           if (payload.new.user_id === userId) {
             setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
@@ -304,9 +316,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setBillRequests(prev => prev.filter(req => req.id !== payload.old.id));
         }
       })
-      .subscribe((status) => {
-        console.log('Bill Channel Status:', status);
-      });
+      .subscribe();
 
     const payoutChannel = supabase
       .channel('payout_submissions_realtime_v1')
@@ -355,7 +365,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         table: 'users_profiles',
         filter: `id=eq.${userId}`
       }, (payload) => {
-        console.log('Profile updated in real-time (Payment page):', payload.new);
         setUserProfile(payload.new);
         setUserBalance(Number(payload.new.wallet_balance) || 0);
       })
@@ -369,7 +378,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         table: 'qr_settings',
         filter: 'id=eq.1'
       }, (payload: any) => {
-        console.log('QR settings updated:', payload.new);
         const isEnabled = payload.new?.is_enabled;
         // Only update URL if enabled
         if (isEnabled) {
@@ -394,7 +402,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         schema: 'public',
         table: 'qr_history'
       }, (payload: any) => {
-        console.log('QR History change detected:', payload.eventType);
         if (payload.new && payload.new.is_active) {
           setActiveQrId(payload.new.id);
           setQrUrl(payload.new.qr_url);
@@ -458,6 +465,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     setSuccess(null);
 
     const billAmountNum = parseFloat(billForm.billAmount);
+    if (isNaN(billAmountNum) || billAmountNum <= 0) {
+      setError('Please enter a valid bill amount greater than 0.');
+      setSubmittingBill(false);
+      return;
+    }
     const serviceCharge = calculateBillCharge(billAmountNum);
     const totalDeduction = billAmountNum + serviceCharge;
 
@@ -493,7 +505,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .select()
         .single();
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        // ROLLBACK: restore wallet balance if insert fails
+        await supabase
+          .from('users_profiles')
+          .update({ wallet_balance: userBalance })
+          .eq('id', userId);
+        throw dbError;
+      }
 
       if (newBill) {
         // Real-time subscription will update the list and wallet balance

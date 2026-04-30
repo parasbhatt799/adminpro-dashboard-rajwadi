@@ -725,6 +725,10 @@ export default function Settings() {
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
+                            if (!file.type.startsWith('image/')) {
+                              setError('Please upload a valid image file for the logo.');
+                              return;
+                            }
                             setLogoFile(file);
                             setLogoPreview(URL.createObjectURL(file));
                           }
@@ -760,6 +764,10 @@ export default function Settings() {
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
+                            if (!file.type.startsWith('image/')) {
+                              setError('Please upload a valid image file for the mini logo.');
+                              return;
+                            }
                             setLogoMiniFile(file);
                             setLogoMiniPreview(URL.createObjectURL(file));
                           }

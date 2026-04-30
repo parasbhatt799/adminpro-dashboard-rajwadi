@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 interface BillRequest {
   id: string;
@@ -35,6 +36,7 @@ interface BillRequest {
 }
 
 export default function BillPaymentRequests() {
+  const toast = useToast();
   const [requests, setRequests] = useState<BillRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'refunded'>('all');
@@ -315,9 +317,10 @@ export default function BillPaymentRequests() {
       setReason('');
       setCharges('');
       setShowActionModal(null);
-      window.location.reload();
+      // No page reload needed — optimistic update + realtime subscription handles refresh
     } catch (err: any) {
       console.error('Error updating status:', err);
+      toast.error('Failed to process request: ' + (err.message || 'Unknown error'));
     } finally {
       setProcessingId(null);
     }
@@ -501,7 +504,7 @@ export default function BillPaymentRequests() {
                         <div className="space-y-1">
                           <p className="text-[11px] font-bold text-slate-900 flex items-center justify-center gap-1.5">
                             <CreditCard size={12} className="text-slate-400" />
-                            {req.card_number.slice(-4)}
+                            {(req.card_number || '').slice(-4) || '****'}
                           </p>
                           <p className="text-[11px] font-mono text-indigo-600 font-bold">{req.card_bank}</p>
                         </div>

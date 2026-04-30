@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 interface QRPaymentRequest {
   id: string;
@@ -40,6 +41,7 @@ interface QRPaymentRequest {
 }
 
 export default function QRPaymentRequests() {
+  const toast = useToast();
   const [requests, setRequests] = useState<QRPaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
@@ -246,10 +248,10 @@ export default function QRPaymentRequests() {
       setCharges('0');
       setReason('');
       if (selectedProof?.id === targetId) setSelectedProof(null);
-      window.location.reload();
+      // No page reload needed — optimistic update + realtime subscription handles refresh
     } catch (err: any) {
       console.error('Error updating status:', err);
-      alert('Failed to update status: ' + (err.message || 'Unknown error'));
+      toast.error('Failed to update status: ' + (err.message || 'Unknown error'));
     } finally {
       setProcessingId(null);
     }
@@ -257,7 +259,7 @@ export default function QRPaymentRequests() {
 
   const filteredRequests = requests.filter(req => {
     const matchesSearch =
-      req.utr_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (req.utr_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     const reqDate = new Date(req.created_at);

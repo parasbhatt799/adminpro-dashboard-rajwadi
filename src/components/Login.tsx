@@ -25,6 +25,10 @@ export default function Login({ onLogin }: LoginProps) {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!id.trim() || !password.trim()) {
+      setError('Please enter your Access ID and Password.');
+      return;
+    }
     setLoading(true);
     setError('');
 
@@ -185,8 +189,8 @@ export default function Login({ onLogin }: LoginProps) {
   return (
     <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
       <header className="fixed top-0 left-0 right-0 p-6 flex justify-between items-center z-10">
-        <Link className="flex items-center gap-2 group">
-          <img src="" className="h-10 transition-transform group-hover:scale-105" />
+        <Link to="/" className="flex items-center gap-2 group">
+          {/* Logo hidden if no src to avoid broken image request */}
         </Link>
         <Link to="/" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">
           Back to Website

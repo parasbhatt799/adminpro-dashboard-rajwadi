@@ -24,11 +24,14 @@ export async function sendAdminPushNotification(title: string, message: string, 
     }
 
     // 2. Call our backend API with target: 'admins'
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const response = await fetch('/api/send-push-notification', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: controller.signal,
       body: JSON.stringify({
         title,
         message,
@@ -40,6 +43,7 @@ export async function sendAdminPushNotification(title: string, message: string, 
         }
       })
     });
+    clearTimeout(timeoutId);
 
     const result = await response.json();
     if (!response.ok) {
