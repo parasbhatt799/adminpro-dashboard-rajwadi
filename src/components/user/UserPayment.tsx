@@ -480,19 +480,39 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     try {
-      // 1. Atomic RPC call for submission (Deduct + Insert)
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_bill_payment', {
-        p_user_id: userId,
-        p_customer_mobile: billForm.customerMobile,
-        p_card_bank: billForm.cardBank,
-        p_card_number: billForm.cardNumber,
-        p_card_owner_name: billForm.cardOwnerName,
-        p_amount: billAmountNum,
-        p_charges: serviceCharge
-      });
+      // 1. Deduct from wallet (Amount + Service Charge)
+      const { error: balanceError } = await supabase
+        .from('users_profiles')
+        .update({ wallet_balance: userBalance - totalDeduction })
+        .eq('id', userId);
 
-      if (rpcError) throw rpcError;
-      if (!rpcResult.success) throw new Error(rpcResult.message);
+      if (balanceError) throw balanceError;
+
+      // 2. Insert bill submission
+      const { data: newBill, error: dbError } = await supabase
+        .from('bill_submissions')
+        .insert({
+          user_id: userId,
+          customer_mobile: billForm.customerMobile,
+          card_bank: billForm.cardBank,
+          card_number: billForm.cardNumber,
+          card_owner_name: billForm.cardOwnerName,
+          amount: billAmountNum,
+          charges: serviceCharge,
+          status: 'pending',
+          remaining_balance: userBalance - totalDeduction
+        })
+        .select()
+        .single();
+
+      if (dbError) {
+        // ROLLBACK: restore wallet balance if insert fails
+        await supabase
+          .from('users_profiles')
+          .update({ wallet_balance: userBalance })
+          .eq('id', userId);
+        throw dbError;
+      }
 
       // Real-time subscription will update the list and wallet balance
       setSuccess('Bill payment submitted successfully! Total amount (including charges) has been debited from your wallet.');
@@ -578,19 +598,32 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     try {
-      // 1. Atomic RPC call for payout (Deduct + Insert)
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('submit_payout_payment', {
-        p_user_id: userId,
-        p_bank_name: payoutForm.bankName,
-        p_holder_name: payoutForm.holderName,
-        p_account_number: payoutForm.accountNumber,
-        p_ifsc_code: payoutForm.ifscCode,
-        p_amount: amountNum,
-        p_charges: charge
-      });
+      // 1. Deduct from wallet balance only
+      const { error: balanceError } = await supabase
+        .from('users_profiles')
+        .update({ 
+          wallet_balance: currentWallet - totalDeduction
+        })
+        .eq('id', userId);
 
-      if (rpcError) throw rpcError;
-      if (!rpcResult.success) throw new Error(rpcResult.message);
+      if (balanceError) throw balanceError;
+
+      // 2. Insert payout request
+      const { error: dbError } = await supabase
+        .from('payout_submissions')
+        .insert({
+          user_id: userId,
+          bank_name: payoutForm.bankName,
+          account_number: payoutForm.accountNumber,
+          ifsc_code: payoutForm.ifscCode,
+          account_holder_name: payoutForm.holderName,
+          amount: amountNum,
+          charge_amount: charge,
+          status: 'pending',
+          remaining_balance: currentWallet - totalDeduction
+        });
+
+      if (dbError) throw dbError;
 
       setSuccess('Payout request submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setPayoutForm({
