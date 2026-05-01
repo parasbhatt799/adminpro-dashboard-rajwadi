@@ -26,12 +26,18 @@ interface QRPaymentRequest {
   user_id: string;
   utr_id: string;
   amount: number;
+  charges?: number;
+  admin_share?: number;
+  distributor_share?: number;
   proof_url: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
   users_profiles?: {
     name: string;
     firm_name: string;
+    distributor_id?: string;
+    admin_base_qr_charge?: number;
+    charge_percentage?: number;
   };
   card_number: string;
   qr_history?: {
@@ -433,7 +439,7 @@ export default function QRPaymentRequests() {
                             Number(req.admin_share).toFixed(2) : 
                             (req.users_profiles?.distributor_id ?
                               ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100).toFixed(2) :
-                              Number((req as any).charges || 0).toFixed(2)
+                              Number(req.charges || 0).toFixed(2)
                             )
                           }
                         </span>
@@ -457,7 +463,7 @@ export default function QRPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-emerald-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
-                          {(Number(req.amount) - Number((req as any).charges || 0)).toFixed(2)}
+                          {(Number(req.amount) - Number(req.charges || 0)).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">

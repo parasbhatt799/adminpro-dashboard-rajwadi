@@ -159,23 +159,14 @@ export default function BillPaymentRequests() {
       const targetRequest = requests.find(r => r.id === id);
       if (!targetRequest) throw new Error('Request not found');
 
-      // 1. Deduct charges from admin balance (undo the credit)
-      const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
-      const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-      const requestCharges = targetRequest.charges || 0;
+      // Use Atomic RPC for refund
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('process_bill_request', {
+        p_request_id: id,
+        p_action: 'refunded'
+      });
 
-      await supabase
-        .from('qr_settings')
-        .update({ admin_balance: Math.max(0, currentAdminBalance - requestCharges) })
-        .eq('id', 1);
-
-      // 2. Update request status to refunded
-      const { error } = await supabase
-        .from('bill_submissions')
-        .update({ status: 'refunded' })
-        .eq('id', id);
-
-      if (error) throw error;
+      if (rpcError) throw rpcError;
+      if (!rpcResult.success) throw new Error(rpcResult.message);
 
       // 3. Notify User
       await supabase
@@ -208,63 +199,19 @@ export default function BillPaymentRequests() {
       const targetRequest = requests.find(r => r.id === targetId);
       if (!targetRequest) throw new Error('Request not found');
 
-      const { data: currentReq, error: fetchError } = await supabase
-        .from('bill_submissions')
-        .select('status, amount, charges')
-        .eq('id', targetId)
-        .single();
+      // Use Atomic RPC for status update (handles balances internally)
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('process_bill_request', {
+        p_request_id: targetId,
+        p_action: targetType,
+        p_reason: targetReason
+      });
 
-      if (fetchError || !currentReq) throw new Error('Request not found');
-      if (currentReq.status !== 'pending') throw new Error('This request has already been processed');
-
-      const amount = currentReq.amount || 0;
-      const requestCharges = currentReq.charges || 0;
+      if (rpcError) throw rpcError;
+      if (!rpcResult.success) throw new Error(rpcResult.message);
+      
+      const amount = targetRequest.amount || 0;
       const updateData: any = { status: targetType };
-
-      if (targetType === 'approved') {
-        updateData.admin_share = requestCharges;
-        updateData.distributor_share = 0;
-
-        // 2. Update status and shares
-        const { error: statusError } = await supabase
-          .from('bill_submissions')
-          .update(updateData)
-          .eq('id', targetId)
-          .eq('status', 'pending');
-
-        if (statusError) throw statusError;
-
-        // 3. Update Admin Balance
-        const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
-        const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-
-        await supabase
-          .from('qr_settings')
-          .update({ admin_balance: currentAdminBalance + requestCharges })
-          .eq('id', 1);
-
-      } else {
-        updateData.rejection_reason = targetReason;
-        const { error: statusError } = await supabase
-          .from('bill_submissions')
-          .update(updateData)
-          .eq('id', targetId)
-          .eq('status', 'pending');
-
-        if (statusError) throw statusError;
-
-        const { data: userData } = await supabase
-          .from('users_profiles')
-          .select('wallet_balance')
-          .eq('id', targetRequest.user_id)
-          .single();
-
-        const currentUserBalance = Number(userData?.wallet_balance) || 0;
-        await supabase
-          .from('users_profiles')
-          .update({ wallet_balance: currentUserBalance + amount + requestCharges })
-          .eq('id', targetRequest.user_id);
-      }
+      if (targetType === 'rejected') updateData.rejection_reason = targetReason;
 
       // 3. Notify User (In-app)
       const { error: nError } = await supabase
