@@ -109,7 +109,13 @@ export default function Dashboard() {
 
       let qrQuery = supabase
         .from('payment_submissions')
-        .select('*, users_profiles!user_id(*)')
+        .select(`
+          *, 
+          users_profiles!user_id(
+            *, 
+            distributor:distributor_id(admin_base_qr_charge, role)
+          )
+        `)
         .eq('status', 'approved');
 
       let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
@@ -159,8 +165,8 @@ export default function Dashboard() {
 
         let adminShare = Number(curr.charges) || 0;
         const profile = curr.users_profiles;
-        if (profile?.distributor_id) {
-          const adminBasePercentage = Number(profile.admin_base_qr_charge) || 0;
+        if (profile?.distributor_id && profile?.distributor && (profile.distributor as any).role === 'distributor') {
+          const adminBasePercentage = Number((profile.distributor as any).admin_base_qr_charge) || 0;
           adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
         }
         return acc + adminShare;
@@ -189,7 +195,14 @@ export default function Dashboard() {
       const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
 
-      const rangeTotalCharges = (rangeBillCharges || 0) + (rangeQrCharges || 0) + (rangePayoutCharges || 0) - (rangeWithdrawals || 0);
+      const totalEarnings = (rangeBillCharges || 0) + (rangeQrCharges || 0) + (rangePayoutCharges || 0);
+      
+      // Calculate Net Balance (Earnings - Withdrawals) for All Time view
+      const netBalance = totalEarnings - (rangeWithdrawals || 0);
+      
+      // If time range is "All Time", show the calculated Net Balance to match withdrawal page
+      const displayServiceCharge = timeRange === 'all' ? netBalance : totalEarnings;
+      
       const rangeTotalCCBill = rangeBillAmount || 0;
 
       const dateDisplay = startDate && endDate
@@ -247,10 +260,10 @@ export default function Dashboard() {
         },
         {
           title: "Total Service Charge",
-          value: formatCurrency(rangeTotalCharges),
+          value: formatCurrency(displayServiceCharge),
           icon: TrendingUp,
-          color: "bg-rose-500",
-          description: `Range: ${dateDisplay}`
+          color: "bg-indigo-600",
+          description: timeRange === 'all' ? 'Net Balance' : `Earnings: ${dateDisplay}`
         },
         {
           title: "Pending Actions",

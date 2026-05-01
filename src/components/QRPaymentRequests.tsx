@@ -453,7 +453,7 @@ export default function QRPaymentRequests() {
                         ) : req.users_profiles?.distributor_id ? (
                           <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
                             <IndianRupee size={12} className="mr-0.5" />
-                            {((req.amount * (Number(req.users_profiles?.charge_percentage || 0) - Number(req.users_profiles?.admin_base_qr_charge || 0))) / 100).toFixed(2)}
+                            {Math.max(0, (req.amount * (Number(req.users_profiles?.charge_percentage || 0) - Number(req.users_profiles?.admin_base_qr_charge || 0))) / 100).toFixed(2)}
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-300">N/A</span>
