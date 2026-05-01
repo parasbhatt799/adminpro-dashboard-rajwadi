@@ -514,6 +514,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         throw dbError;
       }
 
+      // OPTIMISTIC UPDATE: Update local balance immediately
+      setUserBalance(prev => prev - totalDeduction);
+
       // Real-time subscription will update the list and wallet balance
       setSuccess('Bill payment submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setBillForm({
@@ -624,6 +627,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         });
 
       if (dbError) throw dbError;
+
+      // OPTIMISTIC UPDATE: Update local balance immediately
+      setUserBalance(prev => prev - totalDeduction);
 
       setSuccess('Payout request submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setPayoutForm({

@@ -196,8 +196,25 @@ export default function UserDashboard({ userId }: { userId: string }) {
       })
       .subscribe();
 
+    // Listener for User Profile (Wallet Balance)
+    const profileChannel = supabase.channel(`profile_dashboard_${userId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'users_profiles', 
+        filter: `id=eq.${userId}` 
+      }, (payload) => {
+        if (payload.new) {
+          setUserProfile(payload.new);
+          // Stats will re-calculate because userProfile is a dependency or we force a refresh
+          fetchStats(); 
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(profileChannel);
     };
   }, [dateFilter, customRange]);
 
