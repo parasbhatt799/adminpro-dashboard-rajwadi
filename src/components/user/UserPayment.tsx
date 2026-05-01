@@ -183,10 +183,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         
         if (globalSettings) {
           setIsBillEnabled(globalSettings.is_bill_enabled ?? true);
-          // Auto-switch if bill is active but disabled
-          if (!globalSettings.is_bill_enabled && activeTab === 'bill') {
-            setActiveTab('qr');
-          }
         }
 
         // Fetch Banks
@@ -1236,6 +1232,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                 exit={{ opacity: 0, x: -20 }}
                 className="w-full space-y-12"
               >
+                {/* Form Section */}
                 {!isBillEnabled ? (
                   <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-12 text-center max-w-4xl mx-auto">
                     <div className="w-24 h-24 bg-amber-50 rounded-3xl flex items-center justify-center text-amber-500 mx-auto mb-6">
@@ -1256,12 +1253,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     </div>
                   </div>
                 ) : (
-                  <>
-                  {/* Bill Form */}
                   <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 md:p-12 relative overflow-hidden">
-                <div className="max-w-4xl mx-auto">
-                  <form onSubmit={handleBillSubmit} className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="max-w-4xl mx-auto">
+                      <form onSubmit={handleBillSubmit} className="space-y-8">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Customer Mobile */}
                     <div className="space-y-2">
                       <label className="text-sm font-bold text-slate-700">Customer Mobile:</label>
@@ -1399,8 +1394,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </div>
                 </form>
                 </div>
+                </div>
+              )}
 
-                {/* Recent Bill Requests */}
+              {/* Recent Bill Requests */}
                 <div className="mt-12 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">Bill Payment History</h3>
@@ -1631,11 +1628,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     })()}
                   </div>
                 </div>
-              </div>
-            </>
-            )}
-          </motion.div>
-        ) : (
+              </motion.div>
+            ) : (
               <motion.div
                 key="payout-tab"
                 initial={{ opacity: 0, x: 20 }}

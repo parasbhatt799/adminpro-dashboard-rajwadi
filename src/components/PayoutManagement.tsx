@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  IndianRupee, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
+import {
+  IndianRupee,
+  CheckCircle2,
+  XCircle,
+  Loader2,
   Search,
   Clock,
   User,
@@ -82,7 +82,7 @@ export default function PayoutManagement() {
         .select('*')
         .eq('id', 1)
         .single();
-      
+
       if (error) throw error;
       setSettings(data);
     } catch (err) {
@@ -98,7 +98,7 @@ export default function PayoutManagement() {
         .from('payout_submissions')
         .select('*, users_profiles(name, firm_name)')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setRequests(data || []);
     } catch (err) {
@@ -115,10 +115,10 @@ export default function PayoutManagement() {
     // Real-time subscription
     const channel = supabase
       .channel('payout_submissions_realtime')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'payout_submissions' 
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'payout_submissions'
       }, () => {
         fetchRequests();
       })
@@ -134,7 +134,7 @@ export default function PayoutManagement() {
     try {
       const { error } = await supabase
         .from('payout_submissions')
-        .update({ 
+        .update({
           status: 'processing',
           processing_started_at: new Date().toISOString()
         })
@@ -202,13 +202,13 @@ export default function PayoutManagement() {
         .select('wallet_balance')
         .eq('id', req.user_id)
         .single();
-      
+
       const currentBalance = Number(userProfile?.wallet_balance) || 0;
       const refundAmount = Number(req.amount) + Number(req.charge_amount);
 
       const { error: balanceError } = await supabase
         .from('users_profiles')
-        .update({ 
+        .update({
           wallet_balance: currentBalance + refundAmount
         })
         .eq('id', req.user_id);
@@ -218,7 +218,7 @@ export default function PayoutManagement() {
       // 2. Update Payout Status
       const { error: statusError } = await supabase
         .from('payout_submissions')
-        .update({ 
+        .update({
           status: 'rejected',
           remark: rejectReason
         })
@@ -296,14 +296,14 @@ export default function PayoutManagement() {
         const { data: urlData } = supabase.storage
           .from('payment_proofs')
           .getPublicUrl(filePath);
-        
+
         proofUrl = urlData.publicUrl;
       }
 
       // 2. Update status to approved
       const { error } = await supabase
         .from('payout_submissions')
-        .update({ 
+        .update({
           status: 'approved',
           transaction_id: transactionId,
           proof_url: proofUrl
@@ -385,14 +385,14 @@ export default function PayoutManagement() {
   };
 
   const filteredRequests = requests.filter(req => {
-    const matchesSearch = 
+    const matchesSearch =
       req.bank_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.account_holder_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       req.account_number.includes(searchQuery) ||
       (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
-    
+
     return matchesSearch && matchesStatus;
   });
 
@@ -412,7 +412,7 @@ export default function PayoutManagement() {
     const startTime = new Date(req.processing_started_at).getTime();
     const now = new Date().getTime();
     const elapsedMins = Math.floor((now - startTime) / 60000);
-    
+
     const stage1Limit = settings.processing_time_1_mins;
     const stage2Limit = settings.processing_time_2_mins;
 
@@ -445,14 +445,14 @@ export default function PayoutManagement() {
           <p className="text-slate-500 mt-1">Process withdrawal requests and configure payout settings.</p>
         </div>
         <div className="flex bg-white p-1 rounded-2xl border border-slate-200">
-          <button 
+          <button
             onClick={() => setActiveTab('requests')}
             className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'requests' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-500 hover:bg-slate-50'}`}
           >
             <History size={18} />
             Requests
           </button>
-          <button 
+          <button
             onClick={() => setActiveTab('settings')}
             className={`px-6 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'settings' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' : 'text-slate-500 hover:bg-slate-50'}`}
           >
@@ -464,7 +464,7 @@ export default function PayoutManagement() {
 
       <AnimatePresence mode="wait">
         {activeTab === 'requests' ? (
-          <motion.div 
+          <motion.div
             key="requests"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -474,7 +474,7 @@ export default function PayoutManagement() {
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
               <div className="relative flex-1 w-full max-w-md">
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input 
+                <input
                   type="text"
                   placeholder="Search by Bank, A/c, Name or Firm..."
                   value={searchQuery}
@@ -488,11 +488,10 @@ export default function PayoutManagement() {
                   <button
                     key={status}
                     onClick={() => setStatusFilter(status)}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${
-                      statusFilter === status 
-                        ? 'bg-slate-900 border-slate-900 text-white shadow-md' 
+                    className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${statusFilter === status
+                        ? 'bg-slate-900 border-slate-900 text-white shadow-md'
                         : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
-                    }`}
+                      }`}
                   >
                     {status}
                   </button>
@@ -520,7 +519,7 @@ export default function PayoutManagement() {
                 currentRequests.map((req) => {
                   const timer = getTimerDisplay(req);
                   return (
-                    <motion.div 
+                    <motion.div
                       key={req.id}
                       layout
                       className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden hover:border-indigo-200 transition-all p-6"
@@ -539,12 +538,11 @@ export default function PayoutManagement() {
                               </p>
                             </div>
                             <div className="ml-auto">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${
-                                req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                                req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                                req.status === 'processing' ? 'bg-amber-50 text-amber-600' :
-                                'bg-slate-100 text-slate-600'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                                  req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                    req.status === 'processing' ? 'bg-amber-50 text-amber-600' :
+                                      'bg-slate-100 text-slate-600'
+                                }`}>
                                 {req.status === 'approved' ? 'Completed' : req.status}
                               </span>
                             </div>
@@ -610,7 +608,7 @@ export default function PayoutManagement() {
                         <div className="flex flex-col justify-center gap-3">
                           {req.status === 'pending' && (
                             <>
-                              <button 
+                              <button
                                 onClick={() => handleStartProcessing(req.id)}
                                 disabled={processingId !== null}
                                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50"
@@ -618,7 +616,7 @@ export default function PayoutManagement() {
                                 {processingId === req.id ? <Loader2 className="animate-spin" size={18} /> : <ArrowRight size={18} />}
                                 Start Processing
                               </button>
-                              <button 
+                              <button
                                 onClick={() => setShowRejectModal(req.id)}
                                 disabled={processingId !== null}
                                 className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 px-6 py-3 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50"
@@ -630,14 +628,14 @@ export default function PayoutManagement() {
                           )}
                           {req.status === 'processing' && (
                             <>
-                              <button 
+                              <button
                                 onClick={() => setShowCompleteModal(req.id)}
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2"
                               >
                                 <CheckCircle2 size={18} />
                                 Complete Payout
                               </button>
-                              <button 
+                              <button
                                 onClick={() => setShowRejectModal(req.id)}
                                 className="w-full bg-rose-50 hover:bg-rose-100 text-rose-600 px-6 py-3 rounded-2xl font-bold transition-all flex items-center justify-center gap-2"
                               >
@@ -667,7 +665,7 @@ export default function PayoutManagement() {
                   Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRequests.length)}</span> of <span className="text-slate-900 font-bold">{filteredRequests.length}</span> requests
                 </p>
                 <div className="flex items-center gap-2">
-                  <button 
+                  <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
                     className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -680,7 +678,7 @@ export default function PayoutManagement() {
                       const maxVisible = 5;
                       let start = Math.max(1, currentPage - 2);
                       let end = Math.min(totalPages, start + maxVisible - 1);
-                      
+
                       if (end - start + 1 < maxVisible) {
                         start = Math.max(1, end - maxVisible + 1);
                       }
@@ -690,11 +688,10 @@ export default function PayoutManagement() {
                           <button
                             key={i}
                             onClick={() => setCurrentPage(i)}
-                            className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${
-                              currentPage === i 
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100' 
+                            className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i
+                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
                                 : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
-                            }`}
+                              }`}
                           >
                             {i}
                           </button>
@@ -703,7 +700,7 @@ export default function PayoutManagement() {
                       return pages;
                     })()}
                   </div>
-                  <button 
+                  <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
                     className="px-4 py-2 text-sm font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -715,7 +712,7 @@ export default function PayoutManagement() {
             )}
           </motion.div>
         ) : (
-          <motion.div 
+          <motion.div
             key="settings"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -743,19 +740,19 @@ export default function PayoutManagement() {
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Service Charge</label>
                       <div className="relative">
                         <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                        <input 
+                        <input
                           type="number"
                           value={settings.fixed_charge}
-                          onChange={e => setSettings({...settings, fixed_charge: Number(e.target.value)})}
+                          onChange={e => setSettings({ ...settings, fixed_charge: Number(e.target.value) })}
                           className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                         />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Charge Type</label>
-                      <select 
+                      <select
                         value={settings.is_percentage ? 'percent' : 'flat'}
-                        onChange={e => setSettings({...settings, is_percentage: e.target.value === 'percent'})}
+                        onChange={e => setSettings({ ...settings, is_percentage: e.target.value === 'percent' })}
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                       >
                         <option value="flat">Fixed Amount (₹)</option>
@@ -764,14 +761,14 @@ export default function PayoutManagement() {
                     </div>
 
                     <div className="space-y-2">
-                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                         Time to Approve (Minutes)
                         <Timer size={12} className="text-emerald-500" />
                       </label>
-                      <input 
+                      <input
                         type="number"
                         value={settings.pending_time_mins || 15}
-                        onChange={e => setSettings({...settings, pending_time_mins: Number(e.target.value)})}
+                        onChange={e => setSettings({ ...settings, pending_time_mins: Number(e.target.value) })}
                         className="w-full px-4 py-3 bg-emerald-50/50 border border-emerald-100 rounded-xl focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all"
                       />
                     </div>
@@ -781,10 +778,10 @@ export default function PayoutManagement() {
                         Timer 1 (Minutes)
                         <ShieldCheck size={12} className="text-amber-500" />
                       </label>
-                      <input 
+                      <input
                         type="number"
                         value={settings.processing_time_1_mins}
-                        onChange={e => setSettings({...settings, processing_time_1_mins: Number(e.target.value)})}
+                        onChange={e => setSettings({ ...settings, processing_time_1_mins: Number(e.target.value) })}
                         className="w-full px-4 py-3 bg-amber-50/50 border border-amber-100 rounded-xl focus:ring-2 focus:ring-amber-500/20 outline-none transition-all"
                       />
                     </div>
@@ -794,52 +791,52 @@ export default function PayoutManagement() {
                         Timer 2 (Minutes)
                         <Clock size={12} className="text-indigo-500" />
                       </label>
-                      <input 
+                      <input
                         type="number"
                         value={settings.processing_time_2_mins}
-                        onChange={e => setSettings({...settings, processing_time_2_mins: Number(e.target.value)})}
+                        onChange={e => setSettings({ ...settings, processing_time_2_mins: Number(e.target.value) })}
                         className="w-full px-4 py-3 bg-indigo-50/50 border border-indigo-100 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                       />
                     </div>
 
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Min. Payout</label>
-                      <input 
+                      <input
                         type="number"
                         value={settings.min_payout}
-                        onChange={e => setSettings({...settings, min_payout: Number(e.target.value)})}
+                        onChange={e => setSettings({ ...settings, min_payout: Number(e.target.value) })}
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
                       />
                     </div>
-                     <div className="space-y-2">
-                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Max. Payout</label>
-                       <input 
-                         type="number"
-                         value={settings.max_payout}
-                         onChange={e => setSettings({...settings, max_payout: Number(e.target.value)})}
-                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                       />
-                     </div>
- 
-                     <div className="flex flex-col justify-end pb-1">
-                       <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
-                         <div className="pr-4">
-                           <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Payout Status</h4>
-                         </div>
-                         <button
-                           type="button"
-                           onClick={() => setSettings({...settings, is_enabled: !settings.is_enabled})}
-                           className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${settings.is_enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
-                         >
-                           <span
-                             className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.is_enabled ? 'translate-x-6' : 'translate-x-1'}`}
-                           />
-                         </button>
-                       </div>
-                     </div>
-                   </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Max. Payout</label>
+                      <input
+                        type="number"
+                        value={settings.max_payout}
+                        onChange={e => setSettings({ ...settings, max_payout: Number(e.target.value) })}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                      />
+                    </div>
 
-                  <button 
+                    <div className="flex flex-col justify-end pb-1">
+                      <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 flex items-center justify-between">
+                        <div className="pr-4">
+                          <h4 className="text-[11px] font-black text-slate-900 uppercase tracking-tight">Payout Status</h4>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSettings({ ...settings, is_enabled: !settings.is_enabled })}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none shrink-0 ${settings.is_enabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${settings.is_enabled ? 'translate-x-6' : 'translate-x-1'}`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
                     type="submit"
                     disabled={savingSettings}
                     className="w-full bg-slate-900 hover:bg-slate-800 text-white py-4 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-4"
@@ -863,7 +860,7 @@ export default function PayoutManagement() {
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl">
               <h3 className="text-xl font-bold text-slate-900 mb-2">Reject Payout</h3>
               <p className="text-sm text-slate-500 mb-6">Explain why this payout is being rejected. This will be shown to the user.</p>
-              <textarea 
+              <textarea
                 value={rejectReason}
                 onChange={e => setRejectReason(e.target.value)}
                 placeholder="Enter rejection reason..."
@@ -888,11 +885,11 @@ export default function PayoutManagement() {
             <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl">
               <h3 className="text-xl font-bold text-slate-900 mb-2">Complete Payout</h3>
               <p className="text-sm text-slate-500 mb-6">Enter transaction details and upload payment proof.</p>
-              
+
               <div className="space-y-4 mb-6">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Transaction ID</label>
-                  <input 
+                  <input
                     type="text"
                     value={transactionId}
                     onChange={e => setTransactionId(e.target.value)}
@@ -917,11 +914,11 @@ export default function PayoutManagement() {
                         </>
                       )}
                     </div>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      className="hidden" 
-                      onChange={(e) => e.target.files && setProofFile(e.target.files[0])} 
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => e.target.files && setProofFile(e.target.files[0])}
                     />
                   </label>
                 </div>
@@ -929,9 +926,9 @@ export default function PayoutManagement() {
 
               <div className="flex gap-4">
                 <button onClick={() => { setShowCompleteModal(null); setProofFile(null); }} className="flex-1 py-3 font-bold text-slate-500">Cancel</button>
-                <button 
-                  onClick={handleComplete} 
-                  disabled={!transactionId || processingId !== null || isUploading} 
+                <button
+                  onClick={handleComplete}
+                  disabled={!transactionId || processingId !== null || isUploading}
                   className="flex-1 py-3 bg-emerald-600 text-white rounded-xl font-bold shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isUploading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
