@@ -64,23 +64,23 @@ export default function QRManagement() {
 
       if (hError) throw hError;
 
-      // 3. Fetch counts for each history item
+      // 3. Fetch counts for each history item using individual count queries for accuracy (bypasses 1000 limit)
       if (history && history.length > 0) {
-        const { data: submissions, error: subError } = await supabase
-          .from('payment_submissions')
-          .select('qr_id, status');
+        await Promise.all(history.map(async (item: any) => {
+          const [total, pending, approved, rejected] = await Promise.all([
+            supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id),
+            supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id).eq('status', 'pending'),
+            supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id).eq('status', 'approved'),
+            supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id).eq('status', 'rejected'),
+          ]);
 
-        if (!subError && submissions) {
-          history.forEach((item: any) => {
-            const itemSubs = submissions.filter(s => s.qr_id === item.id);
-            item.counts = {
-              total: itemSubs.length,
-              pending: itemSubs.filter(s => s.status === 'pending').length,
-              approved: itemSubs.filter(s => s.status === 'approved').length,
-              rejected: itemSubs.filter(s => s.status === 'rejected').length,
-            };
-          });
-        }
+          item.counts = {
+            total: total.count || 0,
+            pending: pending.count || 0,
+            approved: approved.count || 0,
+            rejected: rejected.count || 0,
+          };
+        }));
       }
 
       const activeQR = history?.find(h => h.is_active);
@@ -102,6 +102,22 @@ export default function QRManagement() {
 
   useEffect(() => {
     fetchQRData();
+
+    // Listen for new submissions to update counts in real-time
+    const channel = supabase
+      .channel('qr_submissions_tracking')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'payment_submissions'
+      }, () => {
+        fetchQRData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleToggle = async () => {

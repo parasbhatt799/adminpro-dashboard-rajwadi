@@ -665,6 +665,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
     const amountNum = parseFloat(amount);
     
+    if (!activeQrId) {
+      setError('System Error: Active QR ID not found. Please refresh the page and try again.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       // 0. Check if UTR already exists and is pending or approved
       const { data: existingRequests, error: checkError } = await supabase

@@ -61,6 +61,7 @@ export default function QRPaymentRequests() {
   const [currentPage, setCurrentPage] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [amountFilter, setAmountFilter] = useState('');
   const itemsPerPage = 10;
 
   const clearFilters = () => {
@@ -68,6 +69,7 @@ export default function QRPaymentRequests() {
     setFilter('all');
     setStartDate('');
     setEndDate('');
+    setAmountFilter('');
     setCurrentPage(1);
   };
 
@@ -264,6 +266,7 @@ export default function QRPaymentRequests() {
   };
 
   const filteredRequests = requests.filter(req => {
+    const matchesAmount = !amountFilter || String(req.amount).includes(amountFilter);
     const matchesSearch =
       (req.utr_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
@@ -280,7 +283,7 @@ export default function QRPaymentRequests() {
     const matchesStartDate = !start || reqDate >= start;
     const matchesEndDate = !end || reqDate <= end;
 
-    return matchesSearch && matchesStartDate && matchesEndDate;
+    return matchesSearch && matchesStartDate && matchesEndDate && matchesAmount;
   });
 
   const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
@@ -291,7 +294,7 @@ export default function QRPaymentRequests() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filter, startDate, endDate]);
+  }, [searchQuery, filter, startDate, endDate, amountFilter]);
 
   return (
     <div className="space-y-8">
@@ -336,7 +339,17 @@ export default function QRPaymentRequests() {
               placeholder="Search Firm or UTR..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-64"
+              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-48"
+            />
+          </div>
+          <div className="relative">
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+            <input
+              type="number"
+              placeholder="Amount..."
+              value={amountFilter}
+              onChange={(e) => setAmountFilter(e.target.value)}
+              className="pl-8 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-32"
             />
           </div>
           <select
