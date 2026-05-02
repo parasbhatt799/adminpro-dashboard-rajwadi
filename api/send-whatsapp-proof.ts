@@ -68,7 +68,7 @@ export default async function handler(req: any, res: any) {
       }
 
       // AiSensy Campaign API Endpoint
-      const url = `https://backend.aisensy.com/campaign/v1/api/v2`;
+      const url = `https://backend.aisensy.com/campaign/t1/api/v2`;
 
       const response = await fetch(url, {
         method: 'POST',
@@ -81,6 +81,7 @@ export default async function handler(req: any, res: any) {
           destination: whatsapp_number,
           userName: "User", // Default fallback
           templateParams: [], // Add params if needed
+          source: "UsePay App",
           media: {
             url: proof_url,
             filename: "payment_proof.png"
