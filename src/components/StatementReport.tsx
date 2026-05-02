@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  Search, 
-  Loader2, 
+import {
+  FileText,
+  Search,
+  Loader2,
   User,
   FileSpreadsheet,
   ChevronRight,
@@ -68,7 +68,7 @@ export default function StatementReport() {
 
     try {
       let openingBalance = 0;
-      
+
       // Calculate Opening Balance if start date is provided
       if (startDate) {
         let queryQr = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
@@ -96,7 +96,7 @@ export default function StatementReport() {
         const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
         const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
         const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
-        
+
         openingBalance = qrTotal - billTotal - payoutTotal;
       }
 
@@ -116,7 +116,7 @@ export default function StatementReport() {
           ), 
           qr_history(qr_name)
         `).eq('status', 'approved');
-        
+
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
         if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
@@ -138,11 +138,11 @@ export default function StatementReport() {
           raw_data: r
         }));
       }
-      
+
       // 2. Fetch Bill Payments
       if (typeFilter === 'all' || typeFilter === 'BILL') {
         let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
-        
+
         if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) billQuery = billQuery.eq('amount', Number(exactAmount));
         if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
@@ -152,7 +152,7 @@ export default function StatementReport() {
         if (error) throw error;
         billMapped = (data || []).map((r, idx) => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(), 
+          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'BILL',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
@@ -193,14 +193,14 @@ export default function StatementReport() {
 
       // Fetch Distributor Firm Names for QR records that have a distributor_id
       const distributorIds = Array.from(new Set(qrMapped.filter(r => r.raw_data.users_profiles?.distributor_id).map(r => r.raw_data.users_profiles.distributor_id)));
-      
+
       let distributorMap: Record<string, string> = {};
       if (distributorIds.length > 0) {
         const { data: distData } = await supabase
           .from('users_profiles')
           .select('id, firm_name')
           .in('id', distributorIds);
-        
+
         if (distData) {
           distData.forEach(d => {
             distributorMap[d.id] = d.firm_name;
@@ -218,7 +218,7 @@ export default function StatementReport() {
       });
 
       // Merge and Sort (Oldest first for running balance)
-      const merged = [...finalQrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
+      const merged = [...finalQrMapped, ...billMapped, ...payoutMapped].sort((a, b) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
@@ -226,10 +226,10 @@ export default function StatementReport() {
       let currentBalance = openingBalance;
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
         if (r.type === 'QR') {
-           currentBalance += r.final_total;
+          currentBalance += r.final_total;
         } else {
-           // BILL or PAYOUT: Wallet is deducted
-           currentBalance -= r.final_total;
+          // BILL or PAYOUT: Wallet is deducted
+          currentBalance -= r.final_total;
         }
         return { ...r, balance: currentBalance };
       });
@@ -251,22 +251,22 @@ export default function StatementReport() {
   const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
     const exportData = dataToExport.map(r => ({
-      'Payment Date': new Date(r.date).toLocaleString('en-IN', { 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit', 
-        hour: '2-digit', 
-        minute: '2-digit', 
-        hour12: true 
+      'Payment Date': new Date(r.date).toLocaleString('en-IN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
       }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
       'Card No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
-      'Description': r.type === 'BILL' 
-        ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)` 
+      'Description': r.type === 'BILL'
+        ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)`
         : r.type === 'PAYOUT'
-        ? `PAYOUT to ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name} A/c:${r.raw_data?.account_number})\nTxnId: ${r.reference}\n(${r.amount} + ${r.charges} Txn Charge)`
-        : `TxnId: ${r.reference},\n(${r.amount} - ${r.charges} Txn Charge)\n PAYMENT QR ${r.raw_data?.qr_history?.qr_name}`,
+          ? `PAYOUT to ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name} A/c:${r.raw_data?.account_number})\nTxnId: ${r.reference}\n(${r.amount} + ${r.charges} Txn Charge)`
+          : `TxnId: ${r.reference},\n(${r.amount} - ${r.charges} Txn Charge)\n PAYMENT QR ${r.raw_data?.qr_history?.qr_name}`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
@@ -284,24 +284,24 @@ export default function StatementReport() {
     try {
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
       const dataToExport = records.slice(0, displayCount);
-      
+
       const tableData = dataToExport.map(r => [
-        new Date(r.date).toLocaleString('en-IN', { 
-          year: 'numeric', 
-          month: '2-digit', 
-          day: '2-digit', 
-          hour: '2-digit', 
-          minute: '2-digit', 
-          hour12: true 
+        new Date(r.date).toLocaleString('en-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
         }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
         r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
-        r.type === 'BILL' 
-          ? `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}` 
+        r.type === 'BILL'
+          ? `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`
           : r.type === 'PAYOUT'
-          ? `PAYOUT: ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name})`
-          : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
+            ? `PAYOUT: ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name})`
+            : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
         (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
@@ -341,33 +341,33 @@ export default function StatementReport() {
     <div className="space-y-6 max-w-full">
       {/* Filters & Actions matching previous theme slightly adapted */}
       <div className="flex flex-wrap gap-4 items-center mb-6 bg-white p-4 rounded-xl shadow-[0_2px_10px_-3px_rgba(6,81,237,0.1)] border border-[#e0e0e0]">
-        
+
         <div className="flex-1 min-w-[200px] relative">
-           <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="Filter by Firm Name..." 
-                value={firmName} 
-                onFocus={() => setShowSuggestions(true)} 
-                onChange={(e) => { setFirmName(e.target.value); setShowSuggestions(true); }} 
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-500" 
-              />
-           </div>
-           <AnimatePresence>
-             {showSuggestions && suggestions.length > 0 && (
-               <>
-                 <div className="fixed inset-0 z-10" onClick={() => setShowSuggestions(false)} />
-                 <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden">
-                   {suggestions.map((s, i) => (
-                     <button key={i} onClick={() => { setFirmName(s); setShowSuggestions(false); fetchStatement(); }} className="w-full px-4 py-2 hover:bg-slate-50 text-left text-sm font-medium text-slate-700 flex justify-between items-center group">
-                       {s} <ChevronRight size={14} className="text-slate-300" />
-                     </button>
-                   ))}
-                 </motion.div>
-               </>
-             )}
-           </AnimatePresence>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Filter by Firm Name..."
+              value={firmName}
+              onFocus={() => setShowSuggestions(true)}
+              onChange={(e) => { setFirmName(e.target.value); setShowSuggestions(true); }}
+              className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-indigo-500"
+            />
+          </div>
+          <AnimatePresence>
+            {showSuggestions && suggestions.length > 0 && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowSuggestions(false)} />
+                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 5 }} className="absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-xl shadow-xl z-20 overflow-hidden">
+                  {suggestions.map((s, i) => (
+                    <button key={i} onClick={() => { setFirmName(s); setShowSuggestions(false); fetchStatement(); }} className="w-full px-4 py-2 hover:bg-slate-50 text-left text-sm font-medium text-slate-700 flex justify-between items-center group">
+                      {s} <ChevronRight size={14} className="text-slate-300" />
+                    </button>
+                  ))}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Date Range */}
@@ -396,12 +396,12 @@ export default function StatementReport() {
 
       {/* Main Table mimicking the screenshot completely */}
       <div className="bg-white rounded-[4px] border border-[#e0e0e0] shadow-sm overflow-hidden font-sans">
-        
+
         {/* 'Show 10 entries' */}
         <div className="px-4 py-3 flex items-center gap-2 text-[13px] text-[#333]">
           <span>Show</span>
-          <select 
-            value={displayCount} 
+          <select
+            value={displayCount}
             onChange={(e) => setDisplayCount(Number(e.target.value))}
             className="border border-[#ccc] rounded px-2 py-1 outline-none text-[#333]"
           >
@@ -420,14 +420,14 @@ export default function StatementReport() {
               <tr className="border-y border-[#ddd]">
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment Date</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">PaymentId</th>
-                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Transaction<br/>Type</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Transaction<br />Type</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap text-center">Bank / QR</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap text-center">Card / Account No</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] min-w-[300px]">Description</th>
-                <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Credit<br/>Amount</th>
-                <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Debit<br/>Amount</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Credit<br />Amount</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Debit<br />Amount</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] text-right whitespace-nowrap">Balance</th>
-                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment<br/>From</th>
+                <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment<br />From</th>
                 <th className="px-4 py-3 text-[13px] font-bold text-[#333] whitespace-nowrap">Payment To</th>
               </tr>
             </thead>
@@ -492,13 +492,13 @@ export default function StatementReport() {
                       )}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {r.type === 'QR' ? r.final_total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0'}
+                      {r.type === 'QR' ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {(r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0'}
+                      {(r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#333] font-bold text-right">
-                      {r.balance.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                      {r.balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
                       {r.type === 'QR' ? 'Admin' : r.type === 'PAYOUT' ? 'Bank' : ''}

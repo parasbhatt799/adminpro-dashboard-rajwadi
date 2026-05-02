@@ -72,7 +72,7 @@ const setupOneSignal = async (currentUserId: string) => {
     // 2. Initialize via Deferred Queue
     OneSignalDeferred.push(async (OneSignal: any) => {
       if (OneSignal.initialized) return;
-      
+
       await OneSignal.init({
         appId: settings.app_id,
         allowLocalhostAsSecureOrigin: true,
@@ -83,7 +83,7 @@ const setupOneSignal = async (currentUserId: string) => {
 
       // 3. Sync ID or Cleanup if logged out
       const pushId = OneSignal.User.PushSubscription?.id;
-      
+
       if (currentUserId) {
         // Always associate this device with the user's ID in OneSignal
         OneSignal.login(currentUserId);
@@ -97,24 +97,24 @@ const setupOneSignal = async (currentUserId: string) => {
             .eq('onesignal_id', pushId);
 
           const userType = localStorage.getItem('userType');
-          
+
           if (userType === 'admin') {
             // Admins: Sync to users_profiles with 'admin' role so backend can find them
             await supabase
               .from('users_profiles')
-              .upsert({ 
-                id: currentUserId, 
-                onesignal_id: pushId, 
-                role: 'admin' 
+              .upsert({
+                id: currentUserId,
+                onesignal_id: pushId,
+                role: 'admin'
               }, { onConflict: 'id' });
             console.log('OneSignal Admin Sync Success:', pushId);
           } else {
             // Regular Users: Sync to their existing profile and ensure role is 'user'
             await supabase
               .from('users_profiles')
-              .update({ 
+              .update({
                 onesignal_id: pushId,
-                role: 'user' 
+                role: 'user'
               })
               .eq('id', currentUserId);
             console.log('OneSignal User Sync Success:', pushId);
@@ -126,7 +126,7 @@ const setupOneSignal = async (currentUserId: string) => {
           .from('users_profiles')
           .update({ onesignal_id: null })
           .eq('onesignal_id', pushId);
-        
+
         // Also tell OneSignal to logout
         OneSignal.logout();
         console.log('OneSignal Cleaned (Logged Out):', pushId);
@@ -156,7 +156,7 @@ const PageUnderConstruction = ({ tab }: { tab: string }) => (
 const MaintenanceOverlay = ({ message }: { message: string }) => (
   <div className="fixed inset-0 z-[9999] bg-slate-900 flex items-center justify-center p-6 overflow-hidden">
     <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       className="max-w-md w-full bg-white rounded-[40px] p-10 text-center shadow-2xl relative z-10"
@@ -243,19 +243,19 @@ const AdminLayout = ({
 
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
-      <Sidebar 
-        onLogout={handleLogout} 
+      <Sidebar
+        onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         adminRole={adminRole}
         pendingCounts={pendingCounts}
         isDeveloper={isDeveloper}
       />
-      
+
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-6">
-            <button 
+            <button
               type="button"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
@@ -264,9 +264,9 @@ const AdminLayout = ({
             </button>
             <div className="relative w-96 font-sans">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Search anything..." 
+              <input
+                type="text"
+                placeholder="Search anything..."
                 className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
               />
             </div>
@@ -277,24 +277,23 @@ const AdminLayout = ({
 
             {/* Total Hold Balance Wallet */}
             <div className="hidden lg:flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
-               <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600 shadow-inner">
-                 <Shield size={18} className="animate-pulse" />
-               </div>
-               <div className="flex flex-col">
-                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none mb-0.5">Total Hold</span>
-                 <span className="text-sm font-bold text-slate-900 leading-none">₹{totalHoldBalance.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
-               </div>
+              <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600 shadow-inner">
+                <Shield size={18} className="animate-pulse" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none mb-0.5">Total Hold</span>
+                <span className="text-sm font-bold text-slate-900 leading-none">₹{totalHoldBalance.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
+              </div>
             </div>
 
             <div className="w-px h-8 bg-slate-100 mx-1 hidden lg:block"></div>
 
             <div className="relative">
-              <button 
+              <button
                 type="button"
                 onClick={() => setShowAdminNotifications(!showAdminNotifications)}
-                className={`p-2 rounded-lg transition-all relative ${
-                  showAdminNotifications ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
-                }`}
+                className={`p-2 rounded-lg transition-all relative ${showAdminNotifications ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'
+                  }`}
               >
                 <Bell size={20} />
                 {unreadAdminCount > 0 && (
@@ -305,8 +304,8 @@ const AdminLayout = ({
               <AnimatePresence>
                 {showAdminNotifications && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-10" 
+                    <div
+                      className="fixed inset-0 z-10"
                       onClick={() => setShowAdminNotifications(false)}
                     ></div>
                     <motion.div
@@ -325,7 +324,7 @@ const AdminLayout = ({
                           )}
                         </div>
                         {adminNotifications.length > 0 && (
-                          <button 
+                          <button
                             type="button"
                             onClick={handleClearAllAdminNotifications}
                             className="text-[10px] font-bold text-rose-500 hover:text-rose-600 uppercase tracking-wider"
@@ -344,7 +343,7 @@ const AdminLayout = ({
                           </div>
                         ) : (
                           adminNotifications.map((n) => (
-                            <div 
+                            <div
                               key={n.id}
                               onClick={async () => {
                                 // Mark as read
@@ -377,7 +376,7 @@ const AdminLayout = ({
                                       <Clock size={10} />
                                       {formatDistanceToNow(parseISO(n.created_at), { addSuffix: true })}
                                     </div>
-                                    <button 
+                                    <button
                                       type="button"
                                       onClick={(e) => handleDeleteAdminNotification(e, n.id)}
                                       className="p-1 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all"
@@ -471,7 +470,7 @@ export default function App() {
         .select('*')
         .eq('id', 1)
         .single();
-      
+
       if (!error && data) {
         setIsSystemEnabled(data.is_enabled);
         setMaintenanceMessage(data.message);
@@ -532,7 +531,7 @@ export default function App() {
     }
     link.href = url;
   };
-  
+
   // Admin Notification States
   const [adminNotifications, setAdminNotifications] = useState<any[]>([]);
   const [unreadAdminCount, setUnreadAdminCount] = useState(0);
@@ -565,9 +564,9 @@ export default function App() {
       const { data, error } = await supabase
         .from('users_profiles')
         .select('hold_balance');
-      
+
       if (error) throw error;
-      
+
       const total = (data || []).reduce((sum, u) => sum + (Number(u.hold_balance) || 0), 0);
       setTotalHoldBalance(total);
     } catch (err) {
@@ -583,13 +582,13 @@ export default function App() {
         .eq('target_role', 'admin')
         .order('created_at', { ascending: false })
         .limit(10);
-      
+
       if (error) {
         console.error('Error fetching admin notifications:', error);
         setAdminNotifications([]);
         return;
       }
-      
+
       setAdminNotifications(data || []);
       setUnreadAdminCount(data?.filter(n => !n.is_read).length || 0);
     } catch (err) {
@@ -639,7 +638,7 @@ export default function App() {
       const playNotificationSound = (type: 'qr' | 'bill' | 'kyc' | 'payout') => {
         const settings = soundSettingsRef.current;
         if (!settings) return;
-        
+
         const isEnabled = settings[`is_${type}_sound_enabled`] ?? true;
         const defaultSounds: Record<string, string> = {
           qr: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
@@ -649,10 +648,10 @@ export default function App() {
         };
 
         const soundUrl = settings[`${type}_sound_url`] || defaultSounds[type];
-        
+
         if (isEnabled && soundUrl) {
           const audio = new Audio(soundUrl);
-          audio.play().catch(() => {});
+          audio.play().catch(() => { });
         }
       };
 
@@ -696,7 +695,7 @@ export default function App() {
           }
         })
         .subscribe();
-      
+
       // Branding/Sound Settings Listener
       const settingsSub = supabase
         .channel('admin_settings_realtime')
@@ -762,14 +761,14 @@ export default function App() {
       const playUserSound = () => {
         const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
         const audio = new Audio(soundUrl);
-        audio.play().catch(() => {});
+        audio.play().catch(() => { });
       };
 
       const qrSub = supabase
         .channel(`user_qr_status_${userId}`)
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
           table: 'payment_submissions',
           filter: `user_id=eq.${userId}`
         }, (payload) => {
@@ -781,9 +780,9 @@ export default function App() {
 
       const billSub = supabase
         .channel(`user_bill_status_${userId}`)
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
           table: 'bill_submissions',
           filter: `user_id=eq.${userId}`
         }, (payload) => {
@@ -792,12 +791,12 @@ export default function App() {
           }
         })
         .subscribe();
-        
+
       const payoutSub = supabase
         .channel(`user_payout_status_${userId}`)
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
           table: 'payout_submissions',
           filter: `user_id=eq.${userId}`
         }, (payload) => {
@@ -809,9 +808,9 @@ export default function App() {
 
       const kycSub = supabase
         .channel(`user_kyc_status_${userId}`)
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
           table: 'users_profiles',
           filter: `id=eq.${userId}`
         }, (payload) => {
@@ -843,7 +842,7 @@ export default function App() {
     localStorage.setItem('userId', id);
     localStorage.setItem('userType', userType);
     if (role) localStorage.setItem('adminRole', role);
-    
+
     if (userType === 'admin') {
       setIsAdmin(true);
       setIsUser(false);
@@ -862,7 +861,7 @@ export default function App() {
         .from('users_profiles')
         .update({ onesignal_id: null })
         .eq('id', userId)
-        .then(() => {})
+        .then(() => { })
         .catch(err => console.warn('OneSignal DB clear failed (non-blocking):', err));
     }
 
@@ -902,27 +901,27 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage isAdmin={isAdmin} isUser={isUser} onLogout={handleLogout} />} />
-        <Route 
+        <Route
           element={
-            !isAdmin ? <Navigate to="/login" replace /> : 
-            <AdminLayout 
-              handleLogout={handleLogout}
-              isSidebarCollapsed={isSidebarCollapsed}
-              setIsSidebarCollapsed={setIsSidebarCollapsed}
-              showAdminNotifications={showAdminNotifications}
-              setShowAdminNotifications={setShowAdminNotifications}
-              unreadAdminCount={unreadAdminCount}
-              adminNotifications={adminNotifications}
-              handleDeleteAdminNotification={handleDeleteAdminNotification}
-              handleClearAllAdminNotifications={handleClearAllAdminNotifications}
-              fetchAdminNotifications={fetchAdminNotifications}
-              userId={userId}
-              adminRole={adminRole}
-              totalHoldBalance={totalHoldBalance}
-              pendingCounts={pendingCounts}
-              isDeveloper={isDeveloper}
-            />
-          } 
+            !isAdmin ? <Navigate to="/login" replace /> :
+              <AdminLayout
+                handleLogout={handleLogout}
+                isSidebarCollapsed={isSidebarCollapsed}
+                setIsSidebarCollapsed={setIsSidebarCollapsed}
+                showAdminNotifications={showAdminNotifications}
+                setShowAdminNotifications={setShowAdminNotifications}
+                unreadAdminCount={unreadAdminCount}
+                adminNotifications={adminNotifications}
+                handleDeleteAdminNotification={handleDeleteAdminNotification}
+                handleClearAllAdminNotifications={handleClearAllAdminNotifications}
+                fetchAdminNotifications={fetchAdminNotifications}
+                userId={userId}
+                adminRole={adminRole}
+                totalHoldBalance={totalHoldBalance}
+                pendingCounts={pendingCounts}
+                isDeveloper={isDeveloper}
+              />
+          }
         >
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="bank-upload" element={<BankManagement />} />
@@ -957,9 +956,9 @@ export default function App() {
             </>
           )}
         </Route>
-        <Route 
-          path="/user" 
-          element={!isUser ? <Navigate to="/login" replace /> : <UserPanel onLogout={handleLogout} userId={userId} />} 
+        <Route
+          path="/user"
+          element={!isUser ? <Navigate to="/login" replace /> : <UserPanel onLogout={handleLogout} userId={userId} />}
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<UserDashboard userId={userId} />} />
@@ -974,15 +973,15 @@ export default function App() {
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
           <Route path="policies" element={<UserPolicies userId={userId} />} />
           <Route path="change-password" element={<UserChangePassword userId={userId} onLogout={handleLogout} />} />
-          
+
         </Route>
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
-            isAdmin ? <Navigate to="/dashboard" replace /> : 
-            isUser ? <Navigate to="/user/dashboard" replace /> : 
-            <Login onLogin={handleLogin} />
-          } 
+            isAdmin ? <Navigate to="/dashboard" replace /> :
+              isUser ? <Navigate to="/user/dashboard" replace /> :
+                <Login onLogin={handleLogin} />
+          }
         />
       </Routes>
     </Router>

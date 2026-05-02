@@ -38,24 +38,39 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
   const [endDate, setEndDate] = useState('');
 
   const fetchStatement = async () => {
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       let openingBalance = 0;
+      let currentAnchorBalance = 0;
+      const { data: userData } = await supabase
+        .from('users_profiles')
+        .select('wallet_balance')
+        .eq('id', userId)
+        .single();
       
-      // Calculate Opening Balance if start date is provided
-      if (startDate) {
-        const [qrPre, billPre, payoutPre] = await Promise.all([
-          supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
-          supabase.from('bill_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
-          supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', userId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`)
-        ]);
-
-        const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
-        const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
-        const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
-        
-        openingBalance = qrTotal - billTotal - payoutTotal;
+      if (userData) {
+        currentAnchorBalance = Number(userData.wallet_balance) || 0;
       }
+
+      // 2. Fetch all transactions from Start Date until NOW to calculate Opening Balance backwards
+      const calcStartDate = startDate ? `${startDate}T00:00:00` : new Date(0).toISOString();
+      
+      const [qrSince, billSince, payoutSince] = await Promise.all([
+        supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').gte('created_at', calcStartDate),
+        supabase.from('bill_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').gte('created_at', calcStartDate),
+        supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', userId).eq('status', 'approved').gte('created_at', calcStartDate)
+      ]);
+
+      const totalCreditsSince = (qrSince.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+      const totalDebitsSince = (billSince.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0) +
+                               (payoutSince.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
+
+      // Opening Balance (at calcStartDate) = Current Balance - Credits + Debits
+      openingBalance = currentAnchorBalance - totalCreditsSince + totalDebitsSince;
 
       let qrMapped: any[] = [];
       let billMapped: any[] = [];
@@ -309,13 +324,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-indigo-600">
+                  <td colSpan={9} className="px-6 py-12 text-center text-indigo-600">
                     <Loader2 className="animate-spin mx-auto" size={32} />
                   </td>
                 </tr>
               ) : records.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-[#666] text-[13px]">
+                  <td colSpan={9} className="px-6 py-12 text-center text-[#666] text-[13px]">
                     No approved transactions found
                   </td>
                 </tr>

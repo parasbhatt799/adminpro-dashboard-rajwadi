@@ -94,7 +94,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
           const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
           const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
-          
+
           openingBalance = qrTotal - billTotal - payoutTotal;
         }
       }
@@ -407,8 +407,8 @@ export default function DistributorStatementReport({ userId }: { userId: string 
                     <td className="px-6 py-4 text-[13px] font-bold text-slate-400">{r.numericId}</td>
                     <td className="px-6 py-4">
                       <span className={`text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider ${r.type === 'QR' ? 'bg-emerald-50 text-emerald-600' :
-                          r.type === 'BILL' ? 'bg-indigo-50 text-indigo-600' :
-                            'bg-amber-50 text-amber-600'
+                        r.type === 'BILL' ? 'bg-indigo-50 text-indigo-600' :
+                          'bg-amber-50 text-amber-600'
                         }`}>
                         {r.type === 'BILL' ? 'CCBILL' : r.type}
                       </span>
