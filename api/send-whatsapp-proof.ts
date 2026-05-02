@@ -1,7 +1,6 @@
 /**
  * WhatsApp Business API - Send Proof Handler
  * This API is called by the admin panel to send a screenshot link via WhatsApp.
- * Updated to use AiSensy Project API v1
  */
 
 export default async function handler(req: any, res: any) {
@@ -25,10 +24,8 @@ export default async function handler(req: any, res: any) {
       access_token, 
       phone_number_id, 
       sender_number,
-      aisensy_api_key, // Used as Project API Password
-      project_id,
-      language_code = 'en',
-      aisensy_campaign_name // Used as Template Name
+      aisensy_api_key,
+      aisensy_campaign_name
     } = credentials;
 
     if (provider === 'meta') {
@@ -66,53 +63,53 @@ export default async function handler(req: any, res: any) {
       return res.status(200).json({ success: true, message_id: data.messages?.[0]?.id });
 
     } else if (provider === 'aisensy') {
-      if (!aisensy_api_key || !project_id || !aisensy_campaign_name) {
-        throw new Error('AiSensy API credentials missing (API Key/Password, Project ID, or Template/Campaign Name)');
+      if (!aisensy_api_key || !aisensy_campaign_name) {
+        throw new Error('AiSensy API credentials missing (API Key or Campaign Name)');
       }
 
-      // New AiSensy Project API v1 Endpoint
-      const url = `https://apis.aisensy.com/project-apis/v1/project/${project_id}/messages`;
+<<<<<<< HEAD
+      // AiSensy Campaign API Endpoint (Updated to /t1/ as per user's working curl)
+=======
+      // AiSensy Campaign API Endpoint
+>>>>>>> 73098f6a3f5c92a1f6251ca3f7def83f15928526
+      const url = `https://backend.aisensy.com/campaign/t1/api/v2`;
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-AiSensy-Project-API-Pwd': aisensy_api_key
         },
         body: JSON.stringify({
-          to: whatsapp_number,
-          type: "template",
-          template: {
-            name: aisensy_campaign_name,
-            language: {
-              code: language_code || "en"
-            },
-            components: [
-              {
-                type: "header",
-                parameters: [
-                  {
-                    type: "image",
-                    image: {
-                      link: proof_url
-                    }
-                  }
-                ]
-              }
-            ]
-          }
+          apiKey: aisensy_api_key,
+          campaignName: aisensy_campaign_name,
+          destination: whatsapp_number,
+<<<<<<< HEAD
+          userName: "User", 
+          templateParams: [],
+=======
+          userName: "User", // Default fallback
+          templateParams: [], // Add params if needed
+>>>>>>> 73098f6a3f5c92a1f6251ca3f7def83f15928526
+          source: "UsePay App",
+          media: {
+            url: proof_url,
+            filename: "payment_proof.png"
+          },
+          buttons: [],
+          carouselCards: [],
+          location: {},
+          attributes: {},
+          paramsFallbackValue: {}
         })
       });
 
       const data = await response.json();
-      
-      // Handle success based on new API response structure
       if (!response.ok || data.success === false) {
-        console.error('AiSensy Project API Error:', data);
-        throw new Error(data.message || data.error?.message || 'Failed to send WhatsApp message via AiSensy Project API');
+        console.error('AiSensy API Error:', data);
+        throw new Error(data.message || 'Failed to send WhatsApp message via AiSensy');
       }
 
-      return res.status(200).json({ success: true, message_id: data.uuid || data.messageId });
+      return res.status(200).json({ success: true, message_id: data.uuid });
     } else {
       throw new Error('Unsupported WhatsApp provider: ' + provider);
     }

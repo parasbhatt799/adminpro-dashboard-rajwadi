@@ -35,9 +35,7 @@ export default function Settings() {
     phone_number_id: '',
     sender_number: '',
     aisensy_api_key: '',
-    aisensy_campaign_name: '',
-    project_id: '',
-    language_code: 'en'
+    aisensy_campaign_name: ''
   });
 
   const [oneSignalSettings, setOneSignalSettings] = useState({
@@ -101,9 +99,7 @@ export default function Settings() {
           phone_number_id: waData.phone_number_id || '',
           sender_number: waData.sender_number || '',
           aisensy_api_key: waData.aisensy_api_key || '',
-          aisensy_campaign_name: waData.aisensy_campaign_name || '',
-          project_id: waData.project_id || '',
-          language_code: waData.language_code || 'en'
+          aisensy_campaign_name: waData.aisensy_campaign_name || ''
         });
       }
 
@@ -426,9 +422,7 @@ export default function Settings() {
             phone_number_id: whatsappSettings.phone_number_id,
             sender_number: whatsappSettings.sender_number,
             aisensy_api_key: whatsappSettings.aisensy_api_key,
-            aisensy_campaign_name: whatsappSettings.aisensy_campaign_name,
-            project_id: whatsappSettings.project_id,
-            language_code: whatsappSettings.language_code
+            aisensy_campaign_name: whatsappSettings.aisensy_campaign_name
           }
         })
       });
@@ -587,22 +581,8 @@ export default function Settings() {
                 </>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy Project ID</label>
-                    <div className="relative">
-                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input 
-                        type="text"
-                        placeholder="Enter Project ID (from URL)"
-                        value={whatsappSettings.project_id}
-                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, project_id: e.target.value }))}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy API Key (App Password)</label>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy API Key</label>
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input 
@@ -615,22 +595,8 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Template Language Code</label>
-                    <div className="relative">
-                      <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input 
-                        type="text"
-                        placeholder="e.g. en or en_US"
-                        value={whatsappSettings.language_code}
-                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, language_code: e.target.value }))}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
-                      />
-                    </div>
-                  </div>
-
                   <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Approved Template Name</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Approved Campaign Name (Template)</label>
                     <div className="relative">
                       <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input 

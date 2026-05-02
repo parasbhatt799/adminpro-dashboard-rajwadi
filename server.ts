@@ -174,51 +174,33 @@ async function startServer() {
         metaRequest.end();
 
       } else if (provider === 'aisensy') {
-        if (!aisensy_api_key || !aisensy_campaign_name || !credentials.project_id) {
-          return res.status(400).json({ error: "AiSensy Project ID, API Key, or Template Name missing." });
+        if (!aisensy_api_key || !aisensy_campaign_name) {
+          return res.status(400).json({ error: "AiSensy API credentials missing (API Key or Campaign Name)." });
         }
 
-        // AiSensy Project API v1 Structure
         const data = JSON.stringify({
-          to: whatsapp_number.trim().replace('+', ''),
-          type: "template",
-          template: {
-            language: {
-              policy: "deterministic",
-              code: credentials.language_code || "en"
-            },
-            name: aisensy_campaign_name.trim(), // This is the TEMPLATE name in Project API
-            components: [
-              {
-                "type": "header",
-                "parameters": [
-                  {
-                    "type": "image",
-                    "image": {
-                      "link": proof_url
-                    }
-                  }
-                ]
-              },
-              {
-                "type": "body",
-                "parameters": [
-                  {
-                    "type": "text",
-                    "text": "User" // Fallback name
-                  }
-                ]
-              }
-            ]
-          }
+          apiKey: aisensy_api_key.trim(),
+          campaignName: aisensy_campaign_name.trim(),
+          destination: whatsapp_number.trim(),
+          userName: "User",
+          templateParams: [],
+          source: "UsePay App",
+          media: {
+            url: proof_url,
+            filename: "payment_proof.png"
+          },
+          buttons: [],
+          carouselCards: [],
+          location: {},
+          attributes: {},
+          paramsFallbackValue: {}
         });
 
         const options = {
-          hostname: 'apis.aisensy.com',
-          path: `/project-apis/v1/project/${credentials.project_id.trim()}/messages`,
+          hostname: 'backend.aisensy.com',
+          path: '/campaign/t1/api/v2',
           method: 'POST',
           headers: {
-            'X-AiSensy-Project-API-Pwd': aisensy_api_key.trim(),
             'Content-Type': 'application/json',
             'Content-Length': Buffer.byteLength(data)
           }
@@ -232,11 +214,7 @@ async function startServer() {
             if (aiRes.statusCode && aiRes.statusCode >= 200 && aiRes.statusCode < 300) {
               res.json({ success: true, response: parsed });
             } else {
-              console.error("[AiSensy Project API Error]", parsed);
-              res.status(aiRes.statusCode || 500).json({ 
-                error: parsed.message || "AiSensy Project API Error",
-                details: parsed
-              });
+              res.status(aiRes.statusCode || 500).json({ error: parsed.message || "AiSensy API Error" });
             }
           });
         });
