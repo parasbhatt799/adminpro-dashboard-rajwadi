@@ -216,6 +216,14 @@ export default function Dashboard() {
 
       setStats([
         {
+          title: "Total User Wallet",
+          value: formatCurrency(totalWalletBalance),
+          icon: Wallet,
+          color: "bg-amber-500",
+          description: "Lifetime Total",
+          badge: `${activeUsersCount} Active Users`
+        },
+        {
           title: "Total QR Payments",
           value: formatCurrency(rangeQrAmount),
           icon: QrCode,
@@ -228,6 +236,13 @@ export default function Dashboard() {
           icon: CreditCard,
           color: "bg-purple-500",
           description: `Range: ${dateDisplay}`
+        },
+        {
+          title: "Total Service Charge",
+          value: formatCurrency(displayServiceCharge),
+          icon: TrendingUp,
+          color: "bg-indigo-600",
+          description: timeRange === 'all' ? 'Net Balance' : `Earnings: ${dateDisplay}`
         },
         {
           title: "QR Payment Charges",
@@ -249,21 +264,6 @@ export default function Dashboard() {
           icon: TrendingDown,
           color: "bg-amber-600",
           description: `Range: ${dateDisplay}`
-        },
-        {
-          title: "Total User Wallet",
-          value: formatCurrency(totalWalletBalance),
-          icon: Wallet,
-          color: "bg-amber-500",
-          description: "Lifetime Total",
-          badge: `${activeUsersCount} Active Users`
-        },
-        {
-          title: "Total Service Charge",
-          value: formatCurrency(displayServiceCharge),
-          icon: TrendingUp,
-          color: "bg-indigo-600",
-          description: timeRange === 'all' ? 'Net Balance' : `Earnings: ${dateDisplay}`
         },
         {
           title: "Pending Actions",

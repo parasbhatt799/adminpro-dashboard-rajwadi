@@ -476,45 +476,26 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     try {
-      // 1. Deduct from wallet (Amount + Service Charge)
-      const { error: balanceError } = await supabase
-        .from('users_profiles')
-        .update({ wallet_balance: userBalance - totalDeduction })
-        .eq('id', userId);
+      // 1. Call Atomic RPC Function
+      const { data: rpcData, error: rpcError } = await supabase.rpc('submit_bill_payment_atomic', {
+        p_user_id: userId,
+        p_customer_mobile: billForm.customerMobile,
+        p_card_bank: billForm.cardBank,
+        p_card_number: billForm.cardNumber,
+        p_card_owner_name: billForm.cardOwnerName,
+        p_amount: billAmountNum,
+        p_charges: serviceCharge
+      });
 
-      if (balanceError) throw balanceError;
-
-      // 2. Insert bill submission
-      const { data: newBill, error: dbError } = await supabase
-        .from('bill_submissions')
-        .insert({
-          user_id: userId,
-          customer_mobile: billForm.customerMobile,
-          card_bank: billForm.cardBank,
-          card_number: billForm.cardNumber,
-          card_owner_name: billForm.cardOwnerName,
-          amount: billAmountNum,
-          charges: serviceCharge,
-          status: 'pending',
-          remaining_balance: userBalance - totalDeduction
-        })
-        .select()
-        .single();
-
-      if (dbError) {
-        // ROLLBACK: restore wallet balance if insert fails
-        await supabase
-          .from('users_profiles')
-          .update({ wallet_balance: userBalance })
-          .eq('id', userId);
-        throw dbError;
+      if (rpcError) throw rpcError;
+      
+      const response = rpcData as any;
+      if (!response.success) {
+        throw new Error(response.message);
       }
 
-      // OPTIMISTIC UPDATE: Update local balance immediately
-      setUserBalance(prev => prev - totalDeduction);
-
-      // Real-time subscription will update the list and wallet balance
-      setSuccess('Bill payment submitted successfully! Total amount (including charges) has been debited from your wallet.');
+      // Success message reflects that deduction happens on approval
+      setSuccess('Bill payment submitted successfully! Amount will be debited from your wallet once the admin approves the request.');
       setBillForm({
         customerMobile: '',
         cardBank: '',
@@ -597,37 +578,26 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     try {
-      // 1. Deduct from wallet balance only
-      const { error: balanceError } = await supabase
-        .from('users_profiles')
-        .update({ 
-          wallet_balance: currentWallet - totalDeduction
-        })
-        .eq('id', userId);
+      // 1. Call Atomic RPC Function
+      const { data: rpcData, error: rpcError } = await supabase.rpc('submit_payout_request_atomic', {
+        p_user_id: userId,
+        p_bank_name: payoutForm.bankName,
+        p_holder_name: payoutForm.holderName,
+        p_account_number: payoutForm.accountNumber,
+        p_ifsc_code: payoutForm.ifscCode,
+        p_amount: amountNum,
+        p_charges: charge
+      });
 
-      if (balanceError) throw balanceError;
+      if (rpcError) throw rpcError;
+      
+      const response = rpcData as any;
+      if (!response.success) {
+        throw new Error(response.message);
+      }
 
-      // 2. Insert payout request
-      const { error: dbError } = await supabase
-        .from('payout_submissions')
-        .insert({
-          user_id: userId,
-          bank_name: payoutForm.bankName,
-          account_number: payoutForm.accountNumber,
-          ifsc_code: payoutForm.ifscCode,
-          account_holder_name: payoutForm.holderName,
-          amount: amountNum,
-          charge_amount: charge,
-          status: 'pending',
-          remaining_balance: currentWallet - totalDeduction
-        });
-
-      if (dbError) throw dbError;
-
-      // OPTIMISTIC UPDATE: Update local balance immediately
-      setUserBalance(prev => prev - totalDeduction);
-
-      setSuccess('Payout request submitted successfully! Total amount (including charges) has been debited from your wallet.');
+      // Success message reflects that deduction happens on approval
+      setSuccess('Payout request submitted successfully! Amount will be debited from your wallet once the admin approves the request.');
       setPayoutForm({
         bankName: '',
         holderName: '',

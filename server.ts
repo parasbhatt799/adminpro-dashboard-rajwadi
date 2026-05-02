@@ -122,53 +122,129 @@ async function startServer() {
     const { whatsapp_number, proof_url, credentials } = req.body;
     console.log("[WhatsApp] Request for:", whatsapp_number);
 
-    if (!whatsapp_number || !proof_url || !credentials || !credentials.access_token || !credentials.phone_number_id) {
+    if (!whatsapp_number || !proof_url || !credentials) {
       return res.status(400).json({ error: "Missing WhatsApp credentials or data." });
     }
 
     try {
-      const { access_token, phone_number_id, sender_number } = credentials;
-      const data = JSON.stringify({
-        messaging_product: "whatsapp",
-        recipient_type: "individual",
-        to: whatsapp_number.trim(),
-        type: "image",
-        image: {
-          link: proof_url,
-          caption: `Payment Approved! (Sent from ${sender_number || "Admin Portal"})`,
-        },
-      });
+      const { provider = 'meta', access_token, phone_number_id, sender_number, aisensy_api_key, aisensy_campaign_name } = credentials;
 
-      const options = {
-        hostname: 'graph.facebook.com',
-        path: `/v18.0/${phone_number_id.trim()}/messages`,
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${access_token.trim()}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(data)
+      if (provider === 'meta') {
+        if (!access_token || !phone_number_id) {
+          return res.status(400).json({ error: "Meta API credentials missing (Access Token or Phone ID)." });
         }
-      };
 
-      const metaRequest = https.request(options, (metaRes) => {
-        let responseBody = '';
-        metaRes.on('data', (chunk) => responseBody += chunk);
-        metaRes.on('end', () => {
-          const parsed = JSON.parse(responseBody);
-          if (metaRes.statusCode && metaRes.statusCode >= 200 && metaRes.statusCode < 300) {
-            res.json({ success: true, message_id: parsed.messages?.[0]?.id });
-          } else {
-            res.status(metaRes.statusCode || 500).json({ 
-              error: parsed.error?.message || "Failed to send WhatsApp message",
-              details: parsed.error
-            });
+        const data = JSON.stringify({
+          messaging_product: "whatsapp",
+          recipient_type: "individual",
+          to: whatsapp_number.trim(),
+          type: "image",
+          image: {
+            link: proof_url,
+            caption: `Payment Approved! (Sent from ${sender_number || "Admin Portal"})`,
+          },
+        });
+
+        const options = {
+          hostname: 'graph.facebook.com',
+          path: `/v18.0/${phone_number_id.trim()}/messages`,
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${access_token.trim()}`,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data)
+          }
+        };
+
+        const metaRequest = https.request(options, (metaRes) => {
+          let responseBody = '';
+          metaRes.on('data', (chunk) => responseBody += chunk);
+          metaRes.on('end', () => {
+            const parsed = JSON.parse(responseBody);
+            if (metaRes.statusCode && metaRes.statusCode >= 200 && metaRes.statusCode < 300) {
+              res.json({ success: true, message_id: parsed.messages?.[0]?.id });
+            } else {
+              res.status(metaRes.statusCode || 500).json({ error: parsed.error?.message || "Meta API Error" });
+            }
+          });
+        });
+
+        metaRequest.on('error', (e) => { throw e; });
+        metaRequest.write(data);
+        metaRequest.end();
+
+      } else if (provider === 'aisensy') {
+        if (!aisensy_api_key || !aisensy_campaign_name || !credentials.project_id) {
+          return res.status(400).json({ error: "AiSensy Project ID, API Key, or Template Name missing." });
+        }
+
+        // AiSensy Project API v1 Structure
+        const data = JSON.stringify({
+          to: whatsapp_number.trim().replace('+', ''),
+          type: "template",
+          template: {
+            language: {
+              policy: "deterministic",
+              code: credentials.language_code || "en"
+            },
+            name: aisensy_campaign_name.trim(), // This is the TEMPLATE name in Project API
+            components: [
+              {
+                "type": "header",
+                "parameters": [
+                  {
+                    "type": "image",
+                    "image": {
+                      "link": proof_url
+                    }
+                  }
+                ]
+              },
+              {
+                "type": "body",
+                "parameters": [
+                  {
+                    "type": "text",
+                    "text": "User" // Fallback name
+                  }
+                ]
+              }
+            ]
           }
         });
-      });
 
-      metaRequest.on('error', (e) => { throw e; });
-      metaRequest.write(data);
-      metaRequest.end();
+        const options = {
+          hostname: 'apis.aisensy.com',
+          path: `/project-apis/v1/project/${credentials.project_id.trim()}/messages`,
+          method: 'POST',
+          headers: {
+            'X-AiSensy-Project-API-Pwd': aisensy_api_key.trim(),
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(data)
+          }
+        };
+
+        const aiRequest = https.request(options, (aiRes) => {
+          let responseBody = '';
+          aiRes.on('data', (chunk) => responseBody += chunk);
+          aiRes.on('end', () => {
+            const parsed = JSON.parse(responseBody);
+            if (aiRes.statusCode && aiRes.statusCode >= 200 && aiRes.statusCode < 300) {
+              res.json({ success: true, response: parsed });
+            } else {
+              console.error("[AiSensy Project API Error]", parsed);
+              res.status(aiRes.statusCode || 500).json({ 
+                error: parsed.message || "AiSensy Project API Error",
+                details: parsed
+              });
+            }
+          });
+        });
+
+        aiRequest.on('error', (e) => { throw e; });
+        aiRequest.write(data);
+        aiRequest.end();
+      }
 
     } catch (error: any) {
       console.error("[WhatsApp] Critical Error:", error);

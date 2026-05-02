@@ -1,4 +1,5 @@
 import { 
+  Send,
   Settings as SettingsIcon, 
   MessageSquare, 
   Save, 
@@ -34,7 +35,9 @@ export default function Settings() {
     phone_number_id: '',
     sender_number: '',
     aisensy_api_key: '',
-    aisensy_campaign_name: ''
+    aisensy_campaign_name: '',
+    project_id: '',
+    language_code: 'en'
   });
 
   const [oneSignalSettings, setOneSignalSettings] = useState({
@@ -77,6 +80,8 @@ export default function Settings() {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [testLoading, setTestLoading] = useState(false);
+  const [whatsappTestLoading, setWhatsappTestLoading] = useState(false);
+  const [testWA, setTestWA] = useState('');
 
   const fetchSettings = async () => {
     try {
@@ -96,7 +101,9 @@ export default function Settings() {
           phone_number_id: waData.phone_number_id || '',
           sender_number: waData.sender_number || '',
           aisensy_api_key: waData.aisensy_api_key || '',
-          aisensy_campaign_name: waData.aisensy_campaign_name || ''
+          aisensy_campaign_name: waData.aisensy_campaign_name || '',
+          project_id: waData.project_id || '',
+          language_code: waData.language_code || 'en'
         });
       }
 
@@ -388,6 +395,56 @@ export default function Settings() {
     });
   };
 
+  const handleTestWhatsApp = async () => {
+    if (whatsappSettings.provider === 'meta' && (!whatsappSettings.access_token || !whatsappSettings.phone_number_id)) {
+      setError('Please provide Meta API credentials before testing.');
+      return;
+    }
+    if (whatsappSettings.provider === 'aisensy' && (!whatsappSettings.aisensy_api_key || !whatsappSettings.aisensy_campaign_name)) {
+      setError('Please provide AiSensy API credentials before testing.');
+      return;
+    }
+    if (!testWA) {
+      setError('Please enter a WhatsApp number to receive the test message.');
+      return;
+    }
+
+    setWhatsappTestLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch('/api/send-whatsapp-proof', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          whatsapp_number: testWA.startsWith('91') ? testWA : `91${testWA}`,
+          proof_url: 'https://d3jt6ku4g6z5l8.cloudfront.net/IMAGE/6353da2e153a147b991dd812/4958901_highanglekidcheatingschooltestmin.jpg',
+          credentials: {
+            provider: whatsappSettings.provider,
+            access_token: whatsappSettings.access_token,
+            phone_number_id: whatsappSettings.phone_number_id,
+            sender_number: whatsappSettings.sender_number,
+            aisensy_api_key: whatsappSettings.aisensy_api_key,
+            aisensy_campaign_name: whatsappSettings.aisensy_campaign_name,
+            project_id: whatsappSettings.project_id,
+            language_code: whatsappSettings.language_code
+          }
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to send WhatsApp test');
+
+      setSuccess(`Test WhatsApp message sent to ${testWA}!`);
+    } catch (err: any) {
+      console.error('WhatsApp Test Error:', err);
+      setError('WhatsApp Test failed: ' + err.message);
+    } finally {
+      setWhatsappTestLoading(false);
+    }
+  };
+
   const handleTestNotification = async () => {
     if (!oneSignalSettings.app_id || !oneSignalSettings.rest_api_key) {
       setError('Please save both App ID and REST API Key before testing.');
@@ -530,8 +587,22 @@ export default function Settings() {
                 </>
               ) : (
                 <>
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy API Key</label>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy Project ID</label>
+                    <div className="relative">
+                      <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="Enter Project ID (from URL)"
+                        value={whatsappSettings.project_id}
+                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, project_id: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy API Key (App Password)</label>
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input 
@@ -544,8 +615,22 @@ export default function Settings() {
                     </div>
                   </div>
 
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Template Language Code</label>
+                    <div className="relative">
+                      <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <input 
+                        type="text"
+                        placeholder="e.g. en or en_US"
+                        value={whatsappSettings.language_code}
+                        onChange={(e) => setWhatsappSettings(prev => ({ ...prev, language_code: e.target.value }))}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono"
+                      />
+                    </div>
+                  </div>
+
                   <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Approved Campaign Name (Template)</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Approved Template Name</label>
                     <div className="relative">
                       <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input 
@@ -567,6 +652,35 @@ export default function Settings() {
                 <p className="font-bold mb-1">Important Note:</p>
                 When **WhatsApp API Status** is ON, the system will automatically send payment proof screenshots to the WhatsApp number associated with the QR code upon approval. Ensure your Meta App is correctly configured with these credentials to avoid failures.
               </div>
+            </div>
+
+            {/* Test WhatsApp Section */}
+            <div className="pt-6 border-t border-slate-100 flex flex-col md:flex-row items-end gap-4">
+              <div className="flex-1 space-y-2">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Test WhatsApp Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input 
+                    type="text"
+                    placeholder="e.g. 9876543210"
+                    value={testWA}
+                    onChange={(e) => setTestWA(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  />
+                </div>
+              </div>
+              <button 
+                onClick={handleTestWhatsApp}
+                disabled={whatsappTestLoading}
+                className="px-8 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 disabled:opacity-50 h-[42px]"
+              >
+                {whatsappTestLoading ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : (
+                  <Send size={18} />
+                )}
+                Test API
+              </button>
             </div>
           </div>
         </section>
