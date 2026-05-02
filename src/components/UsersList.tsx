@@ -1,6 +1,6 @@
-import { 
-  Search, 
-  UserPlus, 
+import {
+  Search,
+  UserPlus,
   Filter,
   Download,
   Mail,
@@ -25,14 +25,18 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 
-export default function UsersList() {
+interface UsersListProps {
+  adminRole?: string;
+}
+
+export default function UsersList({ adminRole }: UsersListProps) {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
-  
+
   // Advanced States
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
@@ -99,10 +103,10 @@ export default function UsersList() {
   useEffect(() => {
     const channel = supabase
       .channel('users_realtime')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'users_profiles' 
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'users_profiles'
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
           setUsers(prev => [payload.new, ...prev].slice(0, pageSize));
@@ -178,11 +182,11 @@ export default function UsersList() {
       }
 
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
-      
+
       doc.setFontSize(20);
       doc.setTextColor(79, 70, 229);
       doc.text('USEPAY PORTAL - USERS REPORT', 14, 22);
-      
+
       doc.setFontSize(10);
       doc.setTextColor(100);
       doc.text(`Generated on: ${format(new Date(), 'dd MMMM yyyy, HH:mm')}`, 14, 30);
@@ -221,9 +225,9 @@ export default function UsersList() {
   const toggleBlockStatus = async (e: MouseEvent, userId: string, currentStatus: string) => {
     e.stopPropagation();
     const newStatus = currentStatus === 'Suspended' ? 'Active' : 'Suspended';
-    
+
     // Optimistic update
-    setUsers(prev => prev.map(user => 
+    setUsers(prev => prev.map(user =>
       user.id === userId ? { ...user, status: newStatus } : user
     ));
 
@@ -247,12 +251,12 @@ export default function UsersList() {
         initial={{ opacity: 0, scale: 0.95 }}
         animate={{ opacity: 1, scale: 1 }}
       >
-        <AddUser 
+        <AddUser
           initialData={editingUser}
           onBack={() => {
             setIsAddingUser(false);
             setEditingUser(null);
-          }} 
+          }}
           onSuccess={() => {
             setIsAddingUser(false);
             setEditingUser(null);
@@ -271,7 +275,7 @@ export default function UsersList() {
             } else {
               setSelectedUser(null);
             }
-          }} 
+          }}
         />
       </motion.div>
     );
@@ -284,9 +288,9 @@ export default function UsersList() {
         animate={{ opacity: 1, x: 0 }}
         exit={{ opacity: 0, x: -20 }}
       >
-        <UserDetails 
-          user={selectedUser} 
-          onBack={() => setSelectedUser(null)} 
+        <UserDetails
+          user={selectedUser}
+          onBack={() => setSelectedUser(null)}
           onEdit={(user) => setEditingUser(user)}
           onDelete={() => {
             const deletedId = selectedUser.id;
@@ -305,7 +309,7 @@ export default function UsersList() {
           <h2 className="text-2xl font-bold text-slate-900">Users List</h2>
           <p className="text-slate-500 mt-1">Manage and monitor all registered users in the system.</p>
         </div>
-        <button 
+        <button
           onClick={() => setIsAddingUser(true)}
           className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 active:scale-95"
         >
@@ -318,7 +322,7 @@ export default function UsersList() {
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
         <div className="flex items-center gap-2 text-sm text-slate-500 min-w-max border-r border-slate-100 pr-4 mr-2">
           <span className="font-medium">Show</span>
-          <select 
+          <select
             value={pageSize}
             onChange={(e) => {
               setPageSize(Number(e.target.value));
@@ -335,16 +339,16 @@ export default function UsersList() {
         </div>
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search users by name, firm name, email, mobile or ID..." 
+            placeholder="Search users by name, firm name, email, mobile or ID..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
           />
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <select 
+          <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer"
@@ -354,7 +358,7 @@ export default function UsersList() {
             <option value="Suspended">Suspended Only</option>
             <option value="distributor">Distributors</option>
           </select>
-          <button 
+          <button
             type="button"
             onClick={handleExportExcel}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
@@ -362,7 +366,7 @@ export default function UsersList() {
             <Download size={18} />
             <span>Excel</span>
           </button>
-          <button 
+          <button
             type="button"
             onClick={handleExportPDF}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2.5 border border-slate-100 bg-indigo-50 rounded-xl text-sm font-bold text-indigo-600 hover:bg-indigo-100 transition-colors"
@@ -389,7 +393,7 @@ export default function UsersList() {
               <p className="text-slate-900 font-bold">No users found</p>
               <p className="text-sm mt-1">Start by adding your first user to the system.</p>
             </div>
-            <button 
+            <button
               onClick={() => setIsAddingUser(true)}
               className="mt-2 text-indigo-600 font-bold text-sm hover:underline"
             >
@@ -414,11 +418,11 @@ export default function UsersList() {
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {users.map((user, i) => (
-                  <motion.tr 
+                  <motion.tr
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    key={user.id} 
+                    key={user.id}
                     onClick={() => setSelectedUser(user)}
                     className="hover:bg-slate-50 transition-colors group cursor-pointer"
                   >
@@ -474,11 +478,10 @@ export default function UsersList() {
                       </div>
                     </td>
                     <td className="px-2 py-4">
-                      <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
-                        user.status === 'Active' ? 'text-emerald-600 bg-emerald-50' : 
-                        user.status === 'Suspended' ? 'text-rose-600 bg-rose-50' : 
-                        'text-amber-600 bg-amber-50'
-                      }`}>
+                      <span className={`inline-flex items-center w-fit px-2.5 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${user.status === 'Active' ? 'text-emerald-600 bg-emerald-50' :
+                          user.status === 'Suspended' ? 'text-rose-600 bg-rose-50' :
+                            'text-amber-600 bg-amber-50'
+                        }`}>
                         {user.status}
                       </span>
                       {user.role === 'distributor' && (
@@ -489,12 +492,10 @@ export default function UsersList() {
                     </td>
                     <td className="px-2 py-4">
                       <div className="flex items-center justify-center gap-1.5">
-                        <div className={`w-2 h-2 rounded-full shadow-sm ${
-                          user.kyc_status === 'verified' ? 'bg-emerald-500 shadow-emerald-200 animate-pulse' : 'bg-amber-500 shadow-amber-200'
-                        }`} />
-                        <span className={`text-[8px] font-bold uppercase tracking-wider ${
-                          user.kyc_status === 'verified' ? 'text-emerald-600' : 'text-amber-600'
-                        }`}>
+                        <div className={`w-2 h-2 rounded-full shadow-sm ${user.kyc_status === 'verified' ? 'bg-emerald-500 shadow-emerald-200 animate-pulse' : 'bg-amber-500 shadow-amber-200'
+                          }`} />
+                        <span className={`text-[8px] font-bold uppercase tracking-wider ${user.kyc_status === 'verified' ? 'text-emerald-600' : 'text-amber-600'
+                          }`}>
                           {user.kyc_status === 'verified' ? 'Verified' : 'Not Verified'}
                         </span>
                       </div>
@@ -507,15 +508,14 @@ export default function UsersList() {
                     </td>
                     <td className="px-2 py-4 text-right">
                       <div className="flex items-center justify-end">
-                        <button 
+                        <button
                           onClick={(e) => toggleBlockStatus(e, user.id, user.status)}
                           className="relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none"
                           style={{ backgroundColor: user.status === 'Suspended' ? '#e2e8f0' : '#4f46e5' }}
                         >
                           <span
-                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                              user.status === 'Suspended' ? 'translate-x-1' : 'translate-x-6'
-                            }`}
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${user.status === 'Suspended' ? 'translate-x-1' : 'translate-x-6'
+                              }`}
                           />
                         </button>
                       </div>
@@ -530,7 +530,7 @@ export default function UsersList() {
           <div className="mt-auto p-4 bg-slate-50/50 border-t border-slate-50 flex items-center justify-between">
             <p className="text-xs text-slate-500 font-medium">Showing {users.length} users</p>
             {hasMore ? (
-              <button 
+              <button
                 onClick={() => fetchUsers(true)}
                 disabled={loadingMore}
                 className="flex items-center gap-2 px-6 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-indigo-600 hover:bg-indigo-50 transition-all shadow-sm active:scale-95 disabled:opacity-50"

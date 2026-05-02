@@ -857,12 +857,14 @@ export default function App() {
   const handleLogout = async () => {
     // 1. Clear OneSignal association in DB (best-effort, don't block logout)
     if (userId) {
-      supabase
-        .from('users_profiles')
-        .update({ onesignal_id: null })
-        .eq('id', userId)
-        .then(() => { })
-        .catch(err => console.warn('OneSignal DB clear failed (non-blocking):', err));
+      try {
+        await supabase
+          .from('users_profiles')
+          .update({ onesignal_id: null })
+          .eq('id', userId);
+      } catch (err) {
+        console.warn('OneSignal DB clear failed (non-blocking):', err);
+      }
     }
 
     // 2. OneSignal Logout to clear association in their system
@@ -951,7 +953,7 @@ export default function App() {
               <Route path="withdrawal-balance" element={<AdminWithdrawal />} />
               <Route path="qr-upload" element={<QRManagement />} />
               <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
-              <Route path="users-list" element={<UsersList />} />
+              <Route path="users-list" element={<UsersList adminRole={adminRole} />} />
               <Route path="developer-logs" element={<DeveloperLogs />} />
             </>
           )}
