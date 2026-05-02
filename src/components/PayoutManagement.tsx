@@ -196,35 +196,14 @@ export default function PayoutManagement() {
       const req = requests.find(r => r.id === showRejectModal);
       if (!req) throw new Error('Request not found');
 
-      // 1. Return funds to User's Wallet (Amount + Charge)
-      const { data: userProfile } = await supabase
-        .from('users_profiles')
-        .select('wallet_balance')
-        .eq('id', req.user_id)
-        .single();
+      // Use Atomic RPC for rejection (Update status + Refund user in ONE step)
+      const { data: result, error: rpcError } = await supabase.rpc('reject_payout_request_atomic', {
+        p_payout_id: showRejectModal,
+        p_reason: rejectReason
+      });
 
-      const currentBalance = Number(userProfile?.wallet_balance) || 0;
-      const refundAmount = Number(req.amount) + Number(req.charge_amount);
-
-      const { error: balanceError } = await supabase
-        .from('users_profiles')
-        .update({
-          wallet_balance: currentBalance + refundAmount
-        })
-        .eq('id', req.user_id);
-
-      if (balanceError) throw balanceError;
-
-      // 2. Update Payout Status
-      const { error: statusError } = await supabase
-        .from('payout_submissions')
-        .update({
-          status: 'rejected',
-          remark: rejectReason
-        })
-        .eq('id', showRejectModal);
-
-      if (statusError) throw statusError;
+      if (rpcError) throw rpcError;
+      if (!result.success) throw new Error(result.message);
 
       // 3. Notify User (In-app)
       await supabase.from('notifications').insert([{

@@ -476,41 +476,23 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     try {
-      // 1. Manual Balance Update
-      const newBalance = userBalance - totalDeduction;
-      
-      const { error: walletError } = await supabase
-        .from('users_profiles')
-        .update({ wallet_balance: newBalance })
-        .eq('id', userId);
-        
-      if (walletError) throw walletError;
+      // Use Atomic RPC for submission (Deduct wallet + Insert record in ONE step)
+      const { data: result, error: rpcError } = await supabase.rpc('submit_bill_payment_atomic', {
+        p_user_id: userId,
+        p_customer_mobile: billForm.customerMobile,
+        p_card_bank: billForm.cardBank,
+        p_card_number: billForm.cardNumber,
+        p_card_owner_name: billForm.cardOwnerName,
+        p_amount: billAmountNum,
+        p_charges: serviceCharge
+      });
 
-      // 2. Insert Bill submission
-      const { error: billError } = await supabase
-        .from('bill_submissions')
-        .insert([{
-          user_id: userId,
-          customer_mobile: billForm.customerMobile,
-          card_bank: billForm.cardBank,
-          card_number: billForm.cardNumber,
-          card_owner_name: billForm.cardOwnerName,
-          amount: billAmountNum,
-          charges: serviceCharge,
-          status: 'pending',
-          remaining_balance: newBalance
-        }]);
+      if (rpcError) throw rpcError;
+      if (!result.success) throw new Error(result.message);
 
-      if (billError) {
-        // Rollback (primitive)
-        await supabase.from('users_profiles').update({ wallet_balance: userBalance }).eq('id', userId);
-        throw billError;
-      }
+      // 3. OPTIMISTIC UPDATE: Update local balance
+      setUserBalance(result.new_balance);
 
-      // 3. OPTIMISTIC UPDATE: Update local balance immediately
-      setUserBalance(newBalance);
-
-      // Real-time subscription will update the list and wallet balance
       setSuccess('Bill payment submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setBillForm({
         customerMobile: '',
@@ -594,39 +576,22 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     try {
-      // 1. Manual Balance Update
-      const newBalance = currentWallet - totalDeduction;
+      // Use Atomic RPC for submission (Deduct wallet + Insert record in ONE step)
+      const { data: result, error: rpcError } = await supabase.rpc('submit_payout_request_atomic', {
+        p_user_id: userId,
+        p_bank_name: payoutForm.bankName,
+        p_holder_name: payoutForm.holderName,
+        p_account_number: payoutForm.accountNumber,
+        p_ifsc_code: payoutForm.ifscCode,
+        p_amount: amountNum,
+        p_charges: charge
+      });
 
-      const { error: walletError } = await supabase
-        .from('users_profiles')
-        .update({ wallet_balance: newBalance })
-        .eq('id', userId);
-
-      if (walletError) throw walletError;
-
-      // 2. Insert Payout submission
-      const { error: payoutError } = await supabase
-        .from('payout_submissions')
-        .insert([{
-          user_id: userId,
-          bank_name: payoutForm.bankName,
-          account_holder_name: payoutForm.holderName,
-          account_number: payoutForm.accountNumber,
-          ifsc_code: payoutForm.ifscCode,
-          amount: amountNum,
-          charges: charge,
-          status: 'pending',
-          remaining_balance: newBalance
-        }]);
-
-      if (payoutError) {
-        // Rollback
-        await supabase.from('users_profiles').update({ wallet_balance: currentWallet }).eq('id', userId);
-        throw payoutError;
-      }
+      if (rpcError) throw rpcError;
+      if (!result.success) throw new Error(result.message);
 
       // 3. OPTIMISTIC UPDATE: Update local balance
-      setUserBalance(newBalance);
+      setUserBalance(result.new_balance);
 
       setSuccess('Payout request submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setPayoutForm({

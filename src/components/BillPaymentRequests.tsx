@@ -222,48 +222,26 @@ export default function BillPaymentRequests() {
       const updateData: any = { status: targetType };
 
       if (targetType === 'approved') {
-        updateData.admin_share = requestCharges;
+        const { data: result, error: rpcError } = await supabase.rpc('approve_bill_payment_atomic', {
+          p_bill_id: targetId
+        });
+
+        if (rpcError) throw rpcError;
+        if (!result.success) throw new Error(result.message);
+
+        updateData.admin_share = currentReq.charges;
         updateData.distributor_share = 0;
 
-        // 2. Update status and shares
-        const { error: statusError } = await supabase
-          .from('bill_submissions')
-          .update(updateData)
-          .eq('id', targetId)
-          .eq('status', 'pending');
-
-        if (statusError) throw statusError;
-
-        // 3. Update Admin Balance
-        const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
-        const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-
-        await supabase
-          .from('qr_settings')
-          .update({ admin_balance: currentAdminBalance + requestCharges })
-          .eq('id', 1);
-
       } else {
+        const { data: result, error: rpcError } = await supabase.rpc('reject_bill_payment_atomic', {
+          p_bill_id: targetId,
+          p_reason: targetReason
+        });
+
+        if (rpcError) throw rpcError;
+        if (!result.success) throw new Error(result.message);
+
         updateData.rejection_reason = targetReason;
-        const { error: statusError } = await supabase
-          .from('bill_submissions')
-          .update(updateData)
-          .eq('id', targetId)
-          .eq('status', 'pending');
-
-        if (statusError) throw statusError;
-
-        const { data: userData } = await supabase
-          .from('users_profiles')
-          .select('wallet_balance')
-          .eq('id', targetRequest.user_id)
-          .single();
-
-        const currentUserBalance = Number(userData?.wallet_balance) || 0;
-        await supabase
-          .from('users_profiles')
-          .update({ wallet_balance: currentUserBalance + amount + requestCharges })
-          .eq('id', targetRequest.user_id);
       }
 
       // 3. Notify User (In-app)
