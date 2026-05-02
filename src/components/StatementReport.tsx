@@ -113,9 +113,9 @@ export default function StatementReport() {
             distributor_id, 
             admin_base_qr_charge, 
             charge_percentage
-          ), 
+          ),
           qr_history(qr_name)
-        `).eq('status', 'approved');
+        `).eq('status', 'approved').order('created_at', { ascending: false }).limit(5000);
 
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
@@ -126,7 +126,7 @@ export default function StatementReport() {
         if (error) throw error;
         qrMapped = (data || []).map(r => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
+          numericId: String(r.id || '').split('-')[0].toUpperCase(),
           type: 'QR',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
@@ -141,7 +141,7 @@ export default function StatementReport() {
 
       // 2. Fetch Bill Payments
       if (typeFilter === 'all' || typeFilter === 'BILL') {
-        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
+        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved').order('created_at', { ascending: false }).limit(5000);
 
         if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) billQuery = billQuery.eq('amount', Number(exactAmount));
@@ -152,7 +152,7 @@ export default function StatementReport() {
         if (error) throw error;
         billMapped = (data || []).map((r, idx) => ({
           id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
+          numericId: String(r.id || '').split('-')[0].toUpperCase(),
           type: 'BILL',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
@@ -167,7 +167,7 @@ export default function StatementReport() {
 
       // 3. Fetch Payouts
       if (typeFilter === 'all' || typeFilter === 'PAYOUT') {
-        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
+        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved').order('created_at', { ascending: false }).limit(5000);
 
         if (firmName) payoutQuery = payoutQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) payoutQuery = payoutQuery.eq('amount', Number(exactAmount));
@@ -275,7 +275,7 @@ export default function StatementReport() {
 
   useEffect(() => {
     fetchStatement();
-  }, [startDate, endDate, typeFilter]);
+  }, [firmName, startDate, endDate, typeFilter, exactAmount]);
 
   const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
