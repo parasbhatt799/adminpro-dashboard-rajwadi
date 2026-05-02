@@ -196,7 +196,26 @@ export default function PayoutManagement() {
       const req = requests.find(r => r.id === showRejectModal);
       if (!req) throw new Error('Request not found');
 
-      // For Rejections, we just update status (No money to refund anymore because it wasn't cut upfront)
+      // 1. Return funds to User's Wallet (Amount + Charge)
+      const { data: userProfile } = await supabase
+        .from('users_profiles')
+        .select('wallet_balance')
+        .eq('id', req.user_id)
+        .single();
+
+      const currentBalance = Number(userProfile?.wallet_balance) || 0;
+      const refundAmount = Number(req.amount) + Number(req.charge_amount);
+
+      const { error: balanceError } = await supabase
+        .from('users_profiles')
+        .update({
+          wallet_balance: currentBalance + refundAmount
+        })
+        .eq('id', req.user_id);
+
+      if (balanceError) throw balanceError;
+
+      // 2. Update Payout Status
       const { error: statusError } = await supabase
         .from('payout_submissions')
         .update({
@@ -212,7 +231,7 @@ export default function PayoutManagement() {
         user_id: req.user_id,
         target_role: 'user',
         title: 'Payout Rejected',
-        message: `Your payout of ₹${req.amount.toLocaleString()} was rejected. Reason: ${rejectReason}. No funds were deducted.`,
+        message: `Your payout of ₹${req.amount.toLocaleString()} was rejected. Reason: ${rejectReason}. Funds have been returned to your wallet.`,
         link: '/user/reports'
       }]);
 
@@ -262,24 +281,6 @@ export default function PayoutManagement() {
       const req = requests.find(r => r.id === showCompleteModal);
       if (!req) throw new Error('Request not found');
 
-      // 1. Check and Deduct from User Wallet
-      const { data: userProfile, error: userError } = await supabase
-        .from('users_profiles')
-        .select('wallet_balance')
-        .eq('id', req.user_id)
-        .single();
-
-      if (userError || !userProfile) throw new Error('User profile not found');
-      
-      const currentBalance = Number(userProfile.wallet_balance) || 0;
-      const totalDeduction = Number(req.amount) + Number(req.charge_amount);
-
-      if ((currentBalance - totalDeduction) < 250) {
-        throw new Error(`Insufficient balance. User has ₹${currentBalance.toLocaleString()}, but ₹${totalDeduction.toLocaleString()} is required (maintaining ₹250 min).`);
-      }
-
-      const newBalance = currentBalance - totalDeduction;
-
       let proofUrl = null;
       if (proofFile) {
         const fileExt = proofFile.name.split('.').pop();
@@ -299,26 +300,17 @@ export default function PayoutManagement() {
         proofUrl = urlData.publicUrl;
       }
 
-      // 2. Update Payout Status and remaining balance
-      const { error: statusError } = await supabase
+      // 2. Update status to approved
+      const { error } = await supabase
         .from('payout_submissions')
         .update({
           status: 'approved',
           transaction_id: transactionId,
-          proof_url: proofUrl,
-          remaining_balance: newBalance
+          proof_url: proofUrl
         })
         .eq('id', showCompleteModal);
 
-      if (statusError) throw statusError;
-
-      // 3. Perform the actual wallet deduction
-      const { error: walletError } = await supabase
-        .from('users_profiles')
-        .update({ wallet_balance: newBalance })
-        .eq('id', req.user_id);
-
-      if (walletError) throw walletError;
+      if (error) throw error;
 
       // 2. Notify User (In-app)
       await supabase.from('notifications').insert([{

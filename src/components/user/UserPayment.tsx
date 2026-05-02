@@ -494,8 +494,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         throw new Error(response.message);
       }
 
-      // Success message reflects that deduction happens on approval
-      setSuccess('Bill payment submitted successfully! Amount will be debited from your wallet once the admin approves the request.');
+      // 2. OPTIMISTIC UPDATE: Update local balance immediately
+      setUserBalance(response.new_balance);
+
+      // Real-time subscription will update the list and wallet balance
+      setSuccess('Bill payment submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setBillForm({
         customerMobile: '',
         cardBank: '',
@@ -596,8 +599,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         throw new Error(response.message);
       }
 
-      // Success message reflects that deduction happens on approval
-      setSuccess('Payout request submitted successfully! Amount will be debited from your wallet once the admin approves the request.');
+      // 2. OPTIMISTIC UPDATE: Update local balance immediately
+      setUserBalance(response.new_balance);
+
+      setSuccess('Payout request submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setPayoutForm({
         bankName: '',
         holderName: '',

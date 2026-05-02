@@ -222,29 +222,10 @@ export default function BillPaymentRequests() {
       const updateData: any = { status: targetType };
 
       if (targetType === 'approved') {
-        // 1. Check and Deduct from User Wallet
-        const { data: userData, error: userError } = await supabase
-          .from('users_profiles')
-          .select('wallet_balance')
-          .eq('id', targetRequest.user_id)
-          .single();
-
-        if (userError || !userData) throw new Error('User profile not found');
-        
-        const currentBalance = Number(userData.wallet_balance) || 0;
-        const totalDeduction = amount + requestCharges;
-
-        if ((currentBalance - totalDeduction) < 250) {
-          throw new Error(`Insufficient balance. User has ₹${currentBalance.toLocaleString()}, but ₹${totalDeduction.toLocaleString()} is required (maintaining ₹250 min).`);
-        }
-
-        const newBalance = currentBalance - totalDeduction;
-
-        // 2. Update status, shares, and remaining balance
         updateData.admin_share = requestCharges;
         updateData.distributor_share = 0;
-        updateData.remaining_balance = newBalance;
 
+        // 2. Update status and shares
         const { error: statusError } = await supabase
           .from('bill_submissions')
           .update(updateData)
@@ -253,15 +234,7 @@ export default function BillPaymentRequests() {
 
         if (statusError) throw statusError;
 
-        // 3. Perform the actual wallet deduction
-        const { error: walletError } = await supabase
-          .from('users_profiles')
-          .update({ wallet_balance: newBalance })
-          .eq('id', targetRequest.user_id);
-
-        if (walletError) throw walletError;
-
-        // 4. Update Admin Balance
+        // 3. Update Admin Balance
         const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
         const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
 
@@ -271,7 +244,6 @@ export default function BillPaymentRequests() {
           .eq('id', 1);
 
       } else {
-        // For Rejections, we just update status (No money to refund anymore because it wasn't cut)
         updateData.rejection_reason = targetReason;
         const { error: statusError } = await supabase
           .from('bill_submissions')
@@ -280,6 +252,18 @@ export default function BillPaymentRequests() {
           .eq('status', 'pending');
 
         if (statusError) throw statusError;
+
+        const { data: userData } = await supabase
+          .from('users_profiles')
+          .select('wallet_balance')
+          .eq('id', targetRequest.user_id)
+          .single();
+
+        const currentUserBalance = Number(userData?.wallet_balance) || 0;
+        await supabase
+          .from('users_profiles')
+          .update({ wallet_balance: currentUserBalance + amount + requestCharges })
+          .eq('id', targetRequest.user_id);
       }
 
       // 3. Notify User (In-app)

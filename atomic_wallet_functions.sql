@@ -20,33 +20,44 @@ BEGIN
     -- Calculate total deduction
     v_total_deduction := p_amount + p_charges;
 
-    -- Just check if balance is sufficient (min 250 balance rule)
+    -- Lock the user's row for update to prevent race conditions
     SELECT wallet_balance INTO v_current_balance
     FROM public.users_profiles
-    WHERE id = p_user_id;
+    WHERE id = p_user_id
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RETURN json_build_object('success', false, 'message', 'User not found');
     END IF;
 
+    -- Check if balance is sufficient (min 250 balance rule)
     IF (v_current_balance - v_total_deduction) < 250 THEN
         RETURN json_build_object('success', false, 'message', 'Insufficient balance. Must maintain at least ₹250.');
     END IF;
 
-    -- Insert bill submission without updating wallet yet
+    -- Calculate new balance
+    v_new_balance := v_current_balance - v_total_deduction;
+
+    -- Update wallet
+    UPDATE public.users_profiles
+    SET wallet_balance = v_new_balance
+    WHERE id = p_user_id;
+
+    -- Insert bill submission
     INSERT INTO public.bill_submissions (
         user_id, customer_mobile, card_bank, card_number, card_owner_name, 
         amount, charges, status, remaining_balance
     ) VALUES (
         p_user_id, p_customer_mobile, p_card_bank, p_card_number, p_card_owner_name, 
-        p_amount, p_charges, 'pending', v_current_balance -- Store current balance as reference
+        p_amount, p_charges, 'pending', v_new_balance
     ) RETURNING id INTO v_bill_id;
 
     -- Return success
     RETURN json_build_object(
         'success', true, 
         'bill_id', v_bill_id, 
-        'message', 'Bill payment submitted successfully! Waiting for admin approval.'
+        'new_balance', v_new_balance,
+        'message', 'Bill payment submitted successfully!'
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -65,38 +76,50 @@ CREATE OR REPLACE FUNCTION submit_payout_request_atomic(
 DECLARE
     v_current_balance NUMERIC;
     v_total_deduction NUMERIC;
+    v_new_balance NUMERIC;
     v_payout_id UUID;
 BEGIN
     -- Calculate total deduction
     v_total_deduction := p_amount + p_charges;
 
-    -- Check if balance is sufficient
+    -- Lock the user's row for update to prevent race conditions
     SELECT wallet_balance INTO v_current_balance
     FROM public.users_profiles
-    WHERE id = p_user_id;
+    WHERE id = p_user_id
+    FOR UPDATE;
 
     IF NOT FOUND THEN
         RETURN json_build_object('success', false, 'message', 'User not found');
     END IF;
 
+    -- Check if balance is sufficient (min 250 balance rule)
     IF (v_current_balance - v_total_deduction) < 250 THEN
         RETURN json_build_object('success', false, 'message', 'Insufficient balance. Must maintain at least ₹250.');
     END IF;
 
-    -- Insert payout submission without updating wallet yet
+    -- Calculate new balance
+    v_new_balance := v_current_balance - v_total_deduction;
+
+    -- Update wallet
+    UPDATE public.users_profiles
+    SET wallet_balance = v_new_balance
+    WHERE id = p_user_id;
+
+    -- Insert payout submission
     INSERT INTO public.payout_submissions (
         user_id, bank_name, account_holder_name, account_number, ifsc_code, 
         amount, charges, status, remaining_balance
     ) VALUES (
         p_user_id, p_bank_name, p_holder_name, p_account_number, p_ifsc_code, 
-        p_amount, p_charges, 'pending', v_current_balance
+        p_amount, p_charges, 'pending', v_new_balance
     ) RETURNING id INTO v_payout_id;
 
     -- Return success
     RETURN json_build_object(
         'success', true, 
         'payout_id', v_payout_id, 
-        'message', 'Payout request submitted successfully! Waiting for admin approval.'
+        'new_balance', v_new_balance,
+        'message', 'Payout request submitted successfully!'
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
