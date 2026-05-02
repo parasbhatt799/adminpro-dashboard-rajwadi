@@ -254,3 +254,71 @@ BEGIN
     RETURN json_build_object('success', true, 'message', 'Payout rejected and funds refunded');
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 6. Atomic Adjust Hold Balance
+CREATE OR REPLACE FUNCTION adjust_user_hold_balance_atomic(
+    p_user_id TEXT,
+    p_target_hold NUMERIC
+) RETURNS JSON AS $$
+DECLARE
+    v_current_wallet NUMERIC;
+    v_current_hold NUMERIC;
+    v_diff NUMERIC;
+    v_new_wallet NUMERIC;
+    v_user_uuid UUID;
+BEGIN
+    -- 0. Validate input
+    IF p_target_hold < 0 THEN
+        RETURN json_build_object('success', false, 'message', 'Hold balance cannot be negative');
+    END IF;
+
+    -- 1. Try to cast ID to UUID if possible, otherwise use as text
+    -- This handles cases where ID column might be UUID
+    BEGIN
+        v_user_uuid := p_user_id::UUID;
+    EXCEPTION WHEN OTHERS THEN
+        v_user_uuid := NULL;
+    END;
+
+    -- 2. Lock user profile (trying both text and uuid match)
+    SELECT wallet_balance, hold_balance INTO v_current_wallet, v_current_hold
+    FROM public.users_profiles
+    WHERE id = p_user_id OR (v_user_uuid IS NOT NULL AND id::text = v_user_uuid::text)
+    FOR UPDATE;
+
+    IF NOT FOUND THEN
+        RETURN json_build_object('success', false, 'message', 'User not found');
+    END IF;
+
+    -- 3. Calculate difference
+    v_diff := p_target_hold - v_current_hold;
+
+    IF v_diff = 0 THEN
+        RETURN json_build_object('success', true, 'new_wallet', v_current_wallet, 'new_hold', v_current_hold, 'message', 'No change needed');
+    END IF;
+
+    IF v_diff > 0 THEN
+        -- Holding more funds: Check if wallet has enough
+        IF v_current_wallet < v_diff THEN
+            RETURN json_build_object('success', false, 'message', 'Insufficient wallet balance (Required: ' || v_diff || ', Available: ' || v_current_wallet || ')');
+        END IF;
+        v_new_wallet := v_current_wallet - v_diff;
+    ELSE
+        -- Releasing funds: Move from hold to wallet
+        v_new_wallet := v_current_wallet + ABS(v_diff);
+    END IF;
+
+    -- 4. Update profile
+    UPDATE public.users_profiles
+    SET wallet_balance = v_new_wallet, hold_balance = p_target_hold
+    WHERE id = p_user_id OR (v_user_uuid IS NOT NULL AND id::text = v_user_uuid::text);
+
+    RETURN json_build_object(
+        'success', true, 
+        'new_wallet', v_new_wallet, 
+        'new_hold', p_target_hold,
+        'message', 'Hold balance adjusted successfully'
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

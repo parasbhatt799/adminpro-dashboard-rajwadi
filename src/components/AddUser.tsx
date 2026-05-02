@@ -19,6 +19,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 interface AddUserProps {
   onBack: () => void;
@@ -29,6 +30,7 @@ interface AddUserProps {
 }
 
 export default function AddUser({ onBack, onSuccess, initialData, isDistributorView, distributorBaseCharge = 0 }: AddUserProps) {
+  const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
@@ -61,7 +63,7 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
     custom_service_charge: initialData?.custom_service_charge?.toString() || '',
     hold_balance: initialData?.hold_balance?.toString() || '0',
     is_hold_active: (initialData?.hold_balance || 0) > 0,
-    hold_input: '0',
+    hold_input: initialData?.hold_balance?.toString() || '0',
     role: initialData?.role || 'user',
     admin_base_qr_charge: initialData?.admin_base_qr_charge?.toString() || '0',
     distributor_id: initialData?.distributor_id || ''
@@ -179,45 +181,24 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
         }
       }
 
-      // Handle Hold Balance Logic
+      // Handle Hold Balance Logic Atomically
       if (initialData?.id) {
-        let finalWallet = Number(initialData.wallet_balance || 0);
-        let finalHold = Number(initialData.hold_balance || 0);
+        const targetHold = formData.is_hold_active ? (parseFloat(formData.hold_input) || 0) : 0;
+        const currentHold = Number(initialData.hold_balance || 0);
 
-        if (formData.is_hold_active) {
-          const newHoldAmount = parseFloat(formData.hold_input) || 0;
-          if (newHoldAmount > 0) {
-            // Check if they already have a hold
-            if (finalHold > 0) {
-              // Adjusting existing hold
-              const diff = newHoldAmount - finalHold;
-              if (diff > 0) {
-                // Holding more
-                if (finalWallet < diff) throw new Error("Insufficient wallet balance to add to hold.");
-                finalWallet -= diff;
-                finalHold += diff;
-              } else if (diff < 0) {
-                // Releasing partial hold
-                finalWallet += Math.abs(diff);
-                finalHold -= Math.abs(diff);
-              }
-            } else {
-              // Creating new hold
-              if (finalWallet < newHoldAmount) throw new Error("Insufficient wallet balance for hold.");
-              finalWallet -= newHoldAmount;
-              finalHold = newHoldAmount;
-            }
-          }
-        } else {
-          // Releasing all hold if toggle was turned off
-          if (finalHold > 0) {
-            finalWallet += finalHold;
-            finalHold = 0;
-          }
+        if (targetHold !== currentHold) {
+          const { data: holdResult, error: holdError } = await supabase.rpc('adjust_user_hold_balance_atomic', {
+            p_user_id: initialData.id,
+            p_target_hold: targetHold
+          });
+
+          if (holdError) throw holdError;
+          if (!holdResult.success) throw new Error(holdResult.message);
+          
+          // Update local state objects if needed, but the DB is already updated by RPC
+          userData.wallet_balance = holdResult.new_wallet;
+          userData.hold_balance = holdResult.new_hold;
         }
-
-        userData.wallet_balance = finalWallet;
-        userData.hold_balance = finalHold;
       }
 
       if (!initialData?.id) {
@@ -233,6 +214,8 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
           .eq('id', initialData.id);
 
         if (updateError) throw updateError;
+        toast.success('User updated successfully!');
+        onSuccess();
       } else {
         const { error: insertError } = await supabase
           .from('users_profiles')
@@ -742,7 +725,7 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
             <button
               type="submit"
               disabled={loading}
-              className="px-10 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-10 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
             >
               {loading ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
               {initialData?.id ? 'Update User' : 'Save User'}

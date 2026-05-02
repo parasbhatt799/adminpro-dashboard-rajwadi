@@ -67,11 +67,7 @@ export default async function handler(req: any, res: any) {
         throw new Error('AiSensy API credentials missing (API Key or Campaign Name)');
       }
 
-<<<<<<< HEAD
       // AiSensy Campaign API Endpoint (Updated to /t1/ as per user's working curl)
-=======
-      // AiSensy Campaign API Endpoint
->>>>>>> 73098f6a3f5c92a1f6251ca3f7def83f15928526
       const url = `https://backend.aisensy.com/campaign/t1/api/v2`;
 
       const response = await fetch(url, {
@@ -83,13 +79,8 @@ export default async function handler(req: any, res: any) {
           apiKey: aisensy_api_key,
           campaignName: aisensy_campaign_name,
           destination: whatsapp_number,
-<<<<<<< HEAD
-          userName: "User", 
-          templateParams: [],
-=======
           userName: "User", // Default fallback
           templateParams: [], // Add params if needed
->>>>>>> 73098f6a3f5c92a1f6251ca3f7def83f15928526
           source: "UsePay App",
           media: {
             url: proof_url,
