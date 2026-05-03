@@ -45,6 +45,7 @@ import DistributorBillPayments from './components/user/DistributorBillPayments';
 import DistributorStatementReport from './components/user/DistributorStatementReport';
 import AdminDistributorWithdrawals from './components/AdminDistributorWithdrawals';
 import DistributorsList from './components/DistributorsList';
+import AdminStatementReport from './components/AdminStatementReport.tsx';
 import HomePage from './components/HomePage';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -941,6 +942,7 @@ export default function App() {
             <Route path="bill-payment" element={<BillPaymentReport />} />
             <Route path="payout" element={<PayoutReport />} />
             <Route path="statement" element={<StatementReport />} />
+            <Route path="admin-statement" element={<AdminStatementReport />} />
           </Route>
           <Route path="headlines" element={<HeadlineManagement />} />
           <Route path="policies" element={<PolicyManagement />} />

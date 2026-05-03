@@ -55,7 +55,8 @@ const menuItems = [
       { label: 'QR Payment Report', path: '/reports/qr-payment' },
       { label: 'Bill Payment Report', path: '/reports/bill-payment' },
       { label: 'Payout Report', path: '/reports/payout' },
-      { label: 'Statement Report', path: '/reports/statement' }
+      { label: 'Statement Report', path: '/reports/statement' },
+      { label: 'Admin Statement', path: '/reports/admin-statement' }
     ]
   },
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },

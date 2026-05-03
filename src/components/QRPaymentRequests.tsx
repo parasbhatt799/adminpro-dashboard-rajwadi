@@ -18,6 +18,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 
@@ -35,6 +36,7 @@ interface QRPaymentRequest {
   users_profiles?: {
     name: string;
     firm_name: string;
+    profile_photo_url?: string;
     distributor_id?: string;
     admin_base_qr_charge?: number;
     charge_percentage?: number;
@@ -58,6 +60,7 @@ export default function QRPaymentRequests() {
   const [charges, setCharges] = useState('0');
   const [reason, setReason] = useState('');
   const [selectedProof, setSelectedProof] = useState<QRPaymentRequest | null>(null);
+  const [imgScale, setImgScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -78,7 +81,7 @@ export default function QRPaymentRequests() {
     try {
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(name, firm_name, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)')
+        .select('*, users_profiles(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -410,19 +413,26 @@ export default function QRPaymentRequests() {
                       className={`hover:bg-slate-50/50 transition-colors ${rejectionRowId === req.id ? 'bg-rose-50/30' : ''} ${req.status === 'rejected' ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-3 py-4">
-                        <div className="flex items-center gap-3 text-left">
-                          <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0">
-                            <User size={16} />
+                        <Link 
+                          to={`/users?id=${req.user_id}`}
+                          className="flex items-center gap-3 text-left hover:opacity-75 transition-opacity group"
+                        >
+                          <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors overflow-hidden">
+                            {req.users_profiles?.profile_photo_url ? (
+                              <img src={req.users_profiles.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={16} />
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap">
+                            <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap group-hover:text-indigo-600 transition-colors">
                               {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id.slice(0, 8)}`}
                             </p>
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                               {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-3 py-4 text-center">
                         <code className="text-[12px] font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg">
@@ -664,11 +674,18 @@ export default function QRPaymentRequests() {
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-full max-w-4xl max-h-[95vh] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             >
-              <div className="absolute top-4 right-4 z-10">
+              <div className="absolute top-4 right-4 z-10 flex gap-2">
+                <button
+                  onClick={() => setImgScale(1)}
+                  className="px-3 py-1 bg-white/90 hover:bg-white text-[10px] font-bold text-indigo-600 rounded-full shadow-lg transition-all border border-indigo-50"
+                >
+                  Reset Zoom
+                </button>
                 <button
                   onClick={() => {
                     setSelectedProof(null);
                     setReason('');
+                    setImgScale(1);
                   }}
                   className="p-2 bg-white/90 hover:bg-white text-slate-900 rounded-full shadow-lg transition-all"
                 >
@@ -676,11 +693,30 @@ export default function QRPaymentRequests() {
                 </button>
               </div>
 
-              <div className="flex-1 bg-slate-50 flex items-center justify-center overflow-hidden p-2 md:p-4">
-                <img
+              <div 
+                className="flex-1 bg-slate-50 flex items-center justify-center overflow-hidden p-2 md:p-4 cursor-zoom-in"
+                onWheel={(e) => {
+                  if (e.deltaY < 0) {
+                    setImgScale(prev => Math.min(prev + 0.2, 5));
+                  } else {
+                    setImgScale(prev => Math.max(prev - 0.2, 0.5));
+                  }
+                }}
+              >
+                <motion.img
                   src={selectedProof.proof_url}
                   alt="Payment Proof"
-                  className="max-w-full max-h-[calc(95vh-200px)] object-contain rounded-xl"
+                  drag
+                  dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
+                  dragElastic={0.1}
+                  dragMomentum={false}
+                  animate={{ 
+                    scale: imgScale,
+                    x: imgScale === 1 ? 0 : undefined,
+                    y: imgScale === 1 ? 0 : undefined
+                  }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                  className="max-w-full max-h-[calc(95vh-200px)] object-contain rounded-xl shadow-lg cursor-grab active:cursor-grabbing"
                   referrerPolicy="no-referrer"
                 />
               </div>

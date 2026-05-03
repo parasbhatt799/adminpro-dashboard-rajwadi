@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, type MouseEvent, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import UserDetails from './UserDetails';
 import AddUser from './AddUser';
 import { supabase } from '../lib/supabase';
@@ -30,12 +31,35 @@ interface UsersListProps {
 }
 
 export default function UsersList({ adminRole }: UsersListProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const targetUserId = searchParams.get('id');
+
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isAddingUser, setIsAddingUser] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+
+  // ... existing states
+
+  // Effect to handle direct user selection from URL
+  useEffect(() => {
+    if (targetUserId) {
+      const fetchTargetUser = async () => {
+        const { data, error } = await supabase
+          .from('users_profiles')
+          .select('*')
+          .eq('id', targetUserId)
+          .single();
+        
+        if (data && !error) {
+          setSelectedUser(data);
+        }
+      };
+      fetchTargetUser();
+    }
+  }, [targetUserId]);
 
   // Advanced States
   const [searchTerm, setSearchTerm] = useState('');

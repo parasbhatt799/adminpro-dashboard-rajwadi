@@ -15,6 +15,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 
@@ -32,6 +33,7 @@ interface BillRequest {
   users_profiles?: {
     name: string;
     firm_name: string;
+    profile_photo_url?: string;
   };
 }
 
@@ -67,7 +69,7 @@ export default function BillPaymentRequests() {
     try {
       let query = supabase
         .from('bill_submissions')
-        .select('*, users_profiles(name, firm_name)')
+        .select('*, users_profiles(name, firm_name, profile_photo_url)')
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -455,19 +457,26 @@ export default function BillPaymentRequests() {
                       className={`hover:bg-slate-50/50 transition-colors ${rejectionRowId === req.id ? 'bg-rose-50/30' : ''} ${req.status === 'rejected' ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-3 py-4">
-                        <div className="flex items-center gap-3 text-left">
-                          <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0">
-                            <User size={16} />
+                        <Link 
+                          to={`/users?id=${req.user_id}`}
+                          className="flex items-center gap-3 text-left hover:opacity-75 transition-opacity group"
+                        >
+                          <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors overflow-hidden">
+                            {req.users_profiles?.profile_photo_url ? (
+                              <img src={req.users_profiles.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <User size={16} />
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap">
+                            <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap group-hover:text-indigo-600 transition-colors">
                               {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id.slice(0, 8)}`}
                             </p>
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                               {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
                           </div>
-                        </div>
+                        </Link>
                       </td>
                       <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
