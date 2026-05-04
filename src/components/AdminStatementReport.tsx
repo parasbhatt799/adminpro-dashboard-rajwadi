@@ -75,45 +75,54 @@ export default function AdminStatementReport() {
       setCurrentTotalWallet(totalWallet);
 
       // 2. Fetch All Transactions
-      // We need to fetch EVERYTHING since the beginning of time up to NOW to calculate the running balance accurately,
-      // unless we only care about the filtered view. But to match the dashboard, we need the "Now" anchor.
-      
-      // Fetch QR Payments (Approved only) - Newest 1000
+      const fetchAll = async (query: any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          allData = [...allData, ...data];
+          if (data.length < step) break;
+          from += step;
+        }
+        return allData;
+      };
+
+      // QR Payments (Approved only)
       let qrQuery = supabase.from('payment_submissions').select(`
         *,
         users_profiles!inner(name, firm_name),
         qr_history(qr_name)
       `)
       .eq('status', 'approved')
-      .order('created_at', { ascending: false })
-      .limit(1000);
+      .order('created_at', { ascending: false });
       
-      // Fetch Bill Payments (Approved & Pending) - Newest 1000
+      // Bill Payments (Approved & Pending)
       let billQuery = supabase.from('bill_submissions').select(`
         *,
         users_profiles!inner(name, firm_name)
       `)
       .in('status', ['approved', 'pending'])
-      .order('created_at', { ascending: false })
-      .limit(1000);
+      .order('created_at', { ascending: false });
       
-      // Fetch Payouts (Approved, Pending, Processing) - Newest 1000
+      // Payouts (Approved, Pending, Processing)
       let payoutQuery = supabase.from('payout_submissions').select(`
         *,
         users_profiles!inner(name, firm_name)
       `)
       .in('status', ['approved', 'pending', 'processing'])
-      .order('created_at', { ascending: false })
-      .limit(1000);
+      .order('created_at', { ascending: false });
 
-      const [qrRes, billRes, payoutRes] = await Promise.all([qrQuery, billQuery, payoutQuery]);
-
-      if (qrRes.error) console.error('QR Fetch Error:', qrRes.error);
-      if (billRes.error) console.error('Bill Fetch Error:', billRes.error);
-      if (payoutRes.error) console.error('Payout Fetch Error:', payoutRes.error);
+      const [qrData, billData, payoutData] = await Promise.all([
+        fetchAll(qrQuery),
+        fetchAll(billQuery),
+        fetchAll(payoutQuery)
+      ]);
 
       // 3. Map into Unified Format
-      const qrMapped: UnifiedRecord[] = (qrRes.data || []).map(r => ({
+      const qrMapped: UnifiedRecord[] = (qrData || []).map(r => ({
         id: r.id,
         numericId: String(r.id).split('-')[0].toUpperCase(),
         type: 'QR',
@@ -132,7 +141,7 @@ export default function AdminStatementReport() {
         current_wallet: 0,
       }));
 
-      const billMapped: UnifiedRecord[] = (billRes.data || []).map(r => ({
+      const billMapped: UnifiedRecord[] = (billData || []).map(r => ({
         id: r.id,
         numericId: String(r.id).split('-')[0].toUpperCase(),
         type: 'BILL',
@@ -151,7 +160,7 @@ export default function AdminStatementReport() {
         current_wallet: 0,
       }));
 
-      const payoutMapped: UnifiedRecord[] = (payoutRes.data || []).map(r => ({
+      const payoutMapped: UnifiedRecord[] = (payoutData || []).map(r => ({
         id: r.id,
         numericId: String(r.id).split('-')[0].toUpperCase(),
         type: 'PAYOUT',

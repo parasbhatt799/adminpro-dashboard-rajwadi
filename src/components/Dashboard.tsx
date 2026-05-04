@@ -133,15 +133,30 @@ export default function Dashboard() {
         withdrawalQuery = withdrawalQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
       }
 
-      const [billRes, qrRes, kycRes, pendingBillRes, pendingQrRes, activeUsersRes, withdrawalRes, payoutRes, pendingPayoutRes] = await Promise.all([
-        billQuery,
-        qrQuery,
+      const fetchAll = async (query: any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          allData = [...allData, ...data];
+          if (data.length < step) break;
+          from += step;
+        }
+        return allData;
+      };
+
+      const [billData, qrData, kycRes, pendingBillRes, pendingQrRes, activeUsersRes, withdrawalData, payoutData, pendingPayoutRes] = await Promise.all([
+        fetchAll(billQuery),
+        fetchAll(qrQuery),
         pendingKycQuery,
         pendingBillQuery,
         pendingQrQuery,
         activeUsersQuery,
-        withdrawalQuery,
-        payoutQuery,
+        fetchAll(withdrawalQuery),
+        fetchAll(payoutQuery),
         pendingPayoutQuery
       ]);
 
@@ -150,11 +165,6 @@ export default function Dashboard() {
       const pendingQrCount = pendingQrRes.count || 0;
       const pendingPayoutCount = pendingPayoutRes.count || 0;
       const activeUsersCount = activeUsersRes.count || 0;
-
-      const billData = billRes.data || [];
-      const qrData = qrRes.data || [];
-      const payoutData = payoutRes.data || [];
-      const withdrawalData = withdrawalRes.data || [];
 
       // Calculate Admin's share for QR Charges
       const rangeQrCharges = qrData.reduce((acc, curr: any) => {
@@ -196,13 +206,13 @@ export default function Dashboard() {
       const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
 
       const totalEarnings = (rangeBillCharges || 0) + (rangeQrCharges || 0) + (rangePayoutCharges || 0);
+
+      // Total Service Charge should always represent the GROSS earnings (Total Profit)
+      const displayServiceCharge = totalEarnings;
       
-      // Calculate Net Balance (Earnings - Withdrawals) for All Time view
+      // We still keep netBalance for potentially showing "Available Balance" elsewhere
       const netBalance = totalEarnings - (rangeWithdrawals || 0);
-      
-      // If time range is "All Time", show the calculated Net Balance to match withdrawal page
-      const displayServiceCharge = timeRange === 'all' ? netBalance : totalEarnings;
-      
+
       const rangeTotalCCBill = rangeBillAmount || 0;
 
       const dateDisplay = startDate && endDate
@@ -242,7 +252,7 @@ export default function Dashboard() {
           value: formatCurrency(displayServiceCharge),
           icon: TrendingUp,
           color: "bg-indigo-600",
-          description: timeRange === 'all' ? 'Net Balance' : `Earnings: ${dateDisplay}`
+          description: `Total Earnings: ${dateDisplay}`
         },
         {
           title: "QR Payment Charges",

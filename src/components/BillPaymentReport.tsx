@@ -44,6 +44,7 @@ export default function BillPaymentReport() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
+  const [fullTotals, setFullTotals] = useState({ amount: 0, charges: 0, final: 0 });
   const limit = 10;
 
   // Autocomplete state
@@ -143,9 +144,48 @@ export default function BillPaymentReport() {
     }
   };
 
+  const fetchFullTotals = async () => {
+    try {
+      let query = supabase
+        .from('bill_submissions')
+        .select('amount, charges, users_profiles!user_id(firm_name)')
+        .neq('status', 'rejected');
+
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      if (exactAmount) query = query.eq('amount', Number(exactAmount));
+      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+
+      // Recursive fetch for totals
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await query.range(from, from + step - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = [...allData, ...data];
+        if (data.length < step) break;
+        from += step;
+      }
+
+      const totals = allData.reduce((acc, curr) => ({
+        amount: acc.amount + Number(curr.amount || 0),
+        charges: acc.charges + Number(curr.charges || 0),
+        final: acc.final + (Number(curr.amount || 0) + Number(curr.charges || 0))
+      }), { amount: 0, charges: 0, final: 0 });
+
+      setFullTotals(totals);
+    } catch (err) {
+      console.error('Error fetching bill totals:', err);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
-  }, [statusFilter, startDate, endDate]);
+    fetchFullTotals();
+  }, [statusFilter, startDate, endDate, firmName, exactAmount]);
 
   const handleSearch = () => {
     fetchRequests();
@@ -168,36 +208,78 @@ export default function BillPaymentReport() {
     }), { amount: 0, charges: 0, final: 0 });
   };
 
-  const exportToExcel = () => {
-    const totals = calculateTotals(requests);
-    const exportData = requests.map(req => ({
-      'Date': new Date(req.created_at).toLocaleDateString(),
-      'Firm Name': req.users_profiles?.firm_name || 'N/A',
-      'Customer Mobile': req.customer_mobile,
-      'Card Owner': req.card_owner_name,
-      'Bank': req.card_bank,
-      'Status': req.status.toUpperCase(),
-      'Amount': req.amount,
-      'Service Charge': req.charges || 0,
-      'Debited Total': Number(req.amount) + Number(req.charges || 0)
-    }));
+  const exportToExcel = async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('bill_submissions')
+        .select('*, users_profiles(firm_name)')
+        .neq('status', 'rejected');
 
-    exportData.push({
-      'Date': 'TOTAL',
-      'Firm Name': '',
-      'Customer Mobile': '',
-      'Card Owner': '',
-      'Bank': '',
-      'Status': '',
-      'Amount': totals.amount,
-      'Service Charge': totals.charges,
-      'Debited Total': totals.final
-    });
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      if (exactAmount) query = query.eq('amount', Number(exactAmount));
+      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Bill Payments');
-    XLSX.writeFile(wb, `Bill_Payment_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      // Recursive fetch for full export
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await query.range(from, from + step - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = [...allData, ...data];
+        if (data.length < step) break;
+        from += step;
+      }
+
+      const totals = allData.reduce((acc, curr) => ({
+        amount: acc.amount + Number(curr.amount || 0),
+        charges: acc.charges + Number(curr.charges || 0),
+        final: acc.final + (Number(curr.amount || 0) + Number(curr.charges || 0))
+      }), { amount: 0, charges: 0, final: 0 });
+
+      const exportData = allData.map(req => ({
+        'Date': new Date(req.created_at).toLocaleDateString(),
+        'Firm Name': req.users_profiles?.firm_name || 'N/A',
+        'Customer Mobile': req.customer_mobile,
+        'Card Owner': req.card_owner_name,
+        'Bank': req.card_bank,
+        'Status': req.status.toUpperCase(),
+        'Amount': Number(req.amount),
+        'Service Charge': Number(req.charges || 0),
+        'Debited Total': Number(req.amount) + Number(req.charges || 0)
+      }));
+
+      exportData.push({
+        'Date': 'TOTAL',
+        'Firm Name': '',
+        'Customer Mobile': '',
+        'Card Owner': '',
+        'Bank': '',
+        'Status': '',
+        'Amount': Number(totals.amount.toFixed(2)) as any,
+        'Service Charge': Number(totals.charges.toFixed(2)) as any,
+        'Debited Total': Number(totals.final.toFixed(2)) as any
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws['!cols'] = [
+        { wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 15 }, 
+        { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 15 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Bill Payments');
+      XLSX.writeFile(wb, `Bill_Payment_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+      console.error('Export Error:', err);
+      alert('Failed to export data.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportToPDF = () => {

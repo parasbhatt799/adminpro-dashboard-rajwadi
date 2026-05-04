@@ -82,36 +82,23 @@ export default function AdminDistributorWithdrawals() {
       if (!req) throw new Error('Request not found');
 
       if (type === 'approved') {
-        // 1. Deduct from commission_balance
-        const { data: profile } = await supabase
-          .from('users_profiles')
-          .select('commission_balance')
-          .eq('id', req.distributor_id)
-          .single();
-        
-        const currentBalance = Number(profile?.commission_balance) || 0;
-        if (currentBalance < req.amount) {
-          throw new Error('Distributor has insufficient balance now.');
-        }
+        const { data: result, error: rpcError } = await supabase.rpc('approve_distributor_withdrawal_atomic', {
+          p_withdrawal_id: id
+        });
 
-        const { error: balanceError } = await supabase
-          .from('users_profiles')
-          .update({ commission_balance: currentBalance - req.amount })
-          .eq('id', req.distributor_id);
+        if (rpcError) throw rpcError;
+        if (!result.success) throw new Error(result.message);
+      } else {
+        const { error: statusError } = await supabase
+          .from('distributor_withdrawals')
+          .update({ 
+            status: 'rejected',
+            remark: remark || 'Withdrawal rejected by administrator'
+          })
+          .eq('id', id);
 
-        if (balanceError) throw balanceError;
+        if (statusError) throw statusError;
       }
-
-      // 2. Update status
-      const { error: statusError } = await supabase
-        .from('distributor_withdrawals')
-        .update({ 
-          status: type,
-          remark: type === 'rejected' ? remark : 'Withdrawal processed successfully'
-        })
-        .eq('id', id);
-
-      if (statusError) throw statusError;
 
       // 3. Notify Distributor
       await supabase.from('notifications').insert([{

@@ -72,6 +72,21 @@ export default function DistributorStatementReport({ userId }: { userId: string 
     setLoading(true);
 
     try {
+      const fetchAll = async (query: any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          allData = [...allData, ...data];
+          if (data.length < step) break;
+          from += step;
+        }
+        return allData;
+      };
+
       let openingBalance = 0;
 
       // Calculate Opening Balance if firm and start date are provided
@@ -85,15 +100,19 @@ export default function DistributorStatementReport({ userId }: { userId: string 
 
         if (userProfile) {
           const targetUserId = userProfile.id;
+          const qrPreQ = supabase.from('payment_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+          const billPreQ = supabase.from('bill_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+          const payoutPreQ = supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+
           const [qrPre, billPre, payoutPre] = await Promise.all([
-            supabase.from('payment_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
-            supabase.from('bill_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`),
-            supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`)
+            fetchAll(qrPreQ),
+            fetchAll(billPreQ),
+            fetchAll(payoutPreQ)
           ]);
 
-          const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
-          const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
-          const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
+          const qrTotal = (qrPre || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+          const billTotal = (billPre || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
+          const payoutTotal = (payoutPre || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
 
           openingBalance = qrTotal - billTotal - payoutTotal;
         }
@@ -120,9 +139,8 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
 
-        const { data, error } = await qrQuery;
-        if (error) throw error;
-        qrMapped = (data || []).map(r => ({
+        const qrData = await fetchAll(qrQuery);
+        qrMapped = (qrData || []).map(r => ({
           id: String(r.id || ''),
           numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'QR',
@@ -150,9 +168,8 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
 
-        const { data, error } = await billQuery;
-        if (error) throw error;
-        billMapped = (data || []).map((r) => ({
+        const billData = await fetchAll(billQuery);
+        billMapped = (billData || []).map((r) => ({
           id: String(r.id || ''),
           numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'BILL',
@@ -180,9 +197,8 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
 
-        const { data, error } = await payoutQuery;
-        if (error) throw error;
-        payoutMapped = (data || []).map(r => ({
+        const payoutData = await fetchAll(payoutQuery);
+        payoutMapped = (payoutData || []).map(r => ({
           id: String(r.id || ''),
           numericId: String(r.id || '').split('-')[0].toUpperCase(),
           type: 'PAYOUT',

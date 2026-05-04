@@ -56,7 +56,8 @@ const menuItems = [
       { label: 'Bill Payment Report', path: '/reports/bill-payment' },
       { label: 'Payout Report', path: '/reports/payout' },
       { label: 'Statement Report', path: '/reports/statement' },
-      { label: 'Admin Statement', path: '/reports/admin-statement' }
+      { label: 'Admin Statement', path: '/reports/admin-statement' },
+      { label: 'Distributor Profit', path: '/reports/distributor-profit' }
     ]
   },
   { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },

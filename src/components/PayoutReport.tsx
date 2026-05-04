@@ -49,6 +49,7 @@ export default function PayoutReport() {
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [selectedProof, setSelectedProof] = useState<PayoutRequest | null>(null);
+  const [fullTotals, setFullTotals] = useState({ amount: 0, charges: 0 });
   const limit = 10;
 
   // Autocomplete state
@@ -145,9 +146,46 @@ export default function PayoutReport() {
     }
   };
 
+  const fetchFullTotals = async () => {
+    try {
+      let query = supabase
+        .from('payout_submissions')
+        .select('amount, charge_amount, users_profiles!inner(firm_name)');
+
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      if (exactAmount) query = query.eq('amount', Number(exactAmount));
+      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+
+      // Recursive fetch for totals
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await query.range(from, from + step - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = [...allData, ...data];
+        if (data.length < step) break;
+        from += step;
+      }
+
+      const totals = allData.reduce((acc, curr) => ({
+        amount: acc.amount + Number(curr.amount || 0),
+        charges: acc.charges + Number(curr.charge_amount || 0)
+      }), { amount: 0, charges: 0 });
+
+      setFullTotals(totals);
+    } catch (err) {
+      console.error('Error fetching payout totals:', err);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
-  }, [statusFilter, startDate, endDate]);
+    fetchFullTotals();
+  }, [statusFilter, startDate, endDate, firmName, exactAmount]);
 
   const handleSearch = () => {
     fetchRequests();
@@ -170,40 +208,81 @@ export default function PayoutReport() {
     }), { amount: 0, charges: 0, total: 0 });
   };
 
-  const exportToExcel = () => {
-    const totals = calculateTotals(requests);
-    const exportData = requests.map(req => ({
-      'Date': new Date(req.created_at).toLocaleString(),
-      'Firm Name': req.users_profiles?.firm_name || 'N/A',
-      'Holder Name': req.account_holder_name,
-      'Bank Name': req.bank_name,
-      'A/c Number': req.account_number,
-      'IFSC Code': req.ifsc_code,
-      'Amount': req.amount,
-      'Charge': req.charge_amount,
-      'Total Debit': Number(req.amount) + Number(req.charge_amount),
-      'Status': req.status.toUpperCase(),
-      'Txn ID': req.transaction_id || '-'
-    }));
+  const exportToExcel = async () => {
+    try {
+      setLoading(true);
+      let query = supabase
+        .from('payout_submissions')
+        .select('*, users_profiles(firm_name)');
 
-    exportData.push({
-      'Date': 'TOTAL',
-      'Firm Name': '',
-      'Holder Name': '',
-      'Bank Name': '',
-      'A/c Number': '',
-      'IFSC Code': '',
-      'Amount': totals.amount,
-      'Charge': totals.charges,
-      'Total Debit': totals.total,
-      'Status': '',
-      'Txn ID': ''
-    });
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      if (exactAmount) query = query.eq('amount', Number(exactAmount));
+      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
 
-    const ws = XLSX.utils.json_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Payout Report');
-    XLSX.writeFile(wb, `Payout_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+      // Recursive fetch for full export
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await query.range(from, from + step - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = [...allData, ...data];
+        if (data.length < step) break;
+        from += step;
+      }
+
+      const totals = allData.reduce((acc, curr) => ({
+        amount: acc.amount + Number(curr.amount || 0),
+        charges: acc.charges + Number(curr.charge_amount || 0),
+        total: acc.total + (Number(curr.amount || 0) + Number(curr.charge_amount || 0))
+      }), { amount: 0, charges: 0, total: 0 });
+
+      const exportData = allData.map(req => ({
+        'Date': new Date(req.created_at).toLocaleString(),
+        'Firm Name': req.users_profiles?.firm_name || 'N/A',
+        'Holder Name': req.account_holder_name,
+        'Bank Name': req.bank_name,
+        'A/c Number': req.account_number,
+        'IFSC Code': req.ifsc_code,
+        'Amount': Number(req.amount),
+        'Charge': Number(req.charge_amount),
+        'Total Debit': Number(req.amount) + Number(req.charge_amount),
+        'Status': req.status.toUpperCase(),
+        'Txn ID': req.transaction_id || '-'
+      }));
+
+      exportData.push({
+        'Date': 'TOTAL',
+        'Firm Name': '',
+        'Holder Name': '',
+        'Bank Name': '',
+        'A/c Number': '',
+        'IFSC Code': '',
+        'Amount': Number(totals.amount.toFixed(2)) as any,
+        'Charge': Number(totals.charges.toFixed(2)) as any,
+        'Total Debit': Number(totals.total.toFixed(2)) as any,
+        'Status': '',
+        'Txn ID': ''
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws['!cols'] = [
+        { wch: 20 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, 
+        { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 12 }, { wch: 20 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Payout Report');
+      XLSX.writeFile(wb, `Payout_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+      console.error('Export Error:', err);
+      alert('Failed to export data.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportToPDF = () => {

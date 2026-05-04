@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Terminal, Shield, Cpu, Activity, Clock, Zap, Trash2, CheckCircle } from 'lucide-react';
+import { Terminal, Shield, Cpu, Activity, Clock, Zap, Trash2, CheckCircle, Download, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import { MASTER_SQL_SCHEMA } from '../lib/master_schema';
 
 export default function DeveloperLogs() {
+  const [loading, setLoading] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
   const [logs, setLogs] = useState<{ id: string; time: string; msg: string; type: 'db' | 'auth' | 'system' }[]>([
     { id: 'initial', time: new Date().toLocaleTimeString(), msg: 'System initialized. Realtime stream active.', type: 'system' }
   ]);
@@ -24,20 +27,18 @@ export default function DeveloperLogs() {
         { count: qrCount }, 
         { count: billCount }, 
         { count: kycCount },
-        { count: blockedUsers },
-        { count: blockedAdmins }
+        { count: blockedUsers }
       ] = await Promise.all([
-        supabase.from('qr_payment_requests').select('*', { count: 'exact', head: true }).eq('status', 'Pending'),
-        supabase.from('bill_payment_requests').select('*', { count: 'exact', head: true }).eq('status', 'Pending'),
-        supabase.from('kyc_verification_requests').select('*', { count: 'exact', head: true }).eq('status', 'Pending'),
-        supabase.from('user_profiles').select('*', { count: 'exact', head: true }).eq('status', 'Blocked'),
-        supabase.from('admin_profiles').select('*', { count: 'exact', head: true }).eq('status', 'Blocked')
+        supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('bill_submissions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('kyc_submissions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+        supabase.from('users_profiles').select('*', { count: 'exact', head: true }).eq('status', 'Blocked')
       ]);
 
       const end = performance.now();
       const latency = Math.round(end - start);
       const totalPending = (qrCount || 0) + (billCount || 0) + (kycCount || 0);
-      const totalBlocked = (blockedUsers || 0) + (blockedAdmins || 0);
+      const totalBlocked = (blockedUsers || 0);
       
       setSystemMetrics(prev => ({
         latency,
@@ -80,20 +81,20 @@ export default function DeveloperLogs() {
 
     // Subscriptions
     const channels = [
-      supabase.channel('logs-users').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'user_profiles' }, (p) => {
-        addLog(`User Registered: ${p.new.firm_name || p.new.id}`);
+      supabase.channel('logs-users').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'users_profiles' }, (p) => {
+        addLog(`User Registered: ${p.new.name || p.new.id}`);
       }),
-      supabase.channel('logs-qr').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'qr_payment_requests' }, (p) => {
+      supabase.channel('logs-qr').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payment_submissions' }, (p) => {
         addLog(`New QR Payment: ₹${p.new.amount} from ${p.new.user_id}`);
       }),
-      supabase.channel('logs-bill').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bill_payment_requests' }, (p) => {
+      supabase.channel('logs-bill').on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bill_submissions' }, (p) => {
         addLog(`New Bill Payment: ₹${p.new.amount}`);
       }),
-      supabase.channel('logs-kyc').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kyc_verification_requests' }, (p) => {
+      supabase.channel('logs-kyc').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'kyc_submissions' }, (p) => {
         addLog(`KYC ${p.new.status}: ${p.new.user_id}`);
       }),
       supabase.channel('logs-system').on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_status' }, (p) => {
-        addLog(`SYSTEM KILL SWITCH: ${p.new.is_enabled ? 'ENABLED' : 'DISABLED'}`, 'system');
+        addLog(`SYSTEM STATUS UPDATED: ${p.new.message}`, 'system');
       })
     ];
 
@@ -103,6 +104,153 @@ export default function DeveloperLogs() {
       channels.forEach(channel => supabase.removeChannel(channel));
     };
   }, []);
+  const handleMasterExport = async () => {
+    setLoading(true);
+    try {
+      const tables = [
+        'users_profiles', 'qr_history', 'rejection_categories', 'rejection_reasons', 
+        'admin_profiles', 'admin_withdrawals', 'app_policies', 'bank_details', 
+        'bill_submissions', 'complaint_messages', 'complaints', 'distributor_withdrawals', 
+        'headlines', 'kyc_submissions', 'notifications', 'onesignal_settings', 
+        'payment_submissions', 'payout_settings', 'payout_submissions', 'qr_settings',
+        'service_charge_slabs', 'system_status', 'whatsapp_api_settings'
+      ];
+
+      let sqlDump = `-- MASTER DATABASE EXPORT (TOTAL SYSTEM CLONE)
+-- Generated on: ${new Date().toLocaleString()}
+-- Powered by UsePay Developer Suite
+
+${MASTER_SQL_SCHEMA}
+
+-- =========================================
+-- LIVE DATA INSERTS
+-- =========================================
+`;
+
+      // 2. Fetch Data from all tables
+      for (const table of tables) {
+        sqlDump += `\n-- DATA FOR TABLE: public.${table}\n`;
+        const { data, error } = await supabase.from(table).select('*');
+        
+        if (error) {
+          sqlDump += `-- Error fetching data for ${table}: ${error.message}\n`;
+          continue;
+        }
+
+        if (data && data.length > 0) {
+          const columns = Object.keys(data[0]);
+          sqlDump += `INSERT INTO public.${table} (${columns.join(', ')}) VALUES\n`;
+          
+          const rows = data.map(row => {
+            const values = columns.map(col => {
+              const val = row[col];
+              if (val === null) return 'NULL';
+              if (typeof val === 'number' || typeof val === 'boolean') return val;
+              if (typeof val === 'object') return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+              return `'${String(val).replace(/'/g, "''")}'`;
+            });
+            return `(${values.join(', ')})`;
+          });
+
+          sqlDump += rows.join(',\n') + ';\n';
+        } else {
+          sqlDump += `-- No data found in ${table}\n`;
+        }
+      }
+
+      // 3. Trigger Download
+      const blob = new Blob([sqlDump], { type: 'text/sql' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `UsePay_Master_Full_Backup_${new Date().toISOString().split('T')[0]}.sql`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setLogs(prev => [
+        { id: Math.random().toString(36).substr(2, 9), time: new Date().toLocaleTimeString(), msg: 'Master SQL Full Database Export successful!', type: 'system' },
+        ...prev
+      ]);
+    } catch (err) {
+      console.error('Export error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFullBackup = async () => {
+    setBackupLoading(true);
+    setLogs(prev => [
+      { id: Math.random().toString(36).substr(2, 9), time: new Date().toLocaleTimeString(), msg: 'Preparing full system backup (Database + Storage)...', type: 'system' },
+      ...prev
+    ]);
+    
+    try {
+      const response = await fetch('/api/full-backup');
+      if (!response.ok) throw new Error('Backup failed on server');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `UsePay_Full_Backup_${new Date().toISOString().replace(/[:.]/g, '-')}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setLogs(prev => [
+        { id: Math.random().toString(36).substr(2, 9), time: new Date().toLocaleTimeString(), msg: 'Full System Backup ZIP downloaded successfully!', type: 'system' },
+        ...prev
+      ]);
+    } catch (err: any) {
+      console.error('Full Backup error:', err);
+      setLogs(prev => [
+        { id: Math.random().toString(36).substr(2, 9), time: new Date().toLocaleTimeString(), msg: `Backup Failed: ${err.message}`, type: 'system' },
+        ...prev
+      ]);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
+  const handleQuickBackup = async () => {
+    setBackupLoading(true);
+    setLogs(prev => [
+      { id: Math.random().toString(36).substr(2, 9), time: new Date().toLocaleTimeString(), msg: 'Starting Quick SQL-only backup...', type: 'system' },
+      ...prev
+    ]);
+    
+    try {
+      const response = await fetch('/api/full-backup?mode=quick');
+      if (!response.ok) throw new Error('Backup failed');
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `UsePay_Quick_SQL_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      setLogs(prev => [
+        { id: Math.random().toString(36).substr(2, 9), time: new Date().toLocaleTimeString(), msg: 'Quick SQL Backup successful!', type: 'system' },
+        ...prev
+      ]);
+    } catch (err: any) {
+      setLogs(prev => [
+        { id: Math.random().toString(36).substr(2, 9), time: new Date().toLocaleTimeString(), msg: `Quick Backup Failed: ${err.message}`, type: 'system' },
+        ...prev
+      ]);
+    } finally {
+      setBackupLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -111,6 +259,31 @@ export default function DeveloperLogs() {
           <p className="text-slate-500 mt-1">Real-time developer analytics and system health.</p>
         </div>
         <div className="flex items-center gap-3">
+          <button 
+            onClick={handleMasterExport}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-lg shadow-emerald-200 transition-all active:scale-95 font-bold text-xs uppercase tracking-widest disabled:opacity-50"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+            Master SQL Export
+          </button>
+          <div className="flex items-center bg-slate-100 rounded-xl p-1 gap-1">
+            <button 
+              onClick={handleFullBackup}
+              disabled={backupLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-lg shadow-sm transition-all active:scale-95 font-bold text-[10px] uppercase tracking-widest disabled:opacity-50"
+            >
+              {backupLoading ? <Loader2 size={12} className="animate-spin" /> : <Shield size={12} />}
+              Full (ZIP)
+            </button>
+            <button 
+              onClick={handleQuickBackup}
+              disabled={backupLoading}
+              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-900 rounded-lg shadow-sm border border-slate-200 transition-all active:scale-95 font-bold text-[10px] uppercase tracking-widest disabled:opacity-50"
+            >
+              Quick (SQL)
+            </button>
+          </div>
           <button 
             onClick={() => (window as any).simulateDevLog()}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 transition-all active:scale-95 font-bold text-xs uppercase tracking-widest"

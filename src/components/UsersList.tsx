@@ -149,6 +149,22 @@ export default function UsersList({ adminRole }: UsersListProps) {
 
   const handleExportExcel = async () => {
     try {
+      setLoading(true);
+      const fetchAll = async (query: any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          allData = [...allData, ...data];
+          if (data.length < step) break;
+          from += step;
+        }
+        return allData;
+      };
+
       let query = supabase
         .from('users_profiles')
         .select('*');
@@ -157,11 +173,14 @@ export default function UsersList({ adminRole }: UsersListProps) {
         query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`);
       }
       if (statusFilter !== 'All') {
-        query = query.eq('status', statusFilter);
+        if (statusFilter === 'distributor') {
+          query = query.eq('role', 'distributor');
+        } else {
+          query = query.eq('status', statusFilter);
+        }
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll(query.order('created_at', { ascending: false }));
 
       const exportData = data.map(u => ({
         'Join Date': format(new Date(u.created_at), 'dd-MM-yyyy'),
@@ -169,6 +188,7 @@ export default function UsersList({ adminRole }: UsersListProps) {
         'Firm Name': u.firm_name || 'N/A',
         'Mobile': u.mobile_number,
         'Email': u.email,
+        'Role': u.role,
         'Wallet Balance': Number(u.wallet_balance || 0),
         'Hold Balance': Number(u.hold_balance || 0),
         'Status': u.status,
@@ -182,11 +202,29 @@ export default function UsersList({ adminRole }: UsersListProps) {
       XLSX.writeFile(wb, `Users_Report_${format(new Date(), 'ddMMyyyy_HHmm')}.xlsx`);
     } catch (err) {
       console.error('Excel Export Error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleExportPDF = async () => {
     try {
+      setLoading(true);
+      const fetchAll = async (query: any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          allData = [...allData, ...data];
+          if (data.length < step) break;
+          from += step;
+        }
+        return allData;
+      };
+
       let query = supabase
         .from('users_profiles')
         .select('*');
@@ -195,11 +233,14 @@ export default function UsersList({ adminRole }: UsersListProps) {
         query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%`);
       }
       if (statusFilter !== 'All') {
-        query = query.eq('status', statusFilter);
+        if (statusFilter === 'distributor') {
+          query = query.eq('role', 'distributor');
+        } else {
+          query = query.eq('status', statusFilter);
+        }
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await fetchAll(query.order('created_at', { ascending: false }));
       if (!data || data.length === 0) {
         alert('No users found to export');
         return;

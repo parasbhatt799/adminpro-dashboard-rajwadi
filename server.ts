@@ -6,6 +6,9 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
 import https from "https";
+import archiver from "archiver";
+import fs from "fs-extra";
+import os from "os";
 
 dotenv.config();
 
@@ -345,6 +348,142 @@ async function startServer() {
     }
   });
 
+
+
+  app.get("/api/full-backup", async (req, res) => {
+    const debugLog = (msg: string) => {
+      const entry = `[${new Date().toISOString()}] ${msg}\n`;
+      fs.appendFileSync(path.join(process.cwd(), 'server_debug.log'), entry);
+      console.log(msg);
+    };
+
+    debugLog("--- BACKUP REQUEST RECEIVED ---");
+    const quickMode = req.query.mode === 'quick';
+    const backupId = `backup-${Date.now()}`;
+    const tempDir = path.join(os.tmpdir(), backupId);
+    let logContent = `Backup ID: ${backupId}\nMode: ${quickMode ? 'Quick' : 'Full'}\nStarted at: ${new Date().toISOString()}\n\n`;
+
+    try {
+      if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        throw new Error("Missing Supabase Environment Variables!");
+      }
+
+      await fs.ensureDir(tempDir);
+      debugLog(`Temp dir created at ${tempDir}`);
+      
+      // 1. DATABASE EXPORT
+      const tables = [
+        'users_profiles', 'qr_history', 'rejection_categories', 'rejection_reasons', 
+        'admin_profiles', 'admin_withdrawals', 'app_policies', 'bank_details', 
+        'bill_submissions', 'complaint_messages', 'complaints', 'distributor_withdrawals', 
+        'headlines', 'kyc_submissions', 'notifications', 'onesignal_settings', 
+        'payment_submissions', 'payout_settings', 'payout_submissions', 'qr_settings',
+        'service_charge_slabs', 'system_status', 'whatsapp_api_settings'
+      ];
+
+      let sqlDump = `-- UsePay Full Database Backup\n-- Generated on: ${new Date().toLocaleString()}\n\n`;
+      let successTables = 0;
+
+      for (const table of tables) {
+        debugLog(`Fetching table: ${table}`);
+        const { data, error } = await supabaseAdmin.from(table).select('*');
+        if (error) {
+          debugLog(`Error in ${table}: ${error.message}`);
+          logContent += `[DB ERROR] Table ${table}: ${error.message}\n`;
+          continue;
+        }
+        if (data && data.length > 0) {
+          successTables++;
+          debugLog(`Found ${data.length} rows in ${table}`);
+          sqlDump += `-- Data for table ${table} (${data.length} rows)\n`;
+          data.forEach(row => {
+            const columns = Object.keys(row).join(', ');
+            const values = Object.values(row).map(v => {
+              if (v === null) return 'NULL';
+              if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+              if (typeof v === 'number') return v;
+              if (typeof v === 'object') return `'${JSON.stringify(v).replace(/'/g, "''")}'`;
+              return `'${String(v).replace(/'/g, "''")}'`;
+            }).join(', ');
+            sqlDump += `INSERT INTO public.${table} (${columns}) VALUES (${values}) ON CONFLICT DO NOTHING;\n`;
+          });
+          sqlDump += `\n`;
+        } else {
+          debugLog(`Table ${table} is empty.`);
+        }
+      }
+      await fs.writeFile(path.join(tempDir, 'database_data.sql'), sqlDump);
+      debugLog(`SQL Dump written. Success tables: ${successTables}`);
+
+      // 2. STORAGE EXPORT
+      if (!quickMode) {
+        debugLog("Starting Storage Export...");
+        const { data: buckets } = await supabaseAdmin.storage.listBuckets();
+        if (buckets) {
+          const storageDir = path.join(tempDir, 'storage');
+          await fs.ensureDir(storageDir);
+
+          for (const bucket of buckets) {
+            debugLog(`Processing bucket: ${bucket.name}`);
+            const bucketPath = path.join(storageDir, bucket.name);
+            await fs.ensureDir(bucketPath);
+
+            const syncFolder = async (folderPath: string = '') => {
+              const { data: items } = await supabaseAdmin.storage.from(bucket.name).list(folderPath);
+              if (!items) return;
+
+              const CONCURRENCY = 5;
+              for (let i = 0; i < items.length; i += CONCURRENCY) {
+                const batch = items.slice(i, i + CONCURRENCY);
+                await Promise.all(batch.map(async (item) => {
+                  const fullPath = folderPath ? `${folderPath}/${item.name}` : item.name;
+                  if (!item.id && !item.metadata) {
+                    await syncFolder(fullPath);
+                  } else {
+                    try {
+                      const { data: blob } = await supabaseAdmin.storage.from(bucket.name).download(fullPath);
+                      if (blob) {
+                        const filePath = path.join(bucketPath, fullPath);
+                        await fs.ensureDir(path.dirname(filePath));
+                        const buffer = Buffer.from(await blob.arrayBuffer());
+                        await fs.writeFile(filePath, buffer);
+                      }
+                    } catch (e: any) {
+                      debugLog(`Failed file ${fullPath}: ${e.message}`);
+                    }
+                  }
+                }));
+              }
+            };
+            await syncFolder();
+          }
+        }
+      }
+
+      await fs.writeFile(path.join(tempDir, 'backup_log.txt'), logContent);
+
+      // 3. SEND ZIP
+      debugLog("Finalizing ZIP and sending response...");
+      res.setHeader('Content-Type', 'application/zip');
+      res.setHeader('Content-Disposition', `attachment; filename=UsePay_Backup_${backupId}.zip`);
+
+      const archive = archiver('zip', { zlib: { level: 9 } });
+      archive.pipe(res);
+      archive.directory(tempDir, false);
+      
+      archive.on('end', async () => {
+        debugLog("--- BACKUP COMPLETED AND SENT ---");
+        try { await fs.remove(tempDir); } catch {}
+      });
+
+      await archive.finalize();
+
+    } catch (error: any) {
+      debugLog(`GLOBAL CRITICAL FAILURE: ${error.message}`);
+      if (!res.headersSent) res.status(500).send(`Backup failed: ${error.message}`);
+      try { await fs.remove(tempDir); } catch {}
+    }
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {

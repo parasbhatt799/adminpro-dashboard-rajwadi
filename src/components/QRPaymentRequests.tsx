@@ -76,8 +76,8 @@ export default function QRPaymentRequests() {
     setCurrentPage(1);
   };
 
-  const fetchRequests = async () => {
-    setLoading(true);
+  const fetchRequests = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       let query = supabase
         .from('payment_submissions')
@@ -94,7 +94,7 @@ export default function QRPaymentRequests() {
     } catch (err) {
       console.error('Error fetching QR requests:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -124,10 +124,7 @@ export default function QRPaymentRequests() {
         schema: 'public',
         table: 'payment_submissions'
       }, () => {
-        // Refresh requests without showing the full page loader for a smoother experience
-        // We'll call a version of fetchRequests that doesn't set loading(true) if we want,
-        // but for now, standard fetchRequests is fine.
-        fetchRequests();
+        fetchRequests(true);
       })
       .subscribe();
 

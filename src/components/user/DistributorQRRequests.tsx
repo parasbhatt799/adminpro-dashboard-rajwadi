@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  QrCode, 
+import {
+  QrCode,
   Search,
   IndianRupee,
   Clock,
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
+import * as XLSX from 'xlsx';
 
 interface DistributorQRRequestsProps {
   userId: string;
@@ -31,7 +32,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
         .from('users_profiles')
         .select('id')
         .eq('distributor_id', userId);
-      
+
       const subUserIds = (subUsers || []).map(u => u.id);
 
       if (subUserIds.length === 0) {
@@ -60,10 +61,56 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
     fetchRequests();
   }, [userId]);
 
-  const filteredRequests = requests.filter(req => 
+  const filteredRequests = requests.filter(req =>
     req.utr_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (req.users_profiles?.firm_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const exportToExcel = () => {
+    const exportData = filteredRequests.map(req => ({
+      'Date': new Date(req.created_at).toLocaleDateString(),
+      'Time': new Date(req.created_at).toLocaleTimeString(),
+      'Firm Name': req.users_profiles?.firm_name || req.users_profiles?.name || 'N/A',
+      'UTR ID': req.utr_id,
+      'QR Used': req.qr_history?.qr_name || 'N/A',
+      'Amount': Number(req.amount || 0),
+      'My Profit': Number(req.distributor_share || 0),
+      'Status': req.status.toUpperCase()
+    }));
+
+    // Add totals row
+    const totalAmount = filteredRequests.reduce((acc, req) => acc + (Number(req.amount) || 0), 0);
+    const totalProfit = filteredRequests.reduce((acc, req) => acc + (Number(req.distributor_share) || 0), 0);
+
+    exportData.push({
+      'Date': 'TOTAL',
+      'Time': '',
+      'Firm Name': '',
+      'UTR ID': '',
+      'QR Used': '',
+      'Amount': Number(totalAmount.toFixed(2)) as any,
+      'My Profit': Number(totalProfit.toFixed(2)) as any,
+      'Status': ''
+    });
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // Set column widths for a perfect layout
+    ws['!cols'] = [
+      { wch: 12 }, // Date
+      { wch: 12 }, // Time
+      { wch: 25 }, // Firm Name
+      { wch: 20 }, // UTR ID
+      { wch: 15 }, // QR Used
+      { wch: 15 }, // Amount
+      { wch: 15 }, // My Profit
+      { wch: 12 }  // Status
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "QR_Requests");
+    XLSX.writeFile(wb, `My_Users_QR_Requests_${new Date().toLocaleDateString()}.xlsx`);
+  };
 
   return (
     <div className="space-y-6">
@@ -72,16 +119,23 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
           <h2 className="text-2xl font-bold text-slate-900">Users QR Requests</h2>
           <p className="text-slate-500 mt-1">History of QR payments made by your users.</p>
         </div>
+        <button 
+          onClick={exportToExcel}
+          className="flex items-center gap-2 px-4 py-2.5 bg-emerald-50 text-emerald-600 rounded-xl text-sm font-bold hover:bg-emerald-100 transition-all border border-emerald-100 whitespace-nowrap"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+          Export Excel
+        </button>
       </div>
 
       <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
         <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
+          <input
+            type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by UTR or Firm Name..." 
+            placeholder="Search by UTR or Firm Name..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
           />
         </div>
@@ -140,11 +194,10 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                        req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                        'bg-amber-50 text-amber-600'
-                      }`}>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                          req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                            'bg-amber-50 text-amber-600'
+                        }`}>
                         {req.status === 'pending' && <Clock size={10} />}
                         {req.status === 'approved' && <CheckCircle2 size={10} />}
                         {req.status === 'rejected' && <XCircle size={10} />}
@@ -152,7 +205,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button 
+                      <button
                         onClick={() => setSelectedProof(req)}
                         className="text-emerald-600 hover:text-emerald-700 font-bold text-xs flex items-center justify-end gap-1 ml-auto"
                       >
@@ -163,6 +216,30 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                 ))
               )}
             </tbody>
+            {filteredRequests.length > 0 && (
+              <tfoot className="bg-indigo-50 border-t-2 border-indigo-100">
+                <tr>
+                  <td colSpan={2} className="px-6 py-4 text-right">
+                    <span className="text-[11px] font-black text-indigo-900 uppercase tracking-widest">
+                      TOTAL (Filtered Data)
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-sm font-black text-slate-900 flex items-center justify-center">
+                      <IndianRupee size={14} className="mr-0.5" />
+                      {filteredRequests.reduce((acc, req) => acc + (Number(req.amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-center">
+                    <span className="text-sm font-black text-emerald-700 flex items-center justify-center">
+                      <IndianRupee size={14} className="mr-0.5" />
+                      {filteredRequests.reduce((acc, req) => acc + (Number(req.distributor_share) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
@@ -171,7 +248,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
       <AnimatePresence>
         {selectedProof && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}

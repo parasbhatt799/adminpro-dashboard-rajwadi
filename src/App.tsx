@@ -20,6 +20,7 @@ import QRPaymentReport from './components/QRPaymentReport';
 import BillPaymentReport from './components/BillPaymentReport';
 import PayoutReport from './components/PayoutReport';
 import StatementReport from './components/StatementReport';
+import DistributorQRReport from './components/DistributorQRReport';
 import HeadlineManagement from './components/HeadlineManagement';
 import PolicyManagement from './components/PolicyManagement';
 import AdminManagement from './components/AdminManagement';
@@ -943,6 +944,7 @@ export default function App() {
             <Route path="payout" element={<PayoutReport />} />
             <Route path="statement" element={<StatementReport />} />
             <Route path="admin-statement" element={<AdminStatementReport />} />
+            <Route path="distributor-profit" element={<DistributorQRReport />} />
           </Route>
           <Route path="headlines" element={<HeadlineManagement />} />
           <Route path="policies" element={<PolicyManagement />} />

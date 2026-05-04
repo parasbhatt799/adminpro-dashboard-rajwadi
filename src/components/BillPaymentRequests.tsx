@@ -64,8 +64,8 @@ export default function BillPaymentRequests() {
     setCurrentPage(1);
   };
 
-  const fetchRequests = async () => {
-    setLoading(true);
+  const fetchRequests = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       let query = supabase
         .from('bill_submissions')
@@ -82,7 +82,7 @@ export default function BillPaymentRequests() {
     } catch (err) {
       console.error('Error fetching bill requests:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -146,7 +146,7 @@ export default function BillPaymentRequests() {
         schema: 'public',
         table: 'bill_submissions'
       }, () => {
-        fetchRequests();
+        fetchRequests(true);
       })
       .subscribe();
 
@@ -161,23 +161,13 @@ export default function BillPaymentRequests() {
       const targetRequest = requests.find(r => r.id === id);
       if (!targetRequest) throw new Error('Request not found');
 
-      // 1. Deduct charges from admin balance (undo the credit)
-      const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
-      const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
-      const requestCharges = targetRequest.charges || 0;
+      // Use Atomic RPC for refund (Updates status + Refunds user + Deducts from Admin in ONE step)
+      const { data: rpcData, error: rpcError } = await supabase.rpc('refund_bill_payment_atomic', {
+        p_bill_id: id
+      });
 
-      await supabase
-        .from('qr_settings')
-        .update({ admin_balance: Math.max(0, currentAdminBalance - requestCharges) })
-        .eq('id', 1);
-
-      // 2. Update request status to refunded
-      const { error } = await supabase
-        .from('bill_submissions')
-        .update({ status: 'refunded' })
-        .eq('id', id);
-
-      if (error) throw error;
+      if (rpcError) throw rpcError;
+      if (!rpcData.success) throw new Error(rpcData.message);
 
       // 3. Notify User
       await supabase

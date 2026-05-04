@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Wallet, 
-  ArrowUpRight, 
-  History, 
-  Loader2, 
+import {
+  Wallet,
+  ArrowUpRight,
+  History,
+  Loader2,
   AlertCircle,
   TrendingDown,
   Calendar,
@@ -30,11 +30,11 @@ export default function AdminWithdrawal() {
   const [totalWithdrawalAmount, setTotalWithdrawalAmount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
-  
+
   // Form state
   const [amount, setAmount] = useState('');
   const [remark, setRemark] = useState('');
@@ -44,33 +44,51 @@ export default function AdminWithdrawal() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Lifetime Service Charges with joins for fallback calculation
-      const [qrRes, billRes, payoutRes, withdrawalRes] = await Promise.all([
-        supabase.from('payment_submissions')
-          .select(`
-            charges, 
-            amount, 
-            admin_share,
-            user:user_id(
-              distributor_id,
-              admin_base_qr_charge,
-              distributor:distributor_id(admin_base_qr_charge, role)
-            )
-          `)
-          .eq('status', 'approved'),
-        supabase.from('bill_submissions')
-          .select(`charges, admin_share`)
-          .eq('status', 'approved'),
-        supabase.from('payout_submissions').select('charge_amount').eq('status', 'approved'),
-        supabase.from('admin_withdrawals').select('*').order('created_at', { ascending: false })
+      const fetchAll = async (query: any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          allData = [...allData, ...data];
+          if (data.length < step) break;
+          from += step;
+        }
+        return allData;
+      };
+
+      // 1. Fetch Lifetime Service Charges with batch fetching to avoid 1000 row limit
+      const qrQuery = supabase.from('payment_submissions')
+        .select(`
+          charges, 
+          amount, 
+          admin_share,
+          user:user_id(
+            distributor_id,
+            admin_base_qr_charge,
+            distributor:distributor_id(admin_base_qr_charge, role)
+          )
+        `)
+        .eq('status', 'approved');
+
+      const billQuery = supabase.from('bill_submissions')
+        .select(`charges, admin_share`)
+        .eq('status', 'approved');
+
+      const payoutQuery = supabase.from('payout_submissions').select('charge_amount').eq('status', 'approved');
+      const withdrawalQuery = supabase.from('admin_withdrawals').select('*').order('created_at', { ascending: false });
+
+      const [qrData, billData, payoutData, withdrawalData] = await Promise.all([
+        fetchAll(qrQuery),
+        fetchAll(billQuery),
+        fetchAll(payoutQuery),
+        fetchAll(withdrawalQuery)
       ]);
-      
-      if (qrRes.error) throw qrRes.error;
-      if (billRes.error) throw billRes.error;
-      if (withdrawalRes.error) throw withdrawalRes.error;
 
       // Calculate QR Charges (with split logic)
-      const totalQrCharges = (qrRes.data || []).reduce((acc, curr: any) => {
+      const totalQrCharges = (qrData || []).reduce((acc, curr: any) => {
         // 1. If we have a stored share (frozen data), use it directly
         if (curr.admin_share !== null && curr.admin_share !== undefined) {
           return acc + Number(curr.admin_share);
@@ -86,20 +104,20 @@ export default function AdminWithdrawal() {
       }, 0);
 
       // Calculate Bill Charges (Always full for admin)
-      const totalBillCharges = (billRes.data || []).reduce((acc, curr: any) => {
+      const totalBillCharges = (billData || []).reduce((acc, curr: any) => {
         if (curr.admin_share !== null && curr.admin_share !== undefined) {
           return acc + Number(curr.admin_share);
         }
         return acc + (Number(curr.charges) || 0);
       }, 0);
 
-      const totalPayoutCharges = (payoutRes.data || []).reduce((acc, r) => acc + (Number(r.charge_amount) || 0), 0);
-      const totalWithdrawals = (withdrawalRes.data || []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
+      const totalPayoutCharges = (payoutData || []).reduce((acc, r) => acc + (Number(r.charge_amount) || 0), 0);
+      const totalWithdrawals = (withdrawalData || []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
 
       const calculatedBalance = totalQrCharges + totalBillCharges + totalPayoutCharges - totalWithdrawals;
       setBalance(calculatedBalance);
       setTotalWithdrawalAmount(totalWithdrawals);
-      setHistory(withdrawalRes.data || []);
+      setHistory(withdrawalData || []);
 
     } catch (err) {
       console.error('Error fetching withdrawal data:', err);
@@ -185,7 +203,7 @@ export default function AdminWithdrawal() {
         {/* Left Side: Balance & Form */}
         <div className="lg:col-span-1 space-y-6">
           {/* Balance Card */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-gradient-to-br from-indigo-600 to-violet-700 p-8 rounded-[2rem] shadow-xl shadow-indigo-200 relative overflow-hidden group"
@@ -204,14 +222,14 @@ export default function AdminWithdrawal() {
                 Total Service Charge Collected
               </p>
             </div>
-            
+
             {/* Background Decoration */}
             <div className="absolute top-[-20%] right-[-10%] w-48 h-48 bg-white/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
             <div className="absolute bottom-[-10%] left-[-5%] w-32 h-32 bg-indigo-400/20 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
           </motion.div>
 
           {/* Withdrawal Form */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -227,8 +245,8 @@ export default function AdminWithdrawal() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Withdrawal Amount</label>
                 <div className="relative">
                   <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     required
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
@@ -242,7 +260,7 @@ export default function AdminWithdrawal() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Remark / Purpose</label>
                 <div className="relative">
                   <MessageSquare className="absolute left-4 top-4 text-slate-400" size={18} />
-                  <textarea 
+                  <textarea
                     value={remark}
                     onChange={(e) => setRemark(e.target.value)}
                     placeholder="Enter reason for withdrawal..."
@@ -253,7 +271,7 @@ export default function AdminWithdrawal() {
               </div>
 
               {error && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="flex items-center gap-2 p-3 bg-rose-50 text-rose-600 rounded-xl text-xs font-bold border border-rose-100"
@@ -264,7 +282,7 @@ export default function AdminWithdrawal() {
               )}
 
               {success && (
-                <motion.div 
+                <motion.div
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-600 rounded-xl text-xs font-bold border border-emerald-100"
@@ -274,7 +292,7 @@ export default function AdminWithdrawal() {
                 </motion.div>
               )}
 
-              <button 
+              <button
                 type="submit"
                 disabled={processing || !amount || Number(amount) <= 0}
                 className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-lg shadow-indigo-100 transition-all flex items-center justify-center gap-2 active:scale-[0.98]"
@@ -294,7 +312,7 @@ export default function AdminWithdrawal() {
 
         {/* Right Side: History Table */}
         <div className="lg:col-span-2 space-y-6">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
@@ -310,7 +328,7 @@ export default function AdminWithdrawal() {
                   <p className="text-xs text-slate-500 font-medium">Recent transactions from your admin wallet.</p>
                 </div>
               </div>
-              
+
               <div className="text-right bg-white px-4 py-2 rounded-xl border border-slate-100 shadow-sm">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Total Withdrawn</p>
                 <div className="text-xl font-bold text-rose-600">
@@ -347,11 +365,11 @@ export default function AdminWithdrawal() {
                     </tr>
                   ) : (
                     currentItems.map((record, index) => (
-                      <motion.tr 
+                      <motion.tr
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: index * 0.05 }}
-                        key={record.id} 
+                        key={record.id}
                         className="hover:bg-slate-50/50 transition-colors group"
                       >
                         <td className="px-8 py-5">

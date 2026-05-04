@@ -91,8 +91,8 @@ export default function PayoutManagement() {
   };
 
   // Fetch Payout Requests
-  const fetchRequests = async () => {
-    setLoading(true);
+  const fetchRequests = async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const { data, error } = await supabase
         .from('payout_submissions')
@@ -104,7 +104,7 @@ export default function PayoutManagement() {
     } catch (err) {
       console.error('Error fetching requests:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -120,7 +120,7 @@ export default function PayoutManagement() {
         schema: 'public',
         table: 'payout_submissions'
       }, () => {
-        fetchRequests();
+        fetchRequests(true);
       })
       .subscribe();
 
@@ -279,17 +279,15 @@ export default function PayoutManagement() {
         proofUrl = urlData.publicUrl;
       }
 
-      // 2. Update status to approved
-      const { error } = await supabase
-        .from('payout_submissions')
-        .update({
-          status: 'approved',
-          transaction_id: transactionId,
-          proof_url: proofUrl
-        })
-        .eq('id', showCompleteModal);
-
-      if (error) throw error;
+      // 2. Update status and credit admin using Atomic RPC
+      const { data: rpcData, error: rpcError } = await supabase.rpc('approve_payout_request_atomic', {
+        p_payout_id: showCompleteModal,
+        p_transaction_id: transactionId,
+        p_proof_url: proofUrl
+      });
+      
+      if (rpcError) throw rpcError;
+      if (!rpcData.success) throw new Error(rpcData.message);
 
       // 2. Notify User (In-app)
       await supabase.from('notifications').insert([{
