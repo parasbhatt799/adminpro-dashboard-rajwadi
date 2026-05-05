@@ -491,20 +491,28 @@ export default function App() {
     }, 6000);
     fetchSystemStatus().finally(() => clearTimeout(fallbackTimer));
 
-    // Fetch and set initial branding (Favicon)
-    const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('favicon_url').eq('id', 1).single();
-      if (data?.favicon_url) {
-        updateFavicon(data.favicon_url);
+    // Fetch and set initial branding and sound settings
+    const fetchInitialSettings = async () => {
+      const { data } = await supabase.from('qr_settings').select('*').eq('id', 1).single();
+      if (data) {
+        if (data.favicon_url) {
+          updateFavicon(data.favicon_url);
+        }
+        setSoundSettings(data);
+        soundSettingsRef.current = data;
       }
     };
-    fetchBranding();
+    fetchInitialSettings();
 
-    // Global Branding Listener (Favicon)
-    const brandingChannel = supabase.channel('global_branding')
+    // Global Settings Listener
+    const settingsChannel = supabase.channel('global_settings')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
-        if (payload.new && payload.new.favicon_url) {
-          updateFavicon(payload.new.favicon_url);
+        if (payload.new) {
+          if (payload.new.favicon_url) {
+            updateFavicon(payload.new.favicon_url);
+          }
+          setSoundSettings(payload.new);
+          soundSettingsRef.current = payload.new;
         }
       })
       .subscribe();
@@ -520,7 +528,7 @@ export default function App() {
 
     return () => {
       supabase.removeChannel(channel);
-      supabase.removeChannel(brandingChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, []);
 
@@ -634,7 +642,6 @@ export default function App() {
       fetchAdminNotifications();
       fetchTotalHoldBalance();
       fetchPendingCounts();
-      fetchSoundSettings();
 
       // Helper to play sound
       const playNotificationSound = (type: 'qr' | 'bill' | 'kyc' | 'payout') => {
@@ -698,16 +705,7 @@ export default function App() {
         })
         .subscribe();
 
-      // Branding/Sound Settings Listener
-      const settingsSub = supabase
-        .channel('admin_settings_realtime')
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
-          if (payload.new) {
-            setSoundSettings(payload.new);
-            soundSettingsRef.current = payload.new;
-          }
-        })
-        .subscribe();
+      // Settings are now handled by global listener
 
       // Hold Balance Listener
       const holdChannel = supabase
@@ -752,7 +750,6 @@ export default function App() {
         supabase.removeChannel(billSub);
         supabase.removeChannel(kycSub);
         supabase.removeChannel(payoutSub);
-        supabase.removeChannel(settingsSub);
       };
     }
   }, [isAdmin, userId, adminRole]);
@@ -760,10 +757,24 @@ export default function App() {
   // User Notification Sound logic
   useEffect(() => {
     if (isUser && userId) {
-      const playUserSound = () => {
-        const soundUrl = 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3';
-        const audio = new Audio(soundUrl);
-        audio.play().catch(() => { });
+      const playUserSound = (type: 'qr' | 'bill' | 'kyc' | 'payout') => {
+        const settings = soundSettingsRef.current;
+        if (!settings) return;
+
+        const isEnabled = settings[`is_${type}_sound_enabled`] ?? true;
+        const defaultSounds: Record<string, string> = {
+          qr: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+          bill: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+          kyc: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+          payout: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
+        };
+
+        const soundUrl = settings[`${type}_sound_url`] || defaultSounds[type];
+
+        if (isEnabled && soundUrl) {
+          const audio = new Audio(soundUrl);
+          audio.play().catch(() => { });
+        }
       };
 
       const playServiceSound = async (isOn: boolean) => {
@@ -783,26 +794,14 @@ export default function App() {
       const serviceSub = supabase
         .channel('user_service_status')
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
-          if (payload.new && payload.old && payload.new.is_bill_enabled !== payload.old.is_bill_enabled) {
-            playServiceSound(payload.new.is_bill_enabled);
-          } else if (payload.new && !payload.old) {
-            // Fallback if old data is not available (REPLICA IDENTITY not FULL)
-            playServiceSound(payload.new.is_bill_enabled);
+          if (payload.new) {
+            const oldIsEnabled = soundSettingsRef.current?.is_bill_enabled;
+            if (oldIsEnabled !== undefined && payload.new.is_bill_enabled !== oldIsEnabled) {
+              playServiceSound(payload.new.is_bill_enabled);
+            }
           }
         })
         .subscribe();
-
-      // Fetch initial status on load and play sound
-      const fetchInitialStatus = async () => {
-        try {
-          const { data } = await supabase.from('qr_settings').select('is_bill_enabled').eq('id', 1).single();
-          if (data) {
-            playServiceSound(data.is_bill_enabled);
-          }
-        } catch (err) {}
-      };
-      
-      fetchInitialStatus();
 
       const qrSub = supabase
         .channel(`user_qr_status_${userId}`)
@@ -813,7 +812,7 @@ export default function App() {
           filter: `user_id=eq.${userId}`
         }, (payload) => {
           if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
-            playUserSound();
+            playUserSound('qr');
           }
         })
         .subscribe();
@@ -827,7 +826,7 @@ export default function App() {
           filter: `user_id=eq.${userId}`
         }, (payload) => {
           if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
-            playUserSound();
+            playUserSound('bill');
           }
         })
         .subscribe();
@@ -841,7 +840,7 @@ export default function App() {
           filter: `user_id=eq.${userId}`
         }, (payload) => {
           if (payload.new.status === 'approved' || payload.new.status === 'rejected') {
-            playUserSound();
+            playUserSound('payout');
           }
         })
         .subscribe();
@@ -855,7 +854,7 @@ export default function App() {
           filter: `id=eq.${userId}`
         }, (payload) => {
           if (payload.new.kyc_status === 'verified' || payload.new.kyc_status === 'rejected') {
-            playUserSound();
+            playUserSound('kyc');
           }
         })
         .on('postgres_changes', {
