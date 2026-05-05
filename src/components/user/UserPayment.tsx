@@ -21,6 +21,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [loadingQr, setLoadingQr] = useState(true);
   const [banks, setBanks] = useState<{ id: string; bank_name: string }[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
+  const [inactiveQrs, setInactiveQrs] = useState<{ id: string; qr_name: string }[]>([]);
+  const [useOldQr, setUseOldQr] = useState(false);
+  const [selectedOldQrId, setSelectedOldQrId] = useState('');
   
   // QR Form state
   const [utrId, setUtrId] = useState('');
@@ -173,6 +176,16 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setActiveQrId(activeQR.id);
           setQrName(activeQR.qr_name);
         }
+
+        // Fetch Recent Inactive QRs (Last 3)
+        const { data: oldQRs } = await supabase
+          .from('qr_history')
+          .select('id, qr_name')
+          .eq('is_active', false)
+          .order('created_at', { ascending: false })
+          .limit(3);
+        
+        setInactiveQrs(oldQRs || []);
 
         // Fetch Global Settings (QR & Bill status)
         const { data: globalSettings } = await supabase
@@ -391,6 +404,23 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       })
       .subscribe();
 
+    const slabChannel = supabase
+      .channel('service_charge_slabs_realtime')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'service_charge_slabs'
+      }, async () => {
+        // Refetch active slabs on any change
+        const { data } = await supabase
+          .from('service_charge_slabs')
+          .select('*')
+          .eq('is_active', true)
+          .order('min_amount', { ascending: true });
+        setSlabs(data || []);
+      })
+      .subscribe();
+
     const historyChannel = supabase
       .channel('qr_history_realtime')
       .on('postgres_changes', {
@@ -413,6 +443,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       supabase.removeChannel(profileChannel);
       supabase.removeChannel(settingsChannel);
       supabase.removeChannel(historyChannel);
+      supabase.removeChannel(slabChannel);
     };
   }, [userId, activeTab]);
 
@@ -463,6 +494,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     const billAmountNum = parseFloat(billForm.billAmount);
     if (isNaN(billAmountNum) || billAmountNum <= 0) {
       setError('Please enter a valid bill amount greater than 0.');
+      setSubmittingBill(false);
+      return;
+    }
+
+    const maxAllowedAmount = slabs.length > 0 ? Math.max(...slabs.map(s => s.max_amount)) : 0;
+    if (billAmountNum > maxAllowedAmount) {
+      setError(`Maximum allowed amount for bill payment is ₹${maxAllowedAmount.toLocaleString()}. Please reduce the amount.`);
       setSubmittingBill(false);
       return;
     }
@@ -630,8 +668,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
     const amountNum = parseFloat(amount);
     
-    if (!activeQrId) {
-      setError('System Error: Active QR ID not found. Please refresh the page and try again.');
+    const finalQrId = useOldQr ? selectedOldQrId : activeQrId;
+
+    if (!finalQrId) {
+      setError(useOldQr ? 'Please select the older QR you used.' : 'System Error: Active QR ID not found. Please refresh the page and try again.');
       setSubmitting(false);
       return;
     }
@@ -676,7 +716,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .from('payment_submissions')
         .insert([{
           user_id: userId,
-          qr_id: activeQrId,
+          qr_id: finalQrId,
           utr_id: utrId,
           card_number: qrCardNumber,
           amount: parseFloat(amount),
@@ -697,6 +737,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setQrCardNumber('');
       setAmount('');
       setFile(null);
+      setUseOldQr(false);
+      setSelectedOldQrId('');
 
       // 4. Notify Admin about the new QR Payment
       const { error: nError } = await supabase
@@ -823,13 +865,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input 
                         type="text"
-                        inputMode="numeric" 
+                        placeholder="Enter 12-digit UTR ID"
                         value={utrId}
-                        onChange={(e) => setUtrId(e.target.value.replace(/\D/g, '').slice(0, 20))}
-                        maxLength={20}
-                        placeholder="Enter UTR"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
-                        required
+                        onChange={(e) => setUtrId(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-mono"
                       />
                     </div>
                   </div>
@@ -891,6 +930,48 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} required />
                     </label>
                   </div>
+
+                  {/* Old QR Selector */}
+                  {inactiveQrs.length > 0 && (
+                    <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 space-y-3 shadow-sm">
+                      <label className="flex items-center gap-3 cursor-pointer group">
+                        <div className="relative flex items-center">
+                          <input 
+                            type="checkbox" 
+                            checked={useOldQr}
+                            onChange={(e) => setUseOldQr(e.target.checked)}
+                            className="w-5 h-5 rounded-md border-2 border-indigo-300 text-indigo-600 focus:ring-indigo-500/20 transition-all cursor-pointer"
+                          />
+                        </div>
+                        <span className="text-sm font-bold text-indigo-600 group-hover:text-indigo-700 transition-colors">Paid to an older QR code?</span>
+                      </label>
+
+                      <AnimatePresence>
+                        {useOldQr && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="pt-2">
+                              <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5 ml-1">Select QR Used</label>
+                              <select
+                                value={selectedOldQrId}
+                                onChange={(e) => setSelectedOldQrId(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                              >
+                                <option value="">-- Choose QR Name --</option>
+                                {inactiveQrs.map(qr => (
+                                  <option key={qr.id} value={qr.id}>{qr.qr_name}</option>
+                                ))}
+                              </select>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  )}
 
                   <AnimatePresence>
                     {error && (
@@ -1297,7 +1378,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                     {/* Bill Amount */}
                     <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Bill Amount:</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-bold text-slate-700">Bill Amount:</label>
+                        {slabs.length > 0 && (
+                          <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                            MAX: ₹{Math.max(...slabs.map(s => s.max_amount)).toLocaleString()}
+                          </span>
+                        )}
+                      </div>
                       <input 
                         type="text" 
                         inputMode="decimal"

@@ -148,9 +148,13 @@ export default function PayoutReport() {
 
   const fetchFullTotals = async () => {
     try {
+      let selectStr = 'amount, charge_amount';
+      if (firmName) selectStr += ', users_profiles!inner(firm_name)';
+      else selectStr += ', users_profiles(firm_name)';
+
       let query = supabase
         .from('payout_submissions')
-        .select('amount, charge_amount, users_profiles!inner(firm_name)');
+        .select(selectStr);
 
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
       if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
@@ -451,10 +455,12 @@ export default function PayoutReport() {
                     </tr>
                   ))}
                   <tr className="bg-slate-100 font-bold border-t-2 border-slate-200">
-                    <td colSpan={2} className="px-6 py-4 text-slate-900 text-sm uppercase tracking-wider">Total Summary</td>
-                    <td className="px-6 py-4 text-right text-slate-900 text-sm font-black">₹{calculateTotals(requests).amount.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-rose-600 text-sm font-black">₹{calculateTotals(requests).charges.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-slate-900 text-sm font-black">₹{calculateTotals(requests).total.toLocaleString()}</td>
+                    <td colSpan={2} className="px-6 py-4 text-slate-900 text-sm uppercase tracking-wider">
+                      {(firmName || exactAmount || startDate || endDate || statusFilter !== 'all') ? 'Filtered Summary' : 'Overall Summary'}
+                    </td>
+                    <td className="px-6 py-4 text-right text-slate-900 text-sm font-black">₹{fullTotals.amount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-rose-600 text-sm font-black">₹{fullTotals.charges.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-slate-900 text-sm font-black">₹{(fullTotals.amount + fullTotals.charges).toLocaleString()}</td>
                     <td colSpan={2}></td>
                   </tr>
                 </>

@@ -58,7 +58,8 @@ export default function Settings() {
     is_bill_sound_enabled: true,
     is_payout_sound_enabled: true,
     is_kyc_sound_enabled: true,
-    is_service_sound_enabled: true,
+    is_service_on_sound_enabled: true,
+    is_service_off_sound_enabled: true,
     is_bill_enabled: true,
     service_on_sound_url: '',
     service_off_sound_url: ''
@@ -147,7 +148,8 @@ export default function Settings() {
           is_bill_sound_enabled: qrData.is_bill_sound_enabled ?? true,
           is_payout_sound_enabled: qrData.is_payout_sound_enabled ?? true,
           is_kyc_sound_enabled: qrData.is_kyc_sound_enabled ?? true,
-          is_service_sound_enabled: qrData.is_service_sound_enabled ?? true,
+          is_service_on_sound_enabled: qrData.is_service_on_sound_enabled ?? true,
+          is_service_off_sound_enabled: qrData.is_service_off_sound_enabled ?? true,
           is_bill_enabled: qrData.is_bill_enabled ?? true,
           service_on_sound_url: qrData.service_on_sound_url || '',
           service_off_sound_url: qrData.service_off_sound_url || ''
@@ -345,7 +347,8 @@ export default function Settings() {
           is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
           is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
           is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled,
-          is_service_sound_enabled: brandingSettings.is_service_sound_enabled,
+          is_service_on_sound_enabled: brandingSettings.is_service_on_sound_enabled,
+          is_service_off_sound_enabled: brandingSettings.is_service_off_sound_enabled,
           service_on_sound_url: finalServiceOnSoundUrl,
           service_off_sound_url: finalServiceOffSoundUrl,
           is_bill_enabled: brandingSettings.is_bill_enabled,
@@ -369,7 +372,8 @@ export default function Settings() {
         is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
         is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
         is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled,
-        is_service_sound_enabled: brandingSettings.is_service_sound_enabled,
+        is_service_on_sound_enabled: brandingSettings.is_service_on_sound_enabled,
+        is_service_off_sound_enabled: brandingSettings.is_service_off_sound_enabled,
         service_on_sound_url: finalServiceOnSoundUrl,
         service_off_sound_url: finalServiceOffSoundUrl,
         is_bill_enabled: brandingSettings.is_bill_enabled
@@ -1048,8 +1052,8 @@ export default function Settings() {
                 { id: 'bill', label: 'Bill Payment Request', sound: brandingSettings.bill_sound_url, enabled: brandingSettings.is_bill_sound_enabled, setFile: setBillSoundFile },
                 { id: 'payout', label: 'Payout Request', sound: brandingSettings.payout_sound_url, enabled: brandingSettings.is_payout_sound_enabled, setFile: setPayoutSoundFile },
                 { id: 'kyc', label: 'KYC Verification', sound: brandingSettings.kyc_sound_url, enabled: brandingSettings.is_kyc_sound_enabled, setFile: setKycSoundFile },
-                { id: 'service_on', label: 'Service Turned ON', sound: brandingSettings.service_on_sound_url, enabled: brandingSettings.is_service_sound_enabled, setFile: setServiceOnSoundFile },
-                { id: 'service_off', label: 'Service Turned OFF', sound: brandingSettings.service_off_sound_url, enabled: brandingSettings.is_service_sound_enabled, setFile: setServiceOffSoundFile }
+                { id: 'service_on', label: 'Service Turned ON', sound: brandingSettings.service_on_sound_url, enabled: brandingSettings.is_service_on_sound_enabled, setFile: setServiceOnSoundFile },
+                { id: 'service_off', label: 'Service Turned OFF', sound: brandingSettings.service_off_sound_url, enabled: brandingSettings.is_service_off_sound_enabled, setFile: setServiceOffSoundFile }
               ].map((item) => (
                 <div key={item.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                   <div className="flex items-center justify-between">

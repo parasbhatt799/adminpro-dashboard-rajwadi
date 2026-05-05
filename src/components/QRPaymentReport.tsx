@@ -193,9 +193,17 @@ export default function QRPaymentReport() {
 
   const fetchFullTotals = async () => {
     try {
+      let selectStr = 'amount, charges, admin_share, distributor_share';
+      
+      if (firmName) selectStr += ', users_profiles!inner(firm_name)';
+      else selectStr += ', users_profiles(firm_name)';
+
+      if (qrNameFilter) selectStr += ', qr_history!inner(qr_name)';
+      else selectStr += ', qr_history(qr_name)';
+
       let query = supabase
         .from('payment_submissions')
-        .select('amount, charges, admin_share, distributor_share, users_profiles!user_id(firm_name), qr_history!qr_id(qr_name)')
+        .select(selectStr)
         .neq('status', 'rejected');
 
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
@@ -707,7 +715,9 @@ export default function QRPaymentReport() {
 
                   {/* Overall Totals Row */}
                   <tr className="bg-indigo-50 font-bold border-t-2 border-indigo-100">
-                    <td colSpan={2} className="px-6 py-4 text-indigo-900 text-sm">OVERALL TOTAL (All Records)</td>
+                    <td colSpan={2} className="px-6 py-4 text-indigo-900 text-sm">
+                      {(firmName || qrNameFilter || exactAmount || startDate || endDate || statusFilter !== 'all') ? 'FILTERED TOTAL' : 'OVERALL TOTAL'}
+                    </td>
                     <td colSpan={2} className="px-6 py-4"></td>
                     <td className="px-6 py-4 text-right text-indigo-900 text-sm">
                       ₹{fullTotals.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

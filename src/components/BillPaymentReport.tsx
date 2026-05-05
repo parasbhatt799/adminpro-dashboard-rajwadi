@@ -146,9 +146,13 @@ export default function BillPaymentReport() {
 
   const fetchFullTotals = async () => {
     try {
+      let selectStr = 'amount, charges';
+      if (firmName) selectStr += ', users_profiles!inner(firm_name)';
+      else selectStr += ', users_profiles(firm_name)';
+
       let query = supabase
         .from('bill_submissions')
-        .select('amount, charges, users_profiles!user_id(firm_name)')
+        .select(selectStr)
         .neq('status', 'rejected');
 
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
@@ -515,10 +519,12 @@ export default function BillPaymentReport() {
                     </tr>
                   ))}
                   <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
-                    <td colSpan={3} className="px-6 py-4 text-slate-900 text-sm">TOTAL (Filtered Data)</td>
-                    <td className="px-6 py-4 text-right text-slate-900 text-sm">₹{calculateTotals(requests).amount.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-emerald-700 text-sm">₹{calculateTotals(requests).charges.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-right text-indigo-700 text-sm font-black">₹{calculateTotals(requests).final.toLocaleString()}</td>
+                    <td colSpan={3} className="px-6 py-4 text-slate-900 text-sm">
+                      {(firmName || exactAmount || startDate || endDate || statusFilter !== 'all') ? 'FILTERED TOTAL' : 'OVERALL TOTAL'}
+                    </td>
+                    <td className="px-6 py-4 text-right text-slate-900 text-sm">₹{fullTotals.amount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-emerald-700 text-sm">₹{fullTotals.charges.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-right text-indigo-700 text-sm font-black">₹{fullTotals.final.toLocaleString()}</td>
                     <td></td>
                   </tr>
                 </>
