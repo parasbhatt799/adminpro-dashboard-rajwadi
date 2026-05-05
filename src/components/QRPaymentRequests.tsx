@@ -65,6 +65,9 @@ export default function QRPaymentRequests() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [amountFilter, setAmountFilter] = useState('');
+  const [reversalId, setReversalId] = useState<string | null>(null);
+  const [reversalTarget, setReversalTarget] = useState<'pending' | 'rejected'>('pending');
+  const isDeveloper = localStorage.getItem('userId') === '9999099999';
   const itemsPerPage = 10;
 
   const clearFilters = () => {
@@ -265,6 +268,31 @@ export default function QRPaymentRequests() {
     }
   };
 
+  const handleStatusReversal = async (id: string, newStatus: 'pending' | 'rejected', customReason?: string) => {
+    if (!id) return;
+    setProcessingId(id);
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('revert_qr_payment_status', {
+        p_payment_id: id,
+        p_new_status: newStatus,
+        p_rejection_reason: customReason || reason
+      });
+
+      if (rpcError) throw rpcError;
+      if (!rpcData.success) throw new Error(rpcData.message);
+
+      toast.success(`Request status updated to ${newStatus}`);
+      setReversalId(null);
+      setReason('');
+      fetchRequests(true);
+    } catch (err: any) {
+      console.error('Error reversing status:', err);
+      toast.error('Failed to update status: ' + (err.message || 'Unknown error'));
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   const filteredRequests = requests.filter(req => {
     const matchesAmount = !amountFilter || String(req.amount).includes(amountFilter);
     const matchesSearch =
@@ -407,7 +435,7 @@ export default function QRPaymentRequests() {
                           setRejectionRowId(rejectionRowId === req.id ? null : req.id);
                         }
                       }}
-                      className={`hover:bg-slate-50/50 transition-colors ${rejectionRowId === req.id ? 'bg-rose-50/30' : ''} ${req.status === 'rejected' ? 'cursor-pointer' : ''}`}
+                      className={`hover:bg-slate-50/50 transition-colors ${rejectionRowId === req.id || reversalId === req.id ? 'bg-indigo-50/30' : ''} ${(req.status === 'rejected' || req.status === 'approved') ? 'cursor-pointer' : ''}`}
                     >
                       <td className="px-3 py-4">
                         <Link 
@@ -529,8 +557,84 @@ export default function QRPaymentRequests() {
                             </button>
                           </div>
                         )}
+                        {(req.status === 'approved' || req.status === 'rejected') && isDeveloper && (
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => {
+                                setReversalId(reversalId === req.id ? null : req.id);
+                                setReversalTarget(req.status === 'approved' ? 'pending' : 'pending');
+                              }}
+                              disabled={processingId === req.id}
+                              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${reversalId === req.id ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                              title="Reset Status"
+                            >
+                              <RotateCcw size={18} />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
+                    {reversalId === req.id && (
+                      <tr>
+                        <td colSpan={11} className="px-6 py-4 bg-indigo-50/30 border-y border-indigo-100/50">
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="flex flex-col md:flex-row items-end gap-4"
+                          >
+                            <div className="flex-1 w-full">
+                              <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-2">Change Status To</label>
+                              <div className="flex gap-2">
+                                <select
+                                  value={reversalTarget}
+                                  onChange={(e) => setReversalTarget(e.target.value as any)}
+                                  className="flex-1 px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
+                                >
+                                  <option value="pending">Move to Pending</option>
+                                  {req.status === 'approved' && <option value="rejected">Move to Rejected</option>}
+                                </select>
+                              </div>
+                            </div>
+                            
+                            {reversalTarget === 'rejected' && (
+                              <div className="flex-1 w-full">
+                                <label className="block text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Rejection Reason</label>
+                                <select
+                                  value={reason}
+                                  onChange={(e) => setReason(e.target.value)}
+                                  className="w-full px-4 py-2.5 bg-white border border-rose-100 rounded-xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none transition-all"
+                                >
+                                  <option value="">-- Choose a reason --</option>
+                                  {rejectionReasons.map(r => (
+                                    <option key={r.id} value={r.reason_text}>{r.reason_text}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => {
+                                  setReversalId(null);
+                                  setReason('');
+                                }}
+                                className="px-4 py-2.5 text-sm font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => handleStatusReversal(req.id, reversalTarget)}
+                                disabled={processingId === req.id || (reversalTarget === 'rejected' && !reason)}
+                                className="px-6 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 disabled:opacity-50"
+                              >
+                                {processingId === req.id ? <Loader2 className="animate-spin" size={16} /> : <RotateCcw size={16} />}
+                                Confirm Reset
+                              </button>
+                            </div>
+                          </motion.div>
+                        </td>
+                      </tr>
+                    )}
                     {rejectionRowId === req.id && (
                       <tr>
                         <td colSpan={8} className="px-6 py-4 bg-rose-50/30 border-y border-rose-100/50">
