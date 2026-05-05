@@ -5,7 +5,7 @@
 -- ==========================================
 
 CREATE OR REPLACE FUNCTION public.revert_qr_payment_status(
-    p_payment_id UUID, 
+    p_payment_id TEXT, 
     p_new_status TEXT,
     p_rejection_reason TEXT DEFAULT NULL
 )
@@ -16,7 +16,7 @@ AS $$
 DECLARE
     v_payment RECORD;
     v_user RECORD;
-    v_distributor_id UUID;
+    v_distributor_id TEXT;
 BEGIN
     -- 1. Lock and check the payment request
     SELECT * INTO v_payment 
