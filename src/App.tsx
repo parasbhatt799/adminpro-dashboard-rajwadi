@@ -766,6 +766,44 @@ export default function App() {
         audio.play().catch(() => { });
       };
 
+      const playServiceSound = async (isOn: boolean) => {
+        try {
+          const { data } = await supabase.from('qr_settings').select('is_service_sound_enabled, service_on_sound_url, service_off_sound_url').eq('id', 1).single();
+          if (data && data.is_service_sound_enabled) {
+            const soundUrl = isOn 
+              ? (data.service_on_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+              : (data.service_off_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            const audio = new Audio(soundUrl);
+            audio.play().catch(() => { });
+          }
+        } catch (err) {}
+      };
+
+      // Listen for Service Status Changes (is_bill_enabled)
+      const serviceSub = supabase
+        .channel('user_service_status')
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
+          if (payload.new && payload.old && payload.new.is_bill_enabled !== payload.old.is_bill_enabled) {
+            playServiceSound(payload.new.is_bill_enabled);
+          } else if (payload.new && !payload.old) {
+            // Fallback if old data is not available (REPLICA IDENTITY not FULL)
+            playServiceSound(payload.new.is_bill_enabled);
+          }
+        })
+        .subscribe();
+
+      // Fetch initial status on load and play sound
+      const fetchInitialStatus = async () => {
+        try {
+          const { data } = await supabase.from('qr_settings').select('is_bill_enabled').eq('id', 1).single();
+          if (data) {
+            playServiceSound(data.is_bill_enabled);
+          }
+        } catch (err) {}
+      };
+      
+      fetchInitialStatus();
+
       const qrSub = supabase
         .channel(`user_qr_status_${userId}`)
         .on('postgres_changes', {
@@ -836,6 +874,7 @@ export default function App() {
         supabase.removeChannel(billSub);
         supabase.removeChannel(payoutSub);
         supabase.removeChannel(kycSub);
+        supabase.removeChannel(serviceSub);
       };
     }
   }, [isUser, userId]);

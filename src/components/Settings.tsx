@@ -58,7 +58,10 @@ export default function Settings() {
     is_bill_sound_enabled: true,
     is_payout_sound_enabled: true,
     is_kyc_sound_enabled: true,
-    is_bill_enabled: true
+    is_service_sound_enabled: true,
+    is_bill_enabled: true,
+    service_on_sound_url: '',
+    service_off_sound_url: ''
   });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -74,6 +77,8 @@ export default function Settings() {
   const [billSoundFile, setBillSoundFile] = useState<File | null>(null);
   const [payoutSoundFile, setPayoutSoundFile] = useState<File | null>(null);
   const [kycSoundFile, setKycSoundFile] = useState<File | null>(null);
+  const [serviceOnSoundFile, setServiceOnSoundFile] = useState<File | null>(null);
+  const [serviceOffSoundFile, setServiceOffSoundFile] = useState<File | null>(null);
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -142,7 +147,10 @@ export default function Settings() {
           is_bill_sound_enabled: qrData.is_bill_sound_enabled ?? true,
           is_payout_sound_enabled: qrData.is_payout_sound_enabled ?? true,
           is_kyc_sound_enabled: qrData.is_kyc_sound_enabled ?? true,
-          is_bill_enabled: qrData.is_bill_enabled ?? true
+          is_service_sound_enabled: qrData.is_service_sound_enabled ?? true,
+          is_bill_enabled: qrData.is_bill_enabled ?? true,
+          service_on_sound_url: qrData.service_on_sound_url || '',
+          service_off_sound_url: qrData.service_off_sound_url || ''
         });
         setLogoPreview(qrData.logo_url);
         setLogoMiniPreview(qrData.logo_mini_url);
@@ -231,6 +239,8 @@ export default function Settings() {
       let finalBillSoundUrl = brandingSettings.bill_sound_url;
       let finalPayoutSoundUrl = brandingSettings.payout_sound_url;
       let finalKycSoundUrl = brandingSettings.kyc_sound_url;
+      let finalServiceOnSoundUrl = brandingSettings.service_on_sound_url;
+      let finalServiceOffSoundUrl = brandingSettings.service_off_sound_url;
 
       if (logoFile) {
         const fileExt = logoFile.name.split('.').pop();
@@ -304,6 +314,20 @@ export default function Settings() {
         const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
         finalKycSoundUrl = publicUrl;
       }
+      if (serviceOnSoundFile) {
+        const fileName = `sound_service_on_${Date.now()}.mp3`;
+        const { error: uploadError } = await supabase.storage.from('site_assets').upload(fileName, serviceOnSoundFile);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalServiceOnSoundUrl = publicUrl;
+      }
+      if (serviceOffSoundFile) {
+        const fileName = `sound_service_off_${Date.now()}.mp3`;
+        const { error: uploadError } = await supabase.storage.from('site_assets').upload(fileName, serviceOffSoundFile);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+        finalServiceOffSoundUrl = publicUrl;
+      }
 
       const { error: qrError } = await supabase
         .from('qr_settings')
@@ -321,6 +345,9 @@ export default function Settings() {
           is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
           is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
           is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled,
+          is_service_sound_enabled: brandingSettings.is_service_sound_enabled,
+          service_on_sound_url: finalServiceOnSoundUrl,
+          service_off_sound_url: finalServiceOffSoundUrl,
           is_bill_enabled: brandingSettings.is_bill_enabled,
           updated_at: new Date().toISOString()
         })
@@ -342,6 +369,9 @@ export default function Settings() {
         is_bill_sound_enabled: brandingSettings.is_bill_sound_enabled,
         is_payout_sound_enabled: brandingSettings.is_payout_sound_enabled,
         is_kyc_sound_enabled: brandingSettings.is_kyc_sound_enabled,
+        is_service_sound_enabled: brandingSettings.is_service_sound_enabled,
+        service_on_sound_url: finalServiceOnSoundUrl,
+        service_off_sound_url: finalServiceOffSoundUrl,
         is_bill_enabled: brandingSettings.is_bill_enabled
       });
       setLogoFile(null);
@@ -352,6 +382,8 @@ export default function Settings() {
       setBillSoundFile(null);
       setPayoutSoundFile(null);
       setKycSoundFile(null);
+      setServiceOnSoundFile(null);
+      setServiceOffSoundFile(null);
 
       setSuccess('Settings saved successfully!');
       setTimeout(() => setSuccess(null), 3000);
@@ -1015,7 +1047,9 @@ export default function Settings() {
                 { id: 'qr', label: 'QR Payment Request', sound: brandingSettings.qr_sound_url, enabled: brandingSettings.is_qr_sound_enabled, setFile: setQrSoundFile },
                 { id: 'bill', label: 'Bill Payment Request', sound: brandingSettings.bill_sound_url, enabled: brandingSettings.is_bill_sound_enabled, setFile: setBillSoundFile },
                 { id: 'payout', label: 'Payout Request', sound: brandingSettings.payout_sound_url, enabled: brandingSettings.is_payout_sound_enabled, setFile: setPayoutSoundFile },
-                { id: 'kyc', label: 'KYC Verification', sound: brandingSettings.kyc_sound_url, enabled: brandingSettings.is_kyc_sound_enabled, setFile: setKycSoundFile }
+                { id: 'kyc', label: 'KYC Verification', sound: brandingSettings.kyc_sound_url, enabled: brandingSettings.is_kyc_sound_enabled, setFile: setKycSoundFile },
+                { id: 'service_on', label: 'Service Turned ON', sound: brandingSettings.service_on_sound_url, enabled: brandingSettings.is_service_sound_enabled, setFile: setServiceOnSoundFile },
+                { id: 'service_off', label: 'Service Turned OFF', sound: brandingSettings.service_off_sound_url, enabled: brandingSettings.is_service_sound_enabled, setFile: setServiceOffSoundFile }
               ].map((item) => (
                 <div key={item.id} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
                   <div className="flex items-center justify-between">

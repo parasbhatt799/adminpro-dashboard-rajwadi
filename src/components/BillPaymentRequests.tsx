@@ -116,6 +116,21 @@ export default function BillPaymentRequests() {
     }
   };
 
+  const playToggleSound = async (isOn: boolean) => {
+    try {
+      const { data } = await supabase.from('qr_settings').select('is_service_sound_enabled, service_on_sound_url, service_off_sound_url').eq('id', 1).single();
+      if (data && data.is_service_sound_enabled) {
+        const soundUrl = isOn 
+          ? (data.service_on_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+          : (data.service_off_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+        const audio = new Audio(soundUrl);
+        audio.play().catch(() => { });
+      }
+    } catch (err) {
+      console.error('Error playing toggle sound:', err);
+    }
+  };
+
   const handleToggleBill = async () => {
     const newValue = !isBillEnabled;
     setIsBillEnabled(newValue);
@@ -126,6 +141,7 @@ export default function BillPaymentRequests() {
         .update({ is_bill_enabled: newValue })
         .eq('id', 1);
       if (error) throw error;
+      playToggleSound(newValue);
     } catch (err) {
       console.error('Error updating bill setting:', err);
       setIsBillEnabled(!newValue); // revert on error
