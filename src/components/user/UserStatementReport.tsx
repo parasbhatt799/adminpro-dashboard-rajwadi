@@ -16,7 +16,7 @@ interface UserStatementReportProps {
 
 interface UnifiedRecord {
   id: string;
-  type: 'QR' | 'BILL' | 'PAYOUT';
+  type: 'QR' | 'BILL' | 'PAYOUT' | 'REFUND';
   date: string;
   reference: string;
   amount: number;
@@ -45,32 +45,40 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
     setLoading(true);
     try {
       let openingBalance = 0;
-      let currentAnchorBalance = 0;
-      const { data: userData } = await supabase
-        .from('users_profiles')
-        .select('wallet_balance')
-        .eq('id', userId)
-        .single();
-      
-      if (userData) {
-        currentAnchorBalance = Number(userData.wallet_balance) || 0;
+
+      // 1. Calculate Opening Balance Forward (from beginning of time until startDate)
+      if (startDate) {
+        const startDateTime = `${startDate}T00:00:00`;
+        
+        const [qrPre, billPre, payoutPre] = await Promise.all([
+          supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', startDateTime),
+          supabase.from('bill_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', startDateTime),
+          supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']).lt('created_at', startDateTime)
+        ]);
+
+        const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+        
+        // Bills/Payouts are complicated because they have two entries for rejected/refunded in my new logic.
+        // But for opening balance, we just need the net effect.
+        // Net effect of 'rejected' or 'refunded' bill is 0.
+        // Net effect of 'approved' or 'pending' bill is -(amount + charges).
+        
+        const billNet = (billPre.data || []).reduce((acc, r) => {
+          if (r.status === 'approved' || r.status === 'pending') {
+            return acc + (Number(r.amount) + Number(r.charges || 0));
+          }
+          return acc; // rejected/refunded net effect is 0
+        }, 0);
+
+        const payoutNet = (payoutPre.data || []).reduce((acc, r) => {
+          if (r.status === 'approved' || r.status === 'pending' || r.status === 'processing') {
+            return acc + (Number(r.amount) + Number(r.charge_amount || 0));
+          }
+          return acc; 
+        }, 0);
+
+        openingBalance = qrTotal - billNet - payoutNet;
       }
-
-      // 2. Fetch all transactions from Start Date until NOW to calculate Opening Balance backwards
-      const calcStartDate = startDate ? `${startDate}T00:00:00` : new Date(0).toISOString();
-      
-      const [qrSince, billSince, payoutSince] = await Promise.all([
-        supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').gte('created_at', calcStartDate),
-        supabase.from('bill_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').gte('created_at', calcStartDate),
-        supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', userId).eq('status', 'approved').gte('created_at', calcStartDate)
-      ]);
-
-      const totalCreditsSince = (qrSince.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
-      const totalDebitsSince = (billSince.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0) +
-                               (payoutSince.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
-
-      // Opening Balance (at calcStartDate) = Current Balance - Credits + Debits
-      openingBalance = currentAnchorBalance - totalCreditsSince + totalDebitsSince;
 
       let qrMapped: any[] = [];
       let billMapped: any[] = [];
@@ -103,58 +111,98 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         }));
       }
 
-      // 2. Fetch Bill Payments for this user (approved only)
+      // 2. Fetch Bill Payments for this user (All statuses)
       {
         let billQuery = supabase
           .from('bill_submissions')
           .select('*')
           .eq('user_id', userId)
-          .eq('status', 'approved');
+          .in('status', ['approved', 'pending', 'rejected', 'refunded']);
 
         if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
 
         const { data, error } = await billQuery;
         if (error) throw error;
-        billMapped = (data || []).map(r => ({
-          id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
-          type: 'BILL',
-          date: r.created_at,
-          reference: r.customer_mobile || '0000000000',
-          amount: Number(r.amount),
-          charges: Number(r.charges || 0),
-          final_total: Number(r.amount) + Number(r.charges || 0),
-          status: r.status,
-          raw_data: r
-        }));
+        
+        (data || []).forEach(r => {
+          // Deduction
+          billMapped.push({
+            id: String(r.id || ''),
+            numericId: String(r.id || '').split('-')[0].toUpperCase(),
+            type: 'BILL',
+            date: r.created_at,
+            reference: r.customer_mobile || '0000000000',
+            amount: Number(r.amount),
+            charges: Number(r.charges || 0),
+            final_total: Number(r.amount) + Number(r.charges || 0),
+            status: r.status,
+            raw_data: r
+          });
+
+          // Refund synthesis
+          if (r.status === 'rejected' || r.status === 'refunded') {
+            billMapped.push({
+              id: `${r.id}-refund`,
+              numericId: String(r.id || '').split('-')[0].toUpperCase(),
+              type: 'REFUND',
+              date: r.created_at,
+              reference: r.customer_mobile || '0000000000',
+              amount: Number(r.amount),
+              charges: Number(r.charges || 0),
+              final_total: Number(r.amount) + Number(r.charges || 0),
+              status: 'refunded',
+              raw_data: { ...r, is_refund_row: true }
+            });
+          }
+        });
       }
 
-      // 3. Fetch Payouts for this user (approved only)
+      // 3. Fetch Payouts for this user (All statuses)
       {
         let payoutQuery = supabase
           .from('payout_submissions')
           .select('*')
           .eq('user_id', userId)
-          .eq('status', 'approved');
+          .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']);
 
         if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
 
         const { data, error } = await payoutQuery;
         if (error) throw error;
-        payoutMapped = (data || []).map(r => ({
-          id: String(r.id || ''),
-          numericId: String(r.id || '').split('-')[0].toUpperCase(),
-          type: 'PAYOUT',
-          date: r.created_at,
-          reference: r.transaction_id || 'N/A',
-          amount: Number(r.amount),
-          charges: Number(r.charge_amount || 0),
-          final_total: Number(r.amount) + Number(r.charge_amount || 0),
-          status: r.status,
-          raw_data: r
-        }));
+        
+        (data || []).forEach(r => {
+          // Deduction
+          payoutMapped.push({
+            id: String(r.id || ''),
+            numericId: String(r.id || '').split('-')[0].toUpperCase(),
+            type: 'PAYOUT',
+            date: r.created_at,
+            reference: r.transaction_id || 'N/A',
+            amount: Number(r.amount),
+            charges: Number(r.charge_amount || 0),
+            final_total: Number(r.amount) + Number(r.charge_amount || 0),
+            status: r.status,
+            raw_data: r
+          });
+
+          // Refund synthesis
+          if (r.status === 'rejected' || r.status === 'refunded') {
+            payoutMapped.push({
+              id: `${r.id}-refund`,
+              numericId: String(r.id || '').split('-')[0].toUpperCase(),
+              type: 'REFUND',
+              date: r.created_at,
+              reference: r.transaction_id || 'N/A',
+              amount: Number(r.amount),
+              charges: Number(r.charge_amount || 0),
+              final_total: Number(r.amount) + Number(r.charge_amount || 0),
+              status: 'refunded',
+              raw_data: { ...r, is_refund_row: true }
+            });
+          }
+        });
       }
 
       // Merge oldest first for running balance calculation
@@ -167,14 +215,23 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
         if (r.type === 'QR') {
           currentBalance += r.final_total;
+        } else if (r.type === 'REFUND') {
+          currentBalance += r.final_total;
         } else {
-          // BILL or PAYOUT: Wallet is deducted
+          // BILL or PAYOUT: Wallet is deducted initially
           currentBalance -= r.final_total;
         }
         return { ...r, balance: currentBalance };
       });
 
       // Reverse to show latest first
+      // Sync with DB if discrepancy detected
+      const { data: latestProfile } = await supabase.from('users_profiles').select('wallet_balance').eq('id', userId).single();
+      if (latestProfile && Math.abs(Number(latestProfile.wallet_balance) - currentBalance) > 0.01) {
+        console.log(`Discrepancy detected for ${userId}. DB: ${latestProfile.wallet_balance}, Statement: ${currentBalance}. Syncing...`);
+        await supabase.from('users_profiles').update({ wallet_balance: currentBalance }).eq('id', userId);
+      }
+
       setRecords(recordsWithBalance.reverse());
     } catch (err) {
       console.error('User Statement fetch error:', err);
@@ -358,6 +415,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                         <>
                           <div>CCBILLPAY Mobile: <span className='text-amber-600  font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600  font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
                           <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                          <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
                         </>
                       ) : r.type === 'PAYOUT' ? (
                         <>
@@ -365,7 +423,14 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                           <div className="text-[12px] text-slate-800">Bank: {r.raw_data?.bank_name} | IFSC: {r.raw_data?.ifsc_code}</div>
                           <div className="text-amber-600 font-bold mt-1">Txn: {r.reference}</div>
                           <div>({r.amount} + {r.charges} Txn Charge)</div>
+                          <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
                         </>
+                      ) : r.type === 'REFUND' ? (
+                        <div className="bg-emerald-50 border border-emerald-100 p-2 rounded">
+                          <div className="font-bold text-emerald-700 uppercase text-[11px]">Wallet Refund</div>
+                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || 'Bill/Payout'} (#{r.numericId})</div>
+                          <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.rejection_reason || 'Rejection'}</div>
+                        </div>
                       ) : (
                         <>
                           <div className="break-all text-slate-600">PAYMENT <span className='text-amber-600  font-bold'>TxnId: {r.reference}</span></div>
@@ -374,7 +439,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                       )}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {r.type === 'QR'
+                      {r.type === 'QR' || r.type === 'REFUND'
                         ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0'}
                     </td>

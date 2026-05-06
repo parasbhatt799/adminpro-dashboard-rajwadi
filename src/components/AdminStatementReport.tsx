@@ -90,29 +90,29 @@ export default function AdminStatementReport() {
         return allData;
       };
 
-      // QR Payments (Approved only)
+      // QR Payments (Approved & Rejected)
       let qrQuery = supabase.from('payment_submissions').select(`
         *,
         users_profiles!inner(name, firm_name),
         qr_history(qr_name)
       `)
-      .eq('status', 'approved')
+      .in('status', ['approved', 'rejected'])
       .order('created_at', { ascending: false });
       
-      // Bill Payments (Approved & Pending)
+      // Bill Payments (All statuses)
       let billQuery = supabase.from('bill_submissions').select(`
         *,
         users_profiles!inner(name, firm_name)
       `)
-      .in('status', ['approved', 'pending'])
+      .in('status', ['approved', 'pending', 'rejected', 'refunded'])
       .order('created_at', { ascending: false });
       
-      // Payouts (Approved, Pending, Processing)
+      // Payouts (All statuses)
       let payoutQuery = supabase.from('payout_submissions').select(`
         *,
         users_profiles!inner(name, firm_name)
       `)
-      .in('status', ['approved', 'pending', 'processing'])
+      .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded'])
       .order('created_at', { ascending: false });
 
       const [qrData, billData, payoutData] = await Promise.all([
@@ -141,43 +141,91 @@ export default function AdminStatementReport() {
         current_wallet: 0,
       }));
 
-      const billMapped: UnifiedRecord[] = (billData || []).map(r => ({
-        id: r.id,
-        numericId: String(r.id).split('-')[0].toUpperCase(),
-        type: 'BILL',
-        date: r.created_at,
-        firm_name: r.users_profiles?.firm_name || 'N/A',
-        user_name: r.users_profiles?.name || 'N/A',
-        reference: r.customer_mobile || '0000000000',
-        amount: Number(r.amount),
-        charges: Number(r.charges || 0),
-        final_total: Number(r.amount) + Number(r.charges || 0),
-        status: r.status,
-        raw_data: r,
-        balance: 0,
-        before_balance: Number(r.remaining_balance || 0) + (Number(r.amount) + Number(r.charges || 0)),
-        after_balance: Number(r.remaining_balance || 0),
-        current_wallet: 0,
-      }));
+      const billMapped: UnifiedRecord[] = [];
+      (billData || []).forEach(r => {
+        billMapped.push({
+          id: r.id,
+          numericId: String(r.id).split('-')[0].toUpperCase(),
+          type: 'BILL',
+          date: r.created_at,
+          firm_name: r.users_profiles?.firm_name || 'N/A',
+          user_name: r.users_profiles?.name || 'N/A',
+          reference: r.customer_mobile || '0000000000',
+          amount: Number(r.amount),
+          charges: Number(r.charges || 0),
+          final_total: Number(r.amount) + Number(r.charges || 0),
+          status: r.status,
+          raw_data: r,
+          balance: 0,
+          before_balance: Number(r.remaining_balance || 0) + (Number(r.amount) + Number(r.charges || 0)),
+          after_balance: Number(r.remaining_balance || 0),
+          current_wallet: 0,
+        });
 
-      const payoutMapped: UnifiedRecord[] = (payoutData || []).map(r => ({
-        id: r.id,
-        numericId: String(r.id).split('-')[0].toUpperCase(),
-        type: 'PAYOUT',
-        date: r.created_at,
-        firm_name: r.users_profiles?.firm_name || 'N/A',
-        user_name: r.users_profiles?.name || 'N/A',
-        reference: r.transaction_id || 'N/A',
-        amount: Number(r.amount),
-        charges: Number(r.charge_amount || 0),
-        final_total: Number(r.amount) + Number(r.charge_amount || 0),
-        status: r.status,
-        raw_data: r,
-        balance: 0,
-        before_balance: Number(r.before_balance || 0),
-        after_balance: Number(r.after_balance || 0),
-        current_wallet: 0,
-      }));
+        if (r.status === 'rejected' || r.status === 'refunded') {
+          billMapped.push({
+            id: `${r.id}-refund`,
+            numericId: String(r.id).split('-')[0].toUpperCase(),
+            type: 'ADJUSTMENT',
+            date: r.created_at,
+            firm_name: r.users_profiles?.firm_name || 'N/A',
+            user_name: r.users_profiles?.name || 'N/A',
+            reference: r.customer_mobile || '0000000000',
+            amount: Number(r.amount),
+            charges: Number(r.charges || 0),
+            final_total: Number(r.amount) + Number(r.charges || 0),
+            status: 'refunded',
+            raw_data: { ...r, is_refund_row: true },
+            balance: 0,
+            before_balance: 0,
+            after_balance: 0,
+            current_wallet: 0,
+          });
+        }
+      });
+
+      const payoutMapped: UnifiedRecord[] = [];
+      (payoutData || []).forEach(r => {
+        payoutMapped.push({
+          id: r.id,
+          numericId: String(r.id).split('-')[0].toUpperCase(),
+          type: 'PAYOUT',
+          date: r.created_at,
+          firm_name: r.users_profiles?.firm_name || 'N/A',
+          user_name: r.users_profiles?.name || 'N/A',
+          reference: r.transaction_id || 'N/A',
+          amount: Number(r.amount),
+          charges: Number(r.charge_amount || 0),
+          final_total: Number(r.amount) + Number(r.charge_amount || 0),
+          status: r.status,
+          raw_data: r,
+          balance: 0,
+          before_balance: Number(r.before_balance || 0),
+          after_balance: Number(r.after_balance || 0),
+          current_wallet: 0,
+        });
+
+        if (r.status === 'rejected' || r.status === 'refunded') {
+          payoutMapped.push({
+            id: `${r.id}-refund`,
+            numericId: String(r.id).split('-')[0].toUpperCase(),
+            type: 'ADJUSTMENT',
+            date: r.created_at,
+            firm_name: r.users_profiles?.firm_name || 'N/A',
+            user_name: r.users_profiles?.name || 'N/A',
+            reference: r.transaction_id || 'N/A',
+            amount: Number(r.amount),
+            charges: Number(r.charge_amount || 0),
+            final_total: Number(r.amount) + Number(r.charge_amount || 0),
+            status: 'refunded',
+            raw_data: { ...r, is_refund_row: true },
+            balance: 0,
+            before_balance: 0,
+            after_balance: 0,
+            current_wallet: 0,
+          });
+        }
+      });
 
       // 4. Sort all by date (Newest First)
       const allTransactions = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
@@ -194,14 +242,23 @@ export default function AdminStatementReport() {
         // System Balance (Admin Balance)
         const currentSystemBalance = systemRunningBalance;
         if (tx.type === 'QR') {
+          if (tx.status === 'approved') {
+            systemRunningBalance -= tx.final_total;
+          }
+        } else if (tx.type === 'ADJUSTMENT') {
           systemRunningBalance -= tx.final_total;
         } else {
+          // BILL or PAYOUT: Wallet is deducted initially
           systemRunningBalance += tx.final_total;
         }
 
         // User Balance (Individual Statement Balance)
         const currentUserBalance = perUserRunningBalance[userId] || 0;
         if (tx.type === 'QR') {
+          if (tx.status === 'approved') {
+            perUserRunningBalance[userId] = currentUserBalance - tx.final_total;
+          }
+        } else if (tx.type === 'ADJUSTMENT') {
           perUserRunningBalance[userId] = currentUserBalance - tx.final_total;
         } else {
           perUserRunningBalance[userId] = currentUserBalance + tx.final_total;
@@ -515,9 +572,10 @@ export default function AdminStatementReport() {
                         <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
                           r.type === 'QR' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' :
                           r.type === 'BILL' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                          r.type === 'ADJUSTMENT' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                           'bg-amber-50 text-amber-600 border border-amber-100'
                         }`}>
-                          {r.type === 'QR' ? 'QR Payment' : r.type === 'BILL' ? 'Bill Pay' : 'Payout'}
+                          {r.type === 'QR' ? 'QR Payment' : r.type === 'BILL' ? 'Bill Pay' : r.type === 'ADJUSTMENT' ? 'REFUND' : 'Payout'}
                         </span>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">#{r.numericId}</span>
                       </div>
@@ -547,6 +605,12 @@ export default function AdminStatementReport() {
                               <br />
                               <span className="text-slate-400 italic">({r.amount} + {r.charges} Txn Fee)</span>
                             </>
+                          ) : r.type === 'ADJUSTMENT' ? (
+                            <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-xl">
+                              <div className="font-bold text-emerald-700 uppercase text-[10px]">Wallet Refund</div>
+                              <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || 'Bill/Payout'} (#{r.numericId})</div>
+                              <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.rejection_reason || 'Rejection'}</div>
+                            </div>
                           ) : (
                             <>
                               <div className="font-bold text-slate-900">{r.raw_data?.bank_name || 'Payout'}</div>
@@ -558,7 +622,7 @@ export default function AdminStatementReport() {
                        </div>
                     </td>
                     <td className="px-6 py-5 text-right">
-                       {r.type === 'QR' ? (
+                       {(r.type === 'QR' && r.status === 'approved') || r.type === 'ADJUSTMENT' ? (
                          <span className="text-xs font-bold text-emerald-600">+₹{r.final_total.toLocaleString()}</span>
                        ) : <span className="text-slate-300">--</span>}
                     </td>

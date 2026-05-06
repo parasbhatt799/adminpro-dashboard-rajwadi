@@ -15,7 +15,7 @@ import autoTable from 'jspdf-autotable';
 
 interface UnifiedRecord {
   id: string;
-  type: 'QR' | 'BILL' | 'PAYOUT';
+  type: 'QR' | 'BILL' | 'PAYOUT' | 'REFUND';
   date: string;
   firm_name: string;
   reference: string; // UTR for QR, Mobile for BILL, Transaction ID for PAYOUT
@@ -115,7 +115,7 @@ export default function StatementReport() {
             charge_percentage
           ), 
           qr_history(qr_name)
-        `).eq('status', 'approved');
+        `).in('status', ['approved', 'rejected']); 
 
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
@@ -141,7 +141,7 @@ export default function StatementReport() {
 
       // 2. Fetch Bill Payments
       if (typeFilter === 'all' || typeFilter === 'BILL') {
-        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
+        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'refunded']);
 
         if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) billQuery = billQuery.eq('amount', Number(exactAmount));
@@ -150,24 +150,43 @@ export default function StatementReport() {
 
         const { data, error } = await billQuery;
         if (error) throw error;
-        billMapped = (data || []).map((r, idx) => ({
-          id: String(r.id || ''),
-          numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
-          type: 'BILL',
-          date: r.created_at,
-          firm_name: r.users_profiles?.firm_name || 'N/A',
-          reference: r.customer_mobile || '0000000000',
-          amount: Number(r.amount),
-          charges: Number(r.charges || 0),
-          final_total: Number(r.amount) + Number(r.charges || 0),
-          status: r.status,
-          raw_data: r
-        }));
+        
+        (data || []).forEach(r => {
+          billMapped.push({
+            id: String(r.id || ''),
+            numericId: String(r.id || '').split('-')[0].toUpperCase(),
+            type: 'BILL',
+            date: r.created_at,
+            firm_name: r.users_profiles?.firm_name || 'N/A',
+            reference: r.customer_mobile || '0000000000',
+            amount: Number(r.amount),
+            charges: Number(r.charges || 0),
+            final_total: Number(r.amount) + Number(r.charges || 0),
+            status: r.status,
+            raw_data: r
+          });
+
+          if (r.status === 'rejected' || r.status === 'refunded') {
+            billMapped.push({
+              id: `${r.id}-refund`,
+              numericId: String(r.id || '').split('-')[0].toUpperCase(),
+              type: 'REFUND',
+              date: r.created_at,
+              firm_name: r.users_profiles?.firm_name || 'N/A',
+              reference: r.customer_mobile || '0000000000',
+              amount: Number(r.amount),
+              charges: Number(r.charges || 0),
+              final_total: Number(r.amount) + Number(r.charges || 0),
+              status: 'refunded',
+              raw_data: { ...r, is_refund_row: true }
+            });
+          }
+        });
       }
 
       // 3. Fetch Payouts
       if (typeFilter === 'all' || typeFilter === 'PAYOUT') {
-        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').eq('status', 'approved');
+        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']);
 
         if (firmName) payoutQuery = payoutQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) payoutQuery = payoutQuery.eq('amount', Number(exactAmount));
@@ -176,19 +195,38 @@ export default function StatementReport() {
 
         const { data, error } = await payoutQuery;
         if (error) throw error;
-        payoutMapped = (data || []).map(r => ({
-          id: String(r.id || ''),
-          numericId: String(r.id || '').split('-')[0].toUpperCase(),
-          type: 'PAYOUT',
-          date: r.created_at,
-          firm_name: r.users_profiles?.firm_name || 'N/A',
-          reference: r.transaction_id || 'N/A',
-          amount: Number(r.amount),
-          charges: Number(r.charge_amount || 0),
-          final_total: Number(r.amount) + Number(r.charge_amount || 0),
-          status: r.status,
-          raw_data: r
-        }));
+
+        (data || []).forEach(r => {
+          payoutMapped.push({
+            id: String(r.id || ''),
+            numericId: String(r.id || '').split('-')[0].toUpperCase(),
+            type: 'PAYOUT',
+            date: r.created_at,
+            firm_name: r.users_profiles?.firm_name || 'N/A',
+            reference: r.transaction_id || 'N/A',
+            amount: Number(r.amount),
+            charges: Number(r.charge_amount || 0),
+            final_total: Number(r.amount) + Number(r.charge_amount || 0),
+            status: r.status,
+            raw_data: r
+          });
+
+          if (r.status === 'rejected' || r.status === 'refunded') {
+            payoutMapped.push({
+              id: `${r.id}-refund`,
+              numericId: String(r.id || '').split('-')[0].toUpperCase(),
+              type: 'REFUND',
+              date: r.created_at, 
+              firm_name: r.users_profiles?.firm_name || 'N/A',
+              reference: r.transaction_id || 'N/A',
+              amount: Number(r.amount),
+              charges: Number(r.charge_amount || 0),
+              final_total: Number(r.amount) + Number(r.charge_amount || 0),
+              status: 'refunded',
+              raw_data: { ...r, is_refund_row: true }
+            });
+          }
+        });
       }
 
       // Fetch Distributor Firm Names for QR records that have a distributor_id
@@ -226,15 +264,27 @@ export default function StatementReport() {
       let currentBalance = openingBalance;
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
         if (r.type === 'QR') {
+          if (r.status === 'approved') {
+            currentBalance += r.final_total;
+          }
+        } else if (r.type === 'REFUND') {
           currentBalance += r.final_total;
         } else {
-          // BILL or PAYOUT: Wallet is deducted
           currentBalance -= r.final_total;
         }
         return { ...r, balance: currentBalance };
       });
 
       // Reverse to Latest first
+      // Sync with DB if discrepancy detected AND a specific firm is being viewed
+      if (firmName.trim() && recordsWithBalance.length > 0) {
+        const { data: latestProfile } = await supabase.from('users_profiles').select('id, wallet_balance').ilike('firm_name', firmName.trim()).single();
+        if (latestProfile && Math.abs(Number(latestProfile.wallet_balance) - currentBalance) > 0.01) {
+          console.log(`Discrepancy detected for ${firmName}. DB: ${latestProfile.wallet_balance}, Statement: ${currentBalance}. Syncing...`);
+          await supabase.from('users_profiles').update({ wallet_balance: currentBalance }).eq('id', latestProfile.id);
+        }
+      }
+
       setRecords(recordsWithBalance.reverse());
 
     } catch (err) {
@@ -443,18 +493,19 @@ export default function StatementReport() {
                       {formatDateTimeSplit(r.date)}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
-                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT'}</td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT'}</td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center uppercase">
-                      {r.type === 'QR' ? (r.raw_data?.qr_history?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : r.raw_data?.card_bank || '-'}
+                      {r.type === 'QR' ? (r.raw_data?.qr_history?.qr_name || 'N/A') : r.type === 'PAYOUT' || r.type === 'REFUND' ? r.raw_data?.bank_name : r.raw_data?.card_bank || '-'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">
-                      {r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
+                      {r.type === 'PAYOUT' || r.type === 'REFUND' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
                         <>
                           <div>CCBILLPAY Mobile: <span className="text-amber-600 font-bold">{r.reference}</span> <br /> CardNo: <span className="text-amber-600 font-bold">{r.raw_data?.card_number || '0000'}</span></div>
                           <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                          <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
                         </>
                       ) : r.type === 'PAYOUT' ? (
                         <>
@@ -462,7 +513,14 @@ export default function StatementReport() {
                           <div className="text-[11px] text-slate-500">{r.raw_data?.bank_name} | IFSC: {r.raw_data?.ifsc_code}</div>
                           <div className="text-amber-600 font-bold mt-1">Txn: {r.reference}</div>
                           <div>({r.amount} + {r.charges} Txn Charge)</div>
+                          <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
                         </>
+                      ) : r.type === 'REFUND' ? (
+                        <div className="bg-emerald-50 border border-emerald-100 p-2 rounded">
+                          <div className="font-bold text-emerald-700 uppercase text-[11px]">Wallet Refund</div>
+                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || 'Bill/Payout'} (#{r.numericId})</div>
+                          <div className="text-[10px] text-emerald-500 font-medium">Rejection Reason: {r.raw_data?.rejection_reason || 'Admin Rejection'}</div>
+                        </div>
                       ) : (
                         <>
                           <div className="break-all text-amber-600 font-bold">TxnId: {r.reference}</div>
@@ -492,7 +550,7 @@ export default function StatementReport() {
                       )}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {r.type === 'QR' ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0'}
+                      {(r.type === 'QR' && r.status === 'approved') || r.type === 'REFUND' ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
                       {(r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0'}
