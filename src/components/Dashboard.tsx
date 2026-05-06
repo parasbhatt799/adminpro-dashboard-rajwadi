@@ -201,14 +201,17 @@ export default function Dashboard() {
       const rangePayoutCharges = payoutData.reduce((acc, curr) => acc + (Number(curr.charge_amount) || 0), 0) || 0;
       const rangeWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
 
+      // Calculate Total Distributor Share
+      const totalDistributorShare = [...qrData, ...billData].reduce((acc, curr: any) => acc + (Number(curr.distributor_share) || 0), 0);
+
       const rangeBillAmount = billData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
 
       const totalEarnings = (rangeBillCharges || 0) + (rangeQrCharges || 0) + (rangePayoutCharges || 0);
 
-      // Total Service Charge should always represent the GROSS earnings (Total Profit)
-      const displayServiceCharge = totalEarnings;
+      // Total Service Charge should represent the GROSS earnings (Admin Profit + Distributor Profit)
+      const displayServiceCharge = totalEarnings + totalDistributorShare;
       
       // We still keep netBalance for potentially showing "Available Balance" elsewhere
       const netBalance = totalEarnings - (rangeWithdrawals || 0);
@@ -226,14 +229,6 @@ export default function Dashboard() {
 
       setStats([
         {
-          title: "Total User Wallet",
-          value: formatCurrency(totalWalletBalance),
-          icon: Wallet,
-          color: "bg-amber-500",
-          description: "Lifetime Total",
-          badge: `${activeUsersCount} Active Users`
-        },
-        {
           title: "Total QR Payments",
           value: formatCurrency(rangeQrAmount),
           icon: QrCode,
@@ -246,6 +241,14 @@ export default function Dashboard() {
           icon: CreditCard,
           color: "bg-purple-500",
           description: `Range: ${dateDisplay}`
+        },
+        {
+          title: "Total User Wallet",
+          value: formatCurrency(totalWalletBalance),
+          icon: Wallet,
+          color: "bg-amber-500",
+          description: "Lifetime Total",
+          badge: `${activeUsersCount} Active Users`
         },
         {
           title: "Total Service Charge",
@@ -267,6 +270,13 @@ export default function Dashboard() {
           icon: CreditCard,
           color: "bg-indigo-500",
           description: `Range: ${dateDisplay}`
+        },
+        {
+          title: "Total Distributor Charge",
+          value: formatCurrency(totalDistributorShare),
+          icon: User,
+          color: "bg-orange-500",
+          description: `Distributor Profit: ${dateDisplay}`
         },
         {
           title: "Payout Service Charge",
