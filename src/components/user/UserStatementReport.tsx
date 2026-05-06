@@ -141,7 +141,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           });
 
           // Refund synthesis
-          if (r.status === 'rejected' || r.status === 'refunded') {
+          if (r.status === 'rejected') {
             billMapped.push({
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
@@ -188,7 +188,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           });
 
           // Refund synthesis
-          if (r.status === 'rejected' || r.status === 'refunded') {
+          if (r.status === 'rejected') {
             payoutMapped.push({
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),

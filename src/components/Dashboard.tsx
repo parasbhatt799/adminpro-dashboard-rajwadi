@@ -359,22 +359,15 @@ export default function Dashboard() {
       const requestCharges = targetRequest.charges || 0;
 
       if (type === 'approved') {
-        // 1. Credit charges to Admin Wallet
-        const { data: qrSettings } = await supabase.from('qr_settings').select('admin_balance').eq('id', 1).single();
-        const currentAdminBalance = Number(qrSettings?.admin_balance) || 0;
+        // Use Atomic RPC for re-approval (Just updates status back to approved)
+        const { data: result, error: rpcError } = await supabase.rpc('reapprove_bill_payment_atomic', {
+          p_bill_id: id
+        });
 
-        await supabase
-          .from('qr_settings')
-          .update({ admin_balance: currentAdminBalance + requestCharges })
-          .eq('id', 1);
+        if (rpcError) throw rpcError;
+        if (!result.success) throw new Error(result.message);
 
-        // 2. Update status to approved
-        await supabase
-          .from('bill_submissions')
-          .update({ status: 'approved' })
-          .eq('id', id);
-
-        // 3. Notify User
+        // Notify User
         await supabase
           .from('notifications')
           .insert([{
@@ -386,30 +379,16 @@ export default function Dashboard() {
           }]);
 
       } else {
-        // 1. Refund full amount (amount + charges) to user
-        const { data: userData } = await supabase
-          .from('users_profiles')
-          .select('wallet_balance')
-          .eq('id', targetRequest.user_id)
-          .single();
+        // Use Atomic RPC for final refund (Updates status + Refunds user + Deducts from Admin in ONE step)
+        const { data: result, error: rpcError } = await supabase.rpc('confirm_bill_refund_atomic', {
+          p_bill_id: id,
+          p_reason: customReason || reason
+        });
 
-        const currentUserBalance = Number(userData?.wallet_balance) || 0;
+        if (rpcError) throw rpcError;
+        if (!result.success) throw new Error(result.message);
 
-        await supabase
-          .from('users_profiles')
-          .update({ wallet_balance: currentUserBalance + amount + requestCharges })
-          .eq('id', targetRequest.user_id);
-
-        // 2. Update status to rejected
-        await supabase
-          .from('bill_submissions')
-          .update({
-            status: 'rejected',
-            rejection_reason: customReason || reason
-          })
-          .eq('id', id);
-
-        // 3. Notify User
+        // Notify User
         await supabase
           .from('notifications')
           .insert([{
