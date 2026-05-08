@@ -995,65 +995,41 @@ export default function App() {
           }
         >
           <Route path="dashboard" element={<Dashboard />} />
-          <Route path="bank-upload" element={<BankManagement />} />
-          <Route path="users" element={<UsersList adminRole={adminRole} />} />
-          <Route path="distributors" element={<DistributorsList />} />
-          <Route path="distributor-withdrawals" element={<AdminDistributorWithdrawals />} />
-          <Route path="service-charge" element={<ServiceChargeManagement adminRole={adminRole} />} />
-          <Route path="qr-payment-requests" element={<QRPaymentRequests />} />
-          <Route path="bill-payment-requests" element={<BillPaymentRequests />} />
-          <Route path="payout-requests" element={<PayoutManagement />} />
-          <Route path="reason-entry" element={<ReasonManagement />} />
-          <Route path="complaints-management" element={<ComplaintsManagement />} />
+          <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
+
+          {/* Permission-Checked Routes */}
+          <Route path="users-list" element={(adminRole === 'full' || adminPermissions.includes('users-list')) ? <UsersList adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
+          <Route path="distributors" element={(adminRole === 'full' || adminPermissions.includes('distributors')) ? <DistributorsList /> : <Navigate to="/dashboard" replace />} />
+          <Route path="distributor-withdrawals" element={(adminRole === 'full' || adminPermissions.includes('distributor-withdrawals')) ? <AdminDistributorWithdrawals /> : <Navigate to="/dashboard" replace />} />
+          <Route path="service-charge" element={(adminRole === 'full' || adminPermissions.includes('service-charge')) ? <ServiceChargeManagement adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
+          <Route path="qr-payment-requests" element={(adminRole === 'full' || adminPermissions.includes('qr-payment-requests')) ? <QRPaymentRequests /> : <Navigate to="/dashboard" replace />} />
+          <Route path="bill-payment-requests" element={(adminRole === 'full' || adminPermissions.includes('bill-payment-requests')) ? <BillPaymentRequests /> : <Navigate to="/dashboard" replace />} />
+          <Route path="payout-requests" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <PayoutManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="reason-entry" element={(adminRole === 'full' || adminPermissions.includes('reason-entry')) ? <ReasonManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="complaints-management" element={(adminRole === 'full' || adminPermissions.includes('complaints-management')) ? <ComplaintsManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="headlines" element={(adminRole === 'full' || adminPermissions.includes('headlines')) ? <HeadlineManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="policies" element={(adminRole === 'full' || adminPermissions.includes('policies')) ? <PolicyManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="agreement" element={(adminRole === 'full' || adminPermissions.includes('user-agreement')) ? <AgreementManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="bank-upload" element={(adminRole === 'full' || adminPermissions.includes('bank-upload')) ? <BankManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="withdrawal-balance" element={(adminRole === 'full' || adminPermissions.includes('withdrawal-balance')) ? <AdminWithdrawal /> : <Navigate to="/dashboard" replace />} />
+          <Route path="qr-upload" element={(adminRole === 'full' || adminPermissions.includes('qr-upload')) ? <QRManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="kyc-verification-requests" element={(adminRole === 'full' || adminPermissions.includes('kyc-verification-requests')) ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
+          
           <Route path="reports">
-            <Route path="qr-payment" element={<QRPaymentReport />} />
-            <Route path="bill-payment" element={<BillPaymentReport />} />
-            <Route path="payout" element={<PayoutReport />} />
-            <Route path="statement" element={<StatementReport />} />
-            <Route path="admin-statement" element={<AdminStatementReport />} />
-            <Route path="distributor-profit" element={<DistributorQRReport />} />
+            <Route path="qr-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
+            <Route path="bill-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <BillPaymentReport /> : <Navigate to="/dashboard" replace />} />
+            <Route path="payout" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <PayoutReport /> : <Navigate to="/dashboard" replace />} />
+            <Route path="statement" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <StatementReport /> : <Navigate to="/dashboard" replace />} />
+            <Route path="admin-statement" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <AdminStatementReport /> : <Navigate to="/dashboard" replace />} />
+            <Route path="distributor-profit" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <DistributorQRReport /> : <Navigate to="/dashboard" replace />} />
           </Route>
-          <Route path="headlines" element={<HeadlineManagement />} />
-          <Route path="policies" element={<PolicyManagement />} />
-          <Route path="agreement" element={<AgreementManagement />} />
+
+          {/* Full Admin Only Routes */}
           {adminRole === 'full' && (
             <>
               <Route path="admin-management" element={<AdminManagement currentAdminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
-              <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
               <Route path="settings" element={<Settings />} />
-              <Route path="withdrawal-balance" element={<AdminWithdrawal />} />
-              <Route path="qr-upload" element={<QRManagement />} />
-              <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
-              <Route path="users-list" element={<UsersList adminRole={adminRole} />} />
               <Route path="developer-logs" element={<DeveloperLogs />} />
-            </>
-          )}
-          {adminRole === 'limited' && (
-            <>
-              <Route path="users-list" element={adminPermissions.includes('users-list') ? <UsersList adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
-              <Route path="distributors" element={adminPermissions.includes('distributors') ? <DistributorsList /> : <Navigate to="/dashboard" replace />} />
-              <Route path="distributor-withdrawals" element={adminPermissions.includes('distributor-withdrawals') ? <AdminDistributorWithdrawals /> : <Navigate to="/dashboard" replace />} />
-              <Route path="service-charge" element={adminPermissions.includes('service-charge') ? <ServiceChargeManagement adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
-              <Route path="qr-payment-requests" element={adminPermissions.includes('qr-payment-requests') ? <QRPaymentRequests /> : <Navigate to="/dashboard" replace />} />
-              <Route path="bill-payment-requests" element={adminPermissions.includes('bill-payment-requests') ? <BillPaymentRequests /> : <Navigate to="/dashboard" replace />} />
-              <Route path="payout-requests" element={adminPermissions.includes('payout-requests') ? <PayoutManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="reason-entry" element={adminPermissions.includes('reason-entry') ? <ReasonManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="complaints-management" element={adminPermissions.includes('complaints-management') ? <ComplaintsManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="headlines" element={adminPermissions.includes('headlines') ? <HeadlineManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="policies" element={adminPermissions.includes('policies') ? <PolicyManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="agreement" element={adminPermissions.includes('user-agreement') ? <AgreementManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="reports">
-                <Route path="qr-payment" element={adminPermissions.includes('report-generate') ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
-                <Route path="bill-payment" element={adminPermissions.includes('report-generate') ? <BillPaymentReport /> : <Navigate to="/dashboard" replace />} />
-                <Route path="payout" element={adminPermissions.includes('report-generate') ? <PayoutReport /> : <Navigate to="/dashboard" replace />} />
-                <Route path="statement" element={adminPermissions.includes('report-generate') ? <StatementReport /> : <Navigate to="/dashboard" replace />} />
-                <Route path="admin-statement" element={adminPermissions.includes('report-generate') ? <AdminStatementReport /> : <Navigate to="/dashboard" replace />} />
-                <Route path="distributor-profit" element={adminPermissions.includes('report-generate') ? <DistributorQRReport /> : <Navigate to="/dashboard" replace />} />
-              </Route>
-              <Route path="bank-upload" element={adminPermissions.includes('bank-upload') ? <BankManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="withdrawal-balance" element={adminPermissions.includes('withdrawal-balance') ? <AdminWithdrawal /> : <Navigate to="/dashboard" replace />} />
-              <Route path="qr-upload" element={adminPermissions.includes('qr-upload') ? <QRManagement /> : <Navigate to="/dashboard" replace />} />
-              <Route path="kyc-verification-requests" element={adminPermissions.includes('kyc-verification-requests') ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
             </>
           )}
         </Route>

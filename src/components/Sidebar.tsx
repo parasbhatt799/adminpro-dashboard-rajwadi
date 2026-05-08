@@ -107,7 +107,12 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
   const filteredMenuItems = menuItems.filter(item => {
     if (item.role === 'developer') return isDeveloper;
     if (adminRole === 'full') return true;
-    return !item.role || (adminPermissions && adminPermissions.includes(item.id));
+    
+    // Limited Admin: Always allow dashboard and change-password
+    if (item.id === 'dashboard' || item.id === 'change-password') return true;
+    
+    // Everything else requires explicit permission
+    return adminPermissions && adminPermissions.includes(item.id);
   });
   const [reportsExpanded, setReportsExpanded] = useState(() => {
     return location.pathname.startsWith('/reports');

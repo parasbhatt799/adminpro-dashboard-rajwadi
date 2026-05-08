@@ -357,6 +357,24 @@ interface AdminManagementProps {
     }
   };
 
+  const handleUpdateMessage = async () => {
+    setSystemLoading(true);
+    try {
+      const { error } = await supabase
+        .from('system_status')
+        .update({ message: maintenanceMsg })
+        .eq('id', 1);
+
+      if (error) throw error;
+      showModal('Success!', 'System maintenance message updated.', 'success');
+    } catch (err) {
+      console.error('Error updating system message:', err);
+      showModal('Error', 'Failed to update maintenance message.', 'error');
+    } finally {
+      setSystemLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Modal 
@@ -496,18 +514,7 @@ interface AdminManagementProps {
                     className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
                   />
                   <button 
-                    onClick={async () => {
-                      setSystemLoading(true);
-                      try {
-                        const { error } = await supabase.from('system_status').update({ message: maintenanceMsg }).eq('id', 1);
-                        if (error) throw error;
-                        showModal('Success', 'Maintenance message updated.', 'success');
-                      } catch (err) {
-                        showModal('Error', 'Failed to update message.', 'error');
-                      } finally {
-                        setSystemLoading(false);
-                      }
-                    }}
+                    onClick={handleUpdateMessage}
                     disabled={systemLoading}
                     className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-200"
                   >
