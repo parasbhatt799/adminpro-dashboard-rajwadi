@@ -27,6 +27,7 @@ import AdminManagement from './components/AdminManagement';
 import ChangePassword from './components/ChangePassword';
 import Login from './components/Login';
 import AgreementManagement from './components/AgreementManagement';
+import QRScreenshotGallery from './components/QRScreenshotGallery';
 import Settings from './components/Settings';
 import AdminWithdrawal from './components/AdminWithdrawal';
 import PayoutManagement from './components/PayoutManagement';
@@ -1014,6 +1015,7 @@ export default function App() {
           <Route path="withdrawal-balance" element={(adminRole === 'full' || adminPermissions.includes('withdrawal-balance')) ? <AdminWithdrawal /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-upload" element={(adminRole === 'full' || adminPermissions.includes('qr-upload')) ? <QRManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="kyc-verification-requests" element={(adminRole === 'full' || adminPermissions.includes('kyc-verification-requests')) ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
+          <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
           
           <Route path="reports">
             <Route path="qr-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />

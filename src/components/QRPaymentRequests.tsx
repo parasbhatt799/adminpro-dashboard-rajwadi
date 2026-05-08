@@ -15,7 +15,8 @@ import {
   Hash,
   AlertCircle,
   ChevronUp,
-  RotateCcw
+  RotateCcw,
+  Pencil
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
@@ -42,6 +43,7 @@ interface QRPaymentRequest {
     charge_percentage?: number;
   };
   card_number: string;
+  qr_id?: string;
   qr_history?: {
     qr_name: string;
     whatsapp_number?: string;
@@ -67,7 +69,13 @@ export default function QRPaymentRequests() {
   const [amountFilter, setAmountFilter] = useState('');
   const [reversalId, setReversalId] = useState<string | null>(null);
   const [reversalTarget, setReversalTarget] = useState<'pending' | 'rejected'>('pending');
-  const isDeveloper = localStorage.getItem('userId') === '9999099999';
+  const [allQRs, setAllQRs] = useState<any[]>([]);
+  const [editingQRRowId, setEditingQRRowId] = useState<string | null>(null);
+  const [qrSearchQuery, setQrSearchQuery] = useState('');
+  const currentUserId = localStorage.getItem('userId');
+  const isDeveloper = currentUserId === '9999099999';
+  const isGodAdmin = currentUserId === '7777077377';
+  const canEditQR = isDeveloper || isGodAdmin;
   const itemsPerPage = 10;
 
   const clearFilters = () => {
@@ -116,9 +124,23 @@ export default function QRPaymentRequests() {
     }
   };
 
+  const fetchQRs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('qr_history')
+        .select('id, qr_name, created_at')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      setAllQRs(data || []);
+    } catch (err) {
+      console.error('Error fetching QRs:', err);
+    }
+  };
+
   useEffect(() => {
     fetchRequests();
     fetchReasons();
+    fetchQRs();
 
     const channel = supabase
       .channel('admin_qr_realtime')
@@ -263,6 +285,27 @@ export default function QRPaymentRequests() {
     } catch (err: any) {
       console.error('Error updating status:', err);
       toast.error('Failed to update status: ' + (err.message || 'Unknown error'));
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleQRUpdate = async (submissionId: string, newQRId: string) => {
+    if (!submissionId || !newQRId) return;
+    setProcessingId(submissionId);
+    try {
+      const { error } = await supabase
+        .from('payment_submissions')
+        .update({ qr_id: newQRId })
+        .eq('id', submissionId);
+
+      if (error) throw error;
+      toast.success('QR Updated Successfully');
+      setEditingQRRowId(null);
+      fetchRequests(true);
+    } catch (err: any) {
+      console.error('Error updating QR:', err);
+      toast.error('Failed to update QR');
     } finally {
       setProcessingId(null);
     }
@@ -439,7 +482,7 @@ export default function QRPaymentRequests() {
                     >
                       <td className="px-3 py-4">
                         <Link 
-                          to={`/users?id=${req.user_id}`}
+                          to={`/users-list?id=${req.user_id}`}
                           className="flex items-center gap-3 text-left hover:opacity-75 transition-opacity group"
                         >
                           <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors overflow-hidden">
@@ -470,9 +513,75 @@ export default function QRPaymentRequests() {
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-                          {req.qr_history?.qr_name || 'Legacy QR'}
-                        </span>
+                        <div className="flex items-center justify-center gap-1 group/qr relative">
+                          {editingQRRowId === req.id ? (
+                            <div className="absolute z-[100] top-0 left-1/2 -translate-x-1/2 bg-white border border-indigo-200 rounded-xl shadow-2xl p-2 w-48 animate-in fade-in zoom-in duration-200">
+                              <div className="relative mb-2">
+                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  placeholder="Search QR..."
+                                  value={qrSearchQuery}
+                                  onChange={(e) => setQrSearchQuery(e.target.value)}
+                                  className="w-full pl-7 pr-3 py-1.5 text-[10px] bg-slate-50 border border-slate-100 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                />
+                              </div>
+                              <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                                {allQRs.filter(qr => qr.qr_name.toLowerCase().includes(qrSearchQuery.toLowerCase())).length === 0 ? (
+                                  <p className="text-[10px] text-slate-400 text-center py-2">No QR found</p>
+                                ) : (
+                                  allQRs
+                                    .filter(qr => qr.qr_name.toLowerCase().includes(qrSearchQuery.toLowerCase()))
+                                    .map(qr => (
+                                      <button
+                                        key={qr.id}
+                                        onClick={() => {
+                                          handleQRUpdate(req.id, qr.id);
+                                          setQrSearchQuery('');
+                                        }}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${
+                                          req.qr_id === qr.id 
+                                            ? 'bg-indigo-50 text-indigo-600' 
+                                            : 'hover:bg-slate-50 text-slate-600'
+                                        }`}
+                                      >
+                                        {qr.qr_name}
+                                      </button>
+                                    ))
+                                )}
+                              </div>
+                              <div className="mt-2 pt-2 border-t border-slate-50 flex justify-end">
+                                <button
+                                  onClick={() => {
+                                    setEditingQRRowId(null);
+                                    setQrSearchQuery('');
+                                  }}
+                                  className="text-[9px] font-bold text-slate-400 hover:text-rose-500 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
+                                {req.qr_history?.qr_name || 'Legacy QR'}
+                              </span>
+                              {canEditQR && (
+                                <button
+                                  onClick={() => {
+                                    setEditingQRRowId(req.id);
+                                    setQrSearchQuery('');
+                                  }}
+                                  className="p-1 text-slate-300 hover:text-indigo-600 opacity-0 group-hover/qr:opacity-100 transition-all"
+                                >
+                                  <Pencil size={12} />
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </td>
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-slate-900 flex items-center justify-center">

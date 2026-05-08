@@ -43,6 +43,7 @@ interface AdminManagementProps {
     { id: 'distributor-withdrawals', label: 'Dist. Withdrawals' },
     { id: 'kyc-verification-requests', label: 'KYC Verification' },
     { id: 'qr-upload', label: 'QR upload' },
+    { id: 'qr-gallery', label: 'QR Gallery' },
     { id: 'bank-upload', label: 'Bank Upload' },
     { id: 'reason-entry', label: 'Reason entry' },
     { id: 'service-charge', label: 'Service charge' },

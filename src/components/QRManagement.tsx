@@ -28,6 +28,7 @@ interface QRHistoryItem {
     pending: number;
     approved: number;
     rejected: number;
+    amount: number;
   };
 }
 
@@ -67,11 +68,12 @@ export default function QRManagement() {
       // 3. Fetch counts for each history item using individual count queries for accuracy (bypasses 1000 limit)
       if (history && history.length > 0) {
         await Promise.all(history.map(async (item: any) => {
-          const [total, pending, approved, rejected] = await Promise.all([
+          const [total, pending, approved, rejected, approvedAmounts] = await Promise.all([
             supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id),
             supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id).eq('status', 'pending'),
             supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id).eq('status', 'approved'),
             supabase.from('payment_submissions').select('*', { count: 'exact', head: true }).eq('qr_id', item.id).eq('status', 'rejected'),
+            supabase.from('payment_submissions').select('amount').eq('qr_id', item.id).eq('status', 'approved'),
           ]);
 
           item.counts = {
@@ -79,6 +81,7 @@ export default function QRManagement() {
             pending: pending.count || 0,
             approved: approved.count || 0,
             rejected: rejected.count || 0,
+            amount: (approvedAmounts.data || []).reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0),
           };
         }));
       }
@@ -361,9 +364,13 @@ export default function QRManagement() {
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">WhatsApp Target</p>
                   <p className="text-sm font-bold text-slate-900 truncate">{qrHistory.find(h => h.is_active)?.whatsapp_number || 'NOT SET'}</p>
                 </div>
-                <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100 col-span-2">
-                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Total Entries</p>
-                  <p className="text-lg font-bold text-emerald-700">{qrHistory.find(h => h.is_active)?.counts?.total || 0}</p>
+                <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100">
+                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Approved Amount</p>
+                  <p className="text-lg font-bold text-emerald-700">₹{(qrHistory.find(h => h.is_active)?.counts?.amount || 0).toLocaleString('en-IN')}</p>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Entries</p>
+                  <p className="text-lg font-bold text-slate-700">{qrHistory.find(h => h.is_active)?.counts?.total || 0}</p>
                 </div>
               </div>
 
@@ -405,6 +412,7 @@ export default function QRManagement() {
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">WhatsApp</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Total Entries</th>
+                  <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Approved Amount</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Breakdown (P / A / R)</th>
                   <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Preview</th>
                 </tr>
@@ -437,6 +445,9 @@ export default function QRManagement() {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <span className="text-sm font-bold text-slate-700">{item.counts?.total || 0}</span>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="text-sm font-bold text-emerald-600">₹{(item.counts?.amount || 0).toLocaleString('en-IN')}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-1">

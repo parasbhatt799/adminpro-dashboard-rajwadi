@@ -467,7 +467,7 @@ export default function BillPaymentRequests() {
                     >
                       <td className="px-3 py-4">
                         <Link 
-                          to={`/users?id=${req.user_id}`}
+                          to={`/users-list?id=${req.user_id}`}
                           className="flex items-center gap-3 text-left hover:opacity-75 transition-opacity group"
                         >
                           <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 shrink-0 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors overflow-hidden">

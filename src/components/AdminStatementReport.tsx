@@ -582,7 +582,7 @@ export default function AdminStatementReport() {
                     </td>
                     <td className="px-6 py-5">
                       <Link 
-                        to={`/users?id=${r.raw_data.user_id}`}
+                        to={`/users-list?id=${r.raw_data.user_id}`}
                         className="flex flex-col hover:opacity-75 transition-opacity group"
                       >
                         <span className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{r.firm_name}</span>

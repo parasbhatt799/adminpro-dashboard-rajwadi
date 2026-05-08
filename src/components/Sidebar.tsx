@@ -18,7 +18,8 @@ import {
   Lock,
   Settings,
   TrendingDown,
-  Wallet
+  Wallet,
+  LayoutGrid
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
@@ -42,6 +43,7 @@ const menuItems = [
   { id: 'distributor-withdrawals', label: 'Dist. Withdrawals', icon: Wallet, path: '/distributor-withdrawals', role: 'full' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },
+  { id: 'qr-gallery', label: 'QR Gallery', icon: LayoutGrid, path: '/qr-gallery' },
   { id: 'bank-upload', label: 'Bank Upload', icon: Building2, path: '/bank-upload' },
   { id: 'reason-entry', label: 'Reason entry', icon: FileQuestion, path: '/reason-entry' },
   { id: 'service-charge', label: 'Service charge', icon: Receipt, path: '/service-charge' },
