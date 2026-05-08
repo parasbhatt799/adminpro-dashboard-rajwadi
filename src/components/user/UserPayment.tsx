@@ -504,6 +504,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setSubmittingBill(false);
       return;
     }
+
+    // Specific limit for HDFC BANK
+    if (billForm.cardBank.toUpperCase().includes('HDFC BANK') && billAmountNum > 50000) {
+      setError('HDFC BANK માટે Maximum પેમેન્ટ ₹50,000 સુધીની જ રિક્વેસ્ટ મોકલી શકાય છે.');
+      setSubmittingBill(false);
+      return;
+    }
     const serviceCharge = calculateBillCharge(billAmountNum);
     const totalDeduction = billAmountNum + serviceCharge;
 
@@ -782,9 +789,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
   return (
     <div className="space-y-8">
-      <div>
+      <div className="flex items-center justify-between">
+        <div>
         <h2 className="text-2xl font-bold text-slate-900">Payments</h2>
         <p className="text-slate-500 mt-1">Make secure payments via QR or pay your bills.</p>
+        </div>
+        <span className="text-[12px] font-bold text-rose-500 bg-rose-50 px-4 py-1 rounded-full border border-rose-100 uppercase tracking-widest">
+                    NOTE : HDFC CC BILL ભરવા માટે Maximum પેમેન્ટ ₹50,000 સુધીની જ રિક્વેસ્ટ મોકલો, નહિતર રિજેક્ટ થશે.
+                    </span>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
@@ -934,7 +946,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         ⚠️ Amount exceeds the ₹1,00,000 limit
                       </p>
                     )}
-                  </div>
+                   </div>
 
                   <div>
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Payment Screenshot</label>
