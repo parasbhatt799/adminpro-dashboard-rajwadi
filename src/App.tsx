@@ -199,6 +199,7 @@ interface AdminLayoutProps {
   totalHoldBalance: number;
   pendingCounts: { qr: number; bill: number; kyc: number; payout: number };
   isDeveloper: boolean;
+  adminPermissions: string[];
 }
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
@@ -236,7 +237,8 @@ const AdminLayout = ({
   adminRole,
   totalHoldBalance,
   pendingCounts,
-  isDeveloper
+  isDeveloper,
+  adminPermissions
 }: AdminLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -249,6 +251,7 @@ const AdminLayout = ({
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         adminRole={adminRole}
+        adminPermissions={adminPermissions}
         pendingCounts={pendingCounts}
         isDeveloper={isDeveloper}
       />
@@ -452,8 +455,16 @@ export default function App() {
   const [isUser, setIsUser] = useState(() => localStorage.getItem('userType') === 'user');
   const [userId, setUserId] = useState(() => localStorage.getItem('userId') || '');
   const [adminRole, setAdminRole] = useState(() => localStorage.getItem('adminRole') || 'full');
+  const [adminPermissions, setAdminPermissions] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('adminPermissions') || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSystemEnabled, setIsSystemEnabled] = useState(true);
+  const [isUserPanelEnabled, setIsUserPanelEnabled] = useState(true);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
   const [isStatusLoading, setIsStatusLoading] = useState(true);
 
@@ -475,6 +486,7 @@ export default function App() {
 
       if (!error && data) {
         setIsSystemEnabled(data.is_enabled);
+        setIsUserPanelEnabled(data.is_user_panel_enabled ?? true);
         setMaintenanceMessage(data.message);
       }
     } catch (err) {
@@ -522,6 +534,7 @@ export default function App() {
       .channel('system_status_realtime')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'system_status' }, (payload) => {
         setIsSystemEnabled(payload.new.is_enabled);
+        setIsUserPanelEnabled(payload.new.is_user_panel_enabled ?? true);
         setMaintenanceMessage(payload.new.message);
       })
       .subscribe();
@@ -735,9 +748,13 @@ export default function App() {
           table: 'admin_profiles',
           filter: `mobile_number=eq.${userId}`
         }, (payload) => {
-          const { status, role, password } = payload.new;
+          const { status, role, password, permissions } = payload.new;
           if (status === 'Blocked' || (role && role !== adminRole) || password) {
             handleLogout();
+          }
+          if (permissions) {
+            setAdminPermissions(permissions);
+            localStorage.setItem('adminPermissions', JSON.stringify(permissions));
           }
         })
         .subscribe();
@@ -881,15 +898,17 @@ export default function App() {
     }
   }, [isUser, userId]);
 
-  const handleLogin = (id: string, userType: 'admin' | 'user', role?: string) => {
+  const handleLogin = (id: string, userType: 'admin' | 'user', role?: string, permissions?: string[]) => {
     localStorage.setItem('userId', id);
     localStorage.setItem('userType', userType);
     if (role) localStorage.setItem('adminRole', role);
+    if (permissions) localStorage.setItem('adminPermissions', JSON.stringify(permissions));
 
     if (userType === 'admin') {
       setIsAdmin(true);
       setIsUser(false);
       setAdminRole(role || 'full');
+      setAdminPermissions(permissions || []);
     } else {
       setIsUser(true);
       setIsAdmin(false);
@@ -921,10 +940,12 @@ export default function App() {
     localStorage.removeItem('userId');
     localStorage.removeItem('userType');
     localStorage.removeItem('adminRole');
+    localStorage.removeItem('adminPermissions');
     setIsAdmin(false);
     setIsUser(false);
     setUserId('');
     setAdminRole('full');
+    setAdminPermissions([]);
   };
 
   if (isStatusLoading) {
@@ -940,6 +961,10 @@ export default function App() {
 
   if (!isSystemEnabled && !isDeveloper) {
     return <MaintenanceOverlay message={maintenanceMessage} />;
+  }
+
+  if (isUser && !isUserPanelEnabled) {
+    return <MaintenanceOverlay message={maintenanceMessage || "The user panel is currently under maintenance. Please try again later."} />;
   }
 
   return (
@@ -965,6 +990,7 @@ export default function App() {
                 totalHoldBalance={totalHoldBalance}
                 pendingCounts={pendingCounts}
                 isDeveloper={isDeveloper}
+                adminPermissions={adminPermissions}
               />
           }
         >
@@ -1000,6 +1026,34 @@ export default function App() {
               <Route path="kyc-verification-requests" element={<KYCVerificationRequests />} />
               <Route path="users-list" element={<UsersList adminRole={adminRole} />} />
               <Route path="developer-logs" element={<DeveloperLogs />} />
+            </>
+          )}
+          {adminRole === 'limited' && (
+            <>
+              <Route path="users-list" element={adminPermissions.includes('users-list') ? <UsersList adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
+              <Route path="distributors" element={adminPermissions.includes('distributors') ? <DistributorsList /> : <Navigate to="/dashboard" replace />} />
+              <Route path="distributor-withdrawals" element={adminPermissions.includes('distributor-withdrawals') ? <AdminDistributorWithdrawals /> : <Navigate to="/dashboard" replace />} />
+              <Route path="service-charge" element={adminPermissions.includes('service-charge') ? <ServiceChargeManagement adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
+              <Route path="qr-payment-requests" element={adminPermissions.includes('qr-payment-requests') ? <QRPaymentRequests /> : <Navigate to="/dashboard" replace />} />
+              <Route path="bill-payment-requests" element={adminPermissions.includes('bill-payment-requests') ? <BillPaymentRequests /> : <Navigate to="/dashboard" replace />} />
+              <Route path="payout-requests" element={adminPermissions.includes('payout-requests') ? <PayoutManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="reason-entry" element={adminPermissions.includes('reason-entry') ? <ReasonManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="complaints-management" element={adminPermissions.includes('complaints-management') ? <ComplaintsManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="headlines" element={adminPermissions.includes('headlines') ? <HeadlineManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="policies" element={adminPermissions.includes('policies') ? <PolicyManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="agreement" element={adminPermissions.includes('user-agreement') ? <AgreementManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="reports">
+                <Route path="qr-payment" element={adminPermissions.includes('report-generate') ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
+                <Route path="bill-payment" element={adminPermissions.includes('report-generate') ? <BillPaymentReport /> : <Navigate to="/dashboard" replace />} />
+                <Route path="payout" element={adminPermissions.includes('report-generate') ? <PayoutReport /> : <Navigate to="/dashboard" replace />} />
+                <Route path="statement" element={adminPermissions.includes('report-generate') ? <StatementReport /> : <Navigate to="/dashboard" replace />} />
+                <Route path="admin-statement" element={adminPermissions.includes('report-generate') ? <AdminStatementReport /> : <Navigate to="/dashboard" replace />} />
+                <Route path="distributor-profit" element={adminPermissions.includes('report-generate') ? <DistributorQRReport /> : <Navigate to="/dashboard" replace />} />
+              </Route>
+              <Route path="bank-upload" element={adminPermissions.includes('bank-upload') ? <BankManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="withdrawal-balance" element={adminPermissions.includes('withdrawal-balance') ? <AdminWithdrawal /> : <Navigate to="/dashboard" replace />} />
+              <Route path="qr-upload" element={adminPermissions.includes('qr-upload') ? <QRManagement /> : <Navigate to="/dashboard" replace />} />
+              <Route path="kyc-verification-requests" element={adminPermissions.includes('kyc-verification-requests') ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
             </>
           )}
         </Route>

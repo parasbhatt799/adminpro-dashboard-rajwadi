@@ -667,6 +667,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     setSuccess(null);
 
     const amountNum = parseFloat(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setError('Please enter a valid amount.');
+      setSubmitting(false);
+      return;
+    }
+
+    if (amountNum > 100000) {
+      setError('Maximum allowed amount for QR payment is ₹1,00,000. Please reduce the amount.');
+      setSubmitting(false);
+      return;
+    }
     
     const finalQrId = useOldQr ? selectedOldQrId : activeQrId;
 
@@ -891,7 +902,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Amount Paid</label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Amount Paid</label>
+                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-widest">
+                        Max: ₹1,00,000
+                      </span>
+                    </div>
                     <div className="relative">
                       <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input 
@@ -905,10 +921,19 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           setAmount(val);
                         }}
                         placeholder="0.00"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-bold"
+                        className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:outline-none transition-all font-bold ${
+                          parseFloat(amount) > 100000 
+                            ? 'border-rose-300 focus:ring-rose-500/10 focus:border-rose-500 text-rose-600' 
+                            : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
+                        }`}
                         required
                       />
                     </div>
+                    {parseFloat(amount) > 100000 && (
+                      <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-pulse">
+                        ⚠️ Amount exceeds the ₹1,00,000 limit
+                      </p>
+                    )}
                   </div>
 
                   <div>

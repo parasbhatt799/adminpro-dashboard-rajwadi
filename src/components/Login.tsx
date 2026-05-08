@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 interface LoginProps {
-  onLogin: (id: string, userType: 'admin' | 'user', role?: string) => void;
+  onLogin: (id: string, userType: 'admin' | 'user', role?: string, permissions?: string[]) => void;
 }
 
 export default function Login({ onLogin }: LoginProps) {
@@ -56,7 +56,7 @@ export default function Login({ onLogin }: LoginProps) {
         // We check for exact match or the number without the country code
         const { data: adminProfile } = await supabase
           .from('admin_profiles')
-          .select('mobile_number, role, status')
+          .select('mobile_number, role, status, permissions')
           .filter('mobile_number', 'in', `(${id},${normalizedPhone},${normalizedPhone.slice(-10)})`)
           .single();
 
@@ -65,7 +65,7 @@ export default function Login({ onLogin }: LoginProps) {
             setError('Your account has been blocked by a senior admin');
             return;
           }
-          onLogin(adminProfile.mobile_number, 'admin', adminProfile.role || 'full');
+          onLogin(adminProfile.mobile_number, 'admin', adminProfile.role || 'full', adminProfile.permissions || []);
           navigate('/dashboard');
           return;
         }
@@ -74,7 +74,7 @@ export default function Login({ onLogin }: LoginProps) {
       // 1.2 FALLBACK: Check for Admin in Legacy Database (Plain Text)
       const { data: legacyAdmin } = await supabase
         .from('admin_profiles')
-        .select('mobile_number, role, status')
+        .select('mobile_number, role, status, permissions')
         .eq('mobile_number', id)
         .eq('password', password)
         .single();
@@ -84,7 +84,7 @@ export default function Login({ onLogin }: LoginProps) {
           setError('Your account has been blocked by a senior admin');
           return;
         }
-        onLogin(legacyAdmin.mobile_number, 'admin', legacyAdmin.role || 'full');
+        onLogin(legacyAdmin.mobile_number, 'admin', legacyAdmin.role || 'full', legacyAdmin.permissions || []);
         navigate('/dashboard');
         return;
       }

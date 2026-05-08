@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock, AlertTriangle } from 'lucide-react';
+import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock, AlertTriangle, Activity, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
@@ -24,16 +24,40 @@ interface AdminManagementProps {
   const [newAdminMobile, setNewAdminMobile] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
+  const [newPermissions, setNewPermissions] = useState<string[]>([]);
   const [addLoading, setAddLoading] = useState(false);
   const [showAdminPwd, setShowAdminPwd] = useState(false);
 
   // Edit Admin State
   const [editingAdmin, setEditingAdmin] = useState<any>(null);
   const [editRole, setEditRole] = useState<'full' | 'limited'>('full');
+  const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
 
-  // System Status State (Developer Only)
+  const AVAILABLE_PERMISSIONS = [
+    { id: 'users-list', label: 'Users list' },
+    { id: 'distributors', label: 'Distributors' },
+    { id: 'qr-payment-requests', label: 'QR Payment Request' },
+    { id: 'bill-payment-requests', label: 'Bill Payment Request' },
+    { id: 'payout-requests', label: 'Payout Request' },
+    { id: 'distributor-withdrawals', label: 'Dist. Withdrawals' },
+    { id: 'kyc-verification-requests', label: 'KYC Verification' },
+    { id: 'qr-upload', label: 'QR upload' },
+    { id: 'bank-upload', label: 'Bank Upload' },
+    { id: 'reason-entry', label: 'Reason entry' },
+    { id: 'service-charge', label: 'Service charge' },
+    { id: 'withdrawal-balance', label: 'Withdrawal Balance' },
+    { id: 'report-generate', label: 'Report Generate' },
+    { id: 'complaints-management', label: 'Complaints Management' },
+    { id: 'headlines', label: 'Add Announcement' },
+    { id: 'policies', label: 'Terms & Conditions' },
+    { id: 'user-agreement', label: 'User Agreement' },
+    { id: 'admin-management', label: 'Admin Management' },
+    { id: 'settings', label: 'Business Settings' },
+  ];
+
   const [isSystemEnabled, setIsSystemEnabled] = useState(true);
+  const [isUserPanelEnabled, setIsUserPanelEnabled] = useState(true);
   const [maintenanceMsg, setMaintenanceMsg] = useState("");
   const [systemLoading, setSystemLoading] = useState(false);
 
@@ -82,6 +106,7 @@ interface AdminManagementProps {
       const { data, error } = await supabase.from('system_status').select('*').eq('id', 1).single();
       if (data) {
         setIsSystemEnabled(data.is_enabled);
+        setIsUserPanelEnabled(data.is_user_panel_enabled ?? true);
         setMaintenanceMsg(data.message);
       }
     } catch (err) {
@@ -91,7 +116,7 @@ interface AdminManagementProps {
 
   useEffect(() => {
     fetchAdmins();
-    if (isDeveloper) fetchSystemStatus();
+    if (isDeveloper || adminRole === 'full') fetchSystemStatus();
   }, []);
 
   const handleAddAdmin = async (e: React.FormEvent) => {
@@ -121,7 +146,8 @@ interface AdminManagementProps {
         .upsert([{ 
           mobile_number: newAdminMobile, 
           password: newAdminPassword,
-          role: newAdminRole
+          role: newAdminRole,
+          permissions: newAdminRole === 'full' ? [] : newPermissions
         }], { onConflict: 'mobile_number' });
 
       if (dbError) throw dbError;
@@ -229,7 +255,10 @@ interface AdminManagementProps {
     try {
       const { error: dbError } = await supabase
         .from('admin_profiles')
-        .update({ role: editRole })
+        .update({ 
+          role: editRole,
+          permissions: editRole === 'full' ? [] : editPermissions
+        })
         .eq('mobile_number', editingAdmin.mobile_number);
 
       if (dbError) throw dbError;
@@ -309,19 +338,20 @@ interface AdminManagementProps {
     }
   };
 
-  const handleUpdateMessage = async () => {
+  const handleToggleUserPanel = async () => {
     setSystemLoading(true);
     try {
       const { error } = await supabase
         .from('system_status')
-        .update({ message: maintenanceMsg })
+        .update({ is_user_panel_enabled: !isUserPanelEnabled })
         .eq('id', 1);
 
       if (error) throw error;
-      showModal('Message Updated', 'Maintenance message updated successfully.', 'success');
+      setIsUserPanelEnabled(!isUserPanelEnabled);
+      showModal('Status Updated', `User Panel access has been ${!isUserPanelEnabled ? 'ENABLED' : 'DISABLED'} successfully.`, 'success');
     } catch (err) {
-      console.error('Error updating maintenance message:', err);
-      showModal('Error', 'Failed to update message.', 'error');
+      console.error('Error updating user panel status:', err);
+      showModal('Error', 'Failed to update user panel status.', 'error');
     } finally {
       setSystemLoading(false);
     }
@@ -404,6 +434,94 @@ interface AdminManagementProps {
             <p className="text-[10px] text-slate-500 mt-4 font-medium flex items-center gap-2">
               <Shield size={12} /> Warning: Disabling the system will block all Admins (including God Admin) and Users immediately.
             </p>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ADMIN SYSTEM CONTROL (Visible to Full Admins & Developer) */}
+      {(adminRole === 'full' || isDeveloper) && (
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-xl overflow-hidden relative"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] rounded-full -mr-32 -mt-32"></div>
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+            <div className="flex items-center gap-4">
+              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shadow-md ${isUserPanelEnabled ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'}`}>
+                <Activity size={28} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-slate-900 tracking-tight">User Panel Access</h3>
+                <p className="text-slate-500 text-sm mt-0.5 font-medium">Control maintenance mode for all portal users</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="text-right mr-2">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Portal Status</p>
+                <p className={`text-sm font-bold ${isUserPanelEnabled ? 'text-indigo-600' : 'text-rose-600'}`}>
+                  {isUserPanelEnabled ? 'User Panel Online' : 'User Panel Locked'}
+                </p>
+              </div>
+              <button
+                onClick={handleToggleUserPanel}
+                disabled={systemLoading}
+                className={`relative w-20 h-10 rounded-full transition-all duration-500 shadow-inner ${isUserPanelEnabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
+              >
+                <div className={`absolute top-1 w-8 h-8 rounded-full bg-white shadow-lg transition-all duration-500 ${isUserPanelEnabled ? 'left-11' : 'left-1'}`}>
+                  {systemLoading ? (
+                    <Loader2 size={16} className="animate-spin text-slate-400 absolute top-2 left-2" />
+                  ) : isUserPanelEnabled ? (
+                    <CheckCircle size={16} className="text-indigo-600 absolute top-2 left-2" />
+                  ) : (
+                    <X size={16} className="text-slate-400 absolute top-2 left-2" />
+                  )}
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-8 border-t border-slate-100 relative z-10">
+            <div className="flex flex-col gap-6">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-1">Maintenance Overlay Message</label>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input 
+                    type="text"
+                    value={maintenanceMsg}
+                    onChange={(e) => setMaintenanceMsg(e.target.value)}
+                    placeholder="Enter message for users..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-2xl py-3.5 px-5 text-sm text-slate-900 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-medium"
+                  />
+                  <button 
+                    onClick={async () => {
+                      setSystemLoading(true);
+                      try {
+                        const { error } = await supabase.from('system_status').update({ message: maintenanceMsg }).eq('id', 1);
+                        if (error) throw error;
+                        showModal('Success', 'Maintenance message updated.', 'success');
+                      } catch (err) {
+                        showModal('Error', 'Failed to update message.', 'error');
+                      } finally {
+                        setSystemLoading(false);
+                      }
+                    }}
+                    disabled={systemLoading}
+                    className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3.5 rounded-2xl font-bold text-sm transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-slate-200"
+                  >
+                    Update
+                  </button>
+                </div>
+              </div>
+              <div className="p-4 bg-amber-50 border border-amber-100 rounded-2xl flex items-start gap-3">
+                <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={18} />
+                <p className="text-xs text-amber-700 font-medium leading-relaxed">
+                  <strong>Notice:</strong> Turning this off will immediately redirect all active users to a maintenance screen. Admins will still be able to use the dashboard.
+                </p>
+              </div>
+            </div>
           </div>
         </motion.div>
       )}
@@ -491,7 +609,7 @@ interface AdminManagementProps {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Access Level</label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
                     <button
                       type="button"
                       onClick={() => setNewAdminRole('full')}
@@ -518,9 +636,38 @@ interface AdminManagementProps {
                         <X size={14} />
                       </div>
                       <p className={`text-sm font-bold ${newAdminRole === 'limited' ? 'text-indigo-900' : 'text-slate-600'}`}>Limited Admin</p>
-                      <p className="text-[10px] text-slate-500 mt-1">Cannot manage admins or change passwords.</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Choose specific modules to allow.</p>
                     </button>
                   </div>
+
+                  {newAdminRole === 'limited' && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-2 max-h-48 overflow-y-auto pr-2 no-scrollbar border-t border-slate-100 pt-4"
+                    >
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Enable Modules</label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {AVAILABLE_PERMISSIONS.map(perm => (
+                          <label key={perm.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-slate-100">
+                            <input
+                              type="checkbox"
+                              checked={newPermissions.includes(perm.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setNewPermissions([...newPermissions, perm.id]);
+                                } else {
+                                  setNewPermissions(newPermissions.filter(p => p !== perm.id));
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-medium text-slate-700">{perm.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 <button
@@ -579,7 +726,7 @@ interface AdminManagementProps {
               <div className="space-y-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Access Level</label>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-4 mb-6">
                     <button
                       type="button"
                       onClick={() => setEditRole('full')}
@@ -606,9 +753,38 @@ interface AdminManagementProps {
                         <X size={14} />
                       </div>
                       <p className={`text-sm font-bold ${editRole === 'limited' ? 'text-indigo-900' : 'text-slate-600'}`}>Limited Admin</p>
-                      <p className="text-[10px] text-slate-500 mt-1">Cannot manage admins or change passwords.</p>
+                      <p className="text-[10px] text-slate-500 mt-1">Choose specific modules to allow.</p>
                     </button>
                   </div>
+
+                  {editRole === 'limited' && (
+                    <motion.div 
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: 'auto' }}
+                      className="space-y-2 max-h-48 overflow-y-auto pr-2 no-scrollbar border-t border-slate-100 pt-4"
+                    >
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Enable Modules</label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {AVAILABLE_PERMISSIONS.map(perm => (
+                          <label key={perm.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-slate-100">
+                            <input
+                              type="checkbox"
+                              checked={editPermissions.includes(perm.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setEditPermissions([...editPermissions, perm.id]);
+                                } else {
+                                  setEditPermissions(editPermissions.filter(p => p !== perm.id));
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <span className="text-xs font-medium text-slate-700">{perm.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
 
                 <div className="flex gap-4">
@@ -704,11 +880,17 @@ interface AdminManagementProps {
                         }`}>
                           {admin.role === 'limited' ? 'Limited Admin' : 'Full Administrator'}
                         </span>
+                        {admin.role === 'limited' && admin.permissions && admin.permissions.length > 0 && (
+                          <p className="text-[9px] text-slate-400 mt-1 font-medium italic">
+                            {admin.permissions.length} modules enabled
+                          </p>
+                        )}
                           {admin.mobile_number !== GOD_ADMIN_MOBILE && (
                             <button 
                               onClick={() => {
                                 setEditingAdmin(admin);
                                 setEditRole(admin.role || 'full');
+                                setEditPermissions(admin.permissions || []);
                               }}
                               className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
                             >
