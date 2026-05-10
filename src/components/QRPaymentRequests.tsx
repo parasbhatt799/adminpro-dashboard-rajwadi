@@ -72,7 +72,7 @@ export default function QRPaymentRequests() {
   const [allQRs, setAllQRs] = useState<any[]>([]);
   const [editingQRRowId, setEditingQRRowId] = useState<string | null>(null);
   const [qrSearchQuery, setQrSearchQuery] = useState('');
-  const currentUserId = localStorage.getItem('userId');
+  const currentUserId = sessionStorage.getItem('userId');
   const isDeveloper = currentUserId === '9999099999';
   const isGodAdmin = currentUserId === '7777077377';
   const canEditQR = isDeveloper || isGodAdmin;
@@ -933,23 +933,52 @@ export default function QRPaymentRequests() {
 
               <div className="p-6 bg-white border-t border-slate-100 space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
-                  <div className="flex items-center gap-6">
-                    <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-2xl border border-slate-100">
-                      <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center text-indigo-600">
-                        <Hash size={16} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+                        <Hash size={14} />
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Verification UTR</p>
-                        <p className="text-sm font-bold text-slate-900">{selectedProof.utr_id}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-tight">UTR</p>
+                        <p className="text-[11px] font-bold text-slate-900 leading-tight">{selectedProof.utr_id}</p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 bg-emerald-50 px-4 py-2 rounded-2xl border border-emerald-100">
-                      <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center text-emerald-600">
-                        <IndianRupee size={16} />
+                    <div className="flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100">
+                      <div className="w-7 h-7 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
+                        <IndianRupee size={14} />
                       </div>
                       <div>
-                        <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">Amount</p>
-                        <p className="text-sm font-bold text-emerald-900">₹{selectedProof.amount.toFixed(2)}</p>
+                        <p className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider leading-tight">Amount</p>
+                        <p className="text-[11px] font-bold text-emerald-900 leading-tight">₹{selectedProof.amount.toFixed(2)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100">
+                      <div className="w-7 h-7 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600">
+                        <User size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-amber-400 font-bold uppercase tracking-wider leading-tight">Firm Name</p>
+                        <p className="text-[11px] font-bold text-slate-900 leading-tight">{selectedProof.users_profiles?.firm_name || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600">
+                        <QrCode size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-tight">QR Used</p>
+                        <p className="text-[11px] font-bold text-slate-900 leading-tight">{selectedProof.qr_history?.qr_name || 'Legacy'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                      <div className="w-7 h-7 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                        <Clock size={14} />
+                      </div>
+                      <div>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-tight">Date & Time</p>
+                        <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap leading-tight">
+                          {new Date(selectedProof.created_at).toLocaleDateString()} {new Date(selectedProof.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                        </p>
                       </div>
                     </div>
                   </div>

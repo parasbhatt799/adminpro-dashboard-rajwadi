@@ -54,8 +54,10 @@ import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, Cog, RefreshCw } from 'lucide-react';
+import { useToast } from './context/ToastContext';
 
 const DEVELOPER_MOBILE = '9999099999';
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 // OneSignal Initialization Helper
 const setupOneSignal = async (currentUserId: string) => {
@@ -686,6 +688,9 @@ export default function App() {
           if (payload.eventType === 'INSERT') {
             playNotificationSound('qr');
           }
+          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
+            window.location.reload();
+          }
         })
         .subscribe();
 
@@ -695,6 +700,9 @@ export default function App() {
           fetchPendingCounts();
           if (payload.eventType === 'INSERT') {
             playNotificationSound('bill');
+          }
+          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
+            window.location.reload();
           }
         })
         .subscribe();
@@ -706,6 +714,9 @@ export default function App() {
           if (payload.eventType === 'INSERT') {
             playNotificationSound('kyc');
           }
+          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
+            window.location.reload();
+          }
         })
         .subscribe();
 
@@ -715,6 +726,9 @@ export default function App() {
           fetchPendingCounts();
           if (payload.eventType === 'INSERT') {
             playNotificationSound('payout');
+          }
+          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
+            window.location.reload();
           }
         })
         .subscribe();
@@ -948,6 +962,41 @@ export default function App() {
     setAdminRole('full');
     setAdminPermissions([]);
   };
+
+  // Session Inactivity Timeout Logic
+  const toast = useToast();
+  useEffect(() => {
+    if (!isAdmin && !isUser) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        console.log('Session expired due to inactivity');
+        toast.warning('Session expired due to 30 minutes of inactivity. Please login again.', 10000);
+        handleLogout();
+      }, INACTIVITY_TIMEOUT);
+    };
+
+    const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+    
+    // Add event listeners
+    activityEvents.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Initial timer start
+    resetTimer();
+
+    return () => {
+      // Cleanup
+      if (timeoutId) clearTimeout(timeoutId);
+      activityEvents.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, [isAdmin, isUser, userId]);
 
   if (isStatusLoading) {
     return (

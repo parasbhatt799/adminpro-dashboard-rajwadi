@@ -10,7 +10,9 @@ import {
   EyeOff,
   History,
   FileText,
-  Phone
+  Phone,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type ChangeEvent } from 'react';
@@ -45,6 +47,10 @@ export default function QRManagement() {
   const [qrHistory, setQrHistory] = useState<QRHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const fetchQRData = async () => {
     try {
@@ -425,7 +431,7 @@ export default function QRManagement() {
                     </td>
                   </tr>
                 ) : (
-                  qrHistory.map((item) => (
+                  qrHistory.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((item) => (
                     <tr key={item.id} className={`${item.is_active ? 'bg-indigo-50/20' : 'hover:bg-slate-50/50'} transition-colors`}>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
@@ -473,6 +479,59 @@ export default function QRManagement() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {qrHistory.length > ITEMS_PER_PAGE && (
+            <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex items-center justify-between">
+              <p className="text-xs text-slate-500 font-medium">
+                Showing <span className="font-bold text-slate-900">{Math.min(qrHistory.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span> to <span className="font-bold text-slate-900">{Math.min(qrHistory.length, currentPage * ITEMS_PER_PAGE)}</span> of <span className="font-bold text-slate-900">{qrHistory.length}</span> results
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                
+                {(() => {
+                  const totalPages = Math.ceil(qrHistory.length / ITEMS_PER_PAGE);
+                  let startPage = Math.max(1, currentPage - 2);
+                  let endPage = Math.min(totalPages, startPage + 4);
+                  
+                  if (endPage - startPage < 4) {
+                    startPage = Math.max(1, endPage - 4);
+                  }
+
+                  return [...Array(endPage - startPage + 1)].map((_, i) => {
+                    const page = startPage + i;
+                    return (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className={`w-9 h-9 rounded-xl text-xs font-bold transition-all ${
+                          currentPage === page
+                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                            : 'bg-white border border-slate-200 text-slate-600 hover:border-indigo-500 hover:text-indigo-600'
+                        }`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  });
+                })()}
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(qrHistory.length / ITEMS_PER_PAGE), prev + 1))}
+                  disabled={currentPage === Math.ceil(qrHistory.length / ITEMS_PER_PAGE)}
+                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
