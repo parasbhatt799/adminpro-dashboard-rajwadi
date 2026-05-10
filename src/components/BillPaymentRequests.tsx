@@ -54,6 +54,7 @@ export default function BillPaymentRequests() {
   const [endDate, setEndDate] = useState('');
   const [isBillEnabled, setIsBillEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const itemsPerPage = 10;
 
   const clearFilters = () => {
@@ -459,11 +460,12 @@ export default function BillPaymentRequests() {
                   <React.Fragment key={req.id}>
                     <tr
                       onClick={() => {
+                        setSelectedRowId(selectedRowId === req.id ? null : req.id);
                         if (req.status === 'rejected') {
                           setRejectionRowId(rejectionRowId === req.id ? null : req.id);
                         }
                       }}
-                      className={`hover:bg-slate-50/50 transition-colors ${rejectionRowId === req.id ? 'bg-rose-50/30' : ''} ${req.status === 'rejected' ? 'cursor-pointer' : ''}`}
+                      className={`hover:bg-emerald-50/40 transition-colors ${selectedRowId === req.id ? 'bg-emerald-50 ring-1 ring-emerald-100' : (rejectionRowId === req.id ? 'bg-rose-50/30' : '')} cursor-pointer`}
                     >
                       <td className="px-3 py-4">
                         <Link 

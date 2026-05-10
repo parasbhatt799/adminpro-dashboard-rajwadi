@@ -688,9 +688,6 @@ export default function App() {
           if (payload.eventType === 'INSERT') {
             playNotificationSound('qr');
           }
-          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
-            window.location.reload();
-          }
         })
         .subscribe();
 
@@ -700,9 +697,6 @@ export default function App() {
           fetchPendingCounts();
           if (payload.eventType === 'INSERT') {
             playNotificationSound('bill');
-          }
-          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
-            window.location.reload();
           }
         })
         .subscribe();
@@ -714,9 +708,6 @@ export default function App() {
           if (payload.eventType === 'INSERT') {
             playNotificationSound('kyc');
           }
-          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
-            window.location.reload();
-          }
         })
         .subscribe();
 
@@ -726,9 +717,6 @@ export default function App() {
           fetchPendingCounts();
           if (payload.eventType === 'INSERT') {
             playNotificationSound('payout');
-          }
-          if (payload.eventType === 'UPDATE' && (payload.new.status === 'approved' || payload.new.status === 'rejected')) {
-            window.location.reload();
           }
         })
         .subscribe();
