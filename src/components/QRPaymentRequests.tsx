@@ -58,6 +58,7 @@ export default function QRPaymentRequests() {
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [rejectionReasons, setRejectionReasons] = useState<any[]>([]);
   const [charges, setCharges] = useState('0');
   const [reason, setReason] = useState('');
@@ -72,7 +73,7 @@ export default function QRPaymentRequests() {
   const [allQRs, setAllQRs] = useState<any[]>([]);
   const [editingQRRowId, setEditingQRRowId] = useState<string | null>(null);
   const [qrSearchQuery, setQrSearchQuery] = useState('');
-  const currentUserId = sessionStorage.getItem('userId');
+  const currentUserId = localStorage.getItem('userId');
   const isDeveloper = currentUserId === '9999099999';
   const isGodAdmin = currentUserId === '7777077377';
   const canEditQR = isDeveloper || isGodAdmin;
@@ -474,11 +475,12 @@ export default function QRPaymentRequests() {
                   <React.Fragment key={req.id}>
                     <tr
                       onClick={() => {
+                        setSelectedRowId(selectedRowId === req.id ? null : req.id);
                         if (req.status === 'rejected') {
                           setRejectionRowId(rejectionRowId === req.id ? null : req.id);
                         }
                       }}
-                      className={`hover:bg-slate-50/50 transition-colors ${rejectionRowId === req.id || reversalId === req.id ? 'bg-indigo-50/30' : ''} ${(req.status === 'rejected' || req.status === 'approved') ? 'cursor-pointer' : ''}`}
+                      className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedRowId === req.id ? 'bg-emerald-50/50' : rejectionRowId === req.id || reversalId === req.id ? 'bg-indigo-50/30' : req.status === 'approved' ? 'bg-emerald-50/30' : ''}`}
                     >
                       <td className="px-3 py-4">
                         <Link 
@@ -574,7 +576,7 @@ export default function QRPaymentRequests() {
                                     setEditingQRRowId(req.id);
                                     setQrSearchQuery('');
                                   }}
-                                  className="p-1 text-slate-300 hover:text-indigo-600 opacity-0 group-hover/qr:opacity-100 transition-all"
+                                  className="p-1 text-indigo-400 hover:text-indigo-600 transition-all"
                                 >
                                   <Pencil size={12} />
                                 </button>
@@ -967,7 +969,79 @@ export default function QRPaymentRequests() {
                       </div>
                       <div>
                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-tight">QR Used</p>
-                        <p className="text-[11px] font-bold text-slate-900 leading-tight">{selectedProof.qr_history?.qr_name || 'Legacy'}</p>
+                        <div className="flex items-center gap-1 group/modal-qr relative">
+                          <p className="text-[11px] font-bold text-slate-900 leading-tight">
+                            {selectedProof.qr_history?.qr_name || 'Legacy'}
+                          </p>
+                          {canEditQR && (
+                            <button
+                              onClick={() => {
+                                setEditingQRRowId(selectedProof.id);
+                                setQrSearchQuery('');
+                              }}
+                              className="p-0.5 text-indigo-400 hover:text-indigo-600 transition-all"
+                            >
+                              <Pencil size={10} />
+                            </button>
+                          )}
+                          
+                          {editingQRRowId === selectedProof.id && (
+                            <div className="absolute z-[110] top-full left-0 mt-1 bg-white border border-indigo-200 rounded-xl shadow-2xl p-2 w-48 animate-in fade-in zoom-in duration-200">
+                              <div className="relative mb-2">
+                                <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  placeholder="Search QR..."
+                                  value={qrSearchQuery}
+                                  onChange={(e) => setQrSearchQuery(e.target.value)}
+                                  className="w-full pl-7 pr-3 py-1.5 text-[10px] bg-slate-50 border border-slate-100 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500/20"
+                                />
+                              </div>
+                              <div className="max-h-48 overflow-y-auto custom-scrollbar space-y-1">
+                                {allQRs.filter(qr => qr.qr_name.toLowerCase().includes(qrSearchQuery.toLowerCase())).length === 0 ? (
+                                  <p className="text-[10px] text-slate-400 text-center py-2">No QR found</p>
+                                ) : (
+                                  allQRs
+                                    .filter(qr => qr.qr_name.toLowerCase().includes(qrSearchQuery.toLowerCase()))
+                                    .map(qr => (
+                                      <button
+                                        key={qr.id}
+                                        onClick={async () => {
+                                          await handleQRUpdate(selectedProof.id, qr.id);
+                                          // Update the selectedProof state as well to reflect change in modal
+                                          setSelectedProof(prev => prev ? { 
+                                            ...prev, 
+                                            qr_id: qr.id,
+                                            qr_history: { ...prev.qr_history, qr_name: qr.qr_name } 
+                                          } as any : null);
+                                          setQrSearchQuery('');
+                                        }}
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${
+                                          selectedProof.qr_id === qr.id 
+                                            ? 'bg-indigo-50 text-indigo-600' 
+                                            : 'hover:bg-slate-50 text-slate-600'
+                                        }`}
+                                      >
+                                        {qr.qr_name}
+                                      </button>
+                                    ))
+                                )}
+                              </div>
+                              <div className="mt-2 pt-2 border-t border-slate-50 flex justify-end">
+                                <button
+                                  onClick={() => {
+                                    setEditingQRRowId(null);
+                                    setQrSearchQuery('');
+                                  }}
+                                  className="text-[9px] font-bold text-slate-400 hover:text-rose-500 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">

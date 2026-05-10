@@ -45,6 +45,7 @@ export default function BillPaymentRequests() {
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [rejectionReasons, setRejectionReasons] = useState<any[]>([]);
   const [reason, setReason] = useState('');
   const [charges, setCharges] = useState('');
@@ -54,7 +55,6 @@ export default function BillPaymentRequests() {
   const [endDate, setEndDate] = useState('');
   const [isBillEnabled, setIsBillEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
-  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const itemsPerPage = 10;
 
   const clearFilters = () => {
@@ -123,7 +123,7 @@ export default function BillPaymentRequests() {
       if (data) {
         const isEnabled = isOn ? data.is_service_on_sound_enabled : data.is_service_off_sound_enabled;
         if (isEnabled) {
-          const soundUrl = isOn 
+          const soundUrl = isOn
             ? (data.service_on_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
             : (data.service_off_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
           const audio = new Audio(soundUrl);
@@ -465,10 +465,10 @@ export default function BillPaymentRequests() {
                           setRejectionRowId(rejectionRowId === req.id ? null : req.id);
                         }
                       }}
-                      className={`hover:bg-emerald-50/40 transition-colors ${selectedRowId === req.id ? 'bg-emerald-50 ring-1 ring-emerald-100' : (rejectionRowId === req.id ? 'bg-rose-50/30' : '')} cursor-pointer`}
+                      className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedRowId === req.id ? 'bg-emerald-50/50' : rejectionRowId === req.id ? 'bg-rose-50/30' : ''}`}
                     >
                       <td className="px-3 py-4">
-                        <Link 
+                        <Link
                           to={`/users-list?id=${req.user_id}`}
                           className="flex items-center gap-3 text-left hover:opacity-75 transition-opacity group"
                         >
