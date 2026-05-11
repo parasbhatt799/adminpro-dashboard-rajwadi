@@ -13,10 +13,11 @@ import {
   X,
   Download,
   Hash,
-  AlertCircle,
   ChevronUp,
   RotateCcw,
-  Pencil
+  Pencil,
+  Shield,
+  AlertCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
@@ -48,6 +49,13 @@ interface QRPaymentRequest {
     qr_name: string;
     whatsapp_number?: string;
   };
+  actioned_by?: string;
+  actioned_at?: string;
+}
+
+interface AdminProfile {
+  mobile_number: string;
+  name: string;
 }
 
 export default function QRPaymentRequests() {
@@ -58,6 +66,7 @@ export default function QRPaymentRequests() {
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
+  const [adminMap, setAdminMap] = useState<Record<string, string>>({});
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
   const [rejectionReasons, setRejectionReasons] = useState<any[]>([]);
   const [charges, setCharges] = useState('0');
@@ -102,6 +111,15 @@ export default function QRPaymentRequests() {
 
       const { data, error } = await query;
       if (error) throw error;
+
+      // Fetch Admins for mapping
+      const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
+      const map: Record<string, string> = {};
+      admins?.forEach(a => {
+        map[a.mobile_number] = a.name || a.mobile_number;
+      });
+      setAdminMap(map);
+
       setRequests(data || []);
     } catch (err) {
       console.error('Error fetching QR requests:', err);
@@ -182,7 +200,8 @@ export default function QRPaymentRequests() {
 
       if (targetType === 'approved') {
         const { data: rpcData, error: rpcError } = await supabase.rpc('approve_qr_payment', {
-          p_payment_id: targetId
+          p_payment_id: targetId,
+          p_admin_id: currentUserId // This is the mobile number from localStorage
         });
 
         if (rpcError) throw rpcError;
@@ -196,6 +215,8 @@ export default function QRPaymentRequests() {
 
       } else {
         updateData.rejection_reason = targetReason;
+        updateData.actioned_by = currentUserId;
+        updateData.actioned_at = new Date().toISOString();
         const { error: statusError } = await supabase
           .from('payment_submissions')
           .update(updateData)
@@ -483,7 +504,7 @@ export default function QRPaymentRequests() {
                       className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedRowId === req.id ? 'bg-emerald-50/50' : rejectionRowId === req.id || reversalId === req.id ? 'bg-indigo-50/30' : req.status === 'approved' ? 'bg-emerald-50/30' : ''}`}
                     >
                       <td className="px-3 py-4">
-                        <Link 
+                        <Link
                           to={`/users-list?id=${req.user_id}`}
                           className="flex items-center gap-3 text-left hover:opacity-75 transition-opacity group"
                         >
@@ -501,6 +522,14 @@ export default function QRPaymentRequests() {
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                               {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
+                            {req.actioned_by && (
+                              <div className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-100 rounded-md w-fit">
+                                <Shield size={8} className="text-slate-400" />
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-tight">
+                                  {req.status === 'approved' ? 'Approved' : 'Rejected'} by: <span className="text-indigo-600">{adminMap[req.actioned_by] || req.actioned_by}</span>
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </Link>
                       </td>
@@ -542,11 +571,10 @@ export default function QRPaymentRequests() {
                                           handleQRUpdate(req.id, qr.id);
                                           setQrSearchQuery('');
                                         }}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${
-                                          req.qr_id === qr.id 
-                                            ? 'bg-indigo-50 text-indigo-600' 
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${req.qr_id === qr.id
+                                            ? 'bg-indigo-50 text-indigo-600'
                                             : 'hover:bg-slate-50 text-slate-600'
-                                        }`}
+                                          }`}
                                       >
                                         {qr.qr_name}
                                       </button>
@@ -594,8 +622,8 @@ export default function QRPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-rose-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
-                          {req.admin_share !== null && req.admin_share !== undefined ? 
-                            Number(req.admin_share).toFixed(2) : 
+                          {req.admin_share !== null && req.admin_share !== undefined ?
+                            Number(req.admin_share).toFixed(2) :
                             (req.users_profiles?.distributor_id ?
                               ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100).toFixed(2) :
                               Number(req.charges || 0).toFixed(2)
@@ -617,7 +645,7 @@ export default function QRPaymentRequests() {
                         ) : (
                           <span className="text-[10px] text-slate-300">N/A</span>
                         )}
-                        
+
                       </td>
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-emerald-600 flex items-center justify-center">
@@ -637,8 +665,8 @@ export default function QRPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                              req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                                'bg-amber-50 text-amber-600'
+                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                              'bg-amber-50 text-amber-600'
                             }`}>
                             {req.status === 'pending' && <Clock size={8} />}
                             {req.status === 'approved' && <CheckCircle2 size={8} />}
@@ -706,7 +734,7 @@ export default function QRPaymentRequests() {
                                 </select>
                               </div>
                             </div>
-                            
+
                             {reversalTarget === 'rejected' && (
                               <div className="flex-1 w-full">
                                 <label className="block text-[10px] font-bold text-rose-400 uppercase tracking-widest mb-2">Rejection Reason</label>
@@ -854,8 +882,8 @@ export default function QRPaymentRequests() {
                       key={i}
                       onClick={() => setCurrentPage(i)}
                       className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i
-                          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                          : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                        : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                         }`}
                     >
                       {i}
@@ -905,7 +933,7 @@ export default function QRPaymentRequests() {
                 </button>
               </div>
 
-              <div 
+              <div
                 className="flex-1 bg-slate-50 flex items-center justify-center overflow-hidden p-2 md:p-4 cursor-zoom-in"
                 onWheel={(e) => {
                   if (e.deltaY < 0) {
@@ -922,7 +950,7 @@ export default function QRPaymentRequests() {
                   dragConstraints={{ left: -500, right: 500, top: -500, bottom: 500 }}
                   dragElastic={0.1}
                   dragMomentum={false}
-                  animate={{ 
+                  animate={{
                     scale: imgScale,
                     x: imgScale === 1 ? 0 : undefined,
                     y: imgScale === 1 ? 0 : undefined
@@ -984,7 +1012,7 @@ export default function QRPaymentRequests() {
                               <Pencil size={10} />
                             </button>
                           )}
-                          
+
                           {editingQRRowId === selectedProof.id && (
                             <div className="absolute z-[110] top-full left-0 mt-1 bg-white border border-indigo-200 rounded-xl shadow-2xl p-2 w-48 animate-in fade-in zoom-in duration-200">
                               <div className="relative mb-2">
@@ -1010,18 +1038,17 @@ export default function QRPaymentRequests() {
                                         onClick={async () => {
                                           await handleQRUpdate(selectedProof.id, qr.id);
                                           // Update the selectedProof state as well to reflect change in modal
-                                          setSelectedProof(prev => prev ? { 
-                                            ...prev, 
+                                          setSelectedProof(prev => prev ? {
+                                            ...prev,
                                             qr_id: qr.id,
-                                            qr_history: { ...prev.qr_history, qr_name: qr.qr_name } 
+                                            qr_history: { ...prev.qr_history, qr_name: qr.qr_name }
                                           } as any : null);
                                           setQrSearchQuery('');
                                         }}
-                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${
-                                          selectedProof.qr_id === qr.id 
-                                            ? 'bg-indigo-50 text-indigo-600' 
+                                        className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${selectedProof.qr_id === qr.id
+                                            ? 'bg-indigo-50 text-indigo-600'
                                             : 'hover:bg-slate-50 text-slate-600'
-                                        }`}
+                                          }`}
                                       >
                                         {qr.qr_name}
                                       </button>

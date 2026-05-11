@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ShieldCheck, 
-  CheckCircle2, 
-  XCircle, 
-  Loader2, 
+import {
+  ShieldCheck,
+  CheckCircle2,
+  XCircle,
+  Loader2,
   Search,
   User,
   FileText,
@@ -11,7 +11,8 @@ import {
   X,
   AlertCircle,
   Clock,
-  Download
+  Download,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -35,8 +36,10 @@ interface KYCSubmission {
     email: string;
     distributor_profiles?: {
       firm_name: string;
-    } | null;
+    };
   };
+  actioned_by?: string;
+  actioned_at?: string;
 }
 
 export default function KYCVerificationRequests() {
@@ -49,6 +52,7 @@ export default function KYCVerificationRequests() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [adminMap, setAdminMap] = useState<Record<string, string>>({});
 
   const fetchSubmissions = async () => {
     setLoading(true);
@@ -64,6 +68,15 @@ export default function KYCVerificationRequests() {
 
       const { data, error } = await query;
       if (error) throw error;
+
+      // Fetch Admins for mapping
+      const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
+      const map: Record<string, string> = {};
+      admins?.forEach(a => {
+        map[a.mobile_number] = a.name || a.mobile_number;
+      });
+      setAdminMap(map);
+
       setSubmissions(data || []);
     } catch (err) {
       console.error('Error fetching KYC submissions:', err);
@@ -77,14 +90,17 @@ export default function KYCVerificationRequests() {
   }, [filter]);
 
   const handleStatusUpdate = async (submissionId: string, userId: string, newStatus: 'approved' | 'rejected') => {
+    const currentAdminId = localStorage.getItem('userId');
     setProcessingId(submissionId);
     try {
       // 1. Update submission status
       const { error: subError } = await supabase
         .from('kyc_submissions')
-        .update({ 
+        .update({
           status: newStatus,
-          rejection_reason: newStatus === 'rejected' ? rejectionReason : null
+          rejection_reason: newStatus === 'rejected' ? rejectionReason : null,
+          actioned_by: currentAdminId,
+          actioned_at: new Date().toISOString()
         })
         .eq('id', submissionId);
 
@@ -93,7 +109,7 @@ export default function KYCVerificationRequests() {
       // 2. Update user profile status
       const { error: profileError } = await supabase
         .from('users_profiles')
-        .update({ 
+        .update({
           kyc_status: newStatus === 'approved' ? 'verified' : 'rejected',
           kyc_rejection_reason: newStatus === 'rejected' ? rejectionReason : null
         })
@@ -106,8 +122,8 @@ export default function KYCVerificationRequests() {
         user_id: userId,
         target_role: 'user',
         title: `KYC Verification ${newStatus === 'approved' ? 'Approved' : 'Rejected'}`,
-        message: newStatus === 'approved' 
-          ? 'Your KYC documents have been successfully verified!' 
+        message: newStatus === 'approved'
+          ? 'Your KYC documents have been successfully verified!'
           : `Your KYC verification was rejected. Reason: ${rejectionReason}`,
         link: '/user/dashboard'
       }]);
@@ -127,8 +143,8 @@ export default function KYCVerificationRequests() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               title: `KYC Verification ${newStatus === 'approved' ? 'Approved' : 'Rejected'}`,
-              message: newStatus === 'approved' 
-                ? 'Your KYC documents have been successfully verified!' 
+              message: newStatus === 'approved'
+                ? 'Your KYC documents have been successfully verified!'
                 : `Your KYC verification was rejected.`,
               external_user_ids: [userId],
               link: '/user/dashboard',
@@ -154,7 +170,7 @@ export default function KYCVerificationRequests() {
     }
   };
 
-  const filteredSubmissions = submissions.filter(s => 
+  const filteredSubmissions = submissions.filter(s =>
     s.users_profiles?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     s.users_profiles?.mobile_number.includes(searchQuery)
   );
@@ -171,16 +187,16 @@ export default function KYCVerificationRequests() {
       <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Search by name or mobile..." 
+          <input
+            type="text"
+            placeholder="Search by name or mobile..."
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
         <div className="flex items-center gap-2 w-full md:w-auto">
-          <select 
+          <select
             value={filter}
             onChange={(e: any) => setFilter(e.target.value)}
             className="flex-1 md:flex-none px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
@@ -231,6 +247,14 @@ export default function KYCVerificationRequests() {
                         <div>
                           <p className="text-sm font-bold text-slate-900">{sub.users_profiles?.name}</p>
                           <p className="text-xs text-slate-500">{sub.users_profiles?.mobile_number}</p>
+                          {sub.actioned_by && (
+                            <div className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-100 rounded-md w-fit">
+                              <Shield size={8} className="text-slate-400" />
+                              <p className="text-[8px] font-black text-slate-500 uppercase tracking-tight">
+                                {sub.status === 'approved' ? 'Verified' : 'Rejected'} by: <span className="text-indigo-600">{adminMap[sub.actioned_by] || sub.actioned_by}</span>
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -251,17 +275,16 @@ export default function KYCVerificationRequests() {
                       </p>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        sub.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                        sub.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                        'bg-amber-50 text-amber-600'
-                      }`}>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${sub.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                          sub.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                            'bg-amber-50 text-amber-600'
+                        }`}>
                         {sub.status}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
+                        <button
                           onClick={() => setSelectedSubmission(sub)}
                           className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                           title="View Documents"
@@ -270,7 +293,7 @@ export default function KYCVerificationRequests() {
                         </button>
                         {sub.status === 'pending' && (
                           <>
-                            <button 
+                            <button
                               onClick={() => handleStatusUpdate(sub.id, sub.user_id, 'approved')}
                               disabled={processingId === sub.id}
                               className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
@@ -278,7 +301,7 @@ export default function KYCVerificationRequests() {
                             >
                               <CheckCircle2 size={20} />
                             </button>
-                            <button 
+                            <button
                               onClick={() => setShowRejectModal(sub.id)}
                               disabled={processingId === sub.id}
                               className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
@@ -302,7 +325,7 @@ export default function KYCVerificationRequests() {
       <AnimatePresence>
         {selectedSubmission && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm overflow-y-auto">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
@@ -332,23 +355,23 @@ export default function KYCVerificationRequests() {
                     <div key={i} className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{doc.label}</span>
-                        <a 
-                          href={doc.url} 
-                          target="_blank" 
+                        <a
+                          href={doc.url}
+                          target="_blank"
                           rel="noreferrer"
                           className="text-indigo-600 hover:underline text-xs font-bold flex items-center gap-1"
                         >
                           <Eye size={12} /> Full View
                         </a>
                       </div>
-                      <div 
+                      <div
                         onClick={() => setPreviewUrl(doc.url)}
                         className="aspect-video rounded-2xl border border-slate-200 overflow-hidden bg-slate-50 group relative cursor-pointer flex items-center justify-center font-bold text-slate-400"
                       >
                         {doc.isPdf || doc.url.toLowerCase().endsWith('.pdf') ? (
                           <div className="flex flex-col items-center gap-2">
-                             <FileText size={40} className="text-indigo-200" />
-                             <span className="text-[10px] uppercase tracking-widest">Signed PDF</span>
+                            <FileText size={40} className="text-indigo-200" />
+                            <span className="text-[10px] uppercase tracking-widest">Signed PDF</span>
                           </div>
                         ) : (
                           <img src={doc.url} alt={doc.label} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
@@ -364,13 +387,13 @@ export default function KYCVerificationRequests() {
 
               {selectedSubmission.status === 'pending' && (
                 <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end gap-4 shrink-0">
-                  <button 
+                  <button
                     onClick={() => setShowRejectModal(selectedSubmission.id)}
                     className="px-8 py-3 bg-white border border-rose-200 text-rose-600 rounded-xl font-bold hover:bg-rose-50 transition-all"
                   >
                     Reject KYC
                   </button>
-                  <button 
+                  <button
                     onClick={() => handleStatusUpdate(selectedSubmission.id, selectedSubmission.user_id, 'approved')}
                     className="px-8 py-3 bg-emerald-600 text-white rounded-xl font-bold hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200"
                   >
@@ -393,7 +416,7 @@ export default function KYCVerificationRequests() {
               exit={{ opacity: 0, scale: 0.9 }}
               className="relative max-w-5xl w-full max-h-[90vh] flex flex-col items-center justify-center focus:outline-none"
             >
-              <button 
+              <button
                 onClick={() => setPreviewUrl(null)}
                 className="absolute -top-12 right-0 p-2 text-white/70 hover:text-white transition-colors bg-white/10 hover:bg-white/20 rounded-full"
               >
@@ -404,14 +427,14 @@ export default function KYCVerificationRequests() {
                   <iframe src={previewUrl} className="w-full h-full border-none" title="PDF Preview" />
                 </div>
               ) : (
-                <img 
-                  src={previewUrl} 
-                  alt="Document Preview" 
+                <img
+                  src={previewUrl}
+                  alt="Document Preview"
                   className="max-w-full max-h-[90vh] object-contain rounded-2xl shadow-2xl border border-white/10"
                 />
               )}
               <div className="mt-6 flex gap-4">
-                <button 
+                <button
                   onClick={async () => {
                     try {
                       const response = await fetch(previewUrl);
@@ -442,7 +465,7 @@ export default function KYCVerificationRequests() {
       <AnimatePresence>
         {showRejectModal && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl"
@@ -452,8 +475,8 @@ export default function KYCVerificationRequests() {
               </div>
               <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Reject KYC Verification</h3>
               <p className="text-slate-500 text-center mb-6 text-sm">Please provide a reason for rejection. This will be shown to the user.</p>
-              
-              <textarea 
+
+              <textarea
                 className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-rose-500/20 outline-none min-h-[120px]"
                 placeholder="e.g. Aadhaar card photo is blurry..."
                 value={rejectionReason}
@@ -461,13 +484,13 @@ export default function KYCVerificationRequests() {
               />
 
               <div className="flex gap-4 mt-8">
-                <button 
+                <button
                   onClick={() => setShowRejectModal(null)}
                   className="flex-1 py-3 font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     const sub = submissions.find(s => s.id === showRejectModal);
                     if (sub) handleStatusUpdate(sub.id, sub.user_id, 'rejected');

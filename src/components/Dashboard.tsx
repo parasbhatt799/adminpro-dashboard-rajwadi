@@ -167,7 +167,7 @@ export default function Dashboard() {
       const activeUsersCount = activeUsersRes.count || 0;
 
       // Calculate Admin's share for QR Charges
-      const rangeQrCharges = qrData.reduce((acc, curr: any) => {
+      const adminQrCharges = qrData.reduce((acc, curr: any) => {
         // Use pre-calculated admin_share if available
         if (curr.admin_share !== null && curr.admin_share !== undefined) {
           return acc + Number(curr.admin_share);
@@ -182,21 +182,7 @@ export default function Dashboard() {
         return acc + adminShare;
       }, 0);
 
-      // Calculate Admin's share for Bill Charges
-      const rangeBillCharges = billData.reduce((acc, curr: any) => {
-        // Use pre-calculated admin_share if available
-        if (curr.admin_share !== null && curr.admin_share !== undefined) {
-          return acc + Number(curr.admin_share);
-        }
-
-        let adminShare = Number(curr.charges) || 0;
-        const profile = curr.users_profiles;
-        if (profile?.distributor_id) {
-          const adminBasePercentage = Number(profile.admin_base_bill_charge) || 0;
-          adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
-        }
-        return acc + adminShare;
-      }, 0);
+      const adminBillCharges = billData.reduce((acc, curr: any) => acc + (Number(curr.charges) || 0), 0);
 
       const rangePayoutCharges = payoutData.reduce((acc, curr) => acc + (Number(curr.charge_amount) || 0), 0) || 0;
       const rangeWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
@@ -208,7 +194,7 @@ export default function Dashboard() {
       const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
       const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
 
-      const totalEarnings = (rangeBillCharges || 0) + (rangeQrCharges || 0) + (rangePayoutCharges || 0);
+      const totalEarnings = (adminBillCharges || 0) + (adminQrCharges || 0) + (rangePayoutCharges || 0);
 
       // Total Service Charge should represent the GROSS earnings (Admin Profit + Distributor Profit)
       const displayServiceCharge = totalEarnings + totalDistributorShare;
@@ -259,14 +245,14 @@ export default function Dashboard() {
         },
         {
           title: "QR Payment Charges",
-          value: formatCurrency(rangeQrCharges),
+          value: formatCurrency(adminQrCharges),
           icon: QrCode,
           color: "bg-emerald-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Bill Payment Charge",
-          value: formatCurrency(rangeBillCharges),
+          value: formatCurrency(adminBillCharges),
           icon: CreditCard,
           color: "bg-indigo-500",
           description: `Range: ${dateDisplay}`

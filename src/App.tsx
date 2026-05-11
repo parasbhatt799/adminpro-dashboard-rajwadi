@@ -48,6 +48,7 @@ import DistributorStatementReport from './components/user/DistributorStatementRe
 import AdminDistributorWithdrawals from './components/AdminDistributorWithdrawals';
 import DistributorsList from './components/DistributorsList';
 import AdminStatementReport from './components/AdminStatementReport.tsx';
+import QRMasterManagement from './components/QRMasterManagement';
 import HomePage from './components/HomePage';
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase } from './lib/supabase';
@@ -1051,6 +1052,7 @@ export default function App() {
           <Route path="bank-upload" element={(adminRole === 'full' || adminPermissions.includes('bank-upload')) ? <BankManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="withdrawal-balance" element={(adminRole === 'full' || adminPermissions.includes('withdrawal-balance')) ? <AdminWithdrawal /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-upload" element={(adminRole === 'full' || adminPermissions.includes('qr-upload')) ? <QRManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="qr-master" element={(adminRole === 'full' || adminPermissions.includes('qr-master')) ? <QRMasterManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="kyc-verification-requests" element={(adminRole === 'full' || adminPermissions.includes('kyc-verification-requests')) ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
           

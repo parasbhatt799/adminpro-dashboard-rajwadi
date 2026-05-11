@@ -65,6 +65,7 @@ export default function AdminWithdrawal() {
           charges, 
           amount, 
           admin_share,
+          distributor_share,
           user:user_id(
             distributor_id,
             admin_base_qr_charge,
@@ -74,7 +75,7 @@ export default function AdminWithdrawal() {
         .eq('status', 'approved');
 
       const billQuery = supabase.from('bill_submissions')
-        .select(`charges, admin_share`)
+        .select(`charges, admin_share, distributor_share`)
         .eq('status', 'approved');
 
       const payoutQuery = supabase.from('payout_submissions').select('charge_amount').eq('status', 'approved');
@@ -103,18 +104,16 @@ export default function AdminWithdrawal() {
         return acc + adminShare;
       }, 0);
 
-      // Calculate Bill Charges (Always full for admin)
-      const totalBillCharges = (billData || []).reduce((acc, curr: any) => {
-        if (curr.admin_share !== null && curr.admin_share !== undefined) {
-          return acc + Number(curr.admin_share);
-        }
-        return acc + (Number(curr.charges) || 0);
-      }, 0);
+      // Calculate Bill Charges (Always full for admin as per user request)
+      const totalBillCharges = (billData || []).reduce((acc, curr: any) => acc + (Number(curr.charges) || 0), 0);
 
       const totalPayoutCharges = (payoutData || []).reduce((acc, r) => acc + (Number(r.charge_amount) || 0), 0);
       const totalWithdrawals = (withdrawalData || []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
 
-      const calculatedBalance = totalQrCharges + totalBillCharges + totalPayoutCharges - totalWithdrawals;
+      // Calculate Distributor Share
+      const totalDistributorShare = [...(qrData || []), ...(billData || [])].reduce((acc, curr: any) => acc + (Number(curr.distributor_share) || 0), 0);
+
+      const calculatedBalance = (totalQrCharges + totalBillCharges + totalPayoutCharges + totalDistributorShare) - totalWithdrawals;
       setBalance(calculatedBalance);
       setTotalWithdrawalAmount(totalWithdrawals);
       setHistory(withdrawalData || []);

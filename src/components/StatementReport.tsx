@@ -72,8 +72,8 @@ export default function StatementReport() {
       // Calculate Opening Balance if start date is provided
       if (startDate) {
         let queryQr = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
-        let queryBill = supabase.from('bill_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
-        let queryPayout = supabase.from('payout_submissions').select('amount, charge_amount').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+        let queryBill = supabase.from('bill_submissions').select('amount, charges, status').in('status', ['approved', 'pending']).lt('created_at', `${startDate}T00:00:00`);
+        let queryPayout = supabase.from('payout_submissions').select('amount, charge_amount, status').in('status', ['approved', 'pending', 'processing']).lt('created_at', `${startDate}T00:00:00`);
 
         // If a specific firm is searched, filter pre-balance by that firm
         if (firmName.trim()) {
@@ -274,16 +274,6 @@ export default function StatementReport() {
         }
         return { ...r, balance: currentBalance };
       });
-
-      // Reverse to Latest first
-      // Sync with DB if discrepancy detected AND a specific firm is being viewed
-      if (firmName.trim() && recordsWithBalance.length > 0) {
-        const { data: latestProfile } = await supabase.from('users_profiles').select('id, wallet_balance').ilike('firm_name', firmName.trim()).single();
-        if (latestProfile && Math.abs(Number(latestProfile.wallet_balance) - currentBalance) > 0.01) {
-          console.log(`Discrepancy detected for ${firmName}. DB: ${latestProfile.wallet_balance}, Statement: ${currentBalance}. Syncing...`);
-          await supabase.from('users_profiles').update({ wallet_balance: currentBalance }).eq('id', latestProfile.id);
-        }
-      }
 
       setRecords(recordsWithBalance.reverse());
 

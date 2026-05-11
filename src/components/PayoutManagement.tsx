@@ -16,8 +16,9 @@ import {
   ShieldCheck,
   History,
   Timer,
-  Upload,
-  File
+  File,
+  Shield,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -40,6 +41,8 @@ interface PayoutRequest {
     name: string;
     firm_name: string;
   };
+  actioned_by?: string;
+  actioned_at?: string;
 }
 
 interface PayoutSettings {
@@ -62,6 +65,7 @@ export default function PayoutManagement() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'processing' | 'approved' | 'rejected'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [adminMap, setAdminMap] = useState<Record<string, string>>({});
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [showCompleteModal, setShowCompleteModal] = useState<string | null>(null);
@@ -94,12 +98,22 @@ export default function PayoutManagement() {
   const fetchRequests = async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const { data, error } = await supabase
+      const query = supabase
         .from('payout_submissions')
         .select('*, users_profiles(name, firm_name)')
         .order('created_at', { ascending: false });
 
+      const { data, error } = await query;
       if (error) throw error;
+
+      // Fetch Admins for mapping
+      const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
+      const map: Record<string, string> = {};
+      admins?.forEach(a => {
+        map[a.mobile_number] = a.name || a.mobile_number;
+      });
+      setAdminMap(map);
+
       setRequests(data || []);
     } catch (err) {
       console.error('Error fetching requests:', err);
@@ -130,13 +144,16 @@ export default function PayoutManagement() {
   }, []);
 
   const handleStartProcessing = async (id: string) => {
+    const currentAdminId = localStorage.getItem('userId');
     setProcessingId(id);
     try {
       const { error } = await supabase
         .from('payout_submissions')
         .update({
           status: 'processing',
-          processing_started_at: new Date().toISOString()
+          processing_started_at: new Date().toISOString(),
+          actioned_by: currentAdminId,
+          actioned_at: new Date().toISOString()
         })
         .eq('id', id);
 
@@ -155,12 +172,6 @@ export default function PayoutManagement() {
 
         // Trigger Push Notification
         try {
-          const { data: userProfile } = await supabase
-            .from('users_profiles')
-            .select('onesignal_id')
-            .eq('id', req.user_id)
-            .single();
-
           const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
           if (osSettings?.app_id && osSettings?.rest_api_key) {
             await fetch('/api/send-push-notification', {
@@ -191,6 +202,7 @@ export default function PayoutManagement() {
 
   const handleReject = async () => {
     if (!showRejectModal || !rejectReason) return;
+    const currentAdminId = localStorage.getItem('userId');
     setProcessingId(showRejectModal);
     try {
       const req = requests.find(r => r.id === showRejectModal);
@@ -199,13 +211,14 @@ export default function PayoutManagement() {
       // Use Atomic RPC for rejection (Update status + Refund user in ONE step)
       const { data: result, error: rpcError } = await supabase.rpc('reject_payout_request_atomic', {
         p_payout_id: showRejectModal,
-        p_reason: rejectReason
+        p_reason: rejectReason,
+        p_admin_id: currentAdminId
       });
 
       if (rpcError) throw rpcError;
       if (!result.success) throw new Error(result.message);
 
-      // 3. Notify User (In-app)
+      // Notify User (In-app)
       await supabase.from('notifications').insert([{
         user_id: req.user_id,
         target_role: 'user',
@@ -214,14 +227,8 @@ export default function PayoutManagement() {
         link: '/user/reports'
       }]);
 
-      // 3.5 Trigger Push Notification
+      // Trigger Push Notification
       try {
-        const { data: userProfileData } = await supabase
-          .from('users_profiles')
-          .select('onesignal_id')
-          .eq('id', req.user_id)
-          .single();
-
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
           await fetch('/api/send-push-notification', {
@@ -254,6 +261,7 @@ export default function PayoutManagement() {
 
   const handleComplete = async () => {
     if (!showCompleteModal || !transactionId) return;
+    const currentAdminId = localStorage.getItem('userId');
     setProcessingId(showCompleteModal);
     setIsUploading(true);
     try {
@@ -279,17 +287,18 @@ export default function PayoutManagement() {
         proofUrl = urlData.publicUrl;
       }
 
-      // 2. Update status and credit admin using Atomic RPC
+      // Update status and credit admin using Atomic RPC
       const { data: rpcData, error: rpcError } = await supabase.rpc('approve_payout_request_atomic', {
         p_payout_id: showCompleteModal,
         p_transaction_id: transactionId,
-        p_proof_url: proofUrl
+        p_proof_url: proofUrl,
+        p_admin_id: currentAdminId
       });
-      
+
       if (rpcError) throw rpcError;
       if (!rpcData.success) throw new Error(rpcData.message);
 
-      // 2. Notify User (In-app)
+      // Notify User (In-app)
       await supabase.from('notifications').insert([{
         user_id: req.user_id,
         target_role: 'user',
@@ -298,14 +307,8 @@ export default function PayoutManagement() {
         link: '/user/reports'
       }]);
 
-      // 2.5 Trigger Push Notification
+      // Trigger Push Notification
       try {
-        const { data: userProfile } = await supabase
-          .from('users_profiles')
-          .select('onesignal_id')
-          .eq('id', req.user_id)
-          .single();
-
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
           await fetch('/api/send-push-notification', {
@@ -466,8 +469,8 @@ export default function PayoutManagement() {
                     key={status}
                     onClick={() => setStatusFilter(status)}
                     className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider whitespace-nowrap transition-all border ${statusFilter === status
-                        ? 'bg-slate-900 border-slate-900 text-white shadow-md'
-                        : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                      ? 'bg-slate-900 border-slate-900 text-white shadow-md'
+                      : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
                       }`}
                   >
                     {status}
@@ -510,15 +513,24 @@ export default function PayoutManagement() {
                             </div>
                             <div>
                               <h3 className="text-lg font-bold text-slate-900">{req.users_profiles?.firm_name || 'Anonymous User'}</h3>
-                              <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-                                {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1 flex items-center gap-1">
+                                <Clock size={10} />
+                                {new Date(req.created_at).toLocaleString()}
                               </p>
+                              {req.actioned_by && (
+                                <div className="mt-1.5 flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-100 rounded-md w-fit">
+                                  <Shield size={8} className="text-slate-400" />
+                                  <p className="text-[8px] font-black text-slate-500 uppercase tracking-tight">
+                                    {req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Actioned'} by: <span className="text-indigo-600">{adminMap[req.actioned_by] || req.actioned_by}</span>
+                                  </p>
+                                </div>
+                              )}
                             </div>
                             <div className="ml-auto">
                               <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                                  req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                                    req.status === 'processing' ? 'bg-amber-50 text-amber-600' :
-                                      'bg-slate-100 text-slate-600'
+                                req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                                  req.status === 'processing' ? 'bg-amber-50 text-amber-600' :
+                                    'bg-slate-100 text-slate-600'
                                 }`}>
                                 {req.status === 'approved' ? 'Completed' : req.status}
                               </span>
@@ -666,8 +678,8 @@ export default function PayoutManagement() {
                             key={i}
                             onClick={() => setCurrentPage(i)}
                             className={`w-10 h-10 flex items-center justify-center rounded-xl text-sm font-bold transition-all ${currentPage === i
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
-                                : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100'
+                              : 'text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
                               }`}
                           >
                             {i}

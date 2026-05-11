@@ -22,6 +22,7 @@ interface AdminManagementProps {
   
   // New Admin Form
   const [newAdminMobile, setNewAdminMobile] = useState('');
+  const [newAdminName, setNewAdminName] = useState('');
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
   const [newPermissions, setNewPermissions] = useState<string[]>([]);
@@ -30,6 +31,7 @@ interface AdminManagementProps {
 
   // Edit Admin State
   const [editingAdmin, setEditingAdmin] = useState<any>(null);
+  const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<'full' | 'limited'>('full');
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
   const [actionLoading, setActionLoading] = useState(false);
@@ -144,8 +146,9 @@ interface AdminManagementProps {
       // 2. Create or Update in admin_profiles table
       const { error: dbError } = await supabase
         .from('admin_profiles')
-        .upsert([{ 
+        .insert([{ 
           mobile_number: newAdminMobile, 
+          name: newAdminName,
           password: newAdminPassword,
           role: newAdminRole,
           permissions: newAdminRole === 'full' ? [] : newPermissions
@@ -155,6 +158,7 @@ interface AdminManagementProps {
 
       setIsAddingAdmin(false);
       setNewAdminMobile('');
+      setNewAdminName('');
       setNewAdminPassword('');
       setNewAdminRole('full');
       fetchAdmins();
@@ -257,6 +261,7 @@ interface AdminManagementProps {
       const { error: dbError } = await supabase
         .from('admin_profiles')
         .update({ 
+          name: editName,
           role: editRole,
           permissions: editRole === 'full' ? [] : editPermissions
         })
@@ -331,7 +336,7 @@ interface AdminManagementProps {
       if (error) throw error;
       setIsSystemEnabled(!isSystemEnabled);
       showModal('System Updated', `Portal access has been ${!isSystemEnabled ? 'ENABLED' : 'DISABLED'} successfully.`, 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating system status:', err);
       showModal('Error', 'Failed to update system status.', 'error');
     } finally {
@@ -350,7 +355,7 @@ interface AdminManagementProps {
       if (error) throw error;
       setIsUserPanelEnabled(!isUserPanelEnabled);
       showModal('Status Updated', `User Panel access has been ${!isUserPanelEnabled ? 'ENABLED' : 'DISABLED'} successfully.`, 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating user panel status:', err);
       showModal('Error', 'Failed to update user panel status.', 'error');
     } finally {
@@ -368,7 +373,7 @@ interface AdminManagementProps {
 
       if (error) throw error;
       showModal('Success!', 'System maintenance message updated.', 'success');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating system message:', err);
       showModal('Error', 'Failed to update maintenance message.', 'error');
     } finally {
@@ -584,19 +589,34 @@ interface AdminManagementProps {
 
               <form onSubmit={handleAddAdmin} className="space-y-6">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Mobile Number</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Admin Mobile</label>
                   <div className="relative">
-                    <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <Activity className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input
                       required
                       type="tel"
                       value={newAdminMobile}
-                      onChange={(e) => setNewAdminMobile(e.target.value)}
-                      placeholder="Enter admin mobile number"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 pl-12 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                      onChange={(e) => setNewAdminMobile(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Admin Mobile Number"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold"
                     />
                   </div>
                 </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Admin Name</label>
+                  <div className="relative">
+                    <UserPlus className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="text"
+                      value={newAdminName}
+                      onChange={(e) => setNewAdminName(e.target.value)}
+                      placeholder="Full Name (Optional)"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold"
+                    />
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Secure Password</label>
                   <div className="relative">
@@ -733,6 +753,17 @@ interface AdminManagementProps {
 
               <div className="space-y-6">
                 <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Admin Name</label>
+                  <input
+                    type="text"
+                    placeholder="Admin's Full Name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 ml-1">Access Level</label>
                   <div className="grid grid-cols-2 gap-4 mb-6">
                     <button
@@ -848,17 +879,18 @@ interface AdminManagementProps {
                         <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold border border-indigo-200">
                           <Shield size={20} />
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-slate-900 leading-none">{admin.mobile_number}</p>
-                          {admin.mobile_number === GOD_ADMIN_MOBILE ? (
-                            <p className="text-[10px] text-indigo-500 font-black uppercase mt-1.5 flex items-center gap-1">
-                              <Shield size={10} className="fill-indigo-500/10" /> {isDeveloper ? 'Client Owner (God)' : 'System Administrator'}
-                            </p>
-                          ) : (
-                            <p className="text-[10px] text-emerald-500 font-black uppercase mt-1.5 flex items-center gap-1">
-                              <CheckCircle size={10} /> Verified Access
-                            </p>
-                          )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-bold text-slate-900">{admin.name || 'No Name Set'}</h3>
+                            <span className={`text-[10px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded ${admin.status === 'Blocked' ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                              {admin.status || 'Active'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <p className="text-xs text-slate-500 font-bold">{admin.mobile_number}</p>
+                            <span className="text-slate-300">•</span>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{admin.role === 'full' ? 'Full' : 'Limited'} Access</p>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -875,9 +907,6 @@ interface AdminManagementProps {
                           admin.status === 'Blocked' ? 'left-1' : 'left-7'
                         }`} />
                       </button>
-                      <p className={`text-[9px] font-black uppercase mt-1 ${admin.status === 'Blocked' ? 'text-rose-500' : 'text-emerald-500'}`}>
-                        {admin.status || 'Active'}
-                      </p>
                     </td>
                     <td className="px-8 py-5 text-center">
                       <div className="flex flex-col items-center gap-2">
@@ -897,6 +926,7 @@ interface AdminManagementProps {
                             <button 
                               onClick={() => {
                                 setEditingAdmin(admin);
+                                setEditName(admin.name || '');
                                 setEditRole(admin.role || 'full');
                                 setEditPermissions(admin.permissions || []);
                               }}

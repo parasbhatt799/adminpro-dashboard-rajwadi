@@ -12,8 +12,13 @@ import {
   FileText,
   Phone,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Download,
+  ChevronDown,
+  X
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type ChangeEvent } from 'react';
 import { supabase } from '../lib/supabase';
@@ -47,6 +52,8 @@ export default function QRManagement() {
   const [qrHistory, setQrHistory] = useState<QRHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string }[]>([]);
+  const [selectedMasterUrl, setSelectedMasterUrl] = useState<string | null>(null);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -101,16 +108,23 @@ export default function QRManagement() {
         active_qr_id: activeQR?.id || null
       });
 
-    } catch (err) {
-      console.error('Error fetching QR data:', err);
-      setError('Failed to load QR settings');
     } finally {
       setLoading(false);
     }
   };
 
+  const fetchMasterList = async () => {
+    try {
+      const { data } = await supabase.from('qr_master').select('*').order('qr_name');
+      setMasterList(data || []);
+    } catch (err) {
+      console.error('Error fetching master list:', err);
+    }
+  };
+
   useEffect(() => {
     fetchQRData();
+    fetchMasterList();
 
     // Listen for new submissions to update counts in real-time
     const channel = supabase
@@ -160,34 +174,45 @@ export default function QRManagement() {
     setSuccess(null);
 
     try {
-      // 1. Upload new file with a unique name
-      const fileExt = file.name.split('.').pop();
-      const fileName = `qr_${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('qr_codes')
-        .upload(fileName, file);
+      let finalImageUrl = selectedMasterUrl;
 
-      if (uploadError) throw uploadError;
+      // 1. Upload new file if provided, otherwise use master URL
+      if (file) {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `qr_${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from('qr_codes')
+          .upload(fileName, file);
 
-      // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('qr_codes')
-        .getPublicUrl(fileName);
+        if (uploadError) throw uploadError;
 
-      // 3. Set all previous QRs to inactive
+        const { data: { publicUrl } } = supabase.storage
+          .from('qr_codes')
+          .getPublicUrl(fileName);
+        
+        finalImageUrl = publicUrl;
+      }
+
+      if (!finalImageUrl) {
+        setError('Please select an image or choose a pre-saved QR.');
+        setUploading(false);
+        return;
+      }
+
+      // 2. Set all previous QRs to inactive
       await supabase
         .from('qr_history')
         .update({ is_active: false })
         .eq('is_active', true);
 
-      // 4. Create History Entry
+      // 3. Create History Entry
       const { data: newQR, error: hError } = await supabase
         .from('qr_history')
         .insert({
           qr_name: qrName.trim(),
           whatsapp_number: whatsappNumber.trim(),
-          qr_url: publicUrl,
+          qr_url: finalImageUrl,
           is_active: true
         })
         .select()
@@ -195,16 +220,17 @@ export default function QRManagement() {
 
       if (hError) throw hError;
 
-      // 5. Update Legacy Settings
+      // 4. Update Legacy Settings
       const { error: dbError } = await supabase
         .from('qr_settings')
-        .update({ qr_url: publicUrl })
+        .update({ qr_url: finalImageUrl })
         .eq('id', 1);
 
       if (dbError) throw dbError;
 
       setQrName('');
       setWhatsappNumber('');
+      setSelectedMasterUrl(null);
       await fetchQRData();
       setSuccess('New QR Code activated and tracking started!');
       
@@ -214,6 +240,42 @@ export default function QRManagement() {
       setError(err.message || 'Failed to upload QR code');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      
+      const tableData = qrHistory.map(item => [
+        item.qr_name,
+        new Date(item.created_at).toLocaleString('en-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }),
+        item.whatsapp_number || '-',
+        item.is_active ? 'Active' : 'Archived',
+        item.counts?.total || 0,
+        `₹${(item.counts?.amount || 0).toLocaleString('en-IN')}`,
+        `${item.counts?.pending || 0} / ${item.counts?.approved || 0} / ${item.counts?.rejected || 0}`
+      ]);
+
+      autoTable(doc, {
+        head: [['QR Name', 'Created At', 'WhatsApp', 'Status', 'Total Entries', 'Approved Amount', 'Breakdown (P/A/R)']],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
+        styles: { fontSize: 9, cellPadding: 3 }
+      });
+
+      doc.save(`QR_Tracking_History_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('PDF Error:', err);
+      setError('Failed to generate PDF');
     }
   };
 
@@ -259,13 +321,29 @@ export default function QRManagement() {
           <div className="w-full space-y-4">
             <div className="relative">
               <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="QR Name (e.g. PhonePe_01)" 
+              <select 
                 value={qrName}
-                onChange={(e) => setQrName(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
-              />
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setQrName(val);
+                  const master = masterList.find(m => m.qr_name === val);
+                  if (master) {
+                    setWhatsappNumber(master.mobile_number || '');
+                    setSelectedMasterUrl(master.qr_image_url);
+                  } else {
+                    setSelectedMasterUrl(null);
+                  }
+                }}
+                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm appearance-none"
+              >
+                <option value="">Select QR Name...</option>
+                {masterList.map(m => (
+                  <option key={m.qr_name} value={m.qr_name}>{m.qr_name}</option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <ChevronDown size={16} className="text-slate-400" />
+              </div>
             </div>
 
             <div className="relative">
@@ -279,19 +357,53 @@ export default function QRManagement() {
               />
             </div>
 
-            <label className="w-full block">
-              <div className={`flex items-center justify-center gap-2 w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 cursor-pointer active:scale-95 ${uploading || !qrName.trim() ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                {uploading ? <Loader2 className="animate-spin" size={20} /> : <QrCode size={20} />}
-                <span>{uploading ? 'Processing...' : 'Select & Update QR'}</span>
+            {selectedMasterUrl && (
+              <div className="p-3 bg-indigo-50 rounded-2xl border border-indigo-100 flex items-center gap-3">
+                <img src={selectedMasterUrl} alt="Preview" className="w-12 h-12 rounded-lg object-contain bg-white border border-indigo-100" />
+                <div className="flex-1 text-left">
+                  <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest leading-none mb-1">Master Image Set</p>
+                  <p className="text-xs font-bold text-indigo-700">Pre-saved QR Image will be used</p>
+                </div>
+                <button 
+                  type="button" 
+                  onClick={() => setSelectedMasterUrl(null)}
+                  className="p-1.5 text-indigo-400 hover:text-rose-500 transition-colors"
+                >
+                  <X size={16} />
+                </button>
               </div>
-              <input 
-                type="file" 
-                className="sr-only" 
-                accept="image/*" 
-                onChange={handleUpload}
-                disabled={uploading || !qrName.trim()}
-              />
-            </label>
+            )}
+
+            <div className="flex gap-2">
+              <label className="flex-1 block">
+                <div className={`flex items-center justify-center gap-2 w-full py-4 bg-white border-2 border-dashed border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-2xl font-bold transition-all cursor-pointer active:scale-95 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <ImageIcon size={20} />
+                  <span>{selectedMasterUrl ? 'Change Image' : 'Add Image'}</span>
+                </div>
+                <input 
+                  type="file" 
+                  className="sr-only" 
+                  accept="image/*" 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleUpload(e);
+                    }
+                  }}
+                  disabled={uploading}
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={() => handleUpload({ target: { files: [] } } as any)}
+                disabled={uploading || !qrName.trim() || (!selectedMasterUrl)}
+                className={`flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-95`}
+              >
+                {uploading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+                <span>Update Now</span>
+              </button>
+            </div>
           </div>
 
           <AnimatePresence>
@@ -404,9 +516,18 @@ export default function QRManagement() {
 
       {/* History Section */}
       <div className="space-y-4">
-        <div className="flex items-center gap-2 px-2">
-          <History size={20} className="text-indigo-600" />
-          <h3 className="text-lg font-bold text-slate-900">QR Tracking History</h3>
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-2">
+            <History size={20} className="text-indigo-600" />
+            <h3 className="text-lg font-bold text-slate-900">QR Tracking History</h3>
+          </div>
+          <button 
+            onClick={exportToPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold transition-all shadow-lg shadow-rose-100 active:scale-95"
+          >
+            <Download size={16} />
+            <span>Download PDF</span>
+          </button>
         </div>
 
         <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">

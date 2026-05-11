@@ -12,7 +12,8 @@ import {
   Phone,
   AlertCircle,
   ChevronUp,
-  RotateCcw
+  RotateCcw,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
@@ -35,6 +36,8 @@ interface BillRequest {
     firm_name: string;
     profile_photo_url?: string;
   };
+  actioned_by?: string;
+  actioned_at?: string;
 }
 
 export default function BillPaymentRequests() {
@@ -46,6 +49,7 @@ export default function BillPaymentRequests() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [adminMap, setAdminMap] = useState<Record<string, string>>({});
   const [rejectionReasons, setRejectionReasons] = useState<any[]>([]);
   const [reason, setReason] = useState('');
   const [charges, setCharges] = useState('');
@@ -79,6 +83,15 @@ export default function BillPaymentRequests() {
 
       const { data, error } = await query;
       if (error) throw error;
+
+      // Fetch Admins for mapping
+      const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
+      const map: Record<string, string> = {};
+      admins?.forEach(a => {
+        map[a.mobile_number] = a.name || a.mobile_number;
+      });
+      setAdminMap(map);
+
       setRequests(data || []);
     } catch (err) {
       console.error('Error fetching bill requests:', err);
@@ -212,6 +225,7 @@ export default function BillPaymentRequests() {
     const targetId = id || showActionModal?.id;
     const targetType = type || (showActionModal ? 'approved' : 'rejected');
     const targetReason = customReason || reason;
+    const currentAdminId = localStorage.getItem('userId');
 
     if (!targetId) return;
 
@@ -230,12 +244,12 @@ export default function BillPaymentRequests() {
       if (currentReq.status !== 'pending') throw new Error('This request has already been processed');
 
       const amount = currentReq.amount || 0;
-      const requestCharges = currentReq.charges || 0;
-      const updateData: any = { status: targetType };
+      const updateData: any = { status: targetType, actioned_by: currentAdminId };
 
       if (targetType === 'approved') {
         const { data: result, error: rpcError } = await supabase.rpc('approve_bill_payment_atomic', {
-          p_bill_id: targetId
+          p_bill_id: targetId,
+          p_admin_id: currentAdminId
         });
 
         if (rpcError) throw rpcError;
@@ -486,6 +500,14 @@ export default function BillPaymentRequests() {
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                               {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </p>
+                            {req.actioned_by && (
+                              <div className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-100 rounded-md w-fit">
+                                <Shield size={8} className="text-slate-400" />
+                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-tight">
+                                  {req.status === 'approved' ? 'Approved' : 'Rejected'} by: <span className="text-indigo-600">{adminMap[req.actioned_by] || req.actioned_by}</span>
+                                </p>
+                              </div>
+                            )}
                           </div>
                         </Link>
                       </td>

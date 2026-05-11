@@ -224,14 +224,6 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         return { ...r, balance: currentBalance };
       });
 
-      // Reverse to show latest first
-      // Sync with DB if discrepancy detected
-      const { data: latestProfile } = await supabase.from('users_profiles').select('wallet_balance').eq('id', userId).single();
-      if (latestProfile && Math.abs(Number(latestProfile.wallet_balance) - currentBalance) > 0.01) {
-        console.log(`Discrepancy detected for ${userId}. DB: ${latestProfile.wallet_balance}, Statement: ${currentBalance}. Syncing...`);
-        await supabase.from('users_profiles').update({ wallet_balance: currentBalance }).eq('id', userId);
-      }
-
       setRecords(recordsWithBalance.reverse());
     } catch (err) {
       console.error('User Statement fetch error:', err);
