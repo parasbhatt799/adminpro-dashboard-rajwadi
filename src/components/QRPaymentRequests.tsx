@@ -344,15 +344,19 @@ export default function QRPaymentRequests() {
       });
 
       if (rpcError) throw rpcError;
-      if (!rpcData.success) throw new Error(rpcData.message);
+      if (!rpcData.success) {
+        // Handle the specific block message from RPC
+        toast.error(rpcData.message);
+        return;
+      }
 
       toast.success(`Request status updated to ${newStatus}`);
       setReversalId(null);
       setReason('');
       fetchRequests(true);
     } catch (err: any) {
-      console.error('Error reversing status:', err);
-      toast.error('Failed to update status: ' + (err.message || 'Unknown error'));
+      console.error('Error reverting status:', err);
+      toast.error('Failed to revert status: ' + (err.message || 'Unknown error'));
     } finally {
       setProcessingId(null);
     }

@@ -872,8 +872,15 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </div>
                     )}
                   </div>
-                  <h3 className="text-xl font-bold text-indigo-600 mb-1">{qrName || 'Scan QR to Pay'}</h3>
-                  <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
+                    {qrName && (
+                      <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl mb-4 inline-flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <ShieldCheck className="text-emerald-500" size={16} />
+                        <span className="text-sm font-bold text-emerald-700 uppercase tracking-widest">
+                          {qrName}
+                        </span>
+                      </div>
+                    )}
+                    <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
                   <p className="text-sm text-slate-500 mt-2">Scan the QR code above and complete the payment using any UPI app.</p>
                 </div>
 

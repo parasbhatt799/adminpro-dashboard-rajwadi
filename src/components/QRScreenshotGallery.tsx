@@ -46,6 +46,8 @@ export default function QRScreenshotGallery() {
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<string | null>(null); // 'sharing' | 'downloading' | null
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
+  const [datePage, setDatePage] = useState(1);
+  const DATES_PER_PAGE = 10;
 
   useEffect(() => {
     fetchGalleryData();
@@ -54,18 +56,39 @@ export default function QRScreenshotGallery() {
   const fetchGalleryData = async () => {
     try {
       setLoading(true);
-      const { data: submissions, error } = await supabase
-        .from('payment_submissions')
-        .select('id, proof_url, amount, created_at, qr_id, is_shared, qr_history(qr_name, whatsapp_number)')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
+      let allSubmissions: any[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
+      while (hasMore) {
+        setProgress({ current: allSubmissions.length, total: 0 }); // Use 0 to indicate unknown total
+        const { data, error } = await supabase
+          .from('payment_submissions')
+          .select('*, qr_history!left(qr_name, whatsapp_number)')
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (error) throw error;
+        
+        if (!data || data.length === 0) {
+          hasMore = false;
+        } else {
+          allSubmissions = [...allSubmissions, ...data];
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        }
+      }
+
+      console.log('Total Gallery Submissions Fetched:', allSubmissions.length);
 
       const grouped: { [date: string]: ScreenshotGroup } = {};
       
-      submissions.forEach(sub => {
-        const date = new Date(sub.created_at).toLocaleDateString('en-CA'); // YYYY-MM-DD
+      allSubmissions.forEach(sub => {
+        const date = sub.created_at.split('T')[0]; 
         const qrId = sub.qr_id || 'legacy';
         const qrName = (Array.isArray(sub.qr_history) ? sub.qr_history[0]?.qr_name : (sub.qr_history as any)?.qr_name) || 'Legacy QR';
         const whatsappNumber = (Array.isArray(sub.qr_history) ? sub.qr_history[0]?.whatsapp_number : (sub.qr_history as any)?.whatsapp_number);
@@ -96,6 +119,7 @@ export default function QRScreenshotGallery() {
       console.error('Error fetching gallery data:', err);
     } finally {
       setLoading(false);
+      setProgress(null);
     }
   };
 
@@ -217,7 +241,14 @@ export default function QRScreenshotGallery() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="animate-spin text-indigo-600" size={48} />
-        <p className="text-slate-500 font-medium animate-pulse">Organizing Gallery...</p>
+        <div className="text-center">
+          <p className="text-slate-500 font-bold animate-pulse">Scanning Historical Records...</p>
+          {progress && (
+            <p className="text-xs text-slate-400 mt-1 font-medium">
+              Found {progress.current.toLocaleString()} payments so far...
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -226,13 +257,13 @@ export default function QRScreenshotGallery() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
             <LayoutGrid className="text-indigo-600" />
-            QR Screenshot Gallery
+            QR Gallery
           </h2>
-          <p className="text-slate-500 mt-1">Organized auditing of all approved payment proofs.</p>
+          <p className="text-slate-500 mt-1">Organized auditing of all payment proofs from the system inception.</p>
         </div>
       </div>
 
@@ -245,7 +276,7 @@ export default function QRScreenshotGallery() {
               <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Select Audit Date</span>
             </div>
             <div className="max-h-[600px] overflow-y-auto divide-y divide-slate-50">
-              {dates.map(date => (
+              {dates.slice((datePage - 1) * DATES_PER_PAGE, datePage * DATES_PER_PAGE).map(date => (
                 <button
                   key={date}
                   onClick={() => {
@@ -268,6 +299,28 @@ export default function QRScreenshotGallery() {
                 </button>
               ))}
             </div>
+
+            {dates.length > DATES_PER_PAGE && (
+              <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-2">
+                <button
+                  onClick={() => setDatePage(prev => Math.max(1, prev - 1))}
+                  disabled={datePage === 1}
+                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center flex-1">
+                  Page {datePage} of {Math.ceil(dates.length / DATES_PER_PAGE)}
+                </span>
+                <button
+                  onClick={() => setDatePage(prev => Math.min(Math.ceil(dates.length / DATES_PER_PAGE), prev + 1))}
+                  disabled={datePage === Math.ceil(dates.length / DATES_PER_PAGE)}
+                  className="p-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

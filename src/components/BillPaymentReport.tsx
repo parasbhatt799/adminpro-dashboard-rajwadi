@@ -286,16 +286,45 @@ export default function BillPaymentReport() {
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
+      setLoading(true);
+      let query = supabase
+        .from('bill_submissions')
+        .select('*, users_profiles(firm_name)')
+        .neq('status', 'rejected');
+
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      if (exactAmount) query = query.eq('amount', Number(exactAmount));
+      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await query.range(from, from + step - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = [...allData, ...data];
+        if (data.length < step) break;
+        from += step;
+      }
+
+      const totals = allData.reduce((acc, curr) => ({
+        amount: acc.amount + Number(curr.amount || 0),
+        charges: acc.charges + Number(curr.charges || 0),
+        final: acc.final + (Number(curr.amount || 0) + Number(curr.charges || 0))
+      }), { amount: 0, charges: 0, final: 0 });
+
       const doc = new jsPDF({
         orientation: 'l',
         unit: 'mm',
         format: 'a4'
       });
 
-      const totals = calculateTotals(requests);
-      const tableData = requests.map(req => [
+      const tableData = allData.map(req => [
         new Date(req.created_at).toLocaleDateString(),
         req.users_profiles?.firm_name || 'N/A',
         req.customer_mobile,
@@ -327,6 +356,8 @@ export default function BillPaymentReport() {
     } catch (err) {
       console.error('PDF Export Error:', err);
       alert('Failed to generate PDF.');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -64,6 +64,7 @@ export default function UsersList({ adminRole }: UsersListProps) {
   // Advanced States
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [kycFilter, setKycFilter] = useState('All');
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [pageSize, setPageSize] = useState(10);
@@ -91,6 +92,13 @@ export default function UsersList({ adminRole }: UsersListProps) {
         query = query.eq('role', 'distributor');
       } else if (statusFilter !== 'All') {
         query = query.eq('status', statusFilter);
+      }
+
+      // KYC Filter
+      if (kycFilter === 'verified') {
+        query = query.eq('kyc_status', 'verified');
+      } else if (kycFilter === 'not_verified') {
+        query = query.neq('kyc_status', 'verified');
       }
 
       const { data, count, error } = await query
@@ -121,7 +129,7 @@ export default function UsersList({ adminRole }: UsersListProps) {
       fetchUsers();
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter, pageSize]);
+  }, [searchTerm, statusFilter, kycFilter, pageSize]);
 
   // Real-time subscription
   useEffect(() => {
@@ -178,6 +186,12 @@ export default function UsersList({ adminRole }: UsersListProps) {
         } else {
           query = query.eq('status', statusFilter);
         }
+      }
+
+      if (kycFilter === 'verified') {
+        query = query.eq('kyc_status', 'verified');
+      } else if (kycFilter === 'not_verified') {
+        query = query.neq('kyc_status', 'verified');
       }
 
       const data = await fetchAll(query.order('created_at', { ascending: false }));
@@ -238,6 +252,12 @@ export default function UsersList({ adminRole }: UsersListProps) {
         } else {
           query = query.eq('status', statusFilter);
         }
+      }
+
+      if (kycFilter === 'verified') {
+        query = query.eq('kyc_status', 'verified');
+      } else if (kycFilter === 'not_verified') {
+        query = query.neq('kyc_status', 'verified');
       }
 
       const data = await fetchAll(query.order('created_at', { ascending: false }));
@@ -423,6 +443,15 @@ export default function UsersList({ adminRole }: UsersListProps) {
             <option value="Suspended">Suspended Only</option>
             <option value="distributor">Distributors</option>
           </select>
+          <select
+             value={kycFilter}
+             onChange={(e) => setKycFilter(e.target.value)}
+             className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all appearance-none cursor-pointer"
+           >
+             <option value="All">All KYC</option>
+             <option value="verified">Verified</option>
+             <option value="not_verified">Not Verified</option>
+           </select>
           <button
             type="button"
             onClick={handleExportExcel}

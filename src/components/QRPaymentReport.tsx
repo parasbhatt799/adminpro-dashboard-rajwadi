@@ -360,16 +360,47 @@ export default function QRPaymentReport() {
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
+      setLoading(true);
+      let query = supabase
+        .from('payment_submissions')
+        .select('*, users_profiles(firm_name), qr_history(qr_name)')
+        .neq('status', 'rejected');
+
+      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
+      if (qrNameFilter) query = query.ilike('qr_history.qr_name', `%${qrNameFilter}%`);
+      if (exactAmount) query = query.eq('amount', Number(exactAmount));
+      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      while (true) {
+        const { data, error } = await query.range(from, from + step - 1);
+        if (error) throw error;
+        if (!data || data.length === 0) break;
+        allData = [...allData, ...data];
+        if (data.length < step) break;
+        from += step;
+      }
+
+      const totals = allData.reduce((acc, curr: any) => ({
+        amount: acc.amount + Number(curr.amount || 0),
+        admin: acc.admin + Number(curr.admin_share || 0),
+        distributor: acc.distributor + Number(curr.distributor_share || 0),
+        final: acc.final + (Number(curr.amount || 0) - Number(curr.charges || 0))
+      }), { amount: 0, admin: 0, distributor: 0, final: 0 });
+
       const doc = new jsPDF({
         orientation: 'l',
         unit: 'mm',
         format: 'a4'
       });
 
-      const totals = fullTotals;
-      const tableData = requests.map(req => [
+      const tableData = allData.map(req => [
         new Date(req.created_at).toLocaleDateString(),
         req.users_profiles?.firm_name || 'N/A',
         req.utr_id,
@@ -382,7 +413,6 @@ export default function QRPaymentReport() {
         (Number(req.amount) - Number(req.charges || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       ]);
 
-      // Add footer
       const footer = [
         ['TOTAL', '', '', '', '', '', totals.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }), totals.admin.toLocaleString(undefined, { minimumFractionDigits: 2 }), totals.distributor.toLocaleString(undefined, { minimumFractionDigits: 2 }), totals.final.toLocaleString(undefined, { minimumFractionDigits: 2 })]
       ];
@@ -403,7 +433,9 @@ export default function QRPaymentReport() {
       doc.save(`QR_Payment_Report_${new Date().toISOString().split('T')[0]}.pdf`);
     } catch (err) {
       console.error('PDF Export Error:', err);
-      alert('Failed to generate PDF. Please check the console for details.');
+      alert('Failed to generate PDF.');
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -15,13 +15,23 @@ import {
   ChevronRight,
   Download,
   ChevronDown,
-  X
+  X,
+  Pencil,
+  Search
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect, type ChangeEvent } from 'react';
 import { supabase } from '../lib/supabase';
+
+const COLOR_PRIORITY: Record<string, number> = {
+  pink: 1,
+  indigo: 2,
+  green: 3,
+  yellow: 4,
+  white: 5
+};
 
 interface QRHistoryItem {
   id: string;
@@ -52,8 +62,13 @@ export default function QRManagement() {
   const [qrHistory, setQrHistory] = useState<QRHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
+  const [historyUpdateLoading, setHistoryUpdateLoading] = useState(false);
   const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string }[]>([]);
   const [selectedMasterUrl, setSelectedMasterUrl] = useState<string | null>(null);
+  const [showUploadDropdown, setShowUploadDropdown] = useState(false);
+  const [showHistoryDropdownId, setShowHistoryDropdownId] = useState<string | null>(null);
+  const [qrSearch, setQrSearch] = useState('');
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -115,10 +130,46 @@ export default function QRManagement() {
 
   const fetchMasterList = async () => {
     try {
-      const { data } = await supabase.from('qr_master').select('*').order('qr_name');
-      setMasterList(data || []);
+      const { data } = await supabase
+        .from('qr_master')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order', { ascending: true });
+      
+      const sorted = (data || []).sort((a, b) => {
+        const pA = COLOR_PRIORITY[a.bg_color || 'white'] || 5;
+        const pB = COLOR_PRIORITY[b.bg_color || 'white'] || 5;
+        if (pA !== pB) return pA - pB;
+        return a.display_order - b.display_order;
+      });
+
+      setMasterList(sorted);
     } catch (err) {
       console.error('Error fetching master list:', err);
+    }
+  };
+
+  const updateHistoryName = async (historyId: string, newName: string, newWhatsapp: string) => {
+    try {
+      setHistoryUpdateLoading(true);
+      const { error } = await supabase
+        .from('qr_history')
+        .update({ 
+          qr_name: newName,
+          whatsapp_number: newWhatsapp || null
+        })
+        .eq('id', historyId);
+
+      if (error) throw error;
+      
+      setSuccess('QR details updated successfully');
+      setEditingHistoryId(null);
+      fetchQRData(); // Refresh counts and names
+    } catch (err) {
+      console.error('Error updating history:', err);
+      setError('Failed to update QR details');
+    } finally {
+      setHistoryUpdateLoading(false);
     }
   };
 
@@ -161,11 +212,9 @@ export default function QRManagement() {
     }
   };
 
-  const handleUpload = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!qrName.trim()) {
-      setError('Please provide a name for this QR code first.');
+  const handleUpload = async () => {
+    if (!selectedMasterUrl || !qrName.trim()) {
+      setError('Please select a QR Name from the list.');
       return;
     }
 
@@ -174,39 +223,15 @@ export default function QRManagement() {
     setSuccess(null);
 
     try {
-      let finalImageUrl = selectedMasterUrl;
+      const finalImageUrl = selectedMasterUrl;
 
-      // 1. Upload new file if provided, otherwise use master URL
-      if (file) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `qr_${Date.now()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('qr_codes')
-          .upload(fileName, file);
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('qr_codes')
-          .getPublicUrl(fileName);
-        
-        finalImageUrl = publicUrl;
-      }
-
-      if (!finalImageUrl) {
-        setError('Please select an image or choose a pre-saved QR.');
-        setUploading(false);
-        return;
-      }
-
-      // 2. Set all previous QRs to inactive
+      // 1. Set all previous QRs to inactive
       await supabase
         .from('qr_history')
         .update({ is_active: false })
         .eq('is_active', true);
 
-      // 3. Create History Entry
+      // 2. Create History Entry
       const { data: newQR, error: hError } = await supabase
         .from('qr_history')
         .insert({
@@ -220,7 +245,7 @@ export default function QRManagement() {
 
       if (hError) throw hError;
 
-      // 4. Update Legacy Settings
+      // 3. Update Legacy Settings
       const { error: dbError } = await supabase
         .from('qr_settings')
         .update({ qr_url: finalImageUrl })
@@ -321,29 +346,90 @@ export default function QRManagement() {
           <div className="w-full space-y-4">
             <div className="relative">
               <FileText className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <select 
-                value={qrName}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setQrName(val);
-                  const master = masterList.find(m => m.qr_name === val);
-                  if (master) {
-                    setWhatsappNumber(master.mobile_number || '');
-                    setSelectedMasterUrl(master.qr_image_url);
-                  } else {
-                    setSelectedMasterUrl(null);
-                  }
-                }}
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm appearance-none"
+              <button
+                type="button"
+                onClick={() => setShowUploadDropdown(!showUploadDropdown)}
+                className="w-full pl-12 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm text-left flex items-center justify-between"
               >
-                <option value="">Select QR Name...</option>
-                {masterList.map(m => (
-                  <option key={m.qr_name} value={m.qr_name}>{m.qr_name}</option>
-                ))}
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
-                <ChevronDown size={16} className="text-slate-400" />
-              </div>
+                <span className={qrName ? 'text-slate-900' : 'text-slate-400'}>
+                  {qrName || 'Select QR Name...'}
+                </span>
+                <ChevronDown size={16} className={`text-slate-400 transition-transform ${showUploadDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              <AnimatePresence>
+                {showUploadDropdown && (
+                  <>
+                    <div className="fixed inset-0 z-10" onClick={() => {
+                      setShowUploadDropdown(false);
+                      setQrSearch('');
+                    }} />
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="absolute top-0 left-0 right-0 bg-white rounded-2xl shadow-2xl z-20 border border-slate-100 overflow-hidden"
+                    >
+                      <div className="p-3 border-b border-slate-50">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                          <input 
+                            autoFocus
+                            type="text"
+                            placeholder="Search QR..."
+                            value={qrSearch}
+                            onChange={(e) => setQrSearch(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/10"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                        {masterList
+                          .filter(m => m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()))
+                          .map((m, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              setQrName(m.qr_name);
+                              setWhatsappNumber(m.mobile_number || '');
+                              setSelectedMasterUrl(m.qr_image_url);
+                              setShowUploadDropdown(false);
+                              setQrSearch('');
+                            }}
+                            className={`w-full px-5 py-3 text-left text-sm font-bold transition-all ${
+                              qrName === m.qr_name 
+                                ? 'bg-indigo-50 text-indigo-600' 
+                                : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            {m.qr_name}
+                          </button>
+                        ))}
+                        {masterList.filter(m => m.qr_name.toLowerCase().includes(qrSearch.toLowerCase())).length === 0 && (
+                          <div className="p-8 text-center">
+                            <p className="text-xs font-bold text-slate-400">No matching QRs</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="p-2 border-t border-slate-50 flex justify-end">
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            setShowUploadDropdown(false);
+                            setQrSearch('');
+                          }}
+                          className="px-3 py-1 text-[10px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-widest"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
             </div>
 
             <div className="relative">
@@ -374,36 +460,15 @@ export default function QRManagement() {
               </div>
             )}
 
-            <div className="flex gap-2">
-              <label className="flex-1 block">
-                <div className={`flex items-center justify-center gap-2 w-full py-4 bg-white border-2 border-dashed border-slate-200 hover:border-indigo-500 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-2xl font-bold transition-all cursor-pointer active:scale-95 ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                  <ImageIcon size={20} />
-                  <span>{selectedMasterUrl ? 'Change Image' : 'Add Image'}</span>
-                </div>
-                <input 
-                  type="file" 
-                  className="sr-only" 
-                  accept="image/*" 
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleUpload(e);
-                    }
-                  }}
-                  disabled={uploading}
-                />
-              </label>
-
-              <button
-                type="button"
-                onClick={() => handleUpload({ target: { files: [] } } as any)}
-                disabled={uploading || !qrName.trim() || (!selectedMasterUrl)}
-                className={`flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-95`}
-              >
-                {uploading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
-                <span>Update Now</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={handleUpload}
+              disabled={uploading || !qrName.trim() || (!selectedMasterUrl)}
+              className={`w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50 disabled:scale-95`}
+            >
+              {uploading ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+              <span>Update Now</span>
+            </button>
           </div>
 
           <AnimatePresence>
@@ -554,14 +619,106 @@ export default function QRManagement() {
                 ) : (
                   qrHistory.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((item) => (
                     <tr key={item.id} className={`${item.is_active ? 'bg-indigo-50/20' : 'hover:bg-slate-50/50'} transition-colors`}>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-bold text-slate-900">{item.qr_name}</span>
-                          <span className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-                            {new Date(item.created_at).toLocaleDateString()} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </span>
-                        </div>
-                      </td>
+                        <td className="px-6 py-4">
+                          {editingHistoryId === item.id ? (
+                            <div className="flex flex-col gap-2 min-w-[200px] relative">
+                              <button
+                                type="button"
+                                onClick={() => setShowHistoryDropdownId(showHistoryDropdownId === item.id ? null : item.id)}
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 flex items-center justify-between"
+                                disabled={historyUpdateLoading}
+                              >
+                                <span className="truncate">{item.qr_name}</span>
+                                <ChevronDown size={14} className={`text-slate-400 transition-transform ${showHistoryDropdownId === item.id ? 'rotate-180' : ''}`} />
+                              </button>
+
+                              <AnimatePresence>
+                                {showHistoryDropdownId === item.id && (
+                                  <>
+                                    <div className="fixed inset-0 z-10" onClick={() => {
+                                      setShowHistoryDropdownId(null);
+                                      setQrSearch('');
+                                    }} />
+                                    <motion.div
+                                      initial={{ opacity: 0, scale: 0.95 }}
+                                      animate={{ opacity: 1, scale: 1 }}
+                                      exit={{ opacity: 0, scale: 0.95 }}
+                                      className="absolute top-0 left-0 right-0 bg-white border border-slate-100 rounded-2xl shadow-2xl z-20 overflow-hidden"
+                                    >
+                                      <div className="p-2 border-b border-slate-50">
+                                        <div className="relative">
+                                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                                          <input 
+                                            autoFocus
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={qrSearch}
+                                            onChange={(e) => setQrSearch(e.target.value)}
+                                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-50 rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-500/10"
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="max-h-48 overflow-y-auto custom-scrollbar">
+                                        {masterList
+                                          .filter(m => m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()))
+                                          .map((m, idx) => (
+                                          <button
+                                            key={idx}
+                                            type="button"
+                                            onClick={() => {
+                                              updateHistoryName(item.id, m.qr_name, m.mobile_number);
+                                              setShowHistoryDropdownId(null);
+                                              setQrSearch('');
+                                            }}
+                                            className="w-full px-3 py-2 text-left text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors"
+                                          >
+                                            {m.qr_name}
+                                          </button>
+                                        ))}
+                                      </div>
+                                      <div className="p-1 border-t border-slate-50 flex justify-end">
+                                        <button 
+                                          type="button"
+                                          onClick={() => {
+                                            setShowHistoryDropdownId(null);
+                                            setQrSearch('');
+                                          }}
+                                          className="px-2 py-1 text-[9px] font-black text-slate-400 hover:text-rose-500 uppercase tracking-widest"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  </>
+                                )}
+                              </AnimatePresence>
+                              
+                              <button 
+                                onClick={() => {
+                                  setEditingHistoryId(null);
+                                  setShowHistoryDropdownId(null);
+                                }}
+                                className="text-[10px] font-bold text-rose-500 hover:underline text-left px-1"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2 group/name">
+                              <div>
+                                <p className="text-sm font-bold text-slate-900 leading-tight uppercase">{item.qr_name}</p>
+                                <p className="text-[10px] text-slate-400 font-bold mt-0.5">{new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
+                              </div>
+                              <button 
+                                onClick={() => setEditingHistoryId(item.id)}
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg opacity-0 group-hover/name:opacity-100 transition-all"
+                                title="Edit QR Name"
+                              >
+                                <Pencil size={12} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
                       <td className="px-6 py-4 text-center">
                         <span className="text-xs font-bold text-slate-600">{item.whatsapp_number || '-'}</span>
                       </td>

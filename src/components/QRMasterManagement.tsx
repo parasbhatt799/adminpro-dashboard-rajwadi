@@ -12,9 +12,10 @@ import {
   FileText,
   Search,
   X,
-  Image as ImageIcon
+  Image as ImageIcon,
+  GripVertical
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
 interface QRMasterItem {
@@ -22,8 +23,27 @@ interface QRMasterItem {
   qr_name: string;
   mobile_number: string;
   qr_image_url: string;
+  bg_color?: string;
+  display_order: number;
   created_at: string;
+  is_active: boolean;
 }
+
+const COLOR_OPTIONS = [
+  { name: 'Default', value: 'white', class: 'bg-white border-slate-200' },
+  { name: 'Pink', value: 'pink', class: 'bg-pink-50 border-pink-200 text-pink-700' },
+  { name: 'Green', value: 'green', class: 'bg-emerald-50 border-emerald-200 text-emerald-700' },
+  { name: 'Indigo', value: 'indigo', class: 'bg-indigo-50 border-indigo-200 text-indigo-700' },
+  { name: 'Yellow', value: 'yellow', class: 'bg-amber-50 border-amber-200 text-amber-700' },
+];
+
+const COLOR_PRIORITY: Record<string, number> = {
+  pink: 1,
+  indigo: 2,
+  green: 3,
+  yellow: 4,
+  white: 5
+};
 
 export default function QRMasterManagement() {
   const [loading, setLoading] = useState(true);
@@ -37,6 +57,7 @@ export default function QRMasterManagement() {
   const [mobileNumber, setMobileNumber] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [bgColor, setBgColor] = useState('white');
   
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -46,10 +67,19 @@ export default function QRMasterManagement() {
       const { data, error } = await supabase
         .from('qr_master')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('display_order', { ascending: true });
 
       if (error) throw error;
-      setQrList(data || []);
+      
+      // Secondary sort in JS to ensure strict color priority
+      const sorted = (data || []).sort((a, b) => {
+        const pA = COLOR_PRIORITY[a.bg_color || 'white'] || 5;
+        const pB = COLOR_PRIORITY[b.bg_color || 'white'] || 5;
+        if (pA !== pB) return pA - pB;
+        return a.display_order - b.display_order;
+      });
+
+      setQrList(sorted);
     } catch (err) {
       console.error('Error fetching QR Master list:', err);
       setError('Failed to load QR list');
@@ -80,6 +110,7 @@ export default function QRMasterManagement() {
     setMobileNumber('');
     setImageFile(null);
     setImagePreview(null);
+    setBgColor('white');
     setError(null);
   };
 
@@ -116,30 +147,34 @@ export default function QRMasterManagement() {
       }
 
       if (editingId) {
-        // Update Existing
         const { error: dbError } = await supabase
           .from('qr_master')
           .update({
             qr_name: qrName.trim(),
             mobile_number: mobileNumber.trim(),
-            qr_image_url: finalImageUrl
+            qr_image_url: finalImageUrl,
+            bg_color: bgColor
           })
           .eq('id', editingId);
 
         if (dbError) throw dbError;
         setSuccess('QR entry updated successfully!');
       } else {
-        // Create New
+        // Get max display order for the new item
+        const maxOrder = qrList.length > 0 ? Math.max(...qrList.map(i => i.display_order)) : 0;
+        
         const { error: dbError } = await supabase
           .from('qr_master')
           .insert({
             qr_name: qrName.trim(),
             mobile_number: mobileNumber.trim(),
-            qr_image_url: finalImageUrl
+            qr_image_url: finalImageUrl,
+            bg_color: bgColor,
+            display_order: maxOrder + 1
           });
 
         if (dbError) throw dbError;
-        setSuccess('New QR entry saved to master list!');
+        setSuccess('New QR entry saved!');
       }
 
       resetForm();
@@ -153,13 +188,63 @@ export default function QRMasterManagement() {
     }
   };
 
+  const toggleActive = async (item: QRMasterItem) => {
+    try {
+      const { error } = await supabase
+        .from('qr_master')
+        .update({ is_active: !item.is_active })
+        .eq('id', item.id);
+
+      if (error) throw error;
+      
+      // Update local state for immediate feedback
+      setQrList(prev => prev.map(q => 
+        q.id === item.id ? { ...q, is_active: !item.is_active } : q
+      ));
+      
+      setSuccess(`${item.qr_name} is now ${!item.is_active ? 'Active' : 'Inactive'}`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Error toggling active state:', err);
+      setError('Failed to update status');
+    }
+  };
+
   const handleEdit = (item: QRMasterItem) => {
     setEditingId(item.id);
     setQrName(item.qr_name);
     setMobileNumber(item.mobile_number || '');
     setImagePreview(item.qr_image_url);
     setImageFile(null);
+    setBgColor(item.bg_color || 'white');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleReorder = async (newOrder: QRMasterItem[]) => {
+    // Sort the new order by color priority to maintain grouping
+    const strictOrder = [...newOrder].sort((a, b) => {
+      const pA = COLOR_PRIORITY[a.bg_color || 'white'] || 5;
+      const pB = COLOR_PRIORITY[b.bg_color || 'white'] || 5;
+      if (pA !== pB) return pA - pB;
+      return 0; // Maintain relative order within group
+    });
+
+    setQrList(newOrder);
+
+    try {
+      const updates = newOrder.map((item, index) => ({
+        id: item.id,
+        display_order: index + 1
+      }));
+
+      const { error } = await supabase
+        .from('qr_master')
+        .upsert(updates, { onConflict: 'id' });
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error saving new order:', err);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -183,14 +268,6 @@ export default function QRMasterManagement() {
     item.qr_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     item.mobile_number?.includes(searchQuery)
   );
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin text-indigo-600" size={48} />
-      </div>
-    );
-  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-20">
@@ -224,6 +301,22 @@ export default function QRMasterManagement() {
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
                   required
                 />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Container Color</label>
+              <div className="flex flex-wrap gap-2">
+                {COLOR_OPTIONS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setBgColor(opt.value)}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${bgColor === opt.value ? opt.class + ' ring-2 ring-indigo-500 ring-offset-1' : 'bg-slate-50 border-slate-100 text-slate-400 hover:border-slate-300'}`}
+                  >
+                    {opt.name}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -302,69 +395,125 @@ export default function QRMasterManagement() {
           </form>
         </div>
 
-        {/* Master List */}
+        {/* List Section */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search by name or mobile..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-            />
+          <div className="bg-white p-4 rounded-3xl border border-slate-100 shadow-sm flex flex-col md:flex-row gap-4 items-center">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Search by name or mobile..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+              />
+            </div>
+            {qrList.length > 0 && searchQuery === '' && (
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-4 border-l border-slate-100 hidden md:block">
+                Drag to Reorder
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredList.length === 0 ? (
-              <div className="col-span-full bg-white rounded-3xl border border-slate-200 p-20 text-center space-y-4">
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-200 mx-auto">
-                  <QrCode size={40} />
+          <div className="grid grid-cols-1 gap-4">
+            {loading ? (
+              <div className="py-12 flex flex-col items-center gap-3">
+                <Loader2 className="animate-spin text-indigo-600" size={32} />
+                <p className="text-sm text-slate-500 font-medium">Loading your entries...</p>
+              </div>
+            ) : filteredList.length === 0 ? (
+              <div className="py-12 flex flex-col items-center gap-4 text-center">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-200">
+                  <QrCode size={32} />
                 </div>
-                <div>
-                  <h4 className="text-lg font-bold text-slate-900">No QR Entries Found</h4>
-                  <p className="text-slate-500 text-sm">Add your first QR to the master list to see it here.</p>
-                </div>
+                <p className="text-slate-500 font-medium">{searchQuery ? 'No results found' : 'No entries yet. Add your first one!'}</p>
               </div>
             ) : (
-              filteredList.map((item) => (
-                <motion.div 
-                  key={item.id} 
-                  layout
-                  className="bg-white rounded-3xl border border-slate-200 p-5 flex gap-4 items-center group hover:border-indigo-200 transition-all shadow-sm"
-                >
-                  <div className="w-20 h-20 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-                    {item.qr_image_url ? (
-                      <img src={item.qr_image_url} alt={item.qr_name} className="w-full h-full object-contain p-2" />
-                    ) : (
-                      <ImageIcon className="text-slate-200" size={24} />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-slate-900 truncate">{item.qr_name}</h4>
-                    <p className="text-sm text-slate-500 flex items-center gap-1.5 mt-1">
-                      <Phone size={14} className="text-slate-400" />
-                      {item.mobile_number || 'No Mobile'}
-                    </p>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <button 
-                      onClick={() => handleEdit(item)}
-                      className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
-                      title="Edit"
-                    >
-                      <Edit2 size={18} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(item.id)}
-                      className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all"
-                      title="Delete"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
-                </motion.div>
-              ))
+              <Reorder.Group 
+                axis="y" 
+                values={qrList} 
+                onReorder={handleReorder}
+                className="space-y-4"
+              >
+                {qrList
+                  .filter(item => 
+                    item.qr_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    item.mobile_number.includes(searchQuery)
+                  )
+                  .map((item) => {
+                    const colorOpt = COLOR_OPTIONS.find(o => o.value === item.bg_color) || COLOR_OPTIONS[0];
+                    return (
+                      <Reorder.Item 
+                        key={item.id} 
+                        value={item}
+                        className={`p-5 rounded-3xl border shadow-sm transition-all flex gap-4 items-center cursor-grab active:cursor-grabbing ${colorOpt.class}`}
+                        whileDrag={{ scale: 1.02, boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1)" }}
+                      >
+                        <div className="text-slate-300 opacity-50 group-hover:opacity-100 transition-opacity">
+                          <GripVertical size={20} />
+                        </div>
+                        <div className="w-20 h-20 bg-white rounded-2xl border border-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                          {item.qr_image_url ? (
+                            <img src={item.qr_image_url} alt={item.qr_name} className="w-full h-full object-contain p-2" />
+                          ) : (
+                            <ImageIcon className="text-slate-200" size={24} />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-bold text-slate-900 truncate uppercase">{item.qr_name}</h4>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter ${
+                              item.is_active 
+                                ? 'bg-emerald-100 text-emerald-700' 
+                                : 'bg-slate-200 text-slate-500'
+                            }`}>
+                              {item.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                          <p className="text-sm opacity-70 flex items-center gap-1.5 mt-1">
+                            <Phone size={14} />
+                            {item.mobile_number || 'No Mobile'}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-center gap-3 pr-2 border-r border-slate-200 mr-2">
+                             <button
+                                type="button"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={() => toggleActive(item)}
+                                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full transition-colors focus:outline-none ${
+                                  item.is_active ? 'bg-emerald-500' : 'bg-slate-300'
+                                }`}
+                              >
+                                <span
+                                  className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                                    item.is_active ? 'translate-x-5' : 'translate-x-1'
+                                  }`}
+                                />
+                              </button>
+                          </div>
+                          <button 
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => handleEdit(item)}
+                            className="p-2 hover:bg-black/5 rounded-xl transition-all"
+                            title="Edit"
+                          >
+                            <Edit2 size={18} />
+                          </button>
+                          <button 
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={() => handleDelete(item.id)}
+                            className="p-2 hover:bg-black/5 rounded-xl transition-all"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </Reorder.Item>
+                    );
+                  })
+                }
+              </Reorder.Group>
             )}
           </div>
         </div>
