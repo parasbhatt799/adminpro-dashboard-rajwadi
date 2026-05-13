@@ -17,7 +17,8 @@ import {
   IndianRupee,
   Search,
   ShieldAlert,
-  TrendingDown
+  TrendingDown,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -198,7 +199,7 @@ export default function Dashboard() {
 
       // Total Service Charge should represent the GROSS earnings (Admin Profit + Distributor Profit)
       const displayServiceCharge = totalEarnings + totalDistributorShare;
-      
+
       // We still keep netBalance for potentially showing "Available Balance" elsewhere
       const netBalance = totalEarnings - (rangeWithdrawals || 0);
 
@@ -296,6 +297,21 @@ export default function Dashboard() {
           icon: ShieldAlert,
           color: "bg-slate-700",
           description: "All pending reviews"
+        },
+        {
+          title: "Quick Refresh",
+          value: (
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 active:scale-95"
+            >
+              <RefreshCw size={14} />
+              Reload Now
+            </button>
+          ),
+          icon: RefreshCw,
+          color: "bg-slate-800",
+          description: "Sync platform data"
         }
       ]);
     } catch (err) {
@@ -430,7 +446,18 @@ export default function Dashboard() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
+            <motion.button
+              whileHover={{ rotate: 360 }}
+              transition={{ duration: 0.5 }}
+              onClick={() => window.location.reload()}
+              className="p-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100 flex items-center justify-center group"
+              title="Reload Page"
+            >
+              <RefreshCw size={18} className="group-active:scale-90 transition-transform" />
+            </motion.button>
+          </div>
           <p className="text-slate-500 mt-1">Real-time statistics for your platform.</p>
         </div>
 

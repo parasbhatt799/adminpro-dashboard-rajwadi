@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import NewsTicker from './NewsTicker';
+import FlyingCoins from './FlyingCoins';
+import { useRef } from 'react';
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
   const [now, setNow] = useState(new Date());
@@ -49,6 +51,12 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showCoins, setShowCoins] = useState(false);
+  const [coinDirection, setCoinDirection] = useState<'add' | 'deduct'>('add');
+  const [targetEntryId, setTargetEntryId] = useState<string | null>(null);
+  const [isAnimationEnabled, setIsAnimationEnabled] = useState(true);
+  const isAnimationEnabledRef = useRef(true);
+  const walletRef = useRef<HTMLDivElement>(null);
 
   const fetchProfile = async () => {
     try {
@@ -139,6 +147,72 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     return () => {
       supabase.removeChannel(channel);
       supabase.removeChannel(profileChannel);
+    };
+  }, [userId]);
+
+  // Subscribe to QR Approvals for animation
+  useEffect(() => {
+    // Fetch Animation Setting
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('qr_settings').select('is_animation_enabled').eq('id', 1).single();
+      if (data) {
+        const val = data.is_animation_enabled ?? true;
+        setIsAnimationEnabled(val);
+        isAnimationEnabledRef.current = val;
+      }
+    };
+    fetchSettings();
+
+    // Global Settings Listener for Animation toggle
+    const settingsChannel = supabase.channel('animation_settings_user')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new && 'is_animation_enabled' in payload.new) {
+          const val = payload.new.is_animation_enabled;
+          setIsAnimationEnabled(val);
+          isAnimationEnabledRef.current = val;
+        }
+      })
+      .subscribe();
+
+    const qrApprovalChannel = supabase
+      .channel(`qr_approvals_${userId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'payment_submissions',
+        filter: `user_id=eq.${userId}`
+      }, (payload: any) => {
+        if (payload.new.status === 'approved' && payload.old?.status !== 'approved') {
+          if (isAnimationEnabledRef.current) {
+            setTargetEntryId(`qr-row-${payload.new.id}`);
+            setCoinDirection('add');
+            setShowCoins(true);
+          }
+        }
+      })
+      .subscribe();
+
+    // Subscribe to Bill Submissions for deduction animation
+    const billChannel = supabase
+      .channel(`bill_deductions_${userId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'bill_submissions',
+        filter: `user_id=eq.${userId}`
+      }, (payload: any) => {
+        if (isAnimationEnabledRef.current) {
+          setTargetEntryId(`bill-row-${payload.new.id}`);
+          setCoinDirection('deduct');
+          setShowCoins(true);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(qrApprovalChannel);
+      supabase.removeChannel(billChannel);
+      supabase.removeChannel(settingsChannel);
     };
   }, [userId]);
 
@@ -358,12 +432,12 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
           <div className="flex items-center gap-4">
             <LiveClock colorClass="text-emerald-700" />
             {userProfile?.role === 'distributor' ? (
-              <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="Commission Wallet">
+              <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="Commission Wallet">
                 <Wallet className="text-indigo-600" size={18} />
                 <span className="text-sm font-bold text-indigo-700">₹{(Number(userProfile?.commission_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             ) : (
-              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
+              <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
                 <Wallet className="text-emerald-600" size={18} />
                 <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
@@ -538,6 +612,16 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
           )}
         </AnimatePresence>
       </main>
+      <FlyingCoins 
+        show={showCoins} 
+        onComplete={() => {
+          setShowCoins(false);
+          setTargetEntryId(null);
+        }} 
+        targetRef={walletRef} 
+        direction={coinDirection}
+        entryId={targetEntryId}
+      />
     </div>
   );
 }

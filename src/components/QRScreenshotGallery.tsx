@@ -66,6 +66,7 @@ export default function QRScreenshotGallery() {
         const { data, error } = await supabase
           .from('payment_submissions')
           .select('*, qr_history!left(qr_name, whatsapp_number)')
+          .eq('status', 'approved')
           .order('created_at', { ascending: false })
           .range(from, from + step - 1);
 

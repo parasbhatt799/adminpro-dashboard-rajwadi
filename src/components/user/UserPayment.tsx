@@ -2,7 +2,7 @@ import React, { useState, useEffect, type ChangeEvent } from 'react';
 import { 
   QrCode, Receipt, IndianRupee, ArrowRight, ShieldCheck, CreditCard, 
   Upload, Loader2, CheckCircle2, AlertCircle, FileText, Hash, 
-  ExternalLink, X, ChevronUp, Search, RotateCcw, Clock, XCircle,
+  ExternalLink, X, ChevronUp, ChevronDown, Search, RotateCcw, Clock, XCircle,
   Building2, User, History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -21,9 +21,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [loadingQr, setLoadingQr] = useState(true);
   const [banks, setBanks] = useState<{ id: string; bank_name: string }[]>([]);
   const [loadingBanks, setLoadingBanks] = useState(true);
-  const [inactiveQrs, setInactiveQrs] = useState<{ id: string; qr_name: string }[]>([]);
+  const [inactiveQrs, setInactiveQrs] = useState<{ id: string; qr_name: string; created_at?: string }[]>([]);
   const [useOldQr, setUseOldQr] = useState(false);
   const [selectedOldQrId, setSelectedOldQrId] = useState('');
+  const [showOldQrDropdown, setShowOldQrDropdown] = useState(false);
   
   // QR Form state
   const [utrId, setUtrId] = useState('');
@@ -85,6 +86,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [qrStatus, setQrStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [qrStartDate, setQrStartDate] = useState('');
   const [qrEndDate, setQrEndDate] = useState('');
+  const [qrAmountSearch, setQrAmountSearch] = useState('');
   const [qrPage, setQrPage] = useState(1);
 
   // Bill Filters & Pagination
@@ -92,6 +94,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [billStatus, setBillStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'refunded'>('all');
   const [billStartDate, setBillStartDate] = useState('');
   const [billEndDate, setBillEndDate] = useState('');
+  const [billAmountSearch, setBillAmountSearch] = useState('');
   const [billPage, setBillPage] = useState(1);
 
   // Payout Filters & Pagination
@@ -108,6 +111,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     setQrStatus('all');
     setQrStartDate('');
     setQrEndDate('');
+    setQrAmountSearch('');
     setQrPage(1);
   };
 
@@ -116,6 +120,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     setBillStatus('all');
     setBillStartDate('');
     setBillEndDate('');
+    setBillAmountSearch('');
     setBillPage(1);
   };
 
@@ -177,15 +182,37 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setQrName(activeQR.qr_name);
         }
 
-        // Fetch Recent Inactive QRs (Last 3)
-        const { data: oldQRs } = await supabase
-          .from('qr_history')
-          .select('id, qr_name')
-          .eq('is_active', false)
-          .order('created_at', { ascending: false })
-          .limit(3);
+        // Fetch Inactive QRs from the last 24 hours
+        const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
         
-        setInactiveQrs(oldQRs || []);
+        // Fetch more than 3 to ensure we cover the 24h window
+        const { data: recentQRs } = await supabase
+          .from('qr_history')
+          .select('id, qr_name, created_at, is_active')
+          .order('created_at', { ascending: false })
+          .limit(15);
+        
+        if (recentQRs) {
+          const filteredOldQRs = recentQRs.filter((qr, index) => {
+            if (qr.is_active) return false;
+            
+            const createdAt = new Date(qr.created_at);
+            const limit = new Date(twentyFourHoursAgo);
+            
+            // Show if it was created in the last 24 hours
+            if (createdAt >= limit) return true;
+            
+            // OR if it was deactivated in the last 24 hours 
+            // (the QR created immediately after it was created in the last 24 hours)
+            if (index > 0) {
+              const deactivatedAt = new Date(recentQRs[index - 1].created_at);
+              if (deactivatedAt >= limit) return true;
+            }
+            
+            return false;
+          });
+          setInactiveQrs(filteredOldQRs);
+        }
 
         // Fetch Global Settings (QR & Bill status)
         const { data: globalSettings } = await supabase
@@ -992,20 +1019,72 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
-                            className="overflow-hidden"
+                            className="overflow-visible"
                           >
                             <div className="pt-2">
                               <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5 ml-1">Select QR Used</label>
-                              <select
-                                value={selectedOldQrId}
-                                onChange={(e) => setSelectedOldQrId(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
-                              >
-                                <option value="">-- Choose QR Name --</option>
-                                {inactiveQrs.map(qr => (
-                                  <option key={qr.id} value={qr.id}>{qr.qr_name}</option>
-                                ))}
-                              </select>
+                              <div className="relative">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowOldQrDropdown(!showOldQrDropdown)}
+                                  className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all flex items-center justify-between shadow-sm"
+                                >
+                                  <span className={selectedOldQrId ? 'text-slate-700' : 'text-slate-400'}>
+                                    {selectedOldQrId 
+                                      ? inactiveQrs.find(q => q.id === selectedOldQrId)?.qr_name 
+                                      : '-- Choose QR Name --'}
+                                  </span>
+                                  <ChevronDown size={16} className={`text-indigo-400 transition-transform ${showOldQrDropdown ? 'rotate-180' : ''}`} />
+                                </button>
+
+                                <AnimatePresence>
+                                  {showOldQrDropdown && (
+                                    <>
+                                      <div 
+                                        className="fixed inset-0 z-10" 
+                                        onClick={() => setShowOldQrDropdown(false)} 
+                                      />
+                                      <motion.div
+                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-indigo-50 rounded-2xl shadow-2xl z-20 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar"
+                                      >
+                                        <div className="p-1">
+                                          {inactiveQrs.map(qr => (
+                                            <button
+                                              key={qr.id}
+                                              type="button"
+                                              onClick={() => {
+                                                setSelectedOldQrId(qr.id);
+                                                setShowOldQrDropdown(false);
+                                              }}
+                                              className={`w-full px-4 py-3 text-left rounded-xl transition-all flex flex-col gap-0.5 ${
+                                                selectedOldQrId === qr.id 
+                                                  ? 'bg-indigo-50 text-indigo-600' 
+                                                  : 'hover:bg-slate-50 text-slate-600'
+                                              }`}
+                                            >
+                                              <span className="text-sm font-bold uppercase">{qr.qr_name}</span>
+                                              {qr.created_at && (
+                                                <span className="text-[10px] font-medium opacity-60 uppercase tracking-wider">
+                                                  Used on: {new Date(qr.created_at).toLocaleString('en-GB', { 
+                                                    day: '2-digit', 
+                                                    month: '2-digit', 
+                                                    hour: '2-digit', 
+                                                    minute: '2-digit', 
+                                                    hour12: true 
+                                                  })}
+                                                </span>
+                                              )}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      </motion.div>
+                                    </>
+                                  )}
+                                </AnimatePresence>
+                              </div>
                             </div>
                           </motion.div>
                         )}
@@ -1108,7 +1187,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           placeholder="Search UTR..."
                           value={qrSearch}
                           onChange={(e) => setQrSearch(e.target.value)}
-                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all w-48"
+                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all w-32"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                          type="text" 
+                          placeholder="Amount..."
+                          value={qrAmountSearch}
+                          onChange={(e) => setQrAmountSearch(e.target.value)}
+                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all w-24"
                         />
                       </div>
                     </div>
@@ -1142,8 +1231,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         
                         const matchesStartDate = !start || reqDate >= start;
                         const matchesEndDate = !end || reqDate <= end;
+                        const matchesAmount = !qrAmountSearch || req.amount.toString().includes(qrAmountSearch);
                         
-                        return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
+                        return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate && matchesAmount;
                       });
 
                       const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -1162,6 +1252,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           {paginated.map((req) => (
                             <React.Fragment key={req.id}>
                               <div 
+                                id={`qr-row-${req.id}`}
                                 onClick={() => {
                                   if (req.status === 'rejected') {
                                     setExpandedRowId(expandedRowId === req.id ? null : req.id);
@@ -1548,7 +1639,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           placeholder="Search Mobile or Name..."
                           value={billSearch}
                           onChange={(e) => setBillSearch(e.target.value)}
-                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-48"
+                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-32"
+                        />
+                      </div>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                          type="text" 
+                          placeholder="Amount..."
+                          value={billAmountSearch}
+                          onChange={(e) => setBillAmountSearch(e.target.value)}
+                          className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-24"
                         />
                       </div>
                     </div>
@@ -1582,7 +1683,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         const matchesStartDate = !start || reqDate >= start;
                         const matchesEndDate = !end || reqDate <= end;
                         
-                        return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate;
+                        const matchesAmount = !billAmountSearch || req.amount.toString().includes(billAmountSearch);
+                        
+                        return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate && matchesAmount;
                       });
 
                       const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -1601,6 +1704,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           {paginated.map((req) => (
                             <React.Fragment key={req.id}>
                               <div 
+                                id={`bill-row-${req.id}`}
                                 onClick={() => {
                                   if (req.status === 'rejected') {
                                     setExpandedRowId(expandedRowId === req.id ? null : req.id);

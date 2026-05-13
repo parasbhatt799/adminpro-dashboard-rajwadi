@@ -317,24 +317,83 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
             </div>
           </div>
 
-          <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-100">
-            <h4 className="text-indigo-100 text-xs font-bold uppercase tracking-widest mb-4">Wallet Balance</h4>
-            <div className="flex items-end justify-between">
-              <p className="text-3xl font-bold">₹{Number(user.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              <CreditCard size={24} className="text-indigo-300" />
-            </div>
-          </div>
+          {/* Privileged Admin Password View */}
+          {(() => {
+            const GOD_ADMIN_MOBILE = '7777077377';
+            const DEVELOPER_MOBILE = '9999099999';
+            const currentAdminId = localStorage.getItem('userId');
+            const canSeePassword = currentAdminId === GOD_ADMIN_MOBILE || currentAdminId === DEVELOPER_MOBILE;
+            
+            if (canSeePassword && user.password) {
+              return (
+                <div className="bg-emerald-50 rounded-3xl p-6 border border-emerald-100 shadow-sm">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
+                      <Lock size={16} />
+                    </div>
+                    <div>
+                      <h4 className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Access Credentials</h4>
+                      <p className="text-[8px] text-emerald-500 font-medium uppercase tracking-tighter">Visible to God/Developer Only</p>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-2xl p-4 border border-emerald-100 flex items-center justify-between group">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Stored Password</p>
+                      <p className="text-xl font-mono font-bold text-emerald-700 tracking-wider">{user.password}</p>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(user.password);
+                        // Trigger a small toast if possible, but simplicity is key
+                      }}
+                      className="p-2 hover:bg-emerald-50 rounded-xl transition-colors text-emerald-400 hover:text-emerald-600"
+                      title="Copy Password"
+                    >
+                      <Download size={18} />
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-emerald-600 mt-3 font-medium text-center italic">
+                    Note: This is the current password stored in the database.
+                  </p>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
-          {Number(user.hold_balance || 0) > 0 && !isDistributorView && (
-            <div className="bg-amber-500 rounded-3xl p-6 text-white shadow-lg shadow-amber-100">
-               <h4 className="text-amber-100 text-xs font-bold uppercase tracking-widest mb-4">Hold Balance</h4>
-               <div className="flex items-end justify-between">
-                 <p className="text-3xl font-bold">₹{Number(user.hold_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                 <Lock size={24} className="text-amber-200" />
-               </div>
-               <p className="text-[10px] text-amber-100 mt-2 font-bold uppercase tracking-widest">Locked by Administrator</p>
-            </div>
-          )}
+          {/* Wallet Balance for Standard Admins (Left Side) */}
+          {(() => {
+            const GOD_ADMIN_MOBILE = '7777077377';
+            const DEVELOPER_MOBILE = '9999099999';
+            const currentAdminId = localStorage.getItem('userId');
+            const isPrivileged = currentAdminId === GOD_ADMIN_MOBILE || currentAdminId === DEVELOPER_MOBILE;
+            
+            if (!isPrivileged) {
+              return (
+                <div className="space-y-4 mt-6">
+                  <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-lg shadow-indigo-100">
+                    <h4 className="text-indigo-100 text-xs font-bold uppercase tracking-widest mb-4">Wallet Balance</h4>
+                    <div className="flex items-end justify-between">
+                      <p className="text-3xl font-bold">₹{Number(user.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <CreditCard size={24} className="text-indigo-300" />
+                    </div>
+                  </div>
+
+                  {Number(user.hold_balance || 0) > 0 && !isDistributorView && (
+                    <div className="bg-amber-500 rounded-3xl p-6 text-white shadow-lg shadow-amber-100">
+                      <h4 className="text-amber-100 text-xs font-bold uppercase tracking-widest mb-4">Hold Balance</h4>
+                      <div className="flex items-end justify-between">
+                        <p className="text-3xl font-bold">₹{Number(user.hold_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <Lock size={24} className="text-amber-200" />
+                      </div>
+                      <p className="text-[10px] text-amber-100 mt-2 font-bold uppercase tracking-widest">Locked by Administrator</p>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
 
         {/* Details Tabs/Content */}
@@ -446,7 +505,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 pt-6">
+          <div className="flex flex-col sm:flex-row gap-4 pt-6 mb-6">
             <button 
               onClick={() => onEdit(user)}
               className="flex-1 flex items-center justify-center gap-2 py-4 bg-white border border-slate-200 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm active:scale-95"
@@ -464,6 +523,40 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
               </button>
             )}
           </div>
+
+          {/* Wallet Balance for Privileged Admins (Right Side - Below Buttons) */}
+          {(() => {
+            const GOD_ADMIN_MOBILE = '7777077377';
+            const DEVELOPER_MOBILE = '9999099999';
+            const currentAdminId = localStorage.getItem('userId');
+            const isPrivileged = currentAdminId === GOD_ADMIN_MOBILE || currentAdminId === DEVELOPER_MOBILE;
+
+            if (isPrivileged) {
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div className="bg-indigo-600 rounded-3xl p-8 text-white shadow-lg shadow-indigo-100">
+                    <h4 className="text-indigo-100 text-xs font-bold uppercase tracking-widest mb-4">Wallet Balance</h4>
+                    <div className="flex items-end justify-between">
+                      <p className="text-4xl font-bold">₹{Number(user.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <CreditCard size={32} className="text-indigo-300" />
+                    </div>
+                  </div>
+
+                  {Number(user.hold_balance || 0) > 0 && !isDistributorView && (
+                    <div className="bg-amber-500 rounded-3xl p-8 text-white shadow-lg shadow-amber-100">
+                      <h4 className="text-amber-100 text-xs font-bold uppercase tracking-widest mb-4">Hold Balance</h4>
+                      <div className="flex items-end justify-between">
+                        <p className="text-4xl font-bold">₹{Number(user.hold_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <Lock size={32} className="text-amber-200" />
+                      </div>
+                      <p className="text-[10px] text-amber-100 mt-2 font-bold uppercase tracking-widest">Locked by Administrator</p>
+                    </div>
+                  )}
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
     </div>

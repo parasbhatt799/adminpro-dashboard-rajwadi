@@ -333,6 +333,7 @@ export default function BillPaymentRequests() {
   const filteredRequests = requests.filter(req => {
     const matchesSearch =
       req.customer_mobile.includes(searchQuery) ||
+      req.card_number.includes(searchQuery) ||
       req.card_owner_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
 
@@ -401,7 +402,7 @@ export default function BillPaymentRequests() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
-              placeholder="Search Mobile, Name or Firm..."
+              placeholder="Search Mobile, Name, Firm or Card No..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-64"

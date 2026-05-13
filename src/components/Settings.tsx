@@ -16,7 +16,8 @@ import {
   Image as ImageIcon,
   Volume2,
   Music,
-  Receipt
+  Receipt,
+  RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -62,7 +63,8 @@ export default function Settings() {
     is_service_off_sound_enabled: true,
     is_bill_enabled: true,
     service_on_sound_url: '',
-    service_off_sound_url: ''
+    service_off_sound_url: '',
+    is_animation_enabled: true
   });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -152,7 +154,8 @@ export default function Settings() {
           is_service_off_sound_enabled: qrData.is_service_off_sound_enabled ?? true,
           is_bill_enabled: qrData.is_bill_enabled ?? true,
           service_on_sound_url: qrData.service_on_sound_url || '',
-          service_off_sound_url: qrData.service_off_sound_url || ''
+          service_off_sound_url: qrData.service_off_sound_url || '',
+          is_animation_enabled: qrData.is_animation_enabled ?? true
         });
         setLogoPreview(qrData.logo_url);
         setLogoMiniPreview(qrData.logo_mini_url);
@@ -352,6 +355,7 @@ export default function Settings() {
           service_on_sound_url: finalServiceOnSoundUrl,
           service_off_sound_url: finalServiceOffSoundUrl,
           is_bill_enabled: brandingSettings.is_bill_enabled,
+          is_animation_enabled: brandingSettings.is_animation_enabled,
           updated_at: new Date().toISOString()
         })
         .eq('id', 1);
@@ -376,7 +380,8 @@ export default function Settings() {
         is_service_off_sound_enabled: brandingSettings.is_service_off_sound_enabled,
         service_on_sound_url: finalServiceOnSoundUrl,
         service_off_sound_url: finalServiceOffSoundUrl,
-        is_bill_enabled: brandingSettings.is_bill_enabled
+        is_bill_enabled: brandingSettings.is_bill_enabled,
+        is_animation_enabled: brandingSettings.is_animation_enabled
       });
       setLogoFile(null);
       setLogoMiniFile(null);
@@ -1026,6 +1031,36 @@ export default function Settings() {
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                     brandingSettings.is_bill_enabled ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Animation Toggle */}
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-indigo-600">
+                  <motion.div
+                    animate={{ rotate: brandingSettings.is_animation_enabled ? 360 : 0 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                  >
+                    <RefreshCw size={20} />
+                  </motion.div>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">User Panel Animations</h4>
+                  <p className="text-[10px] text-slate-500 font-medium">Enable/Disable Subway Surfers coin animations for users.</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setBrandingSettings(prev => ({ ...prev, is_animation_enabled: !prev.is_animation_enabled }))}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                  brandingSettings.is_animation_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    brandingSettings.is_animation_enabled ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
               </button>

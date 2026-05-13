@@ -23,6 +23,7 @@ interface QRMasterItem {
   qr_name: string;
   mobile_number: string;
   qr_image_url: string;
+  profit_percentage?: number;
   bg_color?: string;
   display_order: number;
   created_at: string;
@@ -55,6 +56,7 @@ export default function QRMasterManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [qrName, setQrName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [profitPercentage, setProfitPercentage] = useState('0');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [bgColor, setBgColor] = useState('white');
@@ -108,6 +110,7 @@ export default function QRMasterManagement() {
     setEditingId(null);
     setQrName('');
     setMobileNumber('');
+    setProfitPercentage('0');
     setImageFile(null);
     setImagePreview(null);
     setBgColor('white');
@@ -153,7 +156,8 @@ export default function QRMasterManagement() {
             qr_name: qrName.trim(),
             mobile_number: mobileNumber.trim(),
             qr_image_url: finalImageUrl,
-            bg_color: bgColor
+            bg_color: bgColor,
+            profit_percentage: Number(profitPercentage)
           })
           .eq('id', editingId);
 
@@ -170,6 +174,7 @@ export default function QRMasterManagement() {
             mobile_number: mobileNumber.trim(),
             qr_image_url: finalImageUrl,
             bg_color: bgColor,
+            profit_percentage: Number(profitPercentage),
             display_order: maxOrder + 1
           });
 
@@ -214,6 +219,7 @@ export default function QRMasterManagement() {
     setEditingId(item.id);
     setQrName(item.qr_name);
     setMobileNumber(item.mobile_number || '');
+    setProfitPercentage(String(item.profit_percentage || 0));
     setImagePreview(item.qr_image_url);
     setImageFile(null);
     setBgColor(item.bg_color || 'white');
@@ -329,6 +335,20 @@ export default function QRMasterManagement() {
                   placeholder="e.g. 919876543210" 
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Default QR %</label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">%</div>
+                <input 
+                  type="number" 
+                  placeholder="0" 
+                  value={profitPercentage}
+                  onChange={(e) => setProfitPercentage(e.target.value)}
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
                 />
               </div>
@@ -474,6 +494,10 @@ export default function QRMasterManagement() {
                             <Phone size={14} />
                             {item.mobile_number || 'No Mobile'}
                           </p>
+                          <div className="mt-2 inline-flex items-center gap-1 bg-white/50 px-2 py-1 rounded-lg border border-black/5 shadow-inner">
+                            <span className="text-[10px] font-black uppercase text-slate-400">Profit:</span>
+                            <span className="text-[10px] font-black text-indigo-600">{item.profit_percentage || 0}%</span>
+                          </div>
                         </div>
                         <div className="flex flex-col gap-2">
                           <div className="flex items-center gap-3 pr-2 border-r border-slate-200 mr-2">
