@@ -111,6 +111,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [totalBillCount, setTotalBillCount] = useState(0);
   const [totalPayoutCount, setTotalPayoutCount] = useState(0);
   const [fetchingHistory, setFetchingHistory] = useState({ qr: false, bill: false, payout: false });
+  const [isQrEnabled, setIsQrEnabled] = useState(true);
 
   const itemsPerPage = 10;
 
@@ -329,12 +330,15 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch QR
         const { data: qrData, error: qrError } = await supabase
           .from('qr_settings')
-          .select('qr_url, is_enabled')
+          .select('qr_url, is_enabled, is_service_enabled')
           .eq('id', 1)
           .single();
 
-        if (!qrError && qrData && qrData.is_enabled) {
-          setQrUrl(qrData.qr_url);
+        if (!qrError && qrData) {
+          setIsQrEnabled(qrData.is_service_enabled ?? true);
+          if (qrData.is_enabled) {
+            setQrUrl(qrData.qr_url);
+          }
         }
 
         // Fetch Current Active QR ID from History
@@ -622,6 +626,31 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   useEffect(() => {
     fetchPayoutHistory();
   }, [userId, payoutPage, payoutSearch, payoutStatus, payoutStartDate, payoutEndDate]);
+
+  // Real-time listener for QR Settings
+  useEffect(() => {
+    const channel = supabase
+      .channel('public:qr_settings')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'qr_settings',
+        filter: 'id=eq.1'
+      }, (payload) => {
+        const newData = payload.new;
+        setIsQrEnabled(newData.is_service_enabled ?? true);
+        if (newData.is_enabled) {
+          setQrUrl(newData.qr_url);
+        } else {
+          setQrUrl(null);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -1029,38 +1058,64 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                 exit={{ opacity: 0, x: 20 }}
                 className="w-full space-y-12"
               >
-                <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
-                  <div className="flex flex-col items-center text-center">
-                  <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center mb-6 overflow-hidden">
-                    {loadingQr ? (
-                      <Loader2 className="animate-spin text-slate-300" size={48} />
-                    ) : qrUrl ? (
-                      <img 
-                        src={qrUrl} 
-                        alt="Payment QR" 
-                        className="w-full h-full object-contain p-4"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="flex flex-col items-center gap-4 text-slate-400">
-                        <QrCode size={64} strokeWidth={1.5} />
-                        <p className="text-sm font-medium">QR Not Available</p>
+                {!isQrEnabled ? (
+                  <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center max-w-4xl mx-auto">
+                    <div className="w-24 h-24 bg-amber-50 rounded-3xl flex items-center justify-center text-amber-500 mx-auto mb-6">
+                      <Clock size={48} />
+                    </div>
+                    <h3 className="text-2xl font-bold text-slate-900 mb-2">Service Temporarily Offline</h3>
+                    <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
+                      Our QR Payment service is currently under maintenance or temporarily disabled by the administrator. Please check back later or use Bill payment if available.
+                    </p>
+                    <p className="text-[11px] font-black text-rose-600 uppercase tracking-widest mt-4 bg-rose-50 py-2.5 px-6 rounded-xl inline-block border border-rose-100 shadow-sm">
+                      નોંધ: ઇમરજન્સી માટે એડમિન અથવા ડિસ્ટ્રિબ્યુટરનો અત્યારે જ સંપર્ક કરો
+                    </p>
+                    {isBillEnabled && (
+                      <div className="mt-8 flex justify-center">
+                        <button 
+                          onClick={() => setActiveTab('bill')}
+                          className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
+                        >
+                          <Receipt size={20} />
+                          Use Bill Payment Instead
+                        </button>
                       </div>
                     )}
                   </div>
-                    {qrName && (
-                      <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl mb-4 inline-flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
-                        <ShieldCheck className="text-emerald-500" size={16} />
-                        <span className="text-sm font-bold text-emerald-700 uppercase tracking-widest">
-                          {qrName}
-                        </span>
-                      </div>
-                    )}
-                    <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
-                  <p className="text-sm text-slate-500 mt-2">Scan the QR code above and complete the payment using any UPI app.</p>
-                </div>
+                ) : (
+                  <>
+                  <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
+                    <div className="flex flex-col items-center text-center">
+                    <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center mb-6 overflow-hidden">
+                      {loadingQr ? (
+                        <Loader2 className="animate-spin text-slate-300" size={48} />
+                      ) : qrUrl ? (
+                        <img 
+                          src={qrUrl} 
+                          alt="Payment QR" 
+                          className="w-full h-full object-contain p-4"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-4 text-slate-400">
+                          <QrCode size={64} strokeWidth={1.5} />
+                          <p className="text-sm font-medium">QR Not Available</p>
+                        </div>
+                      )}
+                    </div>
+                      {qrName && (
+                        <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl mb-4 inline-flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+                          <ShieldCheck className="text-emerald-500" size={16} />
+                          <span className="text-sm font-bold text-emerald-700 uppercase tracking-widest">
+                            {qrName}
+                          </span>
+                        </div>
+                      )}
+                      <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
+                    <p className="text-sm text-slate-500 mt-2">Scan the QR code above and complete the payment using any UPI app.</p>
+                  </div>
 
-                <form onSubmit={handleSubmit} className="space-y-5">
+                  <form onSubmit={handleSubmit} className="space-y-5">
                   <div>
                     <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">UTR ID / Transaction ID</label>
                     <div className="relative">
@@ -1285,6 +1340,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </button>
                 </form>
                 </div>
+                </>
+                )}
 
                 {/* Recent QR Requests */}
                 <div id="qr-history-table" className="mt-12 space-y-4">
@@ -1547,6 +1604,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">Service Temporarily Offline</h3>
                     <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
                       Our Bill Payment service is currently under maintenance or temporarily disabled by the administrator. Please check back later or use QR payment for urgent transactions.
+                    </p>
+                    <p className="text-[11px] font-black text-rose-600 uppercase tracking-widest mt-4 bg-rose-50 py-2.5 px-6 rounded-xl inline-block border border-rose-100 shadow-sm">
+                      નોંધ: ઇમરજન્સી માટે એડમિન અથવા ડિસ્ટ્રિબ્યુટરનો અત્યારે જ સંપર્ક કરો
                     </p>
                     <div className="mt-8 flex justify-center">
                       <button 

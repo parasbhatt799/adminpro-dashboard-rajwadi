@@ -73,9 +73,10 @@ export default function QRManagement() {
   const [uploading, setUploading] = useState(false);
   const [qrName, setQrName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
-  const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean; active_qr_id: string | null }>({
+  const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean; is_service_enabled: boolean; active_qr_id: string | null }>({
     qr_url: null,
     is_enabled: true,
+    is_service_enabled: true,
     active_qr_id: null
   });
   const [qrHistory, setQrHistory] = useState<QRHistoryItem[]>([]);
@@ -181,6 +182,7 @@ export default function QRManagement() {
         setQrData({
           qr_url: settings?.qr_url || activeQR?.qr_url || null,
           is_enabled: settings?.is_enabled ?? true,
+          is_service_enabled: settings?.is_service_enabled ?? true,
           active_qr_id: activeQR?.id || null
         });
       } else {
@@ -336,6 +338,26 @@ export default function QRManagement() {
     }
   };
 
+  const handleServiceToggle = async () => {
+    const newStatus = !qrData.is_service_enabled;
+    setQrData(prev => ({ ...prev, is_service_enabled: newStatus }));
+
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_service_enabled: newStatus })
+        .eq('id', 1);
+
+      if (error) throw error;
+      setSuccess(`QR Service ${newStatus ? 'Activated' : 'Deactivated'} successfully`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Error toggling QR service status:', err);
+      setError('Failed to update service status');
+      setQrData(prev => ({ ...prev, is_service_enabled: !newStatus }));
+    }
+  };
+
   const handleUpload = async () => {
     if (!selectedMasterUrl || !qrName.trim()) {
       setError('Please select a QR Name from the list.');
@@ -450,16 +472,32 @@ export default function QRManagement() {
           <h2 className="text-2xl font-bold text-slate-900">QR Code Management</h2>
           <p className="text-slate-500 mt-1">Upload and track multiple QR codes for your system.</p>
         </div>
-        <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
-          <span className={`text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full ${qrData.is_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-            {qrData.is_enabled ? 'Visible' : 'Hidden'}
-          </span>
-          <button
-            onClick={handleToggle}
-            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors focus:outline-none ${qrData.is_enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
-          >
-            <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${qrData.is_enabled ? 'translate-x-7' : 'translate-x-1'}`} />
-          </button>
+        <div className="flex items-center gap-6 bg-white p-2 px-4 rounded-2xl border border-slate-100 shadow-sm">
+          {/* Service Toggle */}
+          <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${qrData.is_service_enabled ? 'text-emerald-600' : 'text-rose-500'}`}>
+              Service {qrData.is_service_enabled ? 'ON' : 'OFF'}
+            </span>
+            <button
+              onClick={handleServiceToggle}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${qrData.is_service_enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${qrData.is_service_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {/* Visibility Toggle */}
+          <div className="flex items-center gap-3">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${qrData.is_enabled ? 'text-indigo-600' : 'text-slate-400'}`}>
+              {qrData.is_enabled ? 'Visible' : 'Hidden'}
+            </span>
+            <button
+              onClick={handleToggle}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${qrData.is_enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${qrData.is_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
         </div>
       </div>
 
