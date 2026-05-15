@@ -88,6 +88,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [qrEndDate, setQrEndDate] = useState('');
   const [qrAmountSearch, setQrAmountSearch] = useState('');
   const [qrPage, setQrPage] = useState(1);
+  const [qrTimeRange, setQrTimeRange] = useState<'today' | 'yesterday' | '7days' | '30days' | 'custom'>('today');
 
   // Bill Filters & Pagination
   const [billSearch, setBillSearch] = useState('');
@@ -96,6 +97,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [billEndDate, setBillEndDate] = useState('');
   const [billAmountSearch, setBillAmountSearch] = useState('');
   const [billPage, setBillPage] = useState(1);
+  const [billTimeRange, setBillTimeRange] = useState<'today' | 'yesterday' | '7days' | '30days' | 'custom'>('today');
 
   // Payout Filters & Pagination
   const [payoutSearch, setPayoutSearch] = useState('');
@@ -119,6 +121,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     setQrEndDate('');
     setQrAmountSearch('');
     setQrPage(1);
+    setQrTimeRange('today');
   };
 
   const clearBillFilters = () => {
@@ -128,6 +131,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     setBillEndDate('');
     setBillAmountSearch('');
     setBillPage(1);
+    setBillTimeRange('today');
   };
 
   const clearPayoutFilters = () => {
@@ -154,12 +158,43 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       if (qrSearch) query = query.ilike('utr_id', `%${qrSearch}%`);
       if (qrStatus !== 'all') query = query.eq('status', qrStatus);
       if (qrAmountSearch) query = query.eq('amount', qrAmountSearch);
-      if (qrStartDate) query = query.gte('created_at', new Date(qrStartDate).toISOString());
-      if (qrEndDate) {
-        const end = new Date(qrEndDate);
+      
+      // Handle Time Range
+      let start: Date | null = null;
+      let end: Date | null = new Date();
+      end.setHours(23, 59, 59, 999);
+
+      if (qrTimeRange === 'today') {
+        start = new Date();
+        start.setHours(0, 0, 0, 0);
+      } else if (qrTimeRange === 'yesterday') {
+        start = new Date();
+        start.setDate(start.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date();
+        end.setDate(end.getDate() - 1);
         end.setHours(23, 59, 59, 999);
-        query = query.lte('created_at', end.toISOString());
+      } else if (qrTimeRange === '7days') {
+        start = new Date();
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+      } else if (qrTimeRange === '30days') {
+        start = new Date();
+        start.setDate(start.getDate() - 30);
+        start.setHours(0, 0, 0, 0);
+      } else if (qrTimeRange === 'custom') {
+        if (qrStartDate) {
+          start = new Date(qrStartDate);
+          start.setHours(0, 0, 0, 0);
+        }
+        if (qrEndDate) {
+          end = new Date(qrEndDate);
+          end.setHours(23, 59, 59, 999);
+        }
       }
+
+      if (start) query = query.gte('created_at', start.toISOString());
+      if (end) query = query.lte('created_at', end.toISOString());
 
       const from = (qrPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
@@ -186,12 +221,43 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       if (billSearch) query = query.or(`card_number.ilike.%${billSearch}%,card_owner_name.ilike.%${billSearch}%`);
       if (billStatus !== 'all') query = query.eq('status', billStatus);
       if (billAmountSearch) query = query.eq('bill_amount', billAmountSearch);
-      if (billStartDate) query = query.gte('created_at', new Date(billStartDate).toISOString());
-      if (billEndDate) {
-        const end = new Date(billEndDate);
+      
+      // Handle Time Range
+      let start: Date | null = null;
+      let end: Date | null = new Date();
+      end.setHours(23, 59, 59, 999);
+
+      if (billTimeRange === 'today') {
+        start = new Date();
+        start.setHours(0, 0, 0, 0);
+      } else if (billTimeRange === 'yesterday') {
+        start = new Date();
+        start.setDate(start.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        end = new Date();
+        end.setDate(end.getDate() - 1);
         end.setHours(23, 59, 59, 999);
-        query = query.lte('created_at', end.toISOString());
+      } else if (billTimeRange === '7days') {
+        start = new Date();
+        start.setDate(start.getDate() - 7);
+        start.setHours(0, 0, 0, 0);
+      } else if (billTimeRange === '30days') {
+        start = new Date();
+        start.setDate(start.getDate() - 30);
+        start.setHours(0, 0, 0, 0);
+      } else if (billTimeRange === 'custom') {
+        if (billStartDate) {
+          start = new Date(billStartDate);
+          start.setHours(0, 0, 0, 0);
+        }
+        if (billEndDate) {
+          end = new Date(billEndDate);
+          end.setHours(23, 59, 59, 999);
+        }
       }
+
+      if (start) query = query.gte('created_at', start.toISOString());
+      if (end) query = query.lte('created_at', end.toISOString());
 
       const from = (billPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
@@ -547,22 +613,15 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   // Trigger re-fetch when page or filters change
   useEffect(() => {
     fetchQrHistory();
-    // Scroll to history section when page changes
-    const el = document.getElementById('qr-history-table');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [qrPage, qrSearch, qrStatus, qrAmountSearch, qrStartDate, qrEndDate]);
+  }, [userId, qrPage, qrSearch, qrStatus, qrStartDate, qrEndDate, qrAmountSearch, qrTimeRange]);
 
   useEffect(() => {
     fetchBillHistory();
-    const el = document.getElementById('bill-history-table');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [billPage, billSearch, billStatus, billAmountSearch, billStartDate, billEndDate]);
+  }, [userId, billPage, billSearch, billStatus, billStartDate, billEndDate, billAmountSearch, billTimeRange]);
 
   useEffect(() => {
     fetchPayoutHistory();
-    const el = document.getElementById('payout-history-list');
-    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, [payoutPage, payoutSearch, payoutStatus, payoutStartDate, payoutEndDate]);
+  }, [userId, payoutPage, payoutSearch, payoutStatus, payoutStartDate, payoutEndDate]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -1232,27 +1291,45 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">QR Payment History</h3>
                     <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-                          <input 
-                            type="date" 
-                            value={qrStartDate}
-                            onChange={(e) => setQrStartDate(e.target.value)}
-                            className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-                          />
+                      <select 
+                        value={qrTimeRange}
+                        onChange={(e) => {
+                          setQrTimeRange(e.target.value as any);
+                          setQrPage(1);
+                        }}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
+                      >
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="7days">Last 7 Days</option>
+                        <option value="30days">Last 30 Days</option>
+                        <option value="custom">Custom Range</option>
+                      </select>
+
+                      {qrTimeRange === 'custom' && (
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1 animate-in slide-in-from-right-2 duration-300">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
+                            <input 
+                              type="date" 
+                              value={qrStartDate}
+                              onChange={(e) => setQrStartDate(e.target.value)}
+                              className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+                            />
+                          </div>
+                          <div className="w-px h-6 bg-slate-100 mx-1"></div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
+                            <input 
+                              type="date" 
+                              value={qrEndDate}
+                              onChange={(e) => setQrEndDate(e.target.value)}
+                              className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+                            />
+                          </div>
                         </div>
-                        <div className="w-px h-6 bg-slate-100 mx-1"></div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-                          <input 
-                            type="date" 
-                            value={qrEndDate}
-                            onChange={(e) => setQrEndDate(e.target.value)}
-                            className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-                          />
-                        </div>
-                      </div>
+                      )}
+                      
                       <button 
                         onClick={clearQrFilters}
                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
@@ -1638,27 +1715,44 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">Bill Payment History</h3>
                     <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-                          <input 
-                            type="date" 
-                            value={billStartDate}
-                            onChange={(e) => setBillStartDate(e.target.value)}
-                            className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-                          />
+                      <select 
+                        value={billTimeRange}
+                        onChange={(e) => {
+                          setBillTimeRange(e.target.value as any);
+                          setBillPage(1);
+                        }}
+                        className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                      >
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="7days">Last 7 Days</option>
+                        <option value="30days">Last 30 Days</option>
+                        <option value="custom">Custom Range</option>
+                      </select>
+
+                      {billTimeRange === 'custom' && (
+                        <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1 animate-in slide-in-from-right-2 duration-300">
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
+                            <input 
+                              type="date" 
+                              value={billStartDate}
+                              onChange={(e) => setBillStartDate(e.target.value)}
+                              className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+                            />
+                          </div>
+                          <div className="w-px h-6 bg-slate-100 mx-1"></div>
+                          <div className="flex flex-col">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
+                            <input 
+                              type="date" 
+                              value={billEndDate}
+                              onChange={(e) => setBillEndDate(e.target.value)}
+                              className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+                            />
+                          </div>
                         </div>
-                        <div className="w-px h-6 bg-slate-100 mx-1"></div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-                          <input 
-                            type="date" 
-                            value={billEndDate}
-                            onChange={(e) => setBillEndDate(e.target.value)}
-                            className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-                          />
-                        </div>
-                      </div>
+                      )}
                       <button 
                         onClick={clearBillFilters}
                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
