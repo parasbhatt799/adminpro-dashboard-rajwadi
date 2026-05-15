@@ -75,6 +75,8 @@ export default function PayoutManagement() {
   const [success, setSuccess] = useState<string | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [fetchingHistory, setFetchingHistory] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -97,28 +99,48 @@ export default function PayoutManagement() {
   // Fetch Payout Requests
   const fetchRequests = async (silent = false) => {
     if (!silent) setLoading(true);
+    else setFetchingHistory(true);
     try {
-      const query = supabase
+      let query = supabase
         .from('payout_submissions')
-        .select('*, users_profiles(name, firm_name)')
-        .order('created_at', { ascending: false });
+        .select('*, users_profiles!inner(name, firm_name)', { count: 'exact' });
 
-      const { data, error } = await query;
+      // Apply Filters
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter);
+      }
+
+      if (searchQuery) {
+        query = query.or(`bank_name.ilike.%${searchQuery}%,account_holder_name.ilike.%${searchQuery}%,account_number.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%`);
+      }
+
+      // Pagination
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
       if (error) throw error;
 
       // Fetch Admins for mapping
-      const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
-      const map: Record<string, string> = {};
-      admins?.forEach(a => {
-        map[a.mobile_number] = a.name || a.mobile_number;
-      });
-      setAdminMap(map);
+      if (Object.keys(adminMap).length === 0) {
+        const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
+        const map: Record<string, string> = {};
+        admins?.forEach(a => {
+          map[a.mobile_number] = a.name || a.mobile_number;
+        });
+        setAdminMap(map);
+      }
 
       setRequests(data || []);
+      setTotalCount(count || 0);
     } catch (err) {
       console.error('Error fetching requests:', err);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
+      setFetchingHistory(false);
     }
   };
 
@@ -141,7 +163,7 @@ export default function PayoutManagement() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [statusFilter, currentPage, searchQuery]);
 
   const handleStartProcessing = async (id: string) => {
     const currentAdminId = localStorage.getItem('userId');
@@ -364,23 +386,7 @@ export default function PayoutManagement() {
     }
   };
 
-  const filteredRequests = requests.filter(req => {
-    const matchesSearch =
-      req.bank_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.account_holder_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.account_number.includes(searchQuery) ||
-      (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
-  const currentRequests = filteredRequests.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -479,13 +485,21 @@ export default function PayoutManagement() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4">
+            <div className="grid grid-cols-1 gap-4 relative min-h-[400px]">
+              {fetchingHistory && (
+                <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                  <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
+                    <Loader2 className="animate-spin text-indigo-600" size={16} />
+                    <span className="text-xs font-bold text-slate-600">Updating History...</span>
+                  </div>
+                </div>
+              )}
               {loading ? (
                 <div className="bg-white rounded-3xl border border-slate-200 p-20 flex flex-col items-center justify-center gap-4">
                   <Loader2 className="animate-spin text-indigo-600" size={40} />
                   <p className="text-slate-500 font-medium">Loading payout requests...</p>
                 </div>
-              ) : filteredRequests.length === 0 ? (
+              ) : requests.length === 0 ? (
                 <div className="bg-white rounded-3xl border border-slate-200 p-20 flex flex-col items-center justify-center text-center gap-4">
                   <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
                     <History size={40} />
@@ -496,7 +510,7 @@ export default function PayoutManagement() {
                   </div>
                 </div>
               ) : (
-                currentRequests.map((req) => {
+                requests.map((req) => {
                   const timer = getTimerDisplay(req);
                   return (
                     <motion.div
@@ -648,10 +662,10 @@ export default function PayoutManagement() {
             </div>
 
             {/* Payout Pagination */}
-            {!loading && filteredRequests.length > 0 && (
+            {!loading && requests.length > 0 && (
               <div className="mt-8 flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
                 <p className="text-sm text-slate-500 font-medium">
-                  Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRequests.length)}</span> of <span className="text-slate-900 font-bold">{filteredRequests.length}</span> requests
+                  Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of <span className="text-slate-900 font-bold">{totalCount}</span> requests
                 </p>
                 <div className="flex items-center gap-2">
                   <button

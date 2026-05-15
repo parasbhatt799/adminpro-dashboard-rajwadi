@@ -69,35 +69,24 @@ export default function StatementReport() {
     try {
       let openingBalance = 0;
 
-      // Calculate Opening Balance if start date is provided
+      // Calculate Opening Balance using optimized RPC if start date is provided
       if (startDate) {
-        let queryQr = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
-        let queryBill = supabase.from('bill_submissions').select('amount, charges, status').in('status', ['approved', 'pending']).lt('created_at', `${startDate}T00:00:00`);
-        let queryPayout = supabase.from('payout_submissions').select('amount, charge_amount, status').in('status', ['approved', 'pending', 'processing']).lt('created_at', `${startDate}T00:00:00`);
-
-        // If a specific firm is searched, filter pre-balance by that firm
+        let userId: string | null = null;
         if (firmName.trim()) {
           const { data: userProfile } = await supabase
             .from('users_profiles')
             .select('id')
             .ilike('firm_name', firmName.trim())
             .single();
-
-          if (userProfile) {
-            const userId = userProfile.id;
-            queryQr = queryQr.eq('user_id', userId);
-            queryBill = queryBill.eq('user_id', userId);
-            queryPayout = queryPayout.eq('user_id', userId);
-          }
+          if (userProfile) userId = userProfile.id;
         }
 
-        const [qrPre, billPre, payoutPre] = await Promise.all([queryQr, queryBill, queryPayout]);
+        const { data: openBal, error: openBalError } = await supabase.rpc('get_opening_balance', {
+          p_user_id: userId,
+          p_start_date: `${startDate}T00:00:00`
+        });
 
-        const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
-        const billTotal = (billPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
-        const payoutTotal = (payoutPre.data || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
-
-        openingBalance = qrTotal - billTotal - payoutTotal;
+        if (!openBalError) openingBalance = Number(openBal) || 0;
       }
 
       let qrMapped: any[] = [];

@@ -3,53 +3,56 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import Sidebar from './components/Sidebar';
-import Dashboard from './components/Dashboard';
-import UsersList from './components/UsersList';
-import QRManagement from './components/QRManagement';
-import BankManagement from './components/BankManagement';
-import ServiceChargeManagement from './components/ServiceChargeManagement';
-import ReasonManagement from './components/ReasonManagement';
-import QRPaymentRequests from './components/QRPaymentRequests';
-import BillPaymentRequests from './components/BillPaymentRequests';
-import KYCVerificationRequests from './components/KYCVerificationRequests';
-import ComplaintsManagement from './components/ComplaintsManagement';
-import QRPaymentReport from './components/QRPaymentReport';
-import BillPaymentReport from './components/BillPaymentReport';
-import PayoutReport from './components/PayoutReport';
-import StatementReport from './components/StatementReport';
-import DistributorQRReport from './components/DistributorQRReport';
-import HeadlineManagement from './components/HeadlineManagement';
-import PolicyManagement from './components/PolicyManagement';
-import AdminManagement from './components/AdminManagement';
-import ChangePassword from './components/ChangePassword';
-import Login from './components/Login';
-import AgreementManagement from './components/AgreementManagement';
-import QRScreenshotGallery from './components/QRScreenshotGallery';
-import Settings from './components/Settings';
-import AdminWithdrawal from './components/AdminWithdrawal';
-import PayoutManagement from './components/PayoutManagement';
-import DeveloperLogs from './components/DeveloperLogs';
-import UserPanel from './components/user/UserPanel';
-import UserPayment from './components/user/UserPayment';
-import UserReports from './components/user/UserReports';
-import UserComplaints from './components/user/UserComplaints';
-import UserPolicies from './components/user/UserPolicies';
-import UserStatementReport from './components/user/UserStatementReport';
-import UserDashboard from './components/user/UserDashboard';
-import UserChangePassword from './components/user/UserChangePassword';
-import DistributorUsers from './components/user/DistributorUsers';
-import DistributorQRRequests from './components/user/DistributorQRRequests';
-import DistributorWithdrawal from './components/user/DistributorWithdrawal';
-import DistributorBillPayments from './components/user/DistributorBillPayments';
-import DistributorStatementReport from './components/user/DistributorStatementReport';
-import AdminDistributorWithdrawals from './components/AdminDistributorWithdrawals';
-import DistributorsList from './components/DistributorsList';
-import AdminStatementReport from './components/AdminStatementReport.tsx';
-import QRMasterManagement from './components/QRMasterManagement';
-import HomePage from './components/HomePage';
+import LoadingSpinner from './components/shared/LoadingSpinner';
+
+// --- Lazy Loaded Components ---
+const Sidebar = lazy(() => import('./components/Sidebar'));
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const UsersList = lazy(() => import('./components/UsersList'));
+const QRManagement = lazy(() => import('./components/QRManagement'));
+const BankManagement = lazy(() => import('./components/BankManagement'));
+const ServiceChargeManagement = lazy(() => import('./components/ServiceChargeManagement'));
+const ReasonManagement = lazy(() => import('./components/ReasonManagement'));
+const QRPaymentRequests = lazy(() => import('./components/QRPaymentRequests'));
+const BillPaymentRequests = lazy(() => import('./components/BillPaymentRequests'));
+const KYCVerificationRequests = lazy(() => import('./components/KYCVerificationRequests'));
+const ComplaintsManagement = lazy(() => import('./components/ComplaintsManagement'));
+const QRPaymentReport = lazy(() => import('./components/QRPaymentReport'));
+const BillPaymentReport = lazy(() => import('./components/BillPaymentReport'));
+const PayoutReport = lazy(() => import('./components/PayoutReport'));
+const StatementReport = lazy(() => import('./components/StatementReport'));
+const DistributorQRReport = lazy(() => import('./components/DistributorQRReport'));
+const HeadlineManagement = lazy(() => import('./components/HeadlineManagement'));
+const PolicyManagement = lazy(() => import('./components/PolicyManagement'));
+const AdminManagement = lazy(() => import('./components/AdminManagement'));
+const ChangePassword = lazy(() => import('./components/ChangePassword'));
+const Login = lazy(() => import('./components/Login'));
+const AgreementManagement = lazy(() => import('./components/AgreementManagement'));
+const QRScreenshotGallery = lazy(() => import('./components/QRScreenshotGallery'));
+const Settings = lazy(() => import('./components/Settings'));
+const AdminWithdrawal = lazy(() => import('./components/AdminWithdrawal'));
+const PayoutManagement = lazy(() => import('./components/PayoutManagement'));
+const DeveloperLogs = lazy(() => import('./components/DeveloperLogs'));
+const UserPanel = lazy(() => import('./components/user/UserPanel'));
+const UserPayment = lazy(() => import('./components/user/UserPayment'));
+const UserReports = lazy(() => import('./components/user/UserReports'));
+const UserComplaints = lazy(() => import('./components/user/UserComplaints'));
+const UserPolicies = lazy(() => import('./components/user/UserPolicies'));
+const UserStatementReport = lazy(() => import('./components/user/UserStatementReport'));
+const UserDashboard = lazy(() => import('./components/user/UserDashboard'));
+const UserChangePassword = lazy(() => import('./components/user/UserChangePassword'));
+const DistributorUsers = lazy(() => import('./components/user/DistributorUsers'));
+const DistributorQRRequests = lazy(() => import('./components/user/DistributorQRRequests'));
+const DistributorWithdrawal = lazy(() => import('./components/user/DistributorWithdrawal'));
+const DistributorBillPayments = lazy(() => import('./components/user/DistributorBillPayments'));
+const DistributorStatementReport = lazy(() => import('./components/user/DistributorStatementReport'));
+const AdminDistributorWithdrawals = lazy(() => import('./components/AdminDistributorWithdrawals'));
+const DistributorsList = lazy(() => import('./components/DistributorsList'));
+const AdminStatementReport = lazy(() => import('./components/AdminStatementReport.tsx'));
+const QRMasterManagement = lazy(() => import('./components/QRMasterManagement'));
+const HomePage = lazy(() => import('./components/HomePage'));
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -420,7 +423,9 @@ const AdminLayout = ({
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto">
-            <Outlet />
+            <Suspense fallback={<LoadingSpinner />}>
+              <Outlet />
+            </Suspense>
           </div>
         </div>
       </main>

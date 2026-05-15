@@ -82,6 +82,8 @@ export default function QRPaymentRequests() {
   const [allQRs, setAllQRs] = useState<any[]>([]);
   const [editingQRRowId, setEditingQRRowId] = useState<string | null>(null);
   const [qrSearchQuery, setQrSearchQuery] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
+  const [fetchingHistory, setFetchingHistory] = useState(false);
   const currentUserId = localStorage.getItem('userId');
   const isDeveloper = currentUserId === '9999099999';
   const isGodAdmin = currentUserId === '7777077377';
@@ -99,32 +101,61 @@ export default function QRPaymentRequests() {
 
   const fetchRequests = async (silent = false) => {
     if (!silent) setLoading(true);
+    else setFetchingHistory(true);
     try {
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)')
-        .order('created_at', { ascending: false });
+        .select('*, users_profiles!inner(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)', { count: 'exact' });
 
+      // Apply Filters
       if (filter !== 'all') {
         query = query.eq('status', filter);
       }
 
-      const { data, error } = await query;
+      if (searchQuery) {
+        query = query.or(`utr_id.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%,users_profiles.name.ilike.%${searchQuery}%`);
+      }
+
+      if (amountFilter) {
+        query = query.eq('amount', parseFloat(amountFilter));
+      }
+
+      if (startDate) {
+        query = query.gte('created_at', new Date(startDate).toISOString());
+      }
+      if (endDate) {
+        const nextDay = new Date(endDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        query = query.lt('created_at', nextDay.toISOString());
+      }
+
+      // Pagination
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
       if (error) throw error;
 
-      // Fetch Admins for mapping
-      const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
-      const map: Record<string, string> = {};
-      admins?.forEach(a => {
-        map[a.mobile_number] = a.name || a.mobile_number;
-      });
-      setAdminMap(map);
+      // Fetch Admins for mapping (only once or cache it)
+      if (Object.keys(adminMap).length === 0) {
+        const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
+        const map: Record<string, string> = {};
+        admins?.forEach(a => {
+          map[a.mobile_number] = a.name || a.mobile_number;
+        });
+        setAdminMap(map);
+      }
 
       setRequests(data || []);
+      setTotalCount(count || 0);
     } catch (err) {
       console.error('Error fetching QR requests:', err);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
+      setFetchingHistory(false);
     }
   };
 
@@ -175,7 +206,7 @@ export default function QRPaymentRequests() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [filter]);
+  }, [filter, currentPage, searchQuery, startDate, endDate, amountFilter]);
 
   const handleStatusUpdate = async (id: string, type: 'approved' | 'rejected', customReason?: string) => {
     const targetId = id;
@@ -362,32 +393,7 @@ export default function QRPaymentRequests() {
     }
   };
 
-  const filteredRequests = requests.filter(req => {
-    const matchesAmount = !amountFilter || String(req.amount).includes(amountFilter);
-    const matchesSearch =
-      (req.utr_id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    const reqDate = new Date(req.created_at);
-    reqDate.setHours(0, 0, 0, 0);
-
-    const start = startDate ? new Date(startDate) : null;
-    if (start) start.setHours(0, 0, 0, 0);
-
-    const end = endDate ? new Date(endDate) : null;
-    if (end) end.setHours(0, 0, 0, 0);
-
-    const matchesStartDate = !start || reqDate >= start;
-    const matchesEndDate = !end || reqDate <= end;
-
-    return matchesSearch && matchesStartDate && matchesEndDate && matchesAmount;
-  });
-
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
-  const paginatedRequests = filteredRequests.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -462,7 +468,15 @@ export default function QRPaymentRequests() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
+        {fetchingHistory && (
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+            <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
+              <Loader2 className="animate-spin text-indigo-600" size={16} />
+              <span className="text-xs font-bold text-slate-600">Updating History...</span>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -488,7 +502,7 @@ export default function QRPaymentRequests() {
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
-              ) : filteredRequests.length === 0 ? (
+              ) : requests.length === 0 ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center">
                     <QrCode className="text-slate-200 mx-auto mb-4" size={48} />
@@ -496,7 +510,7 @@ export default function QRPaymentRequests() {
                   </td>
                 </tr>
               ) : (
-                paginatedRequests.map((req) => (
+                requests.map((req) => (
                   <React.Fragment key={req.id}>
                     <tr
                       onClick={() => {
@@ -866,10 +880,10 @@ export default function QRPaymentRequests() {
       </div>
 
       {/* Pagination */}
-      {!loading && filteredRequests.length > 0 && (
+      {!loading && requests.length > 0 && (
         <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
           <p className="text-sm text-slate-500 font-medium">
-            Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRequests.length)}</span> of <span className="text-slate-900 font-bold">{filteredRequests.length}</span> requests
+            Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of <span className="text-slate-900 font-bold">{totalCount}</span> requests
           </p>
           <div className="flex items-center gap-2">
             <button

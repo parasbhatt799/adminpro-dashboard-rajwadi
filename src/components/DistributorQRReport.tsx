@@ -40,99 +40,23 @@ export default function DistributorQRReport() {
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      const fetchAll = async (query: any) => {
-        let allData: any[] = [];
-        let from = 0;
-        const step = 1000;
-        while (true) {
-          const { data, error } = await query.range(from, from + step - 1);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          allData = [...allData, ...data];
-          if (data.length < step) break;
-          from += step;
-        }
-        return allData;
-      };
-
-      // 1. Fetch all distributors
-      const { data: distributors, error: distError } = await supabase
-        .from('users_profiles')
-        .select('id, firm_name, name, commission_balance')
-        .eq('role', 'distributor');
-
-      if (distError) throw distError;
-
-      // 2. Fetch all sub-users to map them to distributors
-      const subUserQuery = supabase
-        .from('users_profiles')
-        .select('id, distributor_id')
-        .not('distributor_id', 'is', null);
-
-      const allSubUsers = await fetchAll(subUserQuery);
-
-      // Create a map of distributor_id -> array of sub_user_ids
-      const distSubUserMap: Record<string, string[]> = {};
-      allSubUsers.forEach(u => {
-        if (!distSubUserMap[u.distributor_id!]) distSubUserMap[u.distributor_id!] = [];
-        distSubUserMap[u.distributor_id!].push(u.id);
+      const { data: rpcData, error: rpcError } = await supabase.rpc('get_distributor_profit_report', {
+        p_start_date: startDate ? `${startDate}T00:00:00` : null,
+        p_end_date: endDate ? `${endDate}T23:59:59` : null
       });
 
-      // 3. Fetch QR profits per distributor
-      let qrQuery = supabase
-        .from('payment_submissions')
-        .select('distributor_share, user_id')
-        .eq('status', 'approved');
+      if (rpcError) throw rpcError;
 
-      if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
-      if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
-
-      const qrData = await fetchAll(qrQuery);
-
-      // Create a map of user_id -> total qr profit
-      const userQrProfitMap: Record<string, number> = {};
-      qrData.forEach(q => {
-        userQrProfitMap[q.user_id] = (userQrProfitMap[q.user_id] || 0) + Number(q.distributor_share || 0);
-      });
-
-      // 4. Fetch Bill profits
-      let billQuery = supabase
-        .from('bill_submissions')
-        .select('distributor_share, user_id')
-        .eq('status', 'approved');
-
-      if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
-      if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
-
-      const billData = await fetchAll(billQuery);
-
-      const userBillProfitMap: Record<string, number> = {};
-      billData.forEach(b => {
-        userBillProfitMap[b.user_id] = (userBillProfitMap[b.user_id] || 0) + Number(b.distributor_share || 0);
-      });
-
-      // 5. Assemble final data
-      const finalReport: DistributorReportData[] = (distributors || []).map(dist => {
-        const subIds = distSubUserMap[dist.id] || [];
-        let qrProfit = 0;
-        let billProfit = 0;
-        
-        subIds.forEach(id => {
-          qrProfit += userQrProfitMap[id] || 0;
-          billProfit += userBillProfitMap[id] || 0;
-        });
-
-        return {
-          id: dist.id,
-          firm_name: dist.firm_name || 'N/A',
-          name: dist.name || 'N/A',
-          sub_user_count: subIds.length,
-          qr_profit: qrProfit,
-          bill_profit: billProfit,
-          total_profit: qrProfit + billProfit,
-          wallet_balance: Number(dist.commission_balance || 0)
-        };
-      });
+      const finalReport: DistributorReportData[] = (rpcData || []).map((dist: any) => ({
+        id: dist.distributor_id,
+        firm_name: dist.firm_name,
+        name: dist.distributor_name,
+        sub_user_count: Number(dist.sub_user_count),
+        qr_profit: Number(dist.qr_profit),
+        bill_profit: Number(dist.bill_profit),
+        total_profit: Number(dist.total_profit),
+        wallet_balance: Number(dist.wallet_balance)
+      }));
 
       setData(finalReport.sort((a, b) => b.total_profit - a.total_profit));
     } catch (err) {

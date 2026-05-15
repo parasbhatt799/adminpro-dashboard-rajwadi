@@ -50,59 +50,53 @@ export default function QRScreenshotGallery() {
   const DATES_PER_PAGE = 10;
 
   useEffect(() => {
-    fetchGalleryData();
+    fetchDates();
   }, []);
 
-  const fetchGalleryData = async () => {
+  const fetchDates = async () => {
     try {
       setLoading(true);
-      let allSubmissions: any[] = [];
-      let from = 0;
-      const step = 1000;
-      let hasMore = true;
-
-      while (hasMore) {
-        setProgress({ current: allSubmissions.length, total: 0 }); // Use 0 to indicate unknown total
-        const { data, error } = await supabase
-          .from('payment_submissions')
-          .select('*, qr_history!left(qr_name, whatsapp_number)')
-          .eq('status', 'approved')
-          .order('created_at', { ascending: false })
-          .range(from, from + step - 1);
-
-        if (error) throw error;
-        
-        if (!data || data.length === 0) {
-          hasMore = false;
-        } else {
-          allSubmissions = [...allSubmissions, ...data];
-          if (data.length < step) {
-            hasMore = false;
-          } else {
-            from += step;
-          }
-        }
-      }
-
-      console.log('Total Gallery Submissions Fetched:', allSubmissions.length);
-
-      const grouped: { [date: string]: ScreenshotGroup } = {};
+      const { data: rpcDates, error } = await supabase.rpc('get_gallery_dates');
+      if (error) throw error;
       
-      allSubmissions.forEach(sub => {
-        const date = sub.created_at.split('T')[0]; 
+      const sortedDates = (rpcDates || []).map((d: any) => d.audit_date);
+      setDates(sortedDates);
+      if (sortedDates.length > 0) {
+        setSelectedDate(sortedDates[0]);
+        fetchDateScreenshots(sortedDates[0]);
+      }
+    } catch (err) {
+      console.error('Error fetching gallery dates:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDateScreenshots = async (date: string) => {
+    try {
+      setLoading(true);
+      const { data: submissions, error } = await supabase
+        .from('payment_submissions')
+        .select('*, qr_history!left(qr_name, whatsapp_number)')
+        .eq('status', 'approved')
+        .gte('created_at', `${date}T00:00:00`)
+        .lte('created_at', `${date}T23:59:59`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const grouped: ScreenshotGroup = { date, qrs: {} };
+      
+      (submissions || []).forEach(sub => {
         const qrId = sub.qr_id || 'legacy';
         const qrName = (Array.isArray(sub.qr_history) ? sub.qr_history[0]?.qr_name : (sub.qr_history as any)?.qr_name) || 'Legacy QR';
         const whatsappNumber = (Array.isArray(sub.qr_history) ? sub.qr_history[0]?.whatsapp_number : (sub.qr_history as any)?.whatsapp_number);
 
-        if (!grouped[date]) {
-          grouped[date] = { date, qrs: {} };
+        if (!grouped.qrs[qrId]) {
+          grouped.qrs[qrId] = { name: qrName, whatsappNumber, screenshots: [] };
         }
 
-        if (!grouped[date].qrs[qrId]) {
-          grouped[date].qrs[qrId] = { name: qrName, whatsappNumber, screenshots: [] };
-        }
-
-        grouped[date].qrs[qrId].screenshots.push({
+        grouped.qrs[qrId].screenshots.push({
           id: sub.id,
           url: sub.proof_url,
           amount: sub.amount,
@@ -111,16 +105,19 @@ export default function QRScreenshotGallery() {
         });
       });
 
-      const sortedDates = Object.keys(grouped).sort((a, b) => b.localeCompare(a));
-      setData(grouped);
-      setDates(sortedDates);
-      if (sortedDates.length > 0) setSelectedDate(sortedDates[0]);
-
+      setData(prev => ({ ...prev, [date]: grouped }));
     } catch (err) {
-      console.error('Error fetching gallery data:', err);
+      console.error('Error fetching date screenshots:', err);
     } finally {
       setLoading(false);
-      setProgress(null);
+    }
+  };
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    setSelectedFolder(null);
+    if (!data[date]) {
+      fetchDateScreenshots(date);
     }
   };
 
@@ -280,10 +277,7 @@ export default function QRScreenshotGallery() {
               {dates.slice((datePage - 1) * DATES_PER_PAGE, datePage * DATES_PER_PAGE).map(date => (
                 <button
                   key={date}
-                  onClick={() => {
-                    setSelectedDate(date);
-                    setSelectedFolder(null);
-                  }}
+                  onClick={() => handleDateSelect(date)}
                   className={`w-full px-6 py-4 flex items-center justify-between transition-all group ${
                     selectedDate === date 
                       ? 'bg-indigo-50/50 text-indigo-600' 

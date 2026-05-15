@@ -53,31 +53,30 @@ export default function Dashboard() {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      // 0. Date Logic
-      let startDate: Date | null = null;
-      let endDate: Date | null = null;
+      let startDate: string | null = null;
+      let endDate: string | null = null;
       const now = new Date();
 
       switch (timeRange) {
         case 'today':
-          startDate = startOfDay(now);
-          endDate = endOfDay(now);
+          startDate = startOfDay(now).toISOString();
+          endDate = endOfDay(now).toISOString();
           break;
         case 'yesterday':
-          startDate = startOfYesterday();
-          endDate = endOfYesterday();
+          startDate = startOfYesterday().toISOString();
+          endDate = endOfYesterday().toISOString();
           break;
         case '7days':
-          startDate = startOfDay(subDays(now, 7));
-          endDate = endOfDay(now);
+          startDate = startOfDay(subDays(now, 7)).toISOString();
+          endDate = endOfDay(now).toISOString();
           break;
         case '30days':
-          startDate = startOfDay(subDays(now, 30));
-          endDate = endOfDay(now);
+          startDate = startOfDay(subDays(now, 30)).toISOString();
+          endDate = endOfYesterday().toISOString();
           break;
         case 'custom':
-          startDate = startOfDay(parseISO(customDates.start));
-          endDate = endOfDay(parseISO(customDates.end));
+          startDate = startOfDay(parseISO(customDates.start)).toISOString();
+          endDate = endOfDay(parseISO(customDates.end)).toISOString();
           break;
         case 'all':
         default:
@@ -85,128 +84,36 @@ export default function Dashboard() {
           endDate = null;
       }
 
-      // 1. Admin Wallet Balance (Always Lifetime)
-      const { data: qrSettingsData } = await supabase
-        .from('qr_settings')
-        .select('admin_balance')
-        .eq('id', 1)
-        .single();
+      const { data: rpcStats, error: rpcError } = await supabase.rpc('get_dashboard_stats', {
+        p_start_date: startDate,
+        p_end_date: endDate
+      });
 
-      const adminWalletBalance = Number(qrSettingsData?.admin_balance) || 0;
+      if (rpcError) throw rpcError;
 
-      // 2. Total Users Wallet Balance (Always Lifetime)
-      const { data: usersData, error: usersError } = await supabase
-        .from('users_profiles')
-        .select('wallet_balance');
+      const {
+        admin_wallet_balance,
+        total_user_wallet_balance,
+        active_users_count,
+        pending_kyc_count,
+        pending_bill_count,
+        pending_qr_count,
+        pending_payout_count,
+        range_qr_amount,
+        range_bill_amount,
+        range_payout_amount,
+        admin_qr_charges,
+        admin_bill_charges,
+        range_payout_charges,
+        range_withdrawals,
+        total_distributor_share
+      } = rpcStats;
 
-      if (usersError) throw usersError;
-      const totalWalletBalance = usersData?.reduce((acc, user) => acc + (Number(user.wallet_balance) || 0), 0) || 0;
-
-      // 3. Transactions (Filtered by Date)
-      let billQuery = supabase
-        .from('bill_submissions')
-        .select('*, users_profiles!user_id(*)')
-        .eq('status', 'approved');
-
-      let qrQuery = supabase
-        .from('payment_submissions')
-        .select(`
-          *, 
-          users_profiles!user_id(
-            *, 
-            distributor:distributor_id(admin_base_qr_charge, role)
-          )
-        `)
-        .eq('status', 'approved');
-
-      let pendingKycQuery = supabase.from('kyc_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
-      let pendingBillQuery = supabase.from('bill_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
-      let pendingQrQuery = supabase.from('payment_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
-      let activeUsersQuery = supabase.from('users_profiles').select('count', { count: 'exact', head: true }).eq('kyc_status', 'verified');
-      let payoutQuery = supabase.from('payout_submissions').select('amount, charge_amount').eq('status', 'approved');
-      let pendingPayoutQuery = supabase.from('payout_submissions').select('count', { count: 'exact', head: true }).eq('status', 'pending');
-      let withdrawalQuery = supabase.from('admin_withdrawals').select('amount');
-
-      if (startDate && endDate) {
-        billQuery = billQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
-        qrQuery = qrQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
-        payoutQuery = payoutQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
-        withdrawalQuery = withdrawalQuery.gte('created_at', startDate.toISOString()).lte('created_at', endDate.toISOString());
-      }
-
-      const fetchAll = async (query: any) => {
-        let allData: any[] = [];
-        let from = 0;
-        const step = 1000;
-        while (true) {
-          const { data, error } = await query.range(from, from + step - 1);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          allData = [...allData, ...data];
-          if (data.length < step) break;
-          from += step;
-        }
-        return allData;
-      };
-
-      const [billData, qrData, kycRes, pendingBillRes, pendingQrRes, activeUsersRes, withdrawalData, payoutData, pendingPayoutRes] = await Promise.all([
-        fetchAll(billQuery),
-        fetchAll(qrQuery),
-        pendingKycQuery,
-        pendingBillQuery,
-        pendingQrQuery,
-        activeUsersQuery,
-        fetchAll(withdrawalQuery),
-        fetchAll(payoutQuery),
-        pendingPayoutQuery
-      ]);
-
-      const pendingKycCount = kycRes.count || 0;
-      const pendingBillCount = pendingBillRes.count || 0;
-      const pendingQrCount = pendingQrRes.count || 0;
-      const pendingPayoutCount = pendingPayoutRes.count || 0;
-      const activeUsersCount = activeUsersRes.count || 0;
-
-      // Calculate Admin's share for QR Charges
-      const adminQrCharges = qrData.reduce((acc, curr: any) => {
-        // Use pre-calculated admin_share if available
-        if (curr.admin_share !== null && curr.admin_share !== undefined) {
-          return acc + Number(curr.admin_share);
-        }
-
-        let adminShare = Number(curr.charges) || 0;
-        const profile = curr.users_profiles;
-        if (profile?.distributor_id && profile?.distributor && (profile.distributor as any).role === 'distributor') {
-          const adminBasePercentage = Number((profile.distributor as any).admin_base_qr_charge) || 0;
-          adminShare = (Number(curr.amount) * adminBasePercentage) / 100;
-        }
-        return acc + adminShare;
-      }, 0);
-
-      const adminBillCharges = billData.reduce((acc, curr: any) => acc + (Number(curr.charges) || 0), 0);
-
-      const rangePayoutCharges = payoutData.reduce((acc, curr) => acc + (Number(curr.charge_amount) || 0), 0) || 0;
-      const rangeWithdrawals = withdrawalData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-
-      // Calculate Total Distributor Share
-      const totalDistributorShare = [...qrData, ...billData].reduce((acc, curr: any) => acc + (Number(curr.distributor_share) || 0), 0);
-
-      const rangeBillAmount = billData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-      const rangeQrAmount = qrData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-      const rangePayoutAmount = payoutData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-
-      const totalEarnings = (adminBillCharges || 0) + (adminQrCharges || 0) + (rangePayoutCharges || 0);
-
-      // Total Service Charge should represent the GROSS earnings (Admin Profit + Distributor Profit)
-      const displayServiceCharge = totalEarnings + totalDistributorShare;
-
-      // We still keep netBalance for potentially showing "Available Balance" elsewhere
-      const netBalance = totalEarnings - (rangeWithdrawals || 0);
-
-      const rangeTotalCCBill = rangeBillAmount || 0;
+      const totalEarnings = (admin_bill_charges || 0) + (admin_qr_charges || 0) + (range_payout_charges || 0);
+      const displayServiceCharge = totalEarnings + total_distributor_share;
 
       const dateDisplay = startDate && endDate
-        ? `${format(startDate, 'dd MMM')} - ${format(endDate, 'dd MMM')}`
+        ? `${format(parseISO(startDate), 'dd MMM')} - ${format(parseISO(endDate), 'dd MMM')}`
         : 'Lifetime';
 
       const formatCurrency = (val: number) => {
@@ -217,25 +124,25 @@ export default function Dashboard() {
       setStats([
         {
           title: "Total QR Payments",
-          value: formatCurrency(rangeQrAmount),
+          value: formatCurrency(range_qr_amount),
           icon: QrCode,
           color: "bg-blue-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Total CC Bill",
-          value: formatCurrency(rangeTotalCCBill),
+          value: formatCurrency(range_bill_amount),
           icon: CreditCard,
           color: "bg-purple-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Total User Wallet",
-          value: formatCurrency(totalWalletBalance),
+          value: formatCurrency(total_user_wallet_balance),
           icon: Wallet,
           color: "bg-amber-500",
           description: "Lifetime Total",
-          badge: `${activeUsersCount} Active Users`
+          badge: `${active_users_count} Active Users`
         },
         {
           title: "Total Service Charge",
@@ -246,28 +153,28 @@ export default function Dashboard() {
         },
         {
           title: "QR Payment Charges",
-          value: formatCurrency(adminQrCharges),
+          value: formatCurrency(admin_qr_charges),
           icon: QrCode,
           color: "bg-emerald-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Bill Payment Charge",
-          value: formatCurrency(adminBillCharges),
+          value: formatCurrency(admin_bill_charges),
           icon: CreditCard,
           color: "bg-indigo-500",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Total Distributor Charge",
-          value: formatCurrency(totalDistributorShare),
+          value: formatCurrency(total_distributor_share),
           icon: User,
           color: "bg-orange-500",
           description: `Distributor Profit: ${dateDisplay}`
         },
         {
           title: "Payout Service Charge",
-          value: formatCurrency(rangePayoutCharges),
+          value: formatCurrency(range_payout_charges),
           icon: TrendingDown,
           color: "bg-amber-600",
           description: `Range: ${dateDisplay}`
@@ -277,19 +184,19 @@ export default function Dashboard() {
           value: (
             <div className="flex flex-row items-center gap-1.5 mt-1">
               <div className="flex flex-col items-center bg-emerald-50 px-2 py-1.5 rounded-xl border border-emerald-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-emerald-700 leading-none">{pendingQrCount}</span>
+                <span className="text-lg font-black text-emerald-700 leading-none">{pending_qr_count}</span>
                 <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">QR</span>
               </div>
               <div className="flex flex-col items-center bg-indigo-50 px-2 py-1.5 rounded-xl border border-indigo-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-indigo-700 leading-none">{pendingBillCount}</span>
+                <span className="text-lg font-black text-indigo-700 leading-none">{pending_bill_count}</span>
                 <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">Bill</span>
               </div>
               <div className="flex flex-col items-center bg-amber-50 px-2 py-1.5 rounded-xl border border-amber-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-amber-700 leading-none">{pendingPayoutCount}</span>
+                <span className="text-lg font-black text-amber-700 leading-none">{pending_payout_count}</span>
                 <span className="text-[10px] font-bold text-amber-500 uppercase tracking-tighter">Pay</span>
               </div>
               <div className="flex flex-col items-center bg-orange-50 px-2 py-1.5 rounded-xl border border-orange-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-orange-700 leading-none">{pendingKycCount}</span>
+                <span className="text-lg font-black text-orange-700 leading-none">{pending_kyc_count}</span>
                 <span className="text-[10px] font-bold text-orange-500 uppercase tracking-tighter">KYC</span>
               </div>
             </div>
@@ -301,7 +208,7 @@ export default function Dashboard() {
         {
           title: "Quick Refresh",
           value: (
-            <button 
+            <button
               onClick={() => window.location.reload()}
               className="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 active:scale-95"
             >

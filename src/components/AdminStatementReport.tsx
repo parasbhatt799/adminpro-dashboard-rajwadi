@@ -58,7 +58,7 @@ export default function AdminStatementReport() {
     setLoading(true);
 
     try {
-      // 1. Get current aggregate wallet balance AND individual user balances
+      // 1. Get current aggregate wallet balance
       const { data: usersData, error: usersError } = await supabase
         .from('users_profiles')
         .select('id, wallet_balance');
@@ -74,7 +74,17 @@ export default function AdminStatementReport() {
       });
       setCurrentTotalWallet(totalWallet);
 
-      // 2. Fetch All Transactions
+      // 2. Calculate Opening Balance using optimized RPC
+      let opBal = 0;
+      if (startDate) {
+        const { data, error } = await supabase.rpc('get_opening_balance', {
+          p_user_id: null,
+          p_start_date: `${startDate}T00:00:00`
+        });
+        if (!error) opBal = Number(data) || 0;
+      }
+
+      // 3. Fetch All Transactions
       const fetchAll = async (query: any) => {
         let allData: any[] = [];
         let from = 0;
@@ -121,7 +131,7 @@ export default function AdminStatementReport() {
         fetchAll(payoutQuery)
       ]);
 
-      // 3. Map into Unified Format
+      // 4. Map into Unified Format
       const qrMapped: UnifiedRecord[] = (qrData || []).map(r => ({
         id: r.id,
         numericId: String(r.id).split('-')[0].toUpperCase(),
@@ -227,12 +237,12 @@ export default function AdminStatementReport() {
         }
       });
 
-      // 4. Sort all by date (Newest First)
+      // 5. Sort all by date (Newest First)
       const allTransactions = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      // 5. Apply Backward Running Balances (System-wide AND Per-User)
+      // 6. Apply Backward Running Balances (System-wide AND Per-User)
       let systemRunningBalance = totalWallet;
       const perUserRunningBalance: Record<string, number> = { ...userBalanceMap };
 
@@ -275,7 +285,7 @@ export default function AdminStatementReport() {
       // The remaining 'systemRunningBalance' represents opening system adjustment
       setOpeningBalance(systemRunningBalance);
 
-      // 6. Apply UI Filters (Optimistic - we do it in JS since we fetched all for the anchor logic)
+      // 7. Apply UI Filters (Optimistic - we do it in JS since we fetched all for the anchor logic)
       let filtered = transactionsWithBalance;
 
       if (firmName.trim()) {

@@ -59,6 +59,8 @@ export default function BillPaymentRequests() {
   const [endDate, setEndDate] = useState('');
   const [isBillEnabled, setIsBillEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [fetchingHistory, setFetchingHistory] = useState(false);
   const itemsPerPage = 10;
 
   const clearFilters = () => {
@@ -71,32 +73,57 @@ export default function BillPaymentRequests() {
 
   const fetchRequests = async (silent = false) => {
     if (!silent) setLoading(true);
+    else setFetchingHistory(true);
     try {
       let query = supabase
         .from('bill_submissions')
-        .select('*, users_profiles(name, firm_name, profile_photo_url)')
-        .order('created_at', { ascending: false });
+        .select('*, users_profiles!inner(name, firm_name, profile_photo_url)', { count: 'exact' });
 
+      // Apply Filters
       if (filter !== 'all') {
         query = query.eq('status', filter);
       }
 
-      const { data, error } = await query;
+      if (searchQuery) {
+        query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%`);
+      }
+
+      if (startDate) {
+        query = query.gte('created_at', new Date(startDate).toISOString());
+      }
+      if (endDate) {
+        const nextDay = new Date(endDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        query = query.lt('created_at', nextDay.toISOString());
+      }
+
+      // Pagination
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
+
       if (error) throw error;
 
       // Fetch Admins for mapping
-      const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
-      const map: Record<string, string> = {};
-      admins?.forEach(a => {
-        map[a.mobile_number] = a.name || a.mobile_number;
-      });
-      setAdminMap(map);
+      if (Object.keys(adminMap).length === 0) {
+        const { data: admins } = await supabase.from('admin_profiles').select('mobile_number, name');
+        const map: Record<string, string> = {};
+        admins?.forEach(a => {
+          map[a.mobile_number] = a.name || a.mobile_number;
+        });
+        setAdminMap(map);
+      }
 
       setRequests(data || []);
+      setTotalCount(count || 0);
     } catch (err) {
       console.error('Error fetching bill requests:', err);
     } finally {
-      if (!silent) setLoading(false);
+      setLoading(false);
+      setFetchingHistory(false);
     }
   };
 
@@ -186,7 +213,7 @@ export default function BillPaymentRequests() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [filter]);
+  }, [filter, currentPage, searchQuery, startDate, endDate]);
 
   const handleRefund = async (id: string) => {
     setProcessingId(id);
@@ -330,33 +357,7 @@ export default function BillPaymentRequests() {
     }
   };
 
-  const filteredRequests = requests.filter(req => {
-    const matchesSearch =
-      req.customer_mobile.includes(searchQuery) ||
-      req.card_number.includes(searchQuery) ||
-      req.card_owner_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase());
-
-    const reqDate = new Date(req.created_at);
-    reqDate.setHours(0, 0, 0, 0);
-
-    const start = startDate ? new Date(startDate) : null;
-    if (start) start.setHours(0, 0, 0, 0);
-
-    const end = endDate ? new Date(endDate) : null;
-    if (end) end.setHours(0, 0, 0, 0);
-
-    const matchesStartDate = !start || reqDate >= start;
-    const matchesEndDate = !end || reqDate <= end;
-
-    return matchesSearch && matchesStartDate && matchesEndDate;
-  });
-
-  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
-  const paginatedRequests = filteredRequests.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -440,7 +441,15 @@ export default function BillPaymentRequests() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
+        {fetchingHistory && (
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+            <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
+              <Loader2 className="animate-spin text-indigo-600" size={16} />
+              <span className="text-xs font-bold text-slate-600">Updating History...</span>
+            </div>
+          </div>
+        )}
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -463,7 +472,7 @@ export default function BillPaymentRequests() {
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
-              ) : filteredRequests.length === 0 ? (
+              ) : requests.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
                     <Receipt className="text-slate-200 mx-auto mb-4" size={48} />
@@ -471,7 +480,7 @@ export default function BillPaymentRequests() {
                   </td>
                 </tr>
               ) : (
-                paginatedRequests.map((req) => (
+                requests.map((req) => (
                   <React.Fragment key={req.id}>
                     <tr
                       onClick={() => {
@@ -689,10 +698,10 @@ export default function BillPaymentRequests() {
       </div>
 
       {/* Pagination */}
-      {!loading && filteredRequests.length > 0 && (
+      {!loading && requests.length > 0 && (
         <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-200 rounded-3xl shadow-sm">
           <p className="text-sm text-slate-500 font-medium">
-            Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, filteredRequests.length)}</span> of <span className="text-slate-900 font-bold">{filteredRequests.length}</span> requests
+            Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of <span className="text-slate-900 font-bold">{totalCount}</span> requests
           </p>
           <div className="flex items-center gap-2">
             <button

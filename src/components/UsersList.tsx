@@ -68,11 +68,13 @@ export default function UsersList({ adminRole }: UsersListProps) {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [pageSize, setPageSize] = useState(10);
+  const [fetchingHistory, setFetchingHistory] = useState(false);
 
   const fetchUsers = async (isLoadMore = false) => {
     if (isLoadMore) setLoadingMore(true);
     else {
       setLoading(true);
+      setFetchingHistory(true);
       setPage(0);
     }
 
@@ -120,6 +122,7 @@ export default function UsersList({ adminRole }: UsersListProps) {
     } finally {
       setLoading(false);
       setLoadingMore(false);
+      setFetchingHistory(false);
     }
   };
 
@@ -141,7 +144,7 @@ export default function UsersList({ adminRole }: UsersListProps) {
         table: 'users_profiles'
       }, (payload) => {
         if (payload.eventType === 'INSERT') {
-          setUsers(prev => [payload.new, ...prev].slice(0, pageSize));
+          setUsers(prev => [payload.new, ...prev]);
         } else if (payload.eventType === 'UPDATE') {
           setUsers(prev => prev.map(u => u.id === payload.new.id ? payload.new : u));
         } else if (payload.eventType === 'DELETE') {
@@ -472,7 +475,15 @@ export default function UsersList({ adminRole }: UsersListProps) {
       </div>
 
       {/* Users Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col relative">
+        {fetchingHistory && (
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+            <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
+              <Loader2 className="animate-spin text-indigo-600" size={16} />
+              <span className="text-xs font-bold text-slate-600">Updating Users...</span>
+            </div>
+          </div>
+        )}
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
             <Loader2 className="animate-spin text-indigo-500" size={32} />

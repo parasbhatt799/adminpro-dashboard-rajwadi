@@ -132,11 +132,11 @@ export default function QRManagement() {
           break;
         case '7days':
           startDate = startOfDay(subDays(now, 7)).toISOString();
-          endDate = endOfDay(now).toISOString();
+          endDate = endOfYesterday().toISOString();
           break;
         case '30days':
           startDate = startOfDay(subDays(now, 30)).toISOString();
-          endDate = endOfDay(now).toISOString();
+          endDate = endOfYesterday().toISOString();
           break;
         case 'custom':
           if (historyCustomDates.start && historyCustomDates.end) {
@@ -146,7 +146,7 @@ export default function QRManagement() {
           break;
       }
 
-      // Single RPC call to get all stats at once
+      // Single optimized RPC call
       const { data: history, error: rpcError } = await supabase.rpc('get_qr_history_with_stats', {
         time_start: startDate,
         time_end: endDate,
@@ -155,7 +155,7 @@ export default function QRManagement() {
 
       if (rpcError) throw rpcError;
 
-      if (history && history.length > 0) {
+      if (history) {
         const enrichedHistory = history.map((item: any) => ({
           ...item,
           counts: {
@@ -169,9 +169,10 @@ export default function QRManagement() {
           }
         }));
 
+        // Filter: Only show rows that have activity in the selected time range
         const filtered = enrichedHistory.filter(item => {
           if (historyTimeRange === 'all') return true;
-          return (item.counts?.total || 0) > 0;
+          return Number(item.total_count) > 0;
         });
 
         setQrHistory(filtered);
@@ -199,6 +200,7 @@ export default function QRManagement() {
     setHistoryTimeRange('today');
     setHistoryQrSearch('');
     setShowHistoryFilter(false);
+    setCurrentPage(1);
   };
 
   const fetchMasterList = async () => {
@@ -238,7 +240,7 @@ export default function QRManagement() {
 
       setSuccess('QR details updated successfully');
       setEditingHistoryId(null);
-      fetchQRData(); // Refresh counts and names
+      fetchQRData(); 
     } catch (err) {
       console.error('Error updating history:', err);
       setError('Failed to update QR details');
@@ -270,7 +272,7 @@ export default function QRManagement() {
   };
 
   const deleteHistoryRow = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this QR history record? Payments linked to this QR will remain in the database but will no longer be linked to this history entry.')) return;
+    if (!window.confirm('Are you sure you want to delete this QR history record?')) return;
 
     try {
       setHistoryLoading(true);
@@ -284,7 +286,7 @@ export default function QRManagement() {
       fetchQRData();
     } catch (err) {
       console.error('Error deleting history:', err);
-      setError('Failed to delete history record. It may be linked to existing payments.');
+      setError('Failed to delete history record.');
     } finally {
       setHistoryLoading(false);
     }
@@ -294,7 +296,8 @@ export default function QRManagement() {
     fetchQRData();
     fetchMasterList();
 
-    // Listen for new submissions to update counts in real-time
+    // Debounced real-time listener to avoid heavy refetches
+    let timeoutId: any;
     const channel = supabase
       .channel('qr_submissions_tracking')
       .on('postgres_changes', {
@@ -302,12 +305,16 @@ export default function QRManagement() {
         schema: 'public',
         table: 'payment_submissions'
       }, () => {
-        fetchQRData();
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          fetchQRData();
+        }, 5000); // Wait 5 seconds after changes before refetching
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      clearTimeout(timeoutId);
     };
   }, [historyTimeRange, historyCustomDates, historyQrSearch]);
 

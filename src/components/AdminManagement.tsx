@@ -146,7 +146,7 @@ interface AdminManagementProps {
       // 2. Create or Update in admin_profiles table
       const { error: dbError } = await supabase
         .from('admin_profiles')
-        .insert([{ 
+        .upsert([{ 
           mobile_number: newAdminMobile, 
           name: newAdminName,
           password: newAdminPassword,

@@ -104,6 +104,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [payoutEndDate, setPayoutEndDate] = useState('');
   const [payoutPage, setPayoutPage] = useState(1);
 
+  // Total Counts for Server-side Pagination
+  const [totalQrCount, setTotalQrCount] = useState(0);
+  const [totalBillCount, setTotalBillCount] = useState(0);
+  const [totalPayoutCount, setTotalPayoutCount] = useState(0);
+  const [fetchingHistory, setFetchingHistory] = useState({ qr: false, bill: false, payout: false });
+
   const itemsPerPage = 10;
 
   const clearQrFilters = () => {
@@ -135,6 +141,101 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [userBalance, setUserBalance] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
+
+  const fetchQrHistory = async () => {
+    setFetchingHistory(prev => ({ ...prev, qr: true }));
+    try {
+      let query = supabase
+        .from('payment_submissions')
+        .select('*, qr_history(qr_name)', { count: 'exact' })
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (qrSearch) query = query.ilike('utr_id', `%${qrSearch}%`);
+      if (qrStatus !== 'all') query = query.eq('status', qrStatus);
+      if (qrAmountSearch) query = query.eq('amount', qrAmountSearch);
+      if (qrStartDate) query = query.gte('created_at', new Date(qrStartDate).toISOString());
+      if (qrEndDate) {
+        const end = new Date(qrEndDate);
+        end.setHours(23, 59, 59, 999);
+        query = query.lte('created_at', end.toISOString());
+      }
+
+      const from = (qrPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, count, error } = await query.range(from, to);
+      if (!error) {
+        setQrRequests(data || []);
+        setTotalQrCount(count || 0);
+      }
+    } finally {
+      setFetchingHistory(prev => ({ ...prev, qr: false }));
+    }
+  };
+
+  const fetchBillHistory = async () => {
+    setFetchingHistory(prev => ({ ...prev, bill: true }));
+    try {
+      let query = supabase
+        .from('bill_submissions')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (billSearch) query = query.or(`card_number.ilike.%${billSearch}%,card_owner_name.ilike.%${billSearch}%`);
+      if (billStatus !== 'all') query = query.eq('status', billStatus);
+      if (billAmountSearch) query = query.eq('bill_amount', billAmountSearch);
+      if (billStartDate) query = query.gte('created_at', new Date(billStartDate).toISOString());
+      if (billEndDate) {
+        const end = new Date(billEndDate);
+        end.setHours(23, 59, 59, 999);
+        query = query.lte('created_at', end.toISOString());
+      }
+
+      const from = (billPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, count, error } = await query.range(from, to);
+      if (!error) {
+        setBillRequests(data || []);
+        setTotalBillCount(count || 0);
+      }
+    } finally {
+      setFetchingHistory(prev => ({ ...prev, bill: false }));
+    }
+  };
+
+  const fetchPayoutHistory = async () => {
+    setFetchingHistory(prev => ({ ...prev, payout: true }));
+    try {
+      let query = supabase
+        .from('payout_submissions')
+        .select('*', { count: 'exact' })
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (payoutSearch) query = query.or(`account_number.ilike.%${payoutSearch}%,holder_name.ilike.%${payoutSearch}%`);
+      if (payoutStatus !== 'all') query = query.eq('status', payoutStatus);
+      if (payoutStartDate) query = query.gte('created_at', new Date(payoutStartDate).toISOString());
+      if (payoutEndDate) {
+        const end = new Date(payoutEndDate);
+        end.setHours(23, 59, 59, 999);
+        query = query.lte('created_at', end.toISOString());
+      }
+
+      const from = (payoutPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, count, error } = await query.range(from, to);
+      if (!error) {
+        setPayoutRequests(data || []);
+        setTotalPayoutCount(count || 0);
+      }
+    } finally {
+      setFetchingHistory(prev => ({ ...prev, payout: false }));
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -236,21 +337,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setBanks(bankData || []);
         }
 
-        // Fetch Initial Requests - Fetch more for pagination/filtering
-        const { data: qrReqs } = await supabase
-          .from('payment_submissions')
-          .select('*, qr_history(qr_name)')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        setQrRequests(qrReqs || []);
-
-        const { data: billReqs } = await supabase
-          .from('bill_submissions')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        setBillRequests(billReqs || []);
-
         // Fetch Payout Banks
         const { data: pBankData } = await supabase
           .from('bank_details')
@@ -273,13 +359,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setActiveTab('qr');
         }
 
-        // Fetch Payout Requests
-        const { data: pReqs } = await supabase
-          .from('payout_submissions')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        setPayoutRequests(pReqs || []);
+        // Fetch Initial Requests - Just for the first page
+        fetchQrHistory();
+        fetchBillHistory();
+        fetchPayoutHistory();
 
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -300,7 +383,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         table: 'payment_submissions'
       }, async (payload: any) => {
         if (payload.new && payload.new.user_id === userId) {
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          if (payload.eventType === 'INSERT') {
+            // Re-fetch everything for QR to ensure correct pagination and counts
+            fetchQrHistory();
+          } else if (payload.eventType === 'UPDATE') {
             // Fetch the full record with join for real-time updates too
             const { data: fullRecord } = await supabase
               .from('payment_submissions')
@@ -309,19 +395,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
               .single();
             
             const updatedRecord = fullRecord || payload.new;
-
-            if (payload.eventType === 'INSERT') {
-              setQrRequests(prev => {
-                if (prev.some(req => req.id === updatedRecord.id)) return prev;
-                return [updatedRecord, ...prev];
-              });
-            } else if (payload.eventType === 'UPDATE') {
-              setQrRequests(prev => prev.map(req => req.id === updatedRecord.id ? updatedRecord : req));
-            }
-          } // closes: if (payload.eventType === 'INSERT' || 'UPDATE')
-        } // closes: if (payload.new && payload.new.user_id === userId)
+            setQrRequests(prev => prev.map(req => req.id === updatedRecord.id ? updatedRecord : req));
+          }
+        }
         if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
-          setQrRequests(prev => prev.filter(req => req.id !== payload.old.id));
+          fetchQrHistory();
         }
       })
       .subscribe();
@@ -338,18 +416,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
             setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
           }
         } 
-        // Handle INSERT event
         else if (payload.eventType === 'INSERT' && payload.new) {
           if (payload.new.user_id === userId) {
-            setBillRequests(prev => {
-              if (prev.some(req => req.id === payload.new.id)) return prev;
-              return [payload.new, ...prev];
-            });
+            fetchBillHistory();
           }
         }
-        // Handle DELETE event
         else if (payload.eventType === 'DELETE' && payload.old) {
-          setBillRequests(prev => prev.filter(req => req.id !== payload.old.id));
+          fetchBillHistory();
         }
       })
       .subscribe();
@@ -363,16 +436,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       }, (payload: any) => {
         if (payload.new && payload.new.user_id === userId) {
           if (payload.eventType === 'INSERT') {
-            setPayoutRequests(prev => {
-              if (prev.some(req => req.id === payload.new.id)) return prev;
-              return [payload.new, ...prev];
-            });
+            fetchPayoutHistory();
           } else if (payload.eventType === 'UPDATE') {
             setPayoutRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
           }
         }
         if (payload.eventType === 'DELETE' && payload.old && payload.old.user_id === userId) {
-          setPayoutRequests(prev => prev.filter(req => req.id !== payload.old.id));
+          fetchPayoutHistory();
         }
       })
       .subscribe();
@@ -473,6 +543,26 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       supabase.removeChannel(slabChannel);
     };
   }, [userId, activeTab]);
+
+  // Trigger re-fetch when page or filters change
+  useEffect(() => {
+    fetchQrHistory();
+    // Scroll to history section when page changes
+    const el = document.getElementById('qr-history-table');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [qrPage, qrSearch, qrStatus, qrAmountSearch, qrStartDate, qrEndDate]);
+
+  useEffect(() => {
+    fetchBillHistory();
+    const el = document.getElementById('bill-history-table');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [billPage, billSearch, billStatus, billAmountSearch, billStartDate, billEndDate]);
+
+  useEffect(() => {
+    fetchPayoutHistory();
+    const el = document.getElementById('payout-history-list');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [payoutPage, payoutSearch, payoutStatus, payoutStartDate, payoutEndDate]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -1138,7 +1228,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                 </div>
 
                 {/* Recent QR Requests */}
-                <div className="mt-12 space-y-4">
+                <div id="qr-history-table" className="mt-12 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">QR Payment History</h3>
                     <div className="flex flex-wrap items-center gap-3">
@@ -1218,28 +1308,18 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                   <div className="grid grid-cols-1 gap-3">
                     {(() => {
-                      const filtered = qrRequests.filter(req => {
-                        const matchesSearch = req.utr_id.toLowerCase().includes(qrSearch.toLowerCase());
-                        const matchesStatus = qrStatus === 'all' || req.status === qrStatus;
-                        
-                        const reqDate = new Date(req.created_at);
-                        reqDate.setHours(0, 0, 0, 0);
-                        const start = qrStartDate ? new Date(qrStartDate) : null;
-                        if (start) start.setHours(0, 0, 0, 0);
-                        const end = qrEndDate ? new Date(qrEndDate) : null;
-                        if (end) end.setHours(0, 0, 0, 0);
-                        
-                        const matchesStartDate = !start || reqDate >= start;
-                        const matchesEndDate = !end || reqDate <= end;
-                        const matchesAmount = !qrAmountSearch || req.amount.toString().includes(qrAmountSearch);
-                        
-                        return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate && matchesAmount;
-                      });
+                      const totalPages = Math.ceil(totalQrCount / itemsPerPage);
 
-                      const totalPages = Math.ceil(filtered.length / itemsPerPage);
-                      const paginated = filtered.slice((qrPage - 1) * itemsPerPage, qrPage * itemsPerPage);
+                      if (fetchingHistory.qr) {
+                        return (
+                          <div className="p-12 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                            <Loader2 className="animate-spin text-indigo-600" size={32} />
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Updating History...</p>
+                          </div>
+                        );
+                      }
 
-                      if (filtered.length === 0) {
+                      if (qrRequests.length === 0) {
                         return (
                           <div className="p-8 bg-slate-50 rounded-2xl text-center border border-dashed border-slate-200">
                             <p className="text-sm text-slate-400 font-medium">No requests found</p>
@@ -1249,8 +1329,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       return (
                         <>
-                          {paginated.map((req) => (
+                          {qrRequests.map((req) => (
                             <React.Fragment key={req.id}>
+                              {/* ... (existing row code) ... */}
                               <div 
                                 id={`qr-row-${req.id}`}
                                 onClick={() => {
@@ -1260,100 +1341,51 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 }}
                                className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-10 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
                               >
-                                {/* Date / Time */}
                                 <div className="text-center">
                                   <p className="text-[11px] font-bold text-slate-900">{new Date(req.created_at).toLocaleDateString()}</p>
                                   <p className="text-[10px] text-slate-400 font-medium">{new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}</p>
                                 </div>
-
-                                 {/* UTR ID */}
-                                 <div className="text-center">
-                                   <p className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md inline-block">
-                                     {req.utr_id}
-                                   </p>
-                                 </div>
-
-                                 {/* Card No */}
-                                 <div className="text-center">
-                                   <p className="text-[11px] font-bold text-slate-900">
-                                     {req.card_number || '****'}
-                                   </p>
-                                 </div>
-
-                                {/* QR Name */}
                                 <div className="text-center">
-                                  <p className="text-[11px] font-bold text-slate-600">
-                                    {(req as any).qr_history?.qr_name || 'N/A'}
-                                  </p>
+                                  <p className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md inline-block">{req.utr_id}</p>
                                 </div>
-
-                                {/* Amount */}
+                                <div className="text-center">
+                                  <p className="text-[11px] font-bold text-slate-900">{req.card_number || '****'}</p>
+                                </div>
+                                <div className="text-center">
+                                  <p className="text-[11px] font-bold text-slate-600">{(req as any).qr_history?.qr_name || 'N/A'}</p>
+                                </div>
                                 <div className="text-center">
                                   <p className="text-sm font-bold text-slate-900">₹{Number(req.amount).toFixed(2)}</p>
                                 </div>
-
-                                {/* Charges */}
                                 <div className="text-center">
                                   <p className="text-sm font-bold text-emerald-600">₹{Number(req.charges || 0).toFixed(2)}</p>
                                 </div>
-
-                                {/* Credited Amount */}
                                 <div className="text-center">
                                   <p className="text-sm font-bold text-indigo-600">₹{(Number(req.amount) - Number(req.charges || 0)).toFixed(2)}</p>
                                 </div>
-
-                                {/* Reason */}
                                 <div className="flex justify-center">
                                   {req.status === 'rejected' ? (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setExpandedRowId(expandedRowId === req.id ? null : req.id);
-                                      }}
-                                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg flex items-center gap-1"
-                                    >
+                                    <button onClick={(e) => { e.stopPropagation(); setExpandedRowId(expandedRowId === req.id ? null : req.id); }} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-2 py-1 rounded-lg flex items-center gap-1">
                                       {expandedRowId === req.id ? 'Hide' : 'View'}
                                     </button>
-                                  ) : (
-                                    <p className="text-[11px] font-medium text-slate-500">-</p>
-                                  )}
+                                  ) : <p className="text-[11px] font-medium text-slate-500">-</p>}
                                 </div>
-
-                                {/* Status */}
                                 <div className="flex justify-center">
-                                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
-                                    req.status === 'rejected' ? 'bg-rose-50 text-rose-500' :
-                                    'bg-amber-50 text-amber-600'
-                                  }`}>
+                                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' : req.status === 'rejected' ? 'bg-rose-50 text-rose-500' : 'bg-amber-50 text-amber-600'}`}>
                                     {req.status}
                                   </span>
                                 </div>
-
-                                {/* Proof */}
                                 <div className="flex justify-center">
                                   {req.proof_url && (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedProof(req.proof_url);
-                                      }}
-                                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-lg"
-                                    >
-                                      View
-                                      <ExternalLink size={10} />
+                                    <button onClick={(e) => { e.stopPropagation(); setSelectedProof(req.proof_url); }} className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded-lg">
+                                      View <ExternalLink size={10} />
                                     </button>
                                   )}
                                 </div>
                               </div>
                               <AnimatePresence>
                                 {expandedRowId === req.id && (
-                                  <motion.div 
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    className="overflow-hidden"
-                                  >
+                                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden">
                                     <div className="mt-2 p-4 bg-rose-50/50 border border-rose-100 rounded-2xl flex items-center justify-between gap-4">
                                       <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 bg-rose-100 rounded-xl flex items-center justify-center text-rose-600">
@@ -1364,11 +1396,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                           <p className="text-sm font-bold text-slate-900">{req.rejection_reason || 'No reason provided'}</p>
                                         </div>
                                       </div>
-                                      <button 
-                                        onClick={() => setExpandedRowId(null)}
-                                        className="p-2 bg-white border border-rose-100 text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center shadow-sm"
-                                        title="Shrink"
-                                      >
+                                      <button onClick={() => setExpandedRowId(null)} className="p-2 bg-white border border-rose-100 text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center shadow-sm">
                                         <ChevronUp size={16} />
                                       </button>
                                     </div>
@@ -1378,11 +1406,28 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                             </React.Fragment>
                           ))}
 
+                          {/* Summary Row */}
+                          <div className="bg-emerald-100/80 p-4 md:px-6 rounded-2xl border border-emerald-200 shadow-sm grid grid-cols-1 md:grid-cols-10 gap-4 items-center mt-2">
+                            <div className="md:col-span-4 text-center md:text-left">
+                              <span className="text-[10px] font-black text-emerald-800 uppercase tracking-[0.2em]">Page Summary</span>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs font-black text-slate-900">₹{qrRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + Number(r.amount), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs font-black text-emerald-700">₹{qrRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + Number(r.charges || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs font-black text-indigo-700">₹{qrRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + (Number(r.amount) - Number(r.charges || 0)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="md:col-span-3"></div>
+                          </div>
+
                           {/* Pagination */}
                           {totalPages > 1 && (
                             <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm mt-4">
                               <p className="text-xs text-slate-500 font-medium">
-                                Showing <span className="text-slate-900 font-bold">{(qrPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(qrPage * itemsPerPage, filtered.length)}</span> of <span className="text-slate-900 font-bold">{filtered.length}</span>
+                                Showing <span className="text-slate-900 font-bold">{(qrPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(qrPage * itemsPerPage, totalQrCount)}</span> of <span className="text-slate-900 font-bold">{totalQrCount}</span>
                               </p>
                               <div className="flex items-center gap-2">
                                 <button 
@@ -1589,7 +1634,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
               )}
 
               {/* Recent Bill Requests */}
-                <div className="mt-12 space-y-4">
+                <div id="bill-history-table" className="mt-12 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">Bill Payment History</h3>
                     <div className="flex flex-wrap items-center gap-3">
@@ -1667,31 +1712,18 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                   <div className="grid grid-cols-1 gap-3">
                     {(() => {
-                      const filtered = billRequests.filter(req => {
-                        const matchesSearch = 
-                          req.customer_mobile.includes(billSearch) ||
-                          req.card_owner_name.toLowerCase().includes(billSearch.toLowerCase());
-                        const matchesStatus = billStatus === 'all' || req.status === billStatus;
-                        
-                        const reqDate = new Date(req.created_at);
-                        reqDate.setHours(0, 0, 0, 0);
-                        const start = billStartDate ? new Date(billStartDate) : null;
-                        if (start) start.setHours(0, 0, 0, 0);
-                        const end = billEndDate ? new Date(billEndDate) : null;
-                        if (end) end.setHours(0, 0, 0, 0);
-                        
-                        const matchesStartDate = !start || reqDate >= start;
-                        const matchesEndDate = !end || reqDate <= end;
-                        
-                        const matchesAmount = !billAmountSearch || req.amount.toString().includes(billAmountSearch);
-                        
-                        return matchesSearch && matchesStatus && matchesStartDate && matchesEndDate && matchesAmount;
-                      });
+                      const totalPages = Math.ceil(totalBillCount / itemsPerPage);
 
-                      const totalPages = Math.ceil(filtered.length / itemsPerPage);
-                      const paginated = filtered.slice((billPage - 1) * itemsPerPage, billPage * itemsPerPage);
+                      if (fetchingHistory.bill) {
+                        return (
+                          <div className="p-12 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                            <Loader2 className="animate-spin text-indigo-600" size={32} />
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Updating History...</p>
+                          </div>
+                        );
+                      }
 
-                      if (filtered.length === 0) {
+                      if (billRequests.length === 0) {
                         return (
                           <div className="p-8 bg-slate-50 rounded-2xl text-center border border-dashed border-slate-200">
                             <p className="text-sm text-slate-400 font-medium">No requests found</p>
@@ -1701,7 +1733,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       return (
                         <>
-                          {paginated.map((req) => (
+                          {billRequests.map((req) => (
                             <React.Fragment key={req.id}>
                               <div 
                                 id={`bill-row-${req.id}`}
@@ -1803,11 +1835,28 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                             </React.Fragment>
                           ))}
 
+                          {/* Summary Row */}
+                          <div className="bg-rose-50/80 p-4 md:px-6 rounded-2xl border border-rose-100 shadow-sm grid grid-cols-1 md:grid-cols-7 gap-4 items-center mt-2">
+                            <div className="md:col-span-3 text-center md:text-left">
+                              <span className="text-[10px] font-black text-rose-800 uppercase tracking-[0.2em]">Page Summary (Approved)</span>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs font-black text-slate-900">₹{billRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + Number(r.amount), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs font-black text-rose-600">₹{billRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + Number(r.charges || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-xs font-black text-indigo-700">₹{billRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + (Number(r.amount) + Number(r.charges || 0)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                            <div className="md:col-span-1"></div>
+                          </div>
+
                           {/* Pagination */}
                           {totalPages > 1 && (
                             <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm mt-4">
                               <p className="text-xs text-slate-500 font-medium">
-                                Showing <span className="text-slate-900 font-bold">{(billPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(billPage * itemsPerPage, filtered.length)}</span> of <span className="text-slate-900 font-bold">{filtered.length}</span>
+                                Showing <span className="text-slate-900 font-bold">{(billPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(billPage * itemsPerPage, totalBillCount)}</span> of <span className="text-slate-900 font-bold">{totalBillCount}</span>
                               </p>
                               <div className="flex items-center gap-2">
                                 <button 
@@ -1966,7 +2015,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </form>
                 </div>
 
-                <div className="mt-12 space-y-4">
+                <div id="payout-history-list" className="mt-12 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">Payout History</h3>
                     <div className="flex flex-wrap items-center gap-2">
@@ -1995,18 +2044,81 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </div>
 
                   <div className="grid grid-cols-1 gap-4">
-                    {payoutRequests.filter(r => {
-                      const mSearch = r.bank_name.toLowerCase().includes(payoutSearch.toLowerCase());
-                      const mStatus = payoutStatus === 'all' || r.status === payoutStatus;
-                      return mSearch && mStatus;
-                    }).map((req) => (
-                      <PayoutRequestCard 
-                        key={req.id} 
-                        req={req} 
-                        settings={payoutSettings} 
-                        onViewProof={setSelectedProof}
-                      />
-                    ))}
+                    {(() => {
+                      const totalPages = Math.ceil(totalPayoutCount / itemsPerPage);
+
+                      if (fetchingHistory.payout) {
+                        return (
+                          <div className="p-12 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+                            <Loader2 className="animate-spin text-amber-600" size={32} />
+                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Updating History...</p>
+                          </div>
+                        );
+                      }
+
+                      if (payoutRequests.length === 0) {
+                        return (
+                          <div className="p-8 bg-slate-50 rounded-2xl text-center border border-dashed border-slate-200">
+                            <p className="text-sm text-slate-400 font-medium">No requests found</p>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <>
+                          {payoutRequests.map((req) => (
+                            <PayoutRequestCard 
+                              key={req.id} 
+                              req={req} 
+                              settings={payoutSettings} 
+                              onViewProof={setSelectedProof}
+                            />
+                          ))}
+
+                          {/* Summary Box */}
+                          <div className="bg-emerald-100/80 p-6 rounded-[2rem] border border-emerald-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-emerald-200/50 rounded-xl flex items-center justify-center text-emerald-700">
+                                <History size={20} />
+                              </div>
+                              <div>
+                                <h4 className="text-sm font-black text-emerald-800 uppercase tracking-widest">Page Summary</h4>
+                                <p className="text-[10px] text-emerald-600 font-bold">Total amount requested on this page</p>
+                              </div>
+                            </div>
+                            <div className="bg-white/50 px-8 py-3 rounded-2xl border border-emerald-200/50">
+                              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1 text-center">Approved Payouts</p>
+                              <p className="text-2xl font-black text-slate-900">₹{payoutRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + Number(r.amount), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                            </div>
+                          </div>
+
+                          {/* Pagination */}
+                          {totalPages > 1 && (
+                            <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm mt-4">
+                              <p className="text-xs text-slate-500 font-medium">
+                                Showing <span className="text-slate-900 font-bold">{(payoutPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(payoutPage * itemsPerPage, totalPayoutCount)}</span> of <span className="text-slate-900 font-bold">{totalPayoutCount}</span>
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <button 
+                                  onClick={() => setPayoutPage(prev => Math.max(prev - 1, 1))}
+                                  disabled={payoutPage === 1}
+                                  className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                >
+                                  Prev
+                                </button>
+                                <button 
+                                  onClick={() => setPayoutPage(prev => Math.min(prev + 1, totalPages))}
+                                  disabled={payoutPage === totalPages}
+                                  className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </motion.div>
