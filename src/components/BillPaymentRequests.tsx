@@ -40,11 +40,19 @@ interface BillRequest {
   actioned_at?: string;
 }
 
+const getTodayStr = () => {
+  const date = new Date();
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().split('T')[0];
+};
+
 export default function BillPaymentRequests() {
   const toast = useToast();
   const [requests, setRequests] = useState<BillRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'refunded'>('all');
+  const [dateFilter, setDateFilter] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
@@ -55,8 +63,8 @@ export default function BillPaymentRequests() {
   const [charges, setCharges] = useState('');
   const [showActionModal, setShowActionModal] = useState<{ id: string; type: 'approved' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
   const [isBillEnabled, setIsBillEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -66,9 +74,44 @@ export default function BillPaymentRequests() {
   const clearFilters = () => {
     setSearchQuery('');
     setFilter('all');
-    setStartDate('');
-    setEndDate('');
+    setDateFilter('today');
+    setStartDate(getTodayStr());
+    setEndDate(getTodayStr());
     setCurrentPage(1);
+  };
+
+  const handleDateFilterChange = (value: string) => {
+    setDateFilter(value);
+    const today = new Date();
+    
+    const formatDate = (date: Date) => {
+      const offset = date.getTimezoneOffset();
+      const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+      return localDate.toISOString().split('T')[0];
+    };
+
+    if (value === 'today') {
+      setStartDate(formatDate(today));
+      setEndDate(formatDate(today));
+    } else if (value === 'yesterday') {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      setStartDate(formatDate(yesterday));
+      setEndDate(formatDate(yesterday));
+    } else if (value === 'last7') {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      setStartDate(formatDate(start));
+      setEndDate(formatDate(today));
+    } else if (value === 'last30') {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 29);
+      setStartDate(formatDate(start));
+      setEndDate(formatDate(today));
+    } else if (value === 'all' || value === 'custom') {
+      setStartDate('');
+      setEndDate('');
+    }
   };
 
   const fetchRequests = async (silent = false) => {
@@ -370,28 +413,43 @@ export default function BillPaymentRequests() {
           <h2 className="text-2xl font-bold text-slate-900">Bill Payment Requests</h2>
           <p className="text-slate-500 mt-1">Manage and process user bill payment submissions.</p>
         </div>
-        <div className="flex items-end gap-3">
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-              />
+        <div className="flex items-end gap-3 flex-wrap">
+          <select
+            value={dateFilter}
+            onChange={(e) => handleDateFilterChange(e.target.value)}
+            className="px-4 py-2 h-10 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+          >
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last7">Last 7 Days</option>
+            <option value="last30">Last 30 Days</option>
+            <option value="custom">Custom</option>
+          </select>
+
+          {dateFilter === 'custom' && (
+            <div className="flex items-center gap-2 h-10 bg-white border border-slate-200 rounded-xl px-3 py-1">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase leading-none">Start</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-xs font-bold text-slate-700 outline-none bg-transparent leading-none"
+                />
+              </div>
+              <div className="w-px h-6 bg-slate-100 mx-1"></div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase leading-none">End</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="text-xs font-bold text-slate-700 outline-none bg-transparent leading-none"
+                />
+              </div>
             </div>
-            <div className="w-px h-6 bg-slate-100 mx-1"></div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-              />
-            </div>
-          </div>
+          )}
           <button
             onClick={clearFilters}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"

@@ -58,11 +58,19 @@ interface AdminProfile {
   name: string;
 }
 
+const getTodayStr = () => {
+  const date = new Date();
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().split('T')[0];
+};
+
 export default function QRPaymentRequests() {
   const toast = useToast();
   const [requests, setRequests] = useState<QRPaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [dateFilter, setDateFilter] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
@@ -74,8 +82,8 @@ export default function QRPaymentRequests() {
   const [selectedProof, setSelectedProof] = useState<QRPaymentRequest | null>(null);
   const [imgScale, setImgScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
   const [amountFilter, setAmountFilter] = useState('');
   const [reversalId, setReversalId] = useState<string | null>(null);
   const [reversalTarget, setReversalTarget] = useState<'pending' | 'rejected'>('pending');
@@ -93,10 +101,45 @@ export default function QRPaymentRequests() {
   const clearFilters = () => {
     setSearchQuery('');
     setFilter('all');
-    setStartDate('');
-    setEndDate('');
+    setDateFilter('today');
+    setStartDate(getTodayStr());
+    setEndDate(getTodayStr());
     setAmountFilter('');
     setCurrentPage(1);
+  };
+
+  const handleDateFilterChange = (value: string) => {
+    setDateFilter(value);
+    const today = new Date();
+    
+    const formatDate = (date: Date) => {
+      const offset = date.getTimezoneOffset();
+      const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+      return localDate.toISOString().split('T')[0];
+    };
+
+    if (value === 'today') {
+      setStartDate(formatDate(today));
+      setEndDate(formatDate(today));
+    } else if (value === 'yesterday') {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      setStartDate(formatDate(yesterday));
+      setEndDate(formatDate(yesterday));
+    } else if (value === 'last7') {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 6);
+      setStartDate(formatDate(start));
+      setEndDate(formatDate(today));
+    } else if (value === 'last30') {
+      const start = new Date(today);
+      start.setDate(start.getDate() - 29);
+      setStartDate(formatDate(start));
+      setEndDate(formatDate(today));
+    } else if (value === 'all' || value === 'custom') {
+      setStartDate('');
+      setEndDate('');
+    }
   };
 
   const fetchRequests = async (silent = false) => {
@@ -406,28 +449,43 @@ export default function QRPaymentRequests() {
           <h2 className="text-2xl font-bold text-slate-900">QR Payment Requests</h2>
           <p className="text-slate-500 mt-1">Review and approve user QR payment submissions.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-              />
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
+            value={dateFilter}
+            onChange={(e) => handleDateFilterChange(e.target.value)}
+            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+          >
+            <option value="all">All Time</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last7">Last 7 Days</option>
+            <option value="last30">Last 30 Days</option>
+            <option value="custom">Custom</option>
+          </select>
+
+          {dateFilter === 'custom' && (
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+                />
+              </div>
+              <div className="w-px h-6 bg-slate-100 mx-1"></div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="text-xs font-bold text-slate-700 outline-none bg-transparent"
+                />
+              </div>
             </div>
-            <div className="w-px h-6 bg-slate-100 mx-1"></div>
-            <div className="flex flex-col">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="text-xs font-bold text-slate-700 outline-none bg-transparent"
-              />
-            </div>
-          </div>
+          )}
           <button
             onClick={clearFilters}
             className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
