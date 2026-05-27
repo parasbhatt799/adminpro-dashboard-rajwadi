@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { LogoLoader } from './shared/LoadingSpinner';
 
 interface UserDetailsProps {
   user: any;
@@ -537,9 +538,8 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
               ) : activeTab === 'kyc' ? (
                 <div className="space-y-6">
                   {loadingKyc ? (
-                    <div className="flex flex-col items-center justify-center py-12 gap-4">
-                      <Loader2 size={32} className="animate-spin text-indigo-600" />
-                      <p className="text-slate-500 text-sm font-medium">Loading KYC documents...</p>
+                    <div className="flex flex-col items-center justify-center py-12">
+                      <LogoLoader size="md" />
                     </div>
                   ) : kycDocs ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -591,9 +591,8 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                 </div>
               ) : activeTab === 'users' ? (
                 loadingSubUsers ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-4">
-                    <Loader2 size={32} className="animate-spin text-indigo-600" />
-                    <p className="text-slate-500 text-sm font-medium">Loading users list...</p>
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <LogoLoader size="md" />
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -686,9 +685,8 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                 )
               ) : activeTab === 'distributors' ? (
                 loadingSubDistributors ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-4">
-                    <Loader2 size={32} className="animate-spin text-indigo-600" />
-                    <p className="text-slate-500 text-sm font-medium">Loading distributors list...</p>
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <LogoLoader size="md" />
                   </div>
                 ) : (
                   <div className="space-y-4">

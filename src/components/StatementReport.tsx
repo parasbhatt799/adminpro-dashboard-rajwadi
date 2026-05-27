@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import {
   FileText,
@@ -472,7 +473,7 @@ export default function StatementReport() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={9} className="px-6 py-12 text-center text-indigo-600"><Loader2 className="animate-spin mx-auto" size={32} /></td></tr>
+                <tr><td colSpan={9} className="px-6 py-12 text-center text-indigo-600"><LogoLoader size="md" className="mx-auto" /></td></tr>
               ) : records.length === 0 ? (
                 <tr><td colSpan={9} className="px-6 py-12 text-center text-[#666] text-[13px]">No matching records found</td></tr>
               ) : (

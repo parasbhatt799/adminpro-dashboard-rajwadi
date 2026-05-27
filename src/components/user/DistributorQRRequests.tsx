@@ -13,6 +13,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import * as XLSX from 'xlsx';
+import { LogoLoader } from '../shared/LoadingSpinner';
 
 interface DistributorQRRequestsProps {
   userId: string;
@@ -192,8 +193,8 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <Loader2 className="animate-spin text-emerald-600 mx-auto" size={32} />
+                  <td colSpan={6} className="px-6 py-12 text-center">
+                    <LogoLoader size="md" className="mx-auto" />
                   </td>
                 </tr>
               ) : filteredRequests.length === 0 ? (

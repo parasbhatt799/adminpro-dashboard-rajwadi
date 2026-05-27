@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   History, 
@@ -418,7 +419,7 @@ export default function PayoutReport() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center"><Loader2 className="animate-spin text-amber-600 mx-auto" size={32} /></td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center"><LogoLoader size="md" className="mx-auto" /></td></tr>
               ) : requests.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">No payouts found</td></tr>
               ) : (

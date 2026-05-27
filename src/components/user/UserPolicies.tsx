@@ -8,6 +8,7 @@ import {
   Clock,
   ExternalLink
 } from 'lucide-react';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -61,8 +62,7 @@ export default function UserPolicies({ userId }: { userId: string }) {
       <div className="grid grid-cols-1 gap-6">
         {loading ? (
           <div className="py-20 text-center">
-            <Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={40} />
-            <p className="text-slate-500 font-medium">Fetching policies...</p>
+            <LogoLoader size="md" className="mx-auto" />
           </div>
         ) : policies.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center shadow-sm">

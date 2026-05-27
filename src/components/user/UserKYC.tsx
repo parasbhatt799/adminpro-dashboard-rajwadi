@@ -19,6 +19,7 @@ import { sendAdminPushNotification } from '../../lib/notifications';
 import { PDFDocument } from 'pdf-lib';
 import SignatureCanvas from 'react-signature-canvas';
 import { useRef } from 'react';
+import { LogoLoader } from '../shared/LoadingSpinner';
 
 const AgreementSection = ({ template, sigCanvas, setHasSigned }: any) => (
   <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden mb-12">
@@ -330,8 +331,7 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
   if (fetching) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="animate-spin text-emerald-600 mb-4" size={40} />
-        <p className="text-slate-500 font-medium">Checking verification status...</p>
+        <LogoLoader size="md" />
       </div>
     );
   }

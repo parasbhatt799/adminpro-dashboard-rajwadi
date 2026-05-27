@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import {
   IndianRupee,
@@ -488,15 +489,14 @@ export default function PayoutManagement() {
             <div className="grid grid-cols-1 gap-4 relative min-h-[400px]">
               {fetchingHistory && (
                 <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                  <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
-                    <Loader2 className="animate-spin text-indigo-600" size={16} />
-                    <span className="text-xs font-bold text-slate-600">Updating History...</span>
+                  <div className="bg-white p-3 rounded-full shadow-lg border border-slate-100 flex items-center justify-center">
+                    <LogoLoader size="sm" />
                   </div>
                 </div>
               )}
               {loading ? (
                 <div className="bg-white rounded-3xl border border-slate-200 p-20 flex flex-col items-center justify-center gap-4">
-                  <Loader2 className="animate-spin text-indigo-600" size={40} />
+                  <LogoLoader size="md" className="mx-auto" />
                   <p className="text-slate-500 font-medium">Loading payout requests...</p>
                 </div>
               ) : requests.length === 0 ? (
@@ -849,7 +849,7 @@ export default function PayoutManagement() {
                   </button>
                 </form>
               ) : (
-                <div className="flex flex-col items-center py-12"><Loader2 className="animate-spin text-slate-300" size={40} /></div>
+                <div className="flex flex-col items-center py-12"><LogoLoader size="md" className="mx-auto" /></div>
               )}
             </div>
           </motion.div>

@@ -8,6 +8,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { sendAdminPushNotification } from '../../lib/notifications';
+import { LogoLoader } from '../shared/LoadingSpinner';
 
 interface UserPaymentProps {
   userId: string;
@@ -16,6 +17,7 @@ interface UserPaymentProps {
 export default function UserPayment({ userId }: UserPaymentProps) {
   const [activeTab, setActiveTab] = useState<'qr' | 'bill' | 'payout'>('qr');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [offlineQrUrl, setOfflineQrUrl] = useState<string | null>(null);
   const [activeQrId, setActiveQrId] = useState<string | null>(null);
   const [qrName, setQrName] = useState<string | null>(null);
   const [loadingQr, setLoadingQr] = useState(true);
@@ -340,6 +342,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
             setQrUrl(qrData.qr_url);
           }
         }
+
+        const offlineUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site_assets/offline_qr.png`;
+        setOfflineQrUrl(`${offlineUrl}?t=${Date.now()}`);
 
         // Fetch Current Active QR ID from History
         const { data: activeQR } = await supabase
@@ -1057,8 +1062,16 @@ export default function UserPayment({ userId }: UserPaymentProps) {
               >
                 {!isQrEnabled ? (
                   <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-12 text-center max-w-4xl mx-auto">
-                    <div className="w-24 h-24 bg-amber-50 rounded-3xl flex items-center justify-center text-amber-500 mx-auto mb-6">
-                      <Clock size={48} />
+                    <div className="w-36 h-36 rounded-full border-4 border-rose-50 overflow-hidden flex items-center justify-center mx-auto mb-6 shadow-xl shadow-slate-100 bg-slate-50 relative group">
+                      <div className="absolute inset-0 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-all duration-300"></div>
+                      <img
+                        src={offlineQrUrl || '/qr_offline_default.png'}
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = '/qr_offline_default.png';
+                        }}
+                        alt="Service Temporarily Offline"
+                        className="w-full h-full object-cover relative z-10 transition-transform duration-500 group-hover:scale-105"
+                      />
                     </div>
                     <h3 className="text-2xl font-bold text-slate-900 mb-2">Service Temporarily Offline</h3>
                     <p className="text-slate-500 max-w-md mx-auto leading-relaxed">
@@ -1085,7 +1098,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       <div className="flex flex-col items-center text-center">
                         <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center mb-6 overflow-hidden">
                           {loadingQr ? (
-                            <Loader2 className="animate-spin text-slate-300" size={48} />
+                            <LogoLoader size="md" />
                           ) : qrUrl ? (
                             <img
                               src={qrUrl}
@@ -1094,9 +1107,20 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                               referrerPolicy="no-referrer"
                             />
                           ) : (
-                            <div className="flex flex-col items-center gap-4 text-slate-400">
-                              <QrCode size={64} strokeWidth={1.5} />
-                              <p className="text-sm font-medium">QR Not Available</p>
+                            <div className="w-full h-full relative group cursor-pointer overflow-hidden rounded-3xl">
+                              <div className="absolute inset-0 bg-slate-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10 flex items-center justify-center">
+                                <span className="px-4 py-2 bg-white/95 backdrop-blur-md rounded-2xl text-xs font-black text-rose-600 uppercase tracking-widest shadow-lg">
+                                  Service Offline
+                                </span>
+                              </div>
+                              <img
+                                src={offlineQrUrl || '/qr_offline_default.png'}
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = '/qr_offline_default.png';
+                                }}
+                                alt="QR Code Unavailable"
+                                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                              />
                             </div>
                           )}
                         </div>
@@ -1441,9 +1465,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       if (fetchingHistory.qr) {
                         return (
-                          <div className="p-12 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                            <Loader2 className="animate-spin text-indigo-600" size={32} />
-                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Updating History...</p>
+                          <div className="p-12 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm">
+                            <LogoLoader size="md" />
                           </div>
                         );
                       }
@@ -1865,9 +1888,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       if (fetchingHistory.bill) {
                         return (
-                          <div className="p-12 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                            <Loader2 className="animate-spin text-indigo-600" size={32} />
-                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Updating History...</p>
+                          <div className="p-12 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm">
+                            <LogoLoader size="md" />
                           </div>
                         );
                       }
@@ -2197,9 +2219,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       if (fetchingHistory.payout) {
                         return (
-                          <div className="p-12 flex flex-col items-center justify-center gap-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
-                            <Loader2 className="animate-spin text-amber-600" size={32} />
-                            <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Updating History...</p>
+                          <div className="p-12 flex flex-col items-center justify-center bg-white rounded-2xl border border-slate-100 shadow-sm">
+                            <LogoLoader size="md" />
                           </div>
                         );
                       }

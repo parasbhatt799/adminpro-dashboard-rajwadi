@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import {
   QrCode,
   Upload,
@@ -464,7 +465,7 @@ export default function QRManagement() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin text-indigo-600" size={48} />
+        <LogoLoader size="md" className="mx-auto" />
       </div>
     );
   }
@@ -888,9 +889,8 @@ export default function QRManagement() {
         <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm relative">
           {historyLoading && (
             <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-              <div className="flex flex-col items-center gap-2">
-                <Loader2 className="animate-spin text-indigo-600" size={24} />
-                <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Updating Stats...</span>
+              <div className="bg-white p-3 rounded-full shadow-lg border border-slate-100 flex items-center justify-center">
+                <LogoLoader size="sm" />
               </div>
             </div>
           )}

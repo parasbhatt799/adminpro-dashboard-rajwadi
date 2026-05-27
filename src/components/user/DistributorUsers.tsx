@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   FileText
 } from 'lucide-react';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
@@ -182,9 +183,8 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
 
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
         {loading ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
-            <Loader2 className="animate-spin text-emerald-500" size={32} />
-            <p className="text-sm font-medium">Loading your {isSD ? 'distributors' : 'users'}...</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400">
+            <LogoLoader size="md" />
           </div>
         ) : users.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-4 p-12">

@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import { 
   Building2, 
   Plus, 
@@ -365,7 +366,7 @@ export default function BankManagement() {
       <div className="flex flex-col gap-4">
         {loading ? (
           <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
-            <Loader2 className="animate-spin text-indigo-500" size={40} />
+            <LogoLoader size="md" className="mx-auto" />
             <p className="font-medium">Loading bank accounts...</p>
           </div>
         ) : banks.length === 0 ? (

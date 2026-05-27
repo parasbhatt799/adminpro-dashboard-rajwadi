@@ -12,6 +12,7 @@ import {
   AlertCircle,
   ChevronUp
 } from 'lucide-react';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 
@@ -112,8 +113,7 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
       <div className="space-y-4">
         {loading ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">
-            <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
-            <p className="text-sm text-slate-500 font-medium">Loading history...</p>
+            <LogoLoader size="md" className="mx-auto" />
           </div>
         ) : filteredSubmissions.length === 0 ? (
           <div className="bg-white rounded-3xl border border-slate-200 p-12 text-center">

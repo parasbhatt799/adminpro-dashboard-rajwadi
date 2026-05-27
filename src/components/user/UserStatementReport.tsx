@@ -9,6 +9,7 @@ import { supabase } from '../../lib/supabase';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { LogoLoader } from '../shared/LoadingSpinner';
 
 interface UserStatementReportProps {
   userId: string;
@@ -373,8 +374,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-6 py-12 text-center text-indigo-600">
-                    <Loader2 className="animate-spin mx-auto" size={32} />
+                  <td colSpan={9} className="px-6 py-12 text-center">
+                    <LogoLoader size="md" className="mx-auto" />
                   </td>
                 </tr>
               ) : records.length === 0 ? (

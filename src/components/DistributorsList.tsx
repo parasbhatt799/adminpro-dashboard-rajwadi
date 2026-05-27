@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import { 
   Search, 
   Building2, 
@@ -233,8 +234,7 @@ export default function DistributorsList() {
                 {loadingSubUsers ? (
                   <tr>
                     <td colSpan={9} className="px-6 py-20 text-center">
-                      <Loader2 className="animate-spin text-indigo-500 mx-auto" size={32} />
-                      <p className="text-sm text-slate-500 mt-4">Loading sub-users...</p>
+                      <LogoLoader size="md" className="mx-auto" />
                     </td>
                   </tr>
                 ) : filteredSubUsers.length === 0 ? (
@@ -377,7 +377,7 @@ export default function DistributorsList() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {loading ? (
           <div className="col-span-full py-20 text-center">
-            <Loader2 className="animate-spin text-indigo-500 mx-auto" size={32} />
+            <LogoLoader size="md" className="mx-auto" />
           </div>
         ) : filteredDistributors.length === 0 ? (
           <div className="col-span-full py-20 text-center text-slate-400">

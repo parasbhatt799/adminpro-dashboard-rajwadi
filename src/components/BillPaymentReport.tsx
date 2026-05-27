@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   Receipt, 
@@ -115,10 +116,10 @@ export default function BillPaymentReport() {
         query = query.eq('amount', Number(exactAmount));
       }
       if (startDate) {
-        query = query.gte('created_at', `${startDate}T00:00:00`);
+        query = query.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
       }
       if (endDate) {
-        query = query.lte('created_at', `${endDate}T23:59:59`);
+        query = query.lte('created_at', new Date(`${endDate}T23:59:59`).toISOString());
       }
 
       const currentOffset = isLoadMore ? offset + limit : 0;
@@ -158,8 +159,8 @@ export default function BillPaymentReport() {
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
       if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
       if (exactAmount) query = query.eq('amount', Number(exactAmount));
-      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
-      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+      if (startDate) query = query.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
+      if (endDate) query = query.lte('created_at', new Date(`${endDate}T23:59:59`).toISOString());
 
       // Recursive fetch for totals
       let allData: any[] = [];
@@ -223,8 +224,8 @@ export default function BillPaymentReport() {
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
       if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
       if (exactAmount) query = query.eq('amount', Number(exactAmount));
-      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
-      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+      if (startDate) query = query.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
+      if (endDate) query = query.lte('created_at', new Date(`${endDate}T23:59:59`).toISOString());
 
       // Recursive fetch for full export
       let allData: any[] = [];
@@ -297,8 +298,8 @@ export default function BillPaymentReport() {
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
       if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
       if (exactAmount) query = query.eq('amount', Number(exactAmount));
-      if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
-      if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+      if (startDate) query = query.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
+      if (endDate) query = query.lte('created_at', new Date(`${endDate}T23:59:59`).toISOString());
 
       let allData: any[] = [];
       let from = 0;
@@ -513,7 +514,7 @@ export default function BillPaymentReport() {
             </thead>
             <tbody className="divide-y divide-slate-50">
               {loading ? (
-                <tr><td colSpan={7} className="px-6 py-12 text-center text-indigo-600"><Loader2 className="animate-spin mx-auto" size={32} /></td></tr>
+                <tr><td colSpan={7} className="px-6 py-12 text-center text-indigo-600"><LogoLoader size="md" className="mx-auto" /></td></tr>
               ) : requests.length === 0 ? (
                 <tr><td colSpan={7} className="px-6 py-12 text-center text-slate-400"><Receipt className="mx-auto mb-2 opacity-20" size={48} /><p>No data found.</p></td></tr>
               ) : (

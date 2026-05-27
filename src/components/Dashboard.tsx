@@ -22,7 +22,9 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import { LogoLoader } from './shared/LoadingSpinner';
 import {
   startOfDay,
   endOfDay,
@@ -36,6 +38,7 @@ import {
 type TimeRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
@@ -130,14 +133,16 @@ export default function Dashboard() {
           value: formatCurrency(range_qr_amount),
           icon: QrCode,
           color: "bg-blue-500",
-          description: `Range: ${dateDisplay}`
+          description: `Range: ${dateDisplay}`,
+          path: "/qr-payment-requests"
         },
         {
           title: "Total CC Bill",
           value: formatCurrency(range_bill_amount),
           icon: CreditCard,
           color: "bg-purple-500",
-          description: `Range: ${dateDisplay}`
+          description: `Range: ${dateDisplay}`,
+          path: "/bill-payment-requests"
         },
         {
           title: "Total User Wallet",
@@ -454,21 +459,28 @@ export default function Dashboard() {
       )}
 
       {loading ? (
-        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 min-h-[400px]">
-          <Loader2 className="animate-spin text-indigo-500" size={32} />
-          <p className="text-sm font-medium">Updating statistics...</p>
+        <div className="flex-1 flex flex-col items-center justify-center text-slate-400 min-h-[400px]">
+          <LogoLoader size="md" />
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
+            const isClickable = !!stat.path;
             return (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
                 key={stat.title}
-                className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow group relative overflow-hidden"
+                onClick={() => {
+                  if (stat.path) {
+                    navigate(stat.path);
+                  }
+                }}
+                className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden ${
+                  isClickable ? 'cursor-pointer hover:border-indigo-200 active:scale-[0.98]' : ''
+                }`}
               >
                 <div className="flex items-start justify-between relative z-10">
                   <div className={`p-3 rounded-2xl ${stat.color} text-white shadow-lg`}>

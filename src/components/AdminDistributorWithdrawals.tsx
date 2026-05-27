@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import {
   Wallet,
@@ -203,7 +204,7 @@ export default function AdminDistributorWithdrawals() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
+                    <LogoLoader size="md" className="mx-auto" />
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>

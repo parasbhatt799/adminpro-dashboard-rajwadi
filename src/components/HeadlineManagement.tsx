@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   Megaphone, 
@@ -183,7 +184,7 @@ export default function HeadlineManagement() {
         <div className="divide-y divide-slate-50">
           {loading ? (
             <div className="p-12 text-center text-indigo-600 font-bold flex flex-col items-center gap-2">
-              <Loader2 className="animate-spin" size={32} />
+              <LogoLoader size="md" className="mx-auto" />
               <span className="text-xs uppercase tracking-widest">Loading Headlines...</span>
             </div>
           ) : headlines.length === 0 ? (

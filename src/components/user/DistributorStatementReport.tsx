@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -501,8 +502,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
               {loading ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-20 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={40} />
-                    <p className="text-slate-500 font-medium">Generating statement...</p>
+                    <LogoLoader size="md" className="mx-auto" />
                   </td>
                 </tr>
               ) : records.length === 0 ? (

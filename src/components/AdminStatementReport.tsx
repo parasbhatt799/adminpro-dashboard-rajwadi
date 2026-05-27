@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import {
   FileText,
@@ -545,7 +546,7 @@ export default function AdminStatementReport() {
               {loading ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-20 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-4" size={32} />
+                    <LogoLoader size="md" className="mx-auto" />
                     <p className="text-sm text-slate-500 font-medium">Reconstructing wallet history...</p>
                   </td>
                 </tr>

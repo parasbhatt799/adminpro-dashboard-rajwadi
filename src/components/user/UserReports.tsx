@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  FileText, 
-  Download, 
-  Filter, 
+import {
+  FileText,
+  Download,
+  Filter,
   Calendar,
   Search,
   ChevronRight,
@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { format, parseISO, startOfDay, endOfDay, isWithinInterval, getHours } from 'date-fns';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -31,14 +32,14 @@ interface UserReportsProps {
   userId: string;
 }
 
-type ReportType = 'master' | 'daily' | 'service';
+type ReportType = 'master' | 'daily' | 'service' | 'settlement' | 'time' | 'volume';
 
 export default function UserReports({ userId }: UserReportsProps) {
   const [loading, setLoading] = useState(true);
   const [qrRequests, setQrRequests] = useState<any[]>([]);
   const [billRequests, setBillRequests] = useState<any[]>([]);
   const [activeReport, setActiveReport] = useState<ReportType>('master');
-  
+
   // Filters
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -96,20 +97,20 @@ export default function UserReports({ userId }: UserReportsProps) {
   // Processed Data
   const filteredData = useMemo(() => {
     let combined: any[] = [
-      ...qrRequests.map(r => ({ 
-        ...r, 
-        type: 'QR', 
-        reference: r.utr_id, 
-        net: Number(r.amount) - Number(r.charges || 0), 
+      ...qrRequests.map(r => ({
+        ...r,
+        type: 'QR',
+        reference: r.utr_id,
+        net: Number(r.amount) - Number(r.charges || 0),
         remaining_balance: '-',
         qr_name: r.qr_history?.qr_name || 'N/A',
         card_number: r.card_number || '****'
       })),
-      ...billRequests.map(r => ({ 
-        ...r, 
-        type: 'BILL', 
-        reference: r.card_number, 
-        net: -(Number(r.amount) + Number(r.charges || 0)), 
+      ...billRequests.map(r => ({
+        ...r,
+        type: 'BILL',
+        reference: r.card_number,
+        net: -(Number(r.amount) + Number(r.charges || 0)),
         remaining_balance: r.remaining_balance || '-',
         qr_name: '-',
         card_number: r.card_number || '****'
@@ -119,11 +120,11 @@ export default function UserReports({ userId }: UserReportsProps) {
     return combined.filter(item => {
       const date = parseISO(item.created_at);
       const amount = Number(item.amount);
-      
-      const matchesDate = (!startDate || date >= startOfDay(parseISO(startDate))) && 
-                          (!endDate || date <= endOfDay(parseISO(endDate)));
-      const matchesAmount = (!minAmount || amount >= Number(minAmount)) && 
-                            (!maxAmount || amount <= Number(maxAmount));
+
+      const matchesDate = (!startDate || date >= startOfDay(parseISO(startDate))) &&
+        (!endDate || date <= endOfDay(parseISO(endDate)));
+      const matchesAmount = (!minAmount || amount >= Number(minAmount)) &&
+        (!maxAmount || amount <= Number(maxAmount));
       const matchesType = transType === 'all' || item.type === transType;
       const matchesBank = !bankFilter || (item.type === 'BILL' && item.card_bank === bankFilter);
 
@@ -136,7 +137,7 @@ export default function UserReports({ userId }: UserReportsProps) {
     const totalTransactions = filteredData.length;
     const totalAmount = filteredData.reduce((acc, curr) => acc + Number(curr.amount), 0);
     const totalCharges = filteredData.reduce((acc, curr) => acc + Number(curr.charges || 0), 0);
-    
+
     return { totalTransactions, totalAmount, totalCharges };
   }, [filteredData]);
 
@@ -259,7 +260,7 @@ export default function UserReports({ userId }: UserReportsProps) {
     const doc = new jsPDF({ orientation: 'landscape' });
     const title = `Master Report - ${activeReport.toUpperCase()}`;
     const dateRange = `Date Range: ${startDate || 'All Time'} to ${endDate || 'Present'}`;
-    
+
     doc.setFontSize(18);
     doc.text(title, 14, 20);
     doc.setFontSize(10);
@@ -343,9 +344,8 @@ export default function UserReports({ userId }: UserReportsProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="animate-spin text-indigo-600" size={48} />
-        <p className="text-slate-500 font-medium">Generating your reports...</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <LogoLoader size="md" />
       </div>
     );
   }
@@ -359,14 +359,14 @@ export default function UserReports({ userId }: UserReportsProps) {
           <p className="text-slate-500 mt-1">Analyze your transaction data with advanced reporting tools.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
+          <button
             onClick={exportToExcel}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm"
           >
             <FileSpreadsheet size={18} className="text-emerald-600" />
             Excel
           </button>
-          <button 
+          <button
             onClick={exportToPDF}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-500 transition-all shadow-lg shadow-indigo-600/20"
           >
@@ -378,7 +378,7 @@ export default function UserReports({ userId }: UserReportsProps) {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4"
@@ -392,7 +392,7 @@ export default function UserReports({ userId }: UserReportsProps) {
           </div>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
@@ -407,7 +407,7 @@ export default function UserReports({ userId }: UserReportsProps) {
           </div>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -433,8 +433,8 @@ export default function UserReports({ userId }: UserReportsProps) {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Start Date</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
@@ -445,8 +445,8 @@ export default function UserReports({ userId }: UserReportsProps) {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">End Date</label>
                 <div className="relative">
                   <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
                     className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
@@ -459,8 +459,8 @@ export default function UserReports({ userId }: UserReportsProps) {
             <div className="flex-1 grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Min Amount</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   placeholder="₹ 0"
                   value={minAmount}
                   onChange={(e) => setMinAmount(e.target.value)}
@@ -469,8 +469,8 @@ export default function UserReports({ userId }: UserReportsProps) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Max Amount</label>
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   placeholder="₹ 99999"
                   value={maxAmount}
                   onChange={(e) => setMaxAmount(e.target.value)}
@@ -483,7 +483,7 @@ export default function UserReports({ userId }: UserReportsProps) {
             <div className="flex-1 grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Type</label>
-                <select 
+                <select
                   value={transType}
                   onChange={(e) => setTransType(e.target.value as any)}
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all appearance-none"
@@ -495,7 +495,7 @@ export default function UserReports({ userId }: UserReportsProps) {
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Bank</label>
-                <select 
+                <select
                   value={bankFilter}
                   onChange={(e) => setBankFilter(e.target.value)}
                   className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all appearance-none"
@@ -510,7 +510,7 @@ export default function UserReports({ userId }: UserReportsProps) {
 
             {/* Clear */}
             <div className="flex items-end">
-              <button 
+              <button
                 onClick={clearFilters}
                 className="p-2.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
                 title="Clear Filters"
@@ -531,11 +531,10 @@ export default function UserReports({ userId }: UserReportsProps) {
             <button
               key={tab.id}
               onClick={() => setActiveReport(tab.id as ReportType)}
-              className={`flex items-center gap-2 px-6 py-4 font-bold text-xs whitespace-nowrap transition-all border-b-2 ${
-                activeReport === tab.id 
-                  ? 'text-indigo-600 border-indigo-600 bg-indigo-50/30' 
-                  : 'text-slate-500 border-transparent hover:bg-slate-50'
-              }`}
+              className={`flex items-center gap-2 px-6 py-4 font-bold text-xs whitespace-nowrap transition-all border-b-2 ${activeReport === tab.id
+                ? 'text-indigo-600 border-indigo-600 bg-indigo-50/30'
+                : 'text-slate-500 border-transparent hover:bg-slate-50'
+                }`}
             >
               <tab.icon size={14} />
               {tab.label}
@@ -576,9 +575,8 @@ export default function UserReports({ userId }: UserReportsProps) {
                           <p className="text-[10px] text-slate-400 font-medium">{format(parseISO(item.created_at), 'hh:mm a')}</p>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${
-                            item.type === 'QR' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'
-                          }`}>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-md ${item.type === 'QR' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'
+                            }`}>
                             {item.type}
                           </span>
                         </td>

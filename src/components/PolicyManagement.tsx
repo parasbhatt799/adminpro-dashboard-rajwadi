@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   Shield, 
@@ -204,8 +205,7 @@ export default function PolicyManagement() {
         <div className="divide-y divide-slate-50">
           {loading ? (
             <div className="p-12 text-center text-indigo-600 font-bold flex flex-col items-center gap-2">
-              <Loader2 className="animate-spin" size={32} />
-              <span className="text-xs uppercase tracking-widest">Loading Policies...</span>
+              <LogoLoader size="md" className="mx-auto" />
             </div>
           ) : policies.length === 0 ? (
             <div className="p-12 text-center text-slate-400">

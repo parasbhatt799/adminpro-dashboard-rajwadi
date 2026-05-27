@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock, AlertTriangle, Activity, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -851,7 +852,7 @@ interface AdminManagementProps {
       <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px]">
         {loading ? (
           <div className="p-20 flex flex-col items-center justify-center text-slate-400 gap-3">
-            <Loader2 className="animate-spin text-indigo-500" size={32} />
+            <LogoLoader size="md" className="mx-auto" />
             <p className="text-sm font-medium">Verifying authorization levels...</p>
           </div>
         ) : admins.length === 0 ? (

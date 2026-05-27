@@ -14,6 +14,7 @@ import {
   Hash,
   AlertCircle
 } from 'lucide-react';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -148,9 +149,8 @@ export default function DistributorWithdrawal({ userId }: { userId: string }) {
 
   if (loading) {
     return (
-      <div className="min-h-[400px] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="animate-spin text-indigo-600" size={40} />
-        <p className="text-slate-500 font-medium">Loading withdrawal system...</p>
+      <div className="min-h-[400px] flex flex-col items-center justify-center">
+        <LogoLoader size="md" />
       </div>
     );
   }

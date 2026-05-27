@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import {
   LayoutDashboard,
@@ -35,21 +35,45 @@ interface SidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
-  { id: 'users-list', label: 'Users list', icon: UserPlus, path: '/users-list', role: 'full' },
-  { id: 'super-distributors', label: 'Super Distributors', icon: Shield, path: '/super-distributors', role: 'full' },
-  { id: 'distributors', label: 'Distributors', icon: Building2, path: '/distributors', role: 'full' },
+  {
+    id: 'users',
+    label: 'Users',
+    icon: UserPlus,
+    path: '/users-list',
+    subItems: [
+      { id: 'users-list', label: 'Users list', path: '/users-list', role: 'full' },
+      { id: 'super-distributors', label: 'Super Distributors', path: '/super-distributors', role: 'full' },
+      { id: 'distributors', label: 'Distributors', path: '/distributors', role: 'full' }
+    ]
+  },
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: Receipt, path: '/bill-payment-requests' },
   { id: 'payout-requests', label: 'Payout Request', icon: TrendingDown, path: '/payout-requests' },
-  { id: 'distributor-withdrawals', label: 'Dist. Withdrawals', icon: Wallet, path: '/distributor-withdrawals', role: 'full' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },
-  { id: 'qr-master', label: 'QR Name Entry', icon: LayoutGrid, path: '/qr-master', role: 'full' },
   { id: 'qr-gallery', label: 'QR Gallery', icon: LayoutGrid, path: '/qr-gallery' },
-  { id: 'bank-upload', label: 'Bank Upload', icon: Building2, path: '/bank-upload' },
-  { id: 'reason-entry', label: 'Reason entry', icon: FileQuestion, path: '/reason-entry' },
-  { id: 'service-charge', label: 'Service charge', icon: Receipt, path: '/service-charge' },
-  { id: 'withdrawal-balance', label: 'Withdrawal Balance', icon: TrendingDown, path: '/withdrawal-balance', role: 'full' },
+  {
+    id: 'wallet',
+    label: 'Wallet',
+    icon: Wallet,
+    path: '/distributor-withdrawals',
+    subItems: [
+      { id: 'distributor-withdrawals', label: 'Dist. Withdrawals', path: '/distributor-withdrawals', role: 'full' },
+      { id: 'withdrawal-balance', label: 'Withdrawal Balance', path: '/withdrawal-balance', role: 'full' }
+    ]
+  },
+  {
+    id: 'master-management',
+    label: 'Master Management',
+    icon: LayoutGrid,
+    path: '/qr-master',
+    subItems: [
+      { id: 'qr-master', label: 'QR Name Entry', path: '/qr-master', role: 'full' },
+      { id: 'bank-upload', label: 'Bank Upload', path: '/bank-upload' },
+      { id: 'reason-entry', label: 'Reason entry', path: '/reason-entry' },
+      { id: 'service-charge', label: 'Service charge', path: '/service-charge' }
+    ]
+  },
   {
     id: 'report-generate',
     label: 'Report Generate',
@@ -65,20 +89,28 @@ const menuItems = [
       { label: 'Distributor Profit', path: '/reports/distributor-profit' }
     ]
   },
-  { id: 'complaints-management', label: 'Complaints Management', icon: MessageSquare, path: '/complaints-management' },
-  { id: 'headlines', label: 'Add Anouncement', icon: Megaphone, path: '/headlines' },
-  { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/policies' },
-  { id: 'user-agreement', label: 'User Agreement', icon: ShieldCheck, path: '/agreement' },
-  { id: 'admin-management', label: 'Admin Management', icon: Shield, path: '/admin-management', role: 'full' },
-  { id: 'change-password', label: 'Change Password', icon: Lock, path: '/change-password', role: 'full' },
-  { id: 'settings', label: 'Business Settings', icon: Settings, path: '/settings', role: 'full' },
+  {
+    id: 'system-management',
+    label: 'System Management',
+    icon: Settings,
+    path: '/complaints-management',
+    subItems: [
+      { id: 'complaints-management', label: 'Complaints Management', path: '/complaints-management' },
+      { id: 'headlines', label: 'Add Anouncement', path: '/headlines' },
+      { id: 'policies', label: 'Terms & Conditions', path: '/policies' },
+      { id: 'user-agreement', label: 'User Agreement', path: '/agreement' },
+      { id: 'admin-management', label: 'Admin Management', path: '/admin-management', role: 'full' },
+      { id: 'change-password', label: 'Change Password', path: '/change-password' },
+      { id: 'settings', label: 'Business Settings', path: '/settings', role: 'full' }
+    ]
+  },
   { id: 'developer-logs', label: 'System Logs', icon: FileText, path: '/developer-logs', role: 'developer' },
 ];
 
 export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermissions, pendingCounts, isDeveloper }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
-  const [branding, setBranding] = useState<{logo: string, mini: string, fav: string}>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
+  const [branding, setBranding] = useState<{ logo: string, mini: string, fav: string }>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
 
   useEffect(() => {
     const fetchBranding = async () => {
@@ -108,19 +140,44 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const filteredMenuItems = menuItems.filter(item => {
-    if (item.role === 'developer') return isDeveloper;
-    if (adminRole === 'full') return true;
-    
+  const filteredMenuItems = menuItems.map(item => {
+    if (item.subItems) {
+      const filteredSubs = item.subItems.filter(sub => {
+        const s = sub as { id?: string; role?: string; label: string; path: string };
+        if (s.role === 'developer') return isDeveloper;
+        if (adminRole === 'full') return true;
+        if (s.id === 'change-password') return true;
+        if (s.id) {
+          return adminPermissions ? adminPermissions.includes(s.id) : false;
+        }
+        return true;
+      });
+
+      if (filteredSubs.length === 0) return null;
+
+      return {
+        ...item,
+        subItems: filteredSubs,
+        path: filteredSubs[0].path
+      };
+    }
+
+    if (item.role === 'developer') return isDeveloper ? item : null;
+    if (adminRole === 'full') return item;
+
     // Limited Admin: Always allow dashboard and change-password
-    if (item.id === 'dashboard' || item.id === 'change-password') return true;
-    
+    if (item.id === 'dashboard' || item.id === 'change-password') return item;
+
     // Everything else requires explicit permission
-    return adminPermissions && adminPermissions.includes(item.id);
-  });
-  const [reportsExpanded, setReportsExpanded] = useState(() => {
-    return location.pathname.startsWith('/reports');
-  });
+    const hasPerm = adminPermissions ? adminPermissions.includes(item.id) : false;
+    return hasPerm ? item : null;
+  }).filter((item): item is Exclude<typeof item, null> => item !== null);
+
+  const [reportsExpanded, setReportsExpanded] = useState(false);
+  const [systemExpanded, setSystemExpanded] = useState(false);
+  const [masterExpanded, setMasterExpanded] = useState(false);
+  const [walletExpanded, setWalletExpanded] = useState(false);
+  const [usersExpanded, setUsersExpanded] = useState(false);
 
   return (
     <motion.div
@@ -148,12 +205,38 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
         <nav className="space-y-1">
           {filteredMenuItems.map((item) => {
             const Icon = item.icon;
+            const isSubMenu = !!item.subItems;
             const isReports = item.id === 'report-generate';
-            const isActive = isReports
-              ? location.pathname.startsWith('/reports')
+            const isSystem = item.id === 'system-management';
+            const isMaster = item.id === 'master-management';
+            const isWallet = item.id === 'wallet';
+            const isUsers = item.id === 'users';
+            const isExpanded = isReports
+              ? reportsExpanded
+              : isSystem
+              ? systemExpanded
+              : isMaster
+              ? masterExpanded
+              : isWallet
+              ? walletExpanded
+              : isUsers
+              ? usersExpanded
+              : false;
+
+            const isActive = isSubMenu
+              ? (item.subItems?.some(sub => location.pathname.startsWith(sub.path)) ?? false)
               : location.pathname === item.path;
 
-            if (isReports) {
+            if (isSubMenu) {
+              const setExpanded = isReports
+                ? setReportsExpanded
+                : isSystem
+                ? setSystemExpanded
+                : isMaster
+                ? setMasterExpanded
+                : isWallet
+                ? setWalletExpanded
+                : setUsersExpanded;
               return (
                 <div key={item.id} className="space-y-1">
                   <button
@@ -161,10 +244,17 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                       if (isCollapsed) {
                         navigate(item.path);
                       } else {
-                        setReportsExpanded(!reportsExpanded);
-                        // Default navigate to QR report if not already in reports
-                        if (!location.pathname.startsWith('/reports')) {
-                          navigate(item.path);
+                        const nextState = !isExpanded;
+                        setReportsExpanded(isReports ? nextState : false);
+                        setSystemExpanded(isSystem ? nextState : false);
+                        setMasterExpanded(isMaster ? nextState : false);
+                        setWalletExpanded(isWallet ? nextState : false);
+                        setUsersExpanded(isUsers ? nextState : false);
+
+                        // Default navigate to first subitem if not already in its subitems
+                        const isInSubItems = item.subItems?.some(sub => location.pathname.startsWith(sub.path));
+                        if (!isInSubItems && item.subItems && item.subItems.length > 0) {
+                          navigate(item.subItems[0].path);
                         }
                       }
                     }}
@@ -184,7 +274,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                           {item.label}
                         </motion.span>
                         <motion.div
-                          animate={{ rotate: reportsExpanded ? 180 : 0 }}
+                          animate={{ rotate: isExpanded ? 180 : 0 }}
                           className="ml-auto"
                         >
                           <ChevronDown size={16} />
@@ -194,7 +284,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                   </button>
 
                   <AnimatePresence>
-                    {!isCollapsed && reportsExpanded && (
+                    {!isCollapsed && isExpanded && (
                       <motion.div
                         initial={{ height: 0, opacity: 0 }}
                         animate={{ height: 'auto', opacity: 1 }}
@@ -223,6 +313,13 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                 key={item.id}
                 to={item.path}
                 title={isCollapsed ? item.label : ""}
+                onClick={() => {
+                  setReportsExpanded(false);
+                  setSystemExpanded(false);
+                  setMasterExpanded(false);
+                  setWalletExpanded(false);
+                  setUsersExpanded(false);
+                }}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${isActive
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
                   : 'hover:bg-slate-800 hover:text-white'
@@ -274,8 +371,8 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                           (item.id === 'bill-payment-requests' && pendingCounts.bill > 0) ||
                           (item.id === 'payout-requests' && pendingCounts.payout > 0) ||
                           (item.id === 'kyc-verification-requests' && pendingCounts.kyc > 0)) && (
-                          <div className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-slate-900 animate-pulse" />
-                        )}
+                            <div className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-slate-900 animate-pulse" />
+                          )}
                       </>
                     )}
 

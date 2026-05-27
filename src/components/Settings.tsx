@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import { 
   Send,
   Settings as SettingsIcon, 
@@ -519,7 +520,7 @@ export default function Settings() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="animate-spin text-indigo-600" size={48} />
+        <LogoLoader size="md" className="mx-auto" />
       </div>
     );
   }

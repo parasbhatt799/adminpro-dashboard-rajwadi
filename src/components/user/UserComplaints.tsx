@@ -12,6 +12,7 @@ import {
   User as UserIcon,
   ShieldCheck
 } from 'lucide-react';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
@@ -202,9 +203,8 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
 
   if (loading && !complaints.length) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="animate-spin text-emerald-600" size={48} />
-        <p className="text-slate-500 font-medium">Loading your conversations...</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <LogoLoader size="md" />
       </div>
     );
   }
@@ -292,7 +292,7 @@ export default function UserComplaints({ userId }: UserComplaintsProps) {
                           <div className="space-y-4 max-h-[400px] overflow-y-auto px-2 py-4 no-scrollbar">
                             {loadingMessages[complaint.id] ? (
                               <div className="flex justify-center p-8">
-                                <Loader2 className="animate-spin text-emerald-600" size={24} />
+                                <LogoLoader size="sm" />
                               </div>
                             ) : (
                               messages[complaint.id]?.map((m) => (

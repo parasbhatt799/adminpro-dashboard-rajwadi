@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   Search, 
@@ -258,7 +259,7 @@ export default function ComplaintsManagement() {
           <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/30 no-scrollbar">
             {loadingMessages ? (
               <div className="flex items-center justify-center p-12">
-                <Loader2 className="animate-spin text-indigo-600" size={32} />
+                <LogoLoader size="md" className="mx-auto" />
               </div>
             ) : (
               messages.map((m) => (
@@ -406,7 +407,7 @@ export default function ComplaintsManagement() {
       <div className="space-y-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-            <Loader2 className="animate-spin text-indigo-600" size={48} />
+            <LogoLoader size="md" className="mx-auto" />
             <p className="text-slate-500 font-medium">Loading complaints...</p>
           </div>
         ) : filteredComplaints.length === 0 ? (

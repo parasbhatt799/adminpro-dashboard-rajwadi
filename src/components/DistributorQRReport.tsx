@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   Users, 
@@ -247,7 +248,7 @@ export default function DistributorQRReport() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto" size={32} />
+                    <LogoLoader size="md" className="mx-auto" />
                   </td>
                 </tr>
               ) : filteredData.length === 0 ? (

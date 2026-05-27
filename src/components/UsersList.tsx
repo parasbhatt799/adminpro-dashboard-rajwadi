@@ -25,6 +25,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
+import { LogoLoader } from './shared/LoadingSpinner';
 
 interface UsersListProps {
   adminRole?: string;
@@ -476,18 +477,9 @@ export default function UsersList({ adminRole }: UsersListProps) {
 
       {/* Users Table */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden min-h-[400px] flex flex-col relative">
-        {fetchingHistory && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
-              <Loader2 className="animate-spin text-indigo-600" size={16} />
-              <span className="text-xs font-bold text-slate-600">Updating Users...</span>
-            </div>
-          </div>
-        )}
         {loading ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
-            <Loader2 className="animate-spin text-indigo-500" size={32} />
-            <p className="text-sm font-medium">Loading users...</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-slate-400 py-12">
+            <LogoLoader size="md" />
           </div>
         ) : users.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-4 p-12">

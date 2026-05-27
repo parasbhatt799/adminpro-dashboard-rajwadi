@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   LayoutGrid, 
@@ -238,7 +239,7 @@ export default function QRScreenshotGallery() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <Loader2 className="animate-spin text-indigo-600" size={48} />
+        <LogoLoader size="md" className="mx-auto" />
         <div className="text-center">
           <p className="text-slate-500 font-bold animate-pulse">Scanning Historical Records...</p>
           {progress && (

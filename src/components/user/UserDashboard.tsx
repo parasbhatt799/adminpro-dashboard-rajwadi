@@ -10,6 +10,7 @@ import {
   Calendar,
   ChevronDown
 } from 'lucide-react';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { 
@@ -221,7 +222,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
   if (loading) {
     return (
       <div className="h-[60vh] flex items-center justify-center">
-        <Loader2 className="animate-spin text-emerald-600" size={40} />
+        <LogoLoader size="md" />
       </div>
     );
   }

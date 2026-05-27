@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import { 
   FileText, 
@@ -109,7 +110,7 @@ export default function AgreementManagement() {
   if (fetching) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="animate-spin text-indigo-600 mb-4" size={40} />
+        <LogoLoader size="md" className="mx-auto" />
         <p className="text-slate-500 font-medium">Loading agreement settings...</p>
       </div>
     );
@@ -176,7 +177,7 @@ export default function AgreementManagement() {
             }`}>
               {loading ? (
                 <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="animate-spin text-indigo-600" size={32} />
+                  <LogoLoader size="md" className="mx-auto" />
                   <p className="text-sm font-bold text-indigo-600">Uploading...</p>
                 </div>
               ) : (

@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import { 
   Receipt, 
   Plus, 
@@ -190,8 +191,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
-          <Loader2 className="animate-spin text-indigo-500" size={40} />
-          <p className="font-medium">Loading service charge slabs...</p>
+          <LogoLoader size="md" className="mx-auto" />
         </div>
       ) : slabs.length === 0 ? (
         <div className="bg-white rounded-3xl border border-slate-100 p-12 text-center">

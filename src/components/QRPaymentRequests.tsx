@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
+import { LogoLoader } from './shared/LoadingSpinner';
 
 interface QRPaymentRequest {
   id: string;
@@ -71,7 +72,7 @@ export default function QRPaymentRequests() {
   const [requests, setRequests] = useState<QRPaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [dateFilter, setDateFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
@@ -83,8 +84,8 @@ export default function QRPaymentRequests() {
   const [selectedProof, setSelectedProof] = useState<QRPaymentRequest | null>(null);
   const [imgScale, setImgScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
   const [amountFilter, setAmountFilter] = useState('');
   const [reversalId, setReversalId] = useState<string | null>(null);
   const [reversalTarget, setReversalTarget] = useState<'pending' | 'rejected'>('pending');
@@ -92,6 +93,7 @@ export default function QRPaymentRequests() {
   const [editingQRRowId, setEditingQRRowId] = useState<string | null>(null);
   const [qrSearchQuery, setQrSearchQuery] = useState('');
   const [totalCount, setTotalCount] = useState(0);
+  const [totalApprovedAmount, setTotalApprovedAmount] = useState(0);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const currentUserId = localStorage.getItem('userId');
   const isDeveloper = currentUserId === '9999099999';
@@ -102,9 +104,9 @@ export default function QRPaymentRequests() {
   const clearFilters = () => {
     setSearchQuery('');
     setFilter('all');
-    setDateFilter('all');
-    setStartDate('');
-    setEndDate('');
+    setDateFilter('today');
+    setStartDate(getTodayStr());
+    setEndDate(getTodayStr());
     setAmountFilter('');
     setCurrentPage(1);
   };
@@ -112,7 +114,7 @@ export default function QRPaymentRequests() {
   const handleDateFilterChange = (value: string) => {
     setDateFilter(value);
     const today = new Date();
-    
+
     const formatDate = (date: Date) => {
       const offset = date.getTimezoneOffset();
       const localDate = new Date(date.getTime() - (offset * 60 * 1000));
@@ -189,6 +191,33 @@ export default function QRPaymentRequests() {
           map[a.mobile_number] = a.name || a.mobile_number;
         });
         setAdminMap(map);
+      }
+
+      // Fetch Total Approved Amount matching active filters
+      let sumQuery = supabase
+        .from('payment_submissions')
+        .select('amount, users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name)')
+        .eq('status', 'approved');
+
+      if (searchQuery) {
+        sumQuery = sumQuery.or(`utr_id.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%,users_profiles.name.ilike.%${searchQuery}%`);
+      }
+      if (amountFilter) {
+        sumQuery = sumQuery.eq('amount', parseFloat(amountFilter));
+      }
+      if (startDate) {
+        sumQuery = sumQuery.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
+      }
+      if (endDate) {
+        sumQuery = sumQuery.lte('created_at', new Date(`${endDate}T23:59:59.999`).toISOString());
+      }
+
+      const { data: sumData, error: sumError } = await sumQuery;
+      if (!sumError && sumData) {
+        const totalSum = sumData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+        setTotalApprovedAmount(totalSum);
+      } else {
+        setTotalApprovedAmount(0);
       }
 
       setRequests(data || []);
@@ -450,6 +479,15 @@ export default function QRPaymentRequests() {
           <p className="text-slate-500 mt-1">Review and approve user QR payment submissions.</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {/* Approved Total Amount */}
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">
+            <CheckCircle2 size={16} className="text-emerald-500" />
+            <span>QR:</span>
+            <span className="font-extrabold text-emerald-800">
+              ₹{totalApprovedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+
           <select
             value={dateFilter}
             onChange={(e) => handleDateFilterChange(e.target.value)}
@@ -529,9 +567,8 @@ export default function QRPaymentRequests() {
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
         {fetchingHistory && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
-              <Loader2 className="animate-spin text-indigo-600" size={16} />
-              <span className="text-xs font-bold text-slate-600">Updating History...</span>
+            <div className="bg-white p-3 rounded-full shadow-lg border border-slate-100 flex items-center justify-center">
+              <LogoLoader size="sm" />
             </div>
           </div>
         )}
@@ -557,8 +594,7 @@ export default function QRPaymentRequests() {
               {loading ? (
                 <tr>
                   <td colSpan={10} className="px-6 py-12 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
-                    <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
+                    <LogoLoader className="mx-auto" size="md" />
                   </td>
                 </tr>
               ) : requests.length === 0 ? (
@@ -649,19 +685,19 @@ export default function QRPaymentRequests() {
                                           setQrSearchQuery('');
                                         }}
                                         className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors flex flex-col gap-0.5 ${req.qr_id === qr.id
-                                            ? 'bg-indigo-50 text-indigo-600'
-                                            : 'hover:bg-slate-50 text-slate-600'
+                                          ? 'bg-indigo-50 text-indigo-600'
+                                          : 'hover:bg-slate-50 text-slate-600'
                                           }`}
                                       >
                                         <span>{qr.qr_name}</span>
                                         <span className="text-[8px] text-slate-400 font-medium italic">
-                                          {new Date(qr.created_at).toLocaleString('en-IN', { 
-                                            day: '2-digit', 
-                                            month: '2-digit', 
-                                            year: 'numeric', 
-                                            hour: '2-digit', 
-                                            minute: '2-digit', 
-                                            hour12: true 
+                                          {new Date(qr.created_at).toLocaleString('en-IN', {
+                                            day: '2-digit',
+                                            month: '2-digit',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            hour12: true
                                           })}
                                         </span>
                                       </button>
@@ -1153,8 +1189,8 @@ export default function QRPaymentRequests() {
                                           setQrSearchQuery('');
                                         }}
                                         className={`w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold transition-colors ${selectedProof.qr_id === qr.id
-                                            ? 'bg-indigo-50 text-indigo-600'
-                                            : 'hover:bg-slate-50 text-slate-600'
+                                          ? 'bg-indigo-50 text-indigo-600'
+                                          : 'hover:bg-slate-50 text-slate-600'
                                           }`}
                                       >
                                         {qr.qr_name}

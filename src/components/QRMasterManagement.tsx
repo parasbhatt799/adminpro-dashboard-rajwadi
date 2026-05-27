@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect, type ChangeEvent } from 'react';
 import { 
   QrCode, 
@@ -438,8 +439,7 @@ export default function QRMasterManagement() {
           <div className="grid grid-cols-1 gap-4">
             {loading ? (
               <div className="py-12 flex flex-col items-center gap-3">
-                <Loader2 className="animate-spin text-indigo-600" size={32} />
-                <p className="text-sm text-slate-500 font-medium">Loading your entries...</p>
+                <LogoLoader size="md" className="mx-auto" />
               </div>
             ) : filteredList.length === 0 ? (
               <div className="py-12 flex flex-col items-center gap-4 text-center">

@@ -7,6 +7,7 @@ import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Cl
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { LogoLoader } from '../shared/LoadingSpinner';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import NewsTicker from './NewsTicker';
 import FlyingCoins from './FlyingCoins';
@@ -237,7 +238,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="animate-spin text-emerald-600" size={40} />
+        <LogoLoader size="md" />
       </div>
     );
   }
@@ -581,7 +582,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto">
-            <React.Suspense fallback={<div className="flex items-center justify-center p-12"><Loader2 className="animate-spin text-emerald-600" /></div>}>
+            <React.Suspense fallback={<div className="flex items-center justify-center p-12"><LogoLoader size="md" /></div>}>
               <ErrorBoundary>
                 <Outlet />
               </ErrorBoundary>

@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import {
   ShieldCheck,
@@ -225,8 +226,7 @@ export default function KYCVerificationRequests() {
               {loading ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
-                    <p className="text-sm text-slate-500 font-medium">Loading submissions...</p>
+                    <LogoLoader size="md" className="mx-auto" />
                   </td>
                 </tr>
               ) : filteredSubmissions.length === 0 ? (

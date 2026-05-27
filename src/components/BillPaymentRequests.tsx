@@ -1,3 +1,4 @@
+import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
 import {
   Receipt,
@@ -323,8 +324,23 @@ export default function BillPaymentRequests() {
         if (rpcError) throw rpcError;
         if (!result.success) throw new Error(result.message);
 
+        // Fallback: Directly update admin_share and distributor_share columns in the database
+        // to guarantee it is written correctly even if the db function is an older version.
+        const { error: fallbackError } = await supabase
+          .from('bill_submissions')
+          .update({
+            admin_share: currentReq.charges,
+            distributor_share: 0
+          })
+          .eq('id', targetId);
+
+        if (fallbackError) {
+          console.warn('Fallback admin_share update warning:', fallbackError);
+        }
+
         updateData.admin_share = currentReq.charges;
         updateData.distributor_share = 0;
+
 
       } else {
         const { data: result, error: rpcError } = await supabase.rpc('reject_bill_payment_atomic', {
@@ -500,9 +516,8 @@ export default function BillPaymentRequests() {
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
         {fetchingHistory && (
           <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <div className="bg-white px-4 py-2 rounded-full shadow-lg border border-slate-100 flex items-center gap-2">
-              <Loader2 className="animate-spin text-indigo-600" size={16} />
-              <span className="text-xs font-bold text-slate-600">Updating History...</span>
+            <div className="bg-white p-3 rounded-full shadow-lg border border-slate-100 flex items-center justify-center">
+              <LogoLoader size="sm" />
             </div>
           </div>
         )}
@@ -524,7 +539,7 @@ export default function BillPaymentRequests() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
+                    <LogoLoader size="md" className="mx-auto" />
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
