@@ -35,19 +35,52 @@ const menuItems = [
 export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebarProps) {
   const [branding, setBranding] = useState<{logo: string, mini: string, fav: string}>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
 
-  const distributorItems = role === 'distributor' ? [
-    { id: 'my-users', label: 'My Users', icon: ClipboardList, path: '/user/my-users' },
-    { id: 'users-qr-requests', label: 'Users QR Requests', icon: FileText, path: '/user/users-qr-requests' },
-    { id: 'users-bill-payments', label: 'Users Bill Payment', icon: Receipt, path: '/user/users-bill-payments' },
-    { id: 'users-statement', label: 'Users Statement', icon: FileBarChart, path: '/user/users-statement' },
-    { id: 'withdrawal', label: 'Withdraw Commission', icon: Wallet, path: '/user/withdrawal' },
+  const distributorItems = (role === 'distributor' || role === 'super_distributor') ? [
+    { 
+      id: 'my-users', 
+      label: role === 'super_distributor' ? 'My Distributors' : 'My Users', 
+      icon: ClipboardList, 
+      path: '/user/my-users' 
+    },
+    { 
+      id: 'users-qr-requests', 
+      label: role === 'super_distributor' ? 'Distributors QR Requests' : 'Users QR Requests', 
+      icon: FileText, 
+      path: '/user/users-qr-requests' 
+    },
+    { 
+      id: 'users-bill-payments', 
+      label: role === 'super_distributor' ? 'Distributors Bill Payment' : 'Users Bill Payment', 
+      icon: Receipt, 
+      path: '/user/users-bill-payments' 
+    },
+    { 
+      id: 'users-statement', 
+      label: role === 'super_distributor' ? 'Distributors Statement' : 'Users Statement', 
+      icon: FileBarChart, 
+      path: '/user/users-statement' 
+    },
+    ...(role === 'super_distributor' ? [
+      {
+        id: 'dist-withdrawals',
+        label: 'Dist. Withdrawals',
+        icon: Wallet,
+        path: '/user/dist-withdrawals'
+      }
+    ] : []),
+    { 
+      id: 'withdrawal', 
+      label: 'Withdraw Commission', 
+      icon: Wallet, 
+      path: '/user/withdrawal' 
+    },
   ] : [];
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
     ...distributorItems,
     ...menuItems.slice(1).filter(item => {
-      if (role === 'distributor' && (item.id === 'payment' || item.id === 'statement')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement')) {
         return false;
       }
       return true;

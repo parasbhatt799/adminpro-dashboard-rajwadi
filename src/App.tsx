@@ -48,8 +48,10 @@ const DistributorQRRequests = lazy(() => import('./components/user/DistributorQR
 const DistributorWithdrawal = lazy(() => import('./components/user/DistributorWithdrawal'));
 const DistributorBillPayments = lazy(() => import('./components/user/DistributorBillPayments'));
 const DistributorStatementReport = lazy(() => import('./components/user/DistributorStatementReport'));
+const SuperDistributorWithdrawals = lazy(() => import('./components/user/SuperDistributorWithdrawals'));
 const AdminDistributorWithdrawals = lazy(() => import('./components/AdminDistributorWithdrawals'));
 const DistributorsList = lazy(() => import('./components/DistributorsList'));
+const SuperDistributorsList = lazy(() => import('./components/SuperDistributorsList'));
 const AdminStatementReport = lazy(() => import('./components/AdminStatementReport.tsx'));
 const QRMasterManagement = lazy(() => import('./components/QRMasterManagement'));
 const HomePage = lazy(() => import('./components/HomePage'));
@@ -1043,6 +1045,7 @@ export default function App() {
 
           {/* Permission-Checked Routes */}
           <Route path="users-list" element={(adminRole === 'full' || adminPermissions.includes('users-list')) ? <UsersList adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
+          <Route path="super-distributors" element={(adminRole === 'full' || adminPermissions.includes('super-distributors')) ? <SuperDistributorsList /> : <Navigate to="/dashboard" replace />} />
           <Route path="distributors" element={(adminRole === 'full' || adminPermissions.includes('distributors')) ? <DistributorsList /> : <Navigate to="/dashboard" replace />} />
           <Route path="distributor-withdrawals" element={(adminRole === 'full' || adminPermissions.includes('distributor-withdrawals')) ? <AdminDistributorWithdrawals /> : <Navigate to="/dashboard" replace />} />
           <Route path="service-charge" element={(adminRole === 'full' || adminPermissions.includes('service-charge')) ? <ServiceChargeManagement adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
@@ -1093,6 +1096,7 @@ export default function App() {
           <Route path="users-bill-payments" element={<DistributorBillPayments userId={userId} />} />
           <Route path="users-statement" element={<DistributorStatementReport userId={userId} />} />
           <Route path="withdrawal" element={<DistributorWithdrawal userId={userId} />} />
+          <Route path="dist-withdrawals" element={<SuperDistributorWithdrawals userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
           <Route path="policies" element={<UserPolicies userId={userId} />} />
           <Route path="change-password" element={<UserChangePassword userId={userId} onLogout={handleLogout} />} />

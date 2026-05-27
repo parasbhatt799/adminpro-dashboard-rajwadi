@@ -32,6 +32,7 @@ interface QRPaymentRequest {
   charges?: number;
   admin_share?: number;
   distributor_share?: number;
+  super_distributor_share?: number;
   proof_url: string;
   status: 'pending' | 'approved' | 'rejected';
   created_at: string;
@@ -70,7 +71,7 @@ export default function QRPaymentRequests() {
   const [requests, setRequests] = useState<QRPaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
-  const [dateFilter, setDateFilter] = useState('today');
+  const [dateFilter, setDateFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
@@ -82,8 +83,8 @@ export default function QRPaymentRequests() {
   const [selectedProof, setSelectedProof] = useState<QRPaymentRequest | null>(null);
   const [imgScale, setImgScale] = useState(1);
   const [currentPage, setCurrentPage] = useState(1);
-  const [startDate, setStartDate] = useState(getTodayStr());
-  const [endDate, setEndDate] = useState(getTodayStr());
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [amountFilter, setAmountFilter] = useState('');
   const [reversalId, setReversalId] = useState<string | null>(null);
   const [reversalTarget, setReversalTarget] = useState<'pending' | 'rejected'>('pending');
@@ -101,9 +102,9 @@ export default function QRPaymentRequests() {
   const clearFilters = () => {
     setSearchQuery('');
     setFilter('all');
-    setDateFilter('today');
-    setStartDate(getTodayStr());
-    setEndDate(getTodayStr());
+    setDateFilter('all');
+    setStartDate('');
+    setEndDate('');
     setAmountFilter('');
     setCurrentPage(1);
   };
@@ -148,7 +149,7 @@ export default function QRPaymentRequests() {
     try {
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles!inner(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)', { count: 'exact' });
+        .select('*, users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)', { count: 'exact' });
 
       // Apply Filters
       if (filter !== 'all') {
@@ -164,12 +165,10 @@ export default function QRPaymentRequests() {
       }
 
       if (startDate) {
-        query = query.gte('created_at', new Date(startDate).toISOString());
+        query = query.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
       }
       if (endDate) {
-        const nextDay = new Date(endDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        query = query.lt('created_at', nextDay.toISOString());
+        query = query.lte('created_at', new Date(`${endDate}T23:59:59.999`).toISOString());
       }
 
       // Pagination
@@ -286,6 +285,7 @@ export default function QRPaymentRequests() {
         updateData.charges = result.total_charges;
         updateData.admin_share = result.admin_share;
         updateData.distributor_share = result.distributor_share;
+        updateData.super_distributor_share = result.super_distributor_share;
 
       } else {
         updateData.rejection_reason = targetReason;
@@ -546,6 +546,7 @@ export default function QRPaymentRequests() {
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Amount</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Admin Profit</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Dist. Profit</th>
+                <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">S.Dist. Profit</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Credited</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Proof</th>
                 <th className="px-3 py-4 text-[11px] font-bold text-slate-400 uppercase tracking-widest text-center">Status</th>
@@ -708,17 +709,22 @@ export default function QRPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-rose-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
-                          {req.admin_share !== null && req.admin_share !== undefined ?
+                          {req.status === 'pending' ? '0.00' : (req.admin_share !== null && req.admin_share !== undefined ?
                             Number(req.admin_share).toFixed(2) :
                             (req.users_profiles?.distributor_id ?
                               ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100).toFixed(2) :
                               Number(req.charges || 0).toFixed(2)
-                            )
+                            ))
                           }
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
-                        {req.distributor_share !== null && req.distributor_share !== undefined ? (
+                        {req.status === 'pending' ? (
+                          <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
+                            <IndianRupee size={12} className="mr-0.5" />
+                            0.00
+                          </span>
+                        ) : req.distributor_share !== null && req.distributor_share !== undefined ? (
                           <span className="text-xs font-bold text-amber-600 flex items-center justify-center">
                             <IndianRupee size={12} className="mr-0.5" />
                             {Number(req.distributor_share).toFixed(2)}
@@ -732,6 +738,21 @@ export default function QRPaymentRequests() {
                           <span className="text-[10px] text-slate-300">N/A</span>
                         )}
 
+                      </td>
+                      <td className="px-3 py-4 text-center">
+                        {req.status === 'pending' ? (
+                          <span className="text-xs font-bold text-pink-600 flex items-center justify-center">
+                            <IndianRupee size={12} className="mr-0.5" />
+                            0.00
+                          </span>
+                        ) : req.super_distributor_share !== null && req.super_distributor_share !== undefined ? (
+                          <span className="text-xs font-bold text-pink-600 flex items-center justify-center">
+                            <IndianRupee size={12} className="mr-0.5" />
+                            {Number(req.super_distributor_share).toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-300">N/A</span>
+                        )}
                       </td>
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-emerald-600 flex items-center justify-center">

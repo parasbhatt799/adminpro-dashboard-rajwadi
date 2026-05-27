@@ -64,6 +64,7 @@ interface QRHistoryItem {
     rejected: number;
     amount: number;
     admin_share: number;
+    super_distributor_share: number;
     distributor_share: number;
   };
 }
@@ -166,6 +167,7 @@ export default function QRManagement() {
             rejected: Number(item.rejected_count),
             amount: Number(item.total_amount),
             admin_share: Number(item.admin_share),
+            super_distributor_share: Number(item.super_distributor_share || 0),
             distributor_share: Number(item.distributor_share),
           }
         }));
@@ -260,11 +262,12 @@ export default function QRManagement() {
       'Total Entries': item.counts?.total || 0,
       'Approved Amount': item.counts?.amount || 0,
       'Admin Charge': item.counts?.admin_share || 0,
+      'Super Distributor Charge': item.counts?.super_distributor_share || 0,
       'Distributor Charge': item.counts?.distributor_share || 0,
-      'Total Charge': (item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0),
+      'Total Charge': (item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0),
       'QR %': `${item.profit_percentage || 0}%`,
       'QR Profit': (item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100),
-      'Admin Final Profit': ((item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))
+      'Admin Final Profit': ((item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -435,15 +438,16 @@ export default function QRManagement() {
         `₹${(item.counts?.amount || 0).toLocaleString('en-IN')}`,
         `${item.counts?.pending || 0} / ${item.counts?.approved || 0} / ${item.counts?.rejected || 0}`,
         `₹${(item.counts?.admin_share || 0).toLocaleString('en-IN')}`,
+        `₹${(item.counts?.super_distributor_share || 0).toLocaleString('en-IN')}`,
         `₹${(item.counts?.distributor_share || 0).toLocaleString('en-IN')}`,
-        `₹${((item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0)).toLocaleString('en-IN')}`,
+        `₹${((item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0)).toLocaleString('en-IN')}`,
         `${item.profit_percentage || 0}%`,
         `₹${((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100)).toLocaleString('en-IN')}`,
-        `₹${(((item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))).toLocaleString('en-IN')}`
+        `₹${(((item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))).toLocaleString('en-IN')}`
       ]);
 
       autoTable(doc, {
-        head: [['QR Name', 'Created At', 'WhatsApp', 'Status', 'Entries', 'Amount', 'P/A/R', 'Admin', 'Dist', 'Total', 'QR %', 'QR Profit', 'Final Profit']],
+        head: [['QR Name', 'Created At', 'WhatsApp', 'Status', 'Entries', 'Amount', 'P/A/R', 'Admin', 'S.Dist', 'Dist', 'Total', 'QR %', 'QR Profit', 'Final Profit']],
         body: tableData,
         theme: 'grid',
         headStyles: { fillColor: [79, 70, 229] }, // Indigo-600
@@ -900,6 +904,7 @@ export default function QRManagement() {
                   <th className="px-1 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center">Appr. Amount</th>
                   <th className="px-1 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-tight">Breakdown<br/>(P/A/R)</th>
                   <th className="px-1 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center">Admin</th>
+                  <th className="px-1 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center">S.Dist</th>
                   <th className="px-1 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center">Dist.</th>
                   <th className="px-1 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center">Total</th>
                   <th className="px-1 py-3 text-[9px] font-bold text-slate-400 uppercase tracking-tight text-center">QR %</th>
@@ -910,7 +915,7 @@ export default function QRManagement() {
               <tbody className="divide-y divide-slate-50">
                 {qrHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic text-sm">
+                    <td colSpan={12} className="px-6 py-12 text-center text-slate-400 italic text-sm">
                       No QR history available. Upload your first QR to start tracking.
                     </td>
                   </tr>
@@ -1076,10 +1081,13 @@ export default function QRManagement() {
                         <span className="text-xs font-bold text-indigo-600">₹{(item.counts?.admin_share || 0).toLocaleString('en-IN')}</span>
                       </td>
                       <td className="px-1 py-3 text-center">
+                        <span className="text-xs font-bold text-purple-600">₹{(item.counts?.super_distributor_share || 0).toLocaleString('en-IN')}</span>
+                      </td>
+                      <td className="px-1 py-3 text-center">
                         <span className="text-xs font-bold text-orange-600">₹{(item.counts?.distributor_share || 0).toLocaleString('en-IN')}</span>
                       </td>
                       <td className="px-1 py-3 text-center">
-                        <span className="text-xs font-bold text-emerald-600">₹{((item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0)).toLocaleString('en-IN')}</span>
+                        <span className="text-xs font-bold text-emerald-600">₹{((item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0)).toLocaleString('en-IN')}</span>
                       </td>
                       <td className="px-1 py-3 text-center">
                         <span className="inline-flex items-center px-1.5 py-0.5 rounded-lg bg-slate-50 border border-slate-100 text-[10px] font-black text-slate-500">
@@ -1090,7 +1098,7 @@ export default function QRManagement() {
                         <span className="text-xs font-bold text-rose-500">₹{((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100)).toLocaleString('en-IN')}</span>
                       </td>
                       <td className="px-1 py-3 text-center">
-                        <span className="text-xs font-bold text-indigo-600">₹{(((item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))).toLocaleString('en-IN')}</span>
+                        <span className="text-xs font-bold text-indigo-600">₹{(((item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))).toLocaleString('en-IN')}</span>
                       </td>
                     </tr>
                   ))
@@ -1119,18 +1127,21 @@ export default function QRManagement() {
                     <td className="px-1 py-3 text-center text-indigo-600 text-xs">
                       ₹{qrHistory.reduce((sum, item) => sum + (item.counts?.admin_share || 0), 0).toLocaleString('en-IN')}
                     </td>
+                    <td className="px-1 py-3 text-center text-purple-600 text-xs">
+                      ₹{qrHistory.reduce((sum, item) => sum + (item.counts?.super_distributor_share || 0), 0).toLocaleString('en-IN')}
+                    </td>
                     <td className="px-1 py-3 text-center text-orange-600 text-xs">
                       ₹{qrHistory.reduce((sum, item) => sum + (item.counts?.distributor_share || 0), 0).toLocaleString('en-IN')}
                     </td>
                     <td className="px-1 py-3 text-center text-emerald-600 text-xs">
-                      ₹{qrHistory.reduce((sum, item) => sum + (item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0), 0).toLocaleString('en-IN')}
+                      ₹{qrHistory.reduce((sum, item) => sum + (item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0), 0).toLocaleString('en-IN')}
                     </td>
                     <td className="px-1 py-3 text-center text-slate-400">-</td>
                     <td className="px-1 py-3 text-center text-rose-500 text-xs">
                       ₹{qrHistory.reduce((sum, item) => sum + ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100)), 0).toLocaleString('en-IN')}
                     </td>
                     <td className="px-1 py-3 text-center text-indigo-700 text-xs">
-                      ₹{qrHistory.reduce((sum, item) => sum + (((item.counts?.admin_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))), 0).toLocaleString('en-IN')}
+                      ₹{qrHistory.reduce((sum, item) => sum + (((item.counts?.admin_share || 0) + (item.counts?.super_distributor_share || 0) + (item.counts?.distributor_share || 0)) - ((item.counts?.amount || 0) * ((item.profit_percentage || 0) / 100))), 0).toLocaleString('en-IN')}
                     </td>
                   </tr>
                 </tfoot>

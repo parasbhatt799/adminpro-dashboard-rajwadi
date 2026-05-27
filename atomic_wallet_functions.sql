@@ -172,8 +172,11 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- 4. Atomic Bill Approval (Profit Credit)
+DROP FUNCTION IF EXISTS approve_bill_payment_atomic(UUID);
+
 CREATE OR REPLACE FUNCTION approve_bill_payment_atomic(
-    p_bill_id UUID
+    p_bill_id UUID,
+    p_admin_id TEXT
 ) RETURNS JSON AS $$
 DECLARE
     v_charges NUMERIC;
@@ -197,7 +200,12 @@ BEGIN
 
     -- 3. Update status and shares
     UPDATE public.bill_submissions
-    SET status = 'approved', admin_share = v_charges, distributor_share = 0
+    SET 
+        status = 'approved', 
+        admin_share = v_charges, 
+        distributor_share = 0,
+        actioned_by = p_admin_id,
+        actioned_at = NOW()
     WHERE id = p_bill_id;
 
     -- 4. Update admin balance

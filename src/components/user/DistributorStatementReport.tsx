@@ -45,21 +45,55 @@ export default function DistributorStatementReport({ userId }: { userId: string 
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  const fetchFirmNames = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users_profiles')
-        .select('firm_name')
-        .eq('distributor_id', userId)
-        .not('firm_name', 'is', null);
+  const [currentUserRole, setCurrentUserRole] = useState<string>('distributor');
 
+  const fetchFirmNames = async (roleOverride?: string) => {
+    try {
+      const activeRole = roleOverride || currentUserRole;
+      let query = supabase.from('users_profiles').select('firm_name').not('firm_name', 'is', null);
+      
+      if (activeRole === 'super_distributor') {
+        const { data: distributors } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .eq('super_distributor_id', userId)
+          .eq('role', 'distributor');
+        
+        const distIds = (distributors || []).map(d => d.id);
+        if (distIds.length > 0) {
+          query = query.in('distributor_id', distIds);
+        } else {
+          setAllFirms([]);
+          return;
+        }
+      } else {
+        query = query.eq('distributor_id', userId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setAllFirms(Array.from(new Set(data.map(d => d.firm_name))).sort());
     } catch (err) { console.error('Firm fetch error:', err); }
   };
 
   useEffect(() => {
-    fetchFirmNames();
+    const init = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users_profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+        
+        if (error) throw error;
+        const role = data?.role || 'distributor';
+        setCurrentUserRole(role);
+        fetchFirmNames(role);
+      } catch (err) {
+        console.error('Error fetching role in DistributorStatementReport:', err);
+      }
+    };
+    init();
   }, [userId]);
 
   useEffect(() => {
@@ -90,13 +124,31 @@ export default function DistributorStatementReport({ userId }: { userId: string 
       let openingBalance = 0;
 
       // Calculate Opening Balance if firm and start date are provided
+      // Calculate Opening Balance if firm and start date are provided
       if (firmName.trim() && startDate) {
-        const { data: userProfile } = await supabase
+        let profileQuery = supabase
           .from('users_profiles')
           .select('id')
-          .ilike('firm_name', firmName.trim())
-          .eq('distributor_id', userId)
-          .single();
+          .ilike('firm_name', firmName.trim());
+
+        if (currentUserRole === 'super_distributor') {
+          const { data: distributors } = await supabase
+            .from('users_profiles')
+            .select('id')
+            .eq('super_distributor_id', userId)
+            .eq('role', 'distributor');
+          
+          const distIds = (distributors || []).map(d => d.id);
+          if (distIds.length > 0) {
+            profileQuery = profileQuery.in('distributor_id', distIds);
+          } else {
+            profileQuery = profileQuery.eq('id', 'NONE');
+          }
+        } else {
+          profileQuery = profileQuery.eq('distributor_id', userId);
+        }
+
+        const { data: userProfile } = await profileQuery.single();
 
         if (userProfile) {
           const targetUserId = userProfile.id;
@@ -122,18 +174,37 @@ export default function DistributorStatementReport({ userId }: { userId: string 
       let billMapped: any[] = [];
       let payoutMapped: any[] = [];
 
+      let distIds: string[] = [];
+      if (currentUserRole === 'super_distributor') {
+        const { data: distributors } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .eq('super_distributor_id', userId)
+          .eq('role', 'distributor');
+        distIds = (distributors || []).map(d => d.id);
+      }
+
       // 1. Fetch QR Payments
       if (typeFilter === 'all' || typeFilter === 'QR') {
         let qrQuery = supabase.from('payment_submissions').select(`
           *, 
-          users_profiles!inner(
+          users_profiles!payment_submissions_user_id_fkey!inner(
             firm_name, 
             distributor_id
           ), 
           qr_history(qr_name)
         `)
-          .eq('status', 'approved')
-          .eq('users_profiles.distributor_id', userId);
+          .eq('status', 'approved');
+
+        if (currentUserRole === 'super_distributor') {
+          if (distIds.length > 0) {
+            qrQuery = qrQuery.in('users_profiles.distributor_id', distIds);
+          } else {
+            qrQuery = qrQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+          }
+        } else {
+          qrQuery = qrQuery.eq('users_profiles.distributor_id', userId);
+        }
 
         if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
@@ -159,10 +230,19 @@ export default function DistributorStatementReport({ userId }: { userId: string 
       if (typeFilter === 'all' || typeFilter === 'BILL') {
         let billQuery = supabase.from('bill_submissions').select(`
           *, 
-          users_profiles!inner(firm_name, distributor_id)
+          users_profiles!bill_submissions_user_id_fkey!inner(firm_name, distributor_id)
         `)
-          .eq('status', 'approved')
-          .eq('users_profiles.distributor_id', userId);
+          .eq('status', 'approved');
+
+        if (currentUserRole === 'super_distributor') {
+          if (distIds.length > 0) {
+            billQuery = billQuery.in('users_profiles.distributor_id', distIds);
+          } else {
+            billQuery = billQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+          }
+        } else {
+          billQuery = billQuery.eq('users_profiles.distributor_id', userId);
+        }
 
         if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
@@ -190,8 +270,17 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           *, 
           users_profiles!inner(firm_name, distributor_id)
         `)
-          .eq('status', 'approved')
-          .eq('users_profiles.distributor_id', userId);
+          .eq('status', 'approved');
+
+        if (currentUserRole === 'super_distributor') {
+          if (distIds.length > 0) {
+            payoutQuery = payoutQuery.in('users_profiles.distributor_id', distIds);
+          } else {
+            payoutQuery = payoutQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+          }
+        } else {
+          payoutQuery = payoutQuery.eq('users_profiles.distributor_id', userId);
+        }
 
         if (firmName) payoutQuery = payoutQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
@@ -240,8 +329,10 @@ export default function DistributorStatementReport({ userId }: { userId: string 
   };
 
   useEffect(() => {
-    fetchStatement();
-  }, [startDate, endDate, typeFilter]);
+    if (currentUserRole) {
+      fetchStatement();
+    }
+  }, [startDate, endDate, typeFilter, currentUserRole, userId]);
 
   const clearFilters = () => {
     setFirmName('');
@@ -294,8 +385,12 @@ export default function DistributorStatementReport({ userId }: { userId: string 
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Users Statement Report</h2>
-          <p className="text-slate-500 mt-1">Generate unified transaction statements for all your sub-users.</p>
+          <h2 className="text-2xl font-bold text-slate-900">
+            {currentUserRole === 'super_distributor' ? 'Distributors Statement Report' : 'Users Statement Report'}
+          </h2>
+          <p className="text-slate-500 mt-1">
+            {currentUserRole === 'super_distributor' ? 'Generate unified transaction statements for all distributors under your network.' : 'Generate unified transaction statements for all your sub-users.'}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={exportToExcel} className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2 shadow-lg shadow-emerald-100">

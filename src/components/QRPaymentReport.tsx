@@ -29,6 +29,7 @@ interface QRPaymentRequest {
   charges: number;
   admin_share?: number;
   distributor_share?: number;
+  super_distributor_share?: number;
   card_number: string;
   proof_url: string;
   status: 'pending' | 'approved' | 'rejected';
@@ -49,7 +50,7 @@ export default function QRPaymentReport() {
   const [hasMore, setHasMore] = useState(true);
   const [offset, setOffset] = useState(0);
   const [selectedProof, setSelectedProof] = useState<QRPaymentRequest | null>(null);
-  const [fullTotals, setFullTotals] = useState({ amount: 0, admin: 0, distributor: 0, final: 0 });
+  const [fullTotals, setFullTotals] = useState({ amount: 0, admin: 0, distributor: 0, superDistributor: 0, final: 0 });
   const limit = 10;
 
   // Autocomplete state
@@ -131,7 +132,7 @@ export default function QRPaymentReport() {
     }
 
     try {
-      let selectQuery = '*, users_profiles!inner(name, firm_name)';
+      let selectQuery = '*, users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name)';
 
       // Use !inner join ONLY when filtering by QR Name to avoid hiding legacy payments by default
       if (qrNameFilter) {
@@ -142,7 +143,7 @@ export default function QRPaymentReport() {
 
       let query = supabase
         .from('payment_submissions')
-        .select(selectQuery + ', admin_share, distributor_share')
+        .select(selectQuery + ', admin_share, super_distributor_share, distributor_share')
         .order('created_at', { ascending: false });
 
       // Exclude rejected by default as per requirement
@@ -193,10 +194,10 @@ export default function QRPaymentReport() {
 
   const fetchFullTotals = async () => {
     try {
-      let selectStr = 'amount, charges, admin_share, distributor_share';
+      let selectStr = 'amount, charges, admin_share, super_distributor_share, distributor_share';
       
-      if (firmName) selectStr += ', users_profiles!inner(firm_name)';
-      else selectStr += ', users_profiles(firm_name)';
+      if (firmName) selectStr += ', users_profiles!payment_submissions_user_id_fkey!inner(firm_name)';
+      else selectStr += ', users_profiles!payment_submissions_user_id_fkey(firm_name)';
 
       if (qrNameFilter) selectStr += ', qr_history!inner(qr_name)';
       else selectStr += ', qr_history(qr_name)';
@@ -230,8 +231,9 @@ export default function QRPaymentReport() {
         amount: acc.amount + Number(curr.amount || 0),
         admin: acc.admin + Number(curr.admin_share || 0),
         distributor: acc.distributor + Number(curr.distributor_share || 0),
+        superDistributor: acc.superDistributor + Number(curr.super_distributor_share || 0),
         final: acc.final + (Number(curr.amount || 0) - Number(curr.charges || 0))
-      }), { amount: 0, admin: 0, distributor: 0, final: 0 });
+      }), { amount: 0, admin: 0, distributor: 0, superDistributor: 0, final: 0 });
 
       setFullTotals(totals);
     } catch (err) {
@@ -275,8 +277,9 @@ export default function QRPaymentReport() {
       amount: acc.amount + Number(curr.amount || 0),
       admin: acc.admin + Number(curr.admin_share || 0),
       distributor: acc.distributor + Number(curr.distributor_share || 0),
+      superDistributor: acc.superDistributor + Number(curr.super_distributor_share || 0),
       final: acc.final + (Number(curr.amount || 0) - Number(curr.charges || 0))
-    }), { amount: 0, admin: 0, distributor: 0, final: 0 });
+    }), { amount: 0, admin: 0, distributor: 0, superDistributor: 0, final: 0 });
   };
 
   const exportToExcel = async () => {
@@ -284,7 +287,7 @@ export default function QRPaymentReport() {
       setLoading(true);
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(firm_name), qr_history(qr_name)')
+        .select('*, users_profiles!payment_submissions_user_id_fkey(firm_name), qr_history(qr_name)')
         .neq('status', 'rejected');
 
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
@@ -311,8 +314,9 @@ export default function QRPaymentReport() {
         amount: acc.amount + Number(curr.amount || 0),
         admin: acc.admin + Number(curr.admin_share || 0),
         distributor: acc.distributor + Number(curr.distributor_share || 0),
+        superDistributor: acc.superDistributor + Number(curr.super_distributor_share || 0),
         final: acc.final + (Number(curr.amount || 0) - Number(curr.charges || 0))
-      }), { amount: 0, admin: 0, distributor: 0, final: 0 });
+      }), { amount: 0, admin: 0, distributor: 0, superDistributor: 0, final: 0 });
 
       const exportData = allData.map(req => ({
         'Date': new Date(req.created_at).toLocaleDateString(),
@@ -324,6 +328,7 @@ export default function QRPaymentReport() {
         'Amount': Number(req.amount),
         'Admin Profit': Number(req.admin_share || 0),
         'Dist. Profit': Number(req.distributor_share || 0),
+        'S.Dist. Profit': Number(req.super_distributor_share || 0),
         'Final Total': Number(req.amount) - Number(req.charges || 0)
       }));
 
@@ -338,6 +343,7 @@ export default function QRPaymentReport() {
         'Amount': Number(totals.amount.toFixed(2)) as any,
         'Admin Profit': Number(totals.admin.toFixed(2)) as any,
         'Dist. Profit': Number(totals.distributor.toFixed(2)) as any,
+        'S.Dist. Profit': Number(totals.superDistributor.toFixed(2)) as any,
         'Final Total': Number(totals.final.toFixed(2)) as any
       });
 
@@ -346,7 +352,7 @@ export default function QRPaymentReport() {
       // Auto-size columns
       ws['!cols'] = [
         { wch: 12 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, 
-        { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
+        { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }
       ];
 
       const wb = XLSX.utils.book_new();
@@ -365,7 +371,7 @@ export default function QRPaymentReport() {
       setLoading(true);
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(firm_name), qr_history(qr_name)')
+        .select('*, users_profiles!payment_submissions_user_id_fkey(firm_name), qr_history(qr_name)')
         .neq('status', 'rejected');
 
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
@@ -391,8 +397,9 @@ export default function QRPaymentReport() {
         amount: acc.amount + Number(curr.amount || 0),
         admin: acc.admin + Number(curr.admin_share || 0),
         distributor: acc.distributor + Number(curr.distributor_share || 0),
+        superDistributor: acc.superDistributor + Number(curr.super_distributor_share || 0),
         final: acc.final + (Number(curr.amount || 0) - Number(curr.charges || 0))
-      }), { amount: 0, admin: 0, distributor: 0, final: 0 });
+      }), { amount: 0, admin: 0, distributor: 0, superDistributor: 0, final: 0 });
 
       const doc = new jsPDF({
         orientation: 'l',
@@ -410,15 +417,22 @@ export default function QRPaymentReport() {
         req.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         (req.admin_share || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         (req.distributor_share || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+        (req.super_distributor_share || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         (Number(req.amount) - Number(req.charges || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
       ]);
 
       const footer = [
-        ['TOTAL', '', '', '', '', '', totals.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }), totals.admin.toLocaleString(undefined, { minimumFractionDigits: 2 }), totals.distributor.toLocaleString(undefined, { minimumFractionDigits: 2 }), totals.final.toLocaleString(undefined, { minimumFractionDigits: 2 })]
+        ['TOTAL', '', '', '', '', '',
+          totals.amount.toLocaleString(undefined, { minimumFractionDigits: 2 }),
+          totals.admin.toLocaleString(undefined, { minimumFractionDigits: 2 }),
+          totals.distributor.toLocaleString(undefined, { minimumFractionDigits: 2 }),
+          totals.superDistributor.toLocaleString(undefined, { minimumFractionDigits: 2 }),
+          totals.final.toLocaleString(undefined, { minimumFractionDigits: 2 })
+        ]
       ];
 
       autoTable(doc, {
-        head: [['Date', 'Firm Name', 'UTR ID', 'QR Used', 'Card No', 'Status', 'Amount', 'Admin Profit', 'Dist. Profit', 'Final Total']],
+        head: [['Date', 'Firm Name', 'UTR ID', 'QR Used', 'Card No', 'Status', 'Amount', 'Admin Profit', 'Dist. Profit', 'S.Dist. Profit', 'Final Total']],
         body: tableData,
         foot: footer,
         theme: 'grid',
@@ -667,6 +681,7 @@ export default function QRPaymentReport() {
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Amount</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Admin Profit</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Dist. Profit</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">S.Dist. Profit</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Final Total</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-widest text-center">Proof</th>
@@ -724,6 +739,9 @@ export default function QRPaymentReport() {
                       <td className="px-6 py-4 text-right text-amber-600 font-bold text-sm">
                         ₹{(req.distributor_share || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
+                      <td className="px-6 py-4 text-right text-pink-600 font-bold text-sm">
+                        ₹{(req.super_distributor_share || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
                       <td className="px-6 py-4 text-right text-emerald-600 font-bold text-sm">
                         ₹{(Number(req.amount) - Number(req.charges || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
@@ -759,6 +777,9 @@ export default function QRPaymentReport() {
                     </td>
                     <td className="px-6 py-4 text-right text-amber-700 text-sm font-bold">
                       ₹{fullTotals.distributor.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-6 py-4 text-right text-pink-700 text-sm font-bold">
+                      ₹{fullTotals.superDistributor.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="px-6 py-4 text-right text-indigo-900 text-sm font-black">
                       ₹{fullTotals.final.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}

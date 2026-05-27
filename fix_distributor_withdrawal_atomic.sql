@@ -64,12 +64,17 @@ BEGIN
     SET commission_balance = commission_balance - v_amount
     WHERE id = v_distributor_id;
 
-    -- 5. Update withdrawal status
+    -- 5. Update admin balance in qr_settings
+    UPDATE public.qr_settings
+    SET admin_balance = COALESCE(admin_balance, 0) - v_amount
+    WHERE id = 1;
+
+    -- 6. Update withdrawal status
     UPDATE public.distributor_withdrawals
     SET status = 'approved', updated_at = NOW()
     WHERE id = p_withdrawal_id;
 
-    -- 6. Record in Admin's Withdrawal History
+    -- 7. Record in Admin's Withdrawal History
     INSERT INTO public.admin_withdrawals (amount, remark)
     VALUES (v_amount, 'Dist. ' || v_distributor_name || ' withdraw');
 

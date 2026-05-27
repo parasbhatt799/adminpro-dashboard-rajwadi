@@ -47,7 +47,7 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
         .from('bill_submissions')
         .select(`
           *,
-          users_profiles!inner(name, firm_name, distributor_id)
+          users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name, distributor_id)
         `)
         .eq('users_profiles.distributor_id', userId)
         .order('created_at', { ascending: false });

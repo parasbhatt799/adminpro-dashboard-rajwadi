@@ -24,16 +24,48 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProof, setSelectedProof] = useState<any>(null);
 
+  const [currentUserRole, setCurrentUserRole] = useState<string>('distributor');
+
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      // 1. Get IDs of all users belonging to this distributor
-      const { data: subUsers } = await supabase
+      // 0. Get user role
+      const { data: profile } = await supabase
         .from('users_profiles')
-        .select('id')
-        .eq('distributor_id', userId);
+        .select('role')
+        .eq('id', userId)
+        .single();
+      
+      const role = profile?.role || 'distributor';
+      setCurrentUserRole(role);
 
-      const subUserIds = (subUsers || []).map(u => u.id);
+      let subUserIds: string[] = [];
+
+      if (role === 'super_distributor') {
+        // Get all distributors under this super distributor
+        const { data: distributors } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .eq('super_distributor_id', userId)
+          .eq('role', 'distributor');
+
+        const distIds = (distributors || []).map(d => d.id);
+        if (distIds.length > 0) {
+          // Get all users under those distributors
+          const { data: subUsers } = await supabase
+            .from('users_profiles')
+            .select('id')
+            .in('distributor_id', distIds);
+          subUserIds = (subUsers || []).map(u => u.id);
+        }
+      } else {
+        // Get all users under this distributor
+        const { data: subUsers } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .eq('distributor_id', userId);
+        subUserIds = (subUsers || []).map(u => u.id);
+      }
 
       if (subUserIds.length === 0) {
         setRequests([]);
@@ -43,7 +75,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
       // 2. Fetch their payment submissions
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles(name, firm_name, charge_percentage, admin_base_qr_charge), qr_history(qr_name)')
+        .select('*, users_profiles!payment_submissions_user_id_fkey(name, firm_name, charge_percentage, admin_base_qr_charge), qr_history(qr_name)')
         .in('user_id', subUserIds)
         .order('created_at', { ascending: false });
 
@@ -67,6 +99,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
   );
 
   const exportToExcel = () => {
+    const isSD = currentUserRole === 'super_distributor';
     const exportData = filteredRequests.map(req => ({
       'Date': new Date(req.created_at).toLocaleDateString(),
       'Time': new Date(req.created_at).toLocaleTimeString(),
@@ -74,13 +107,13 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
       'UTR ID': req.utr_id,
       'QR Used': req.qr_history?.qr_name || 'N/A',
       'Amount': Number(req.amount || 0),
-      'My Profit': Number(req.distributor_share || 0),
+      'My Profit': Number((isSD ? req.super_distributor_share : req.distributor_share) || 0),
       'Status': req.status.toUpperCase()
     }));
 
     // Add totals row
     const totalAmount = filteredRequests.reduce((acc, req) => acc + (Number(req.amount) || 0), 0);
-    const totalProfit = filteredRequests.reduce((acc, req) => acc + (Number(req.distributor_share) || 0), 0);
+    const totalProfit = filteredRequests.reduce((acc, req) => acc + (Number(isSD ? req.super_distributor_share : req.distributor_share) || 0), 0);
 
     exportData.push({
       'Date': 'TOTAL',
@@ -112,12 +145,14 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
     XLSX.writeFile(wb, `My_Users_QR_Requests_${new Date().toLocaleDateString()}.xlsx`);
   };
 
+  const isSD = currentUserRole === 'super_distributor';
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Users QR Requests</h2>
-          <p className="text-slate-500 mt-1">History of QR payments made by your users.</p>
+          <h2 className="text-2xl font-bold text-slate-900">{isSD ? 'Distributors QR Requests' : 'Users QR Requests'}</h2>
+          <p className="text-slate-500 mt-1">{isSD ? 'History of QR payments made by distributors under your network.' : 'History of QR payments made by your users.'}</p>
         </div>
         <button 
           onClick={exportToExcel}
@@ -164,7 +199,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
               ) : filteredRequests.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-12 text-center text-slate-500 font-medium">
-                    No QR requests found from your users.
+                    {isSD ? 'No QR requests found from your distributor network.' : 'No QR requests found from your users.'}
                   </td>
                 </tr>
               ) : (
@@ -187,7 +222,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                       {req.status === 'approved' ? (
                         <span className="text-sm font-bold text-emerald-600 flex items-center justify-center">
                           <IndianRupee size={14} className="mr-0.5" />
-                          {((req.amount * (Number(req.users_profiles?.charge_percentage || 0) - Number(req.users_profiles?.admin_base_qr_charge || 0))) / 100).toFixed(2)}
+                          {Number(isSD ? (req.super_distributor_share || 0) : (req.distributor_share || 0)).toFixed(2)}
                         </span>
                       ) : (
                         <span className="text-xs text-slate-400">---</span>
@@ -233,7 +268,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                   <td className="px-6 py-4 text-center">
                     <span className="text-sm font-black text-emerald-700 flex items-center justify-center">
                       <IndianRupee size={14} className="mr-0.5" />
-                      {filteredRequests.reduce((acc, req) => acc + (Number(req.distributor_share) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {filteredRequests.reduce((acc, req) => acc + (Number(isSD ? req.super_distributor_share : req.distributor_share) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </td>
                   <td colSpan={2}></td>

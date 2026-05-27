@@ -52,7 +52,7 @@ export default function BillPaymentRequests() {
   const [requests, setRequests] = useState<BillRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'refunded'>('all');
-  const [dateFilter, setDateFilter] = useState('today');
+  const [dateFilter, setDateFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
@@ -63,8 +63,8 @@ export default function BillPaymentRequests() {
   const [charges, setCharges] = useState('');
   const [showActionModal, setShowActionModal] = useState<{ id: string; type: 'approved' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [startDate, setStartDate] = useState(getTodayStr());
-  const [endDate, setEndDate] = useState(getTodayStr());
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [isBillEnabled, setIsBillEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -74,9 +74,9 @@ export default function BillPaymentRequests() {
   const clearFilters = () => {
     setSearchQuery('');
     setFilter('all');
-    setDateFilter('today');
-    setStartDate(getTodayStr());
-    setEndDate(getTodayStr());
+    setDateFilter('all');
+    setStartDate('');
+    setEndDate('');
     setCurrentPage(1);
   };
 
@@ -120,7 +120,7 @@ export default function BillPaymentRequests() {
     try {
       let query = supabase
         .from('bill_submissions')
-        .select('*, users_profiles!inner(name, firm_name, profile_photo_url)', { count: 'exact' });
+        .select('*, users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name, profile_photo_url)', { count: 'exact' });
 
       // Apply Filters
       if (filter !== 'all') {
@@ -132,12 +132,10 @@ export default function BillPaymentRequests() {
       }
 
       if (startDate) {
-        query = query.gte('created_at', new Date(startDate).toISOString());
+        query = query.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
       }
       if (endDate) {
-        const nextDay = new Date(endDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-        query = query.lt('created_at', nextDay.toISOString());
+        query = query.lte('created_at', new Date(`${endDate}T23:59:59.999`).toISOString());
       }
 
       // Pagination

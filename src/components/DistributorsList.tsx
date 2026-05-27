@@ -46,7 +46,8 @@ export default function DistributorsList() {
         .from('users_profiles')
         .select(`
           *,
-          sub_count:users_profiles(count)
+          sub_count:users_profiles!distributor_id(count),
+          super_distributor:super_distributor_id(name, firm_name)
         `)
         .eq('role', 'distributor')
         .order('created_at', { ascending: false });
@@ -389,11 +390,20 @@ export default function DistributorsList() {
               layoutId={dist.id}
               className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-xl hover:shadow-indigo-500/5 transition-all group border-b-4 border-b-indigo-500 relative"
             >
-              {/* Distributor Badge in Top Right */}
-              <div className="absolute top-4 right-4 z-10">
+              {/* Badges in Top Right */}
+              <div className="absolute top-4 right-4 z-10 flex flex-col items-end gap-1.5">
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-indigo-600 text-white shadow-lg shadow-indigo-200">
                   Distributor
                 </span>
+                {dist.super_distributor ? (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60 shadow-sm max-w-[120px] truncate" title={`Super Distributor: ${dist.super_distributor.name}`}>
+                    Super Dist: {dist.super_distributor.name}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200/60 shadow-sm">
+                    Admin
+                  </span>
+                )}
               </div>
 
               <div className="p-6">

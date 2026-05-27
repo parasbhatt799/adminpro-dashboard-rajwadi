@@ -34,28 +34,21 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
   const [viewingStatementUserId, setViewingStatementUserId] = useState<string | null>(null);
   const [distributorBaseCharge, setDistributorBaseCharge] = useState(0);
 
-  const fetchDistributorProfile = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('users_profiles')
-        .select('admin_base_qr_charge')
-        .eq('id', userId)
-        .single();
-      
-      if (error) throw error;
-      setDistributorBaseCharge(Number(data?.admin_base_qr_charge) || 0);
-    } catch (err) {
-      console.error('Error fetching distributor profile:', err);
-    }
-  };
+  const [currentUserRole, setCurrentUserRole] = useState<string>('distributor');
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (roleOverride?: string) => {
     setLoading(true);
     try {
+      const activeRole = roleOverride || currentUserRole;
       let query = supabase
         .from('users_profiles')
-        .select('*')
-        .eq('distributor_id', userId);
+        .select('*, sub_count:users_profiles!distributor_id(count)');
+
+      if (activeRole === 'super_distributor') {
+        query = query.eq('super_distributor_id', userId);
+      } else {
+        query = query.eq('distributor_id', userId);
+      }
 
       if (searchTerm) {
         query = query.or(`name.ilike.%${searchTerm}%,mobile_number.ilike.%${searchTerm}%,email.ilike.%${searchTerm}%,id.ilike.%${searchTerm}%,firm_name.ilike.%${searchTerm}%`);
@@ -72,16 +65,42 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
   };
 
   useEffect(() => {
-    fetchUsers();
-    fetchDistributorProfile();
+    const init = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('users_profiles')
+          .select('admin_base_qr_charge, role')
+          .eq('id', userId)
+          .single();
+        
+        if (error) throw error;
+        const role = data?.role || 'distributor';
+        const charge = Number(data?.admin_base_qr_charge) || 0;
+        setDistributorBaseCharge(charge);
+        setCurrentUserRole(role);
+        
+        fetchUsers(role);
+      } catch (err) {
+        console.error('Error initializing DistributorUsers:', err);
+        fetchUsers();
+      }
+    };
+
+    init();
   }, [userId, searchTerm]);
+
+  const isSD = currentUserRole === 'super_distributor';
 
   if (isAddingUser || editingUser) {
     return (
       <AddUser 
-        isDistributorView={true}
-        distributorBaseCharge={distributorBaseCharge}
-        initialData={editingUser ? { ...editingUser, distributor_id: userId } : { distributor_id: userId, role: 'user' }}
+        isDistributorView={!isSD}
+        distributorBaseCharge={!isSD ? distributorBaseCharge : 0}
+        isSuperDistributorView={isSD}
+        superDistributorBaseCharge={isSD ? distributorBaseCharge : 0}
+        initialData={editingUser 
+          ? (isSD ? { ...editingUser, super_distributor_id: userId } : { ...editingUser, distributor_id: userId }) 
+          : (isSD ? { super_distributor_id: userId, role: 'distributor' } : { distributor_id: userId, role: 'user' })}
         onBack={() => {
           setIsAddingUser(false);
           setEditingUser(null);
@@ -136,15 +155,15 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">My Users</h2>
-          <p className="text-slate-500 mt-1">Manage users you have registered in the system.</p>
+          <h2 className="text-2xl font-bold text-slate-900">{isSD ? 'My Distributors' : 'My Users'}</h2>
+          <p className="text-slate-500 mt-1">{isSD ? 'Manage distributors you have registered in the system.' : 'Manage users you have registered in the system.'}</p>
         </div>
         <button 
           onClick={() => setIsAddingUser(true)}
           className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-emerald-200 active:scale-95"
         >
           <UserPlus size={20} />
-          <span>Add New User</span>
+          <span>Add New {isSD ? 'Distributor' : 'User'}</span>
         </button>
       </div>
 
@@ -155,7 +174,7 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
             type="text" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search your users..." 
+            placeholder={isSD ? "Search your distributors..." : "Search your users..."} 
             className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
           />
         </div>
@@ -165,7 +184,7 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
         {loading ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3">
             <Loader2 className="animate-spin text-emerald-500" size={32} />
-            <p className="text-sm font-medium">Loading your users...</p>
+            <p className="text-sm font-medium">Loading your {isSD ? 'distributors' : 'users'}...</p>
           </div>
         ) : users.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-4 p-12">
@@ -173,8 +192,8 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
               <UserIcon size={32} className="text-slate-300" />
             </div>
             <div className="text-center">
-              <p className="text-slate-900 font-bold">No users found</p>
-              <p className="text-sm mt-1">You haven't added any users yet.</p>
+              <p className="text-slate-900 font-bold">No {isSD ? 'distributors' : 'users'} found</p>
+              <p className="text-sm mt-1">{isSD ? "You haven't added any distributors yet." : "You haven't added any users yet."}</p>
             </div>
           </div>
         ) : (
@@ -182,8 +201,9 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50">
-                  <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">User Details</th>
+                  <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">{isSD ? 'Distributor Details' : 'User Details'}</th>
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Firm Name</th>
+                  {isSD && <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">Total Users</th>}
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">KYC Status</th>
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">Reports</th>
                   <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-right">Actions</th>
@@ -217,6 +237,13 @@ export default function DistributorUsers({ userId }: DistributorUsersProps) {
                         <span className="text-sm text-slate-700">{user.firm_name || 'N/A'}</span>
                       </div>
                     </td>
+                    {isSD && (
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 text-xs font-black px-2.5 py-1 rounded-lg">
+                          {user.sub_count?.[0]?.count || 0}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-center gap-1.5">
                         <div className={`w-2 h-2 rounded-full ${user.kyc_status === 'verified' ? 'bg-emerald-500' : 'bg-amber-500'}`} />

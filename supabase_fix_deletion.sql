@@ -1,32 +1,57 @@
--- Fix foreign key constraints for user deletion
--- This script adds ON DELETE CASCADE to tables that reference users_profiles
--- so that when a user is deleted, their associated submissions are also deleted.
+-- Fix foreign key constraints for user deletion dynamically
+-- This script finds all foreign key constraints referencing public.users_profiles
+-- and recreates them with appropriate ON DELETE behaviors:
+-- 1. For tables other than users_profiles, it uses ON DELETE CASCADE.
+-- 2. For users_profiles itself (self-references like distributor_id, super_distributor_id),
+--    it uses ON DELETE SET NULL to avoid cascade deleting child accounts.
 
 DO $$ 
+DECLARE
+    r RECORD;
 BEGIN
-    -- Fix bill_submissions
-    -- We attempt to drop the constraint and recreate it with ON DELETE CASCADE
-    -- The constraint name is likely 'bill_submissions_user_id_fkey'
-    IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name = 'bill_submissions' AND constraint_name = 'bill_submissions_user_id_fkey') THEN
-        ALTER TABLE public.bill_submissions DROP CONSTRAINT bill_submissions_user_id_fkey;
-        ALTER TABLE public.bill_submissions ADD CONSTRAINT bill_submissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users_profiles(id) ON DELETE CASCADE;
-    END IF;
+    FOR r IN 
+        SELECT 
+            tc.table_schema, 
+            tc.table_name, 
+            tc.constraint_name, 
+            kcu.column_name,
+            ccu.table_name AS foreign_table_name,
+            ccu.column_name AS foreign_column_name
+        FROM 
+            information_schema.table_constraints AS tc 
+            JOIN information_schema.key_column_usage AS kcu
+              ON tc.constraint_name = kcu.constraint_name
+              AND tc.table_schema = kcu.table_schema
+            JOIN information_schema.constraint_column_usage AS ccu
+              ON ccu.constraint_name = tc.constraint_name
+              AND ccu.table_schema = tc.table_schema
+        WHERE tc.constraint_type = 'FOREIGN KEY' 
+          AND ccu.table_name = 'users_profiles'
+          AND ccu.table_schema = 'public'
+    LOOP
+        -- 1. Drop existing constraint
+        EXECUTE format('ALTER TABLE %I.%I DROP CONSTRAINT IF EXISTS %I', r.table_schema, r.table_name, r.constraint_name);
+        
+        -- 2. Create new constraint with correct delete behavior
+        IF r.table_name = 'users_profiles' THEN
+            -- For self-references, set to NULL so that deleting a parent distributor/super distributor
+            -- doesn't delete all their child distributors/users.
+            EXECUTE format(
+                'ALTER TABLE %I.%I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES public.users_profiles(id) ON DELETE SET NULL', 
+                r.table_schema, r.table_name, r.constraint_name, r.column_name
+            );
+            RAISE NOTICE 'Updated constraint % on table % with ON DELETE SET NULL', r.constraint_name, r.table_name;
+        ELSE
+            -- For other tables, cascade delete so orphaned details are cleaned up automatically
+            EXECUTE format(
+                'ALTER TABLE %I.%I ADD CONSTRAINT %I FOREIGN KEY (%I) REFERENCES public.users_profiles(id) ON DELETE CASCADE', 
+                r.table_schema, r.table_name, r.constraint_name, r.column_name
+            );
+            RAISE NOTICE 'Updated constraint % on table % with ON DELETE CASCADE', r.constraint_name, r.table_name;
+        END IF;
+    END LOOP;
 
-    -- Fix payment_submissions
-    IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name = 'payment_submissions' AND constraint_name = 'payment_submissions_user_id_fkey') THEN
-        ALTER TABLE public.payment_submissions DROP CONSTRAINT payment_submissions_user_id_fkey;
-        ALTER TABLE public.payment_submissions ADD CONSTRAINT payment_submissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users_profiles(id) ON DELETE CASCADE;
-    END IF;
-
-    -- Fix kyc_submissions (already handled in setup, but ensuring here)
-    IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE table_name = 'kyc_submissions' AND constraint_name = 'kyc_submissions_user_id_fkey') THEN
-        ALTER TABLE public.kyc_submissions DROP CONSTRAINT kyc_submissions_user_id_fkey;
-        ALTER TABLE public.kyc_submissions ADD CONSTRAINT kyc_submissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users_profiles(id) ON DELETE CASCADE;
-    END IF;
-
-    -- Ensure RLS allows deletion for users_profiles
-    -- We enable RLS and add a policy that allows all operations (since it's an admin-heavy app)
-    -- or you can restrict it to authenticated users.
+    -- Ensure RLS allows deletion for users_profiles (if it's not already enabled)
     ALTER TABLE public.users_profiles ENABLE ROW LEVEL SECURITY;
     
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'users_profiles' AND policyname = 'users_profiles_all_access') THEN

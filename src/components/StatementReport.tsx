@@ -97,7 +97,7 @@ export default function StatementReport() {
       if (typeFilter === 'all' || typeFilter === 'QR') {
         let qrQuery = supabase.from('payment_submissions').select(`
           *, 
-          users_profiles!inner(
+          users_profiles!payment_submissions_user_id_fkey!inner(
             firm_name, 
             distributor_id, 
             admin_base_qr_charge, 
@@ -130,7 +130,7 @@ export default function StatementReport() {
 
       // 2. Fetch Bill Payments
       if (typeFilter === 'all' || typeFilter === 'BILL') {
-        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'refunded']);
+        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!bill_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'refunded']);
 
         if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) billQuery = billQuery.eq('amount', Number(exactAmount));
@@ -295,7 +295,13 @@ export default function StatementReport() {
         ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)`
         : r.type === 'PAYOUT'
           ? `PAYOUT to ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name} A/c:${r.raw_data?.account_number})\nTxnId: ${r.reference}\n(${r.amount} + ${r.charges} Txn Charge)`
-          : `TxnId: ${r.reference},\n(${r.amount} - ${r.charges} Txn Charge)\n PAYMENT QR ${r.raw_data?.qr_history?.qr_name}`,
+          : `TxnId: ${r.reference}\nPAYMENT QR ${r.raw_data?.qr_history?.qr_name || 'N/A'}${
+              r.raw_data?.users_profiles?.distributor_id
+                ? `\nAdmin Profit: ₹${(r.raw_data.admin_share !== null && r.raw_data.admin_share !== undefined ? Number(r.raw_data.admin_share) : ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2)}` +
+                  `\nS.Dist. Profit: ₹${(r.raw_data.super_distributor_share !== null && r.raw_data.super_distributor_share !== undefined ? Number(r.raw_data.super_distributor_share) : 0).toFixed(2)}` +
+                  `\nDist. Profit: ₹${(r.raw_data.distributor_share !== null && r.raw_data.distributor_share !== undefined ? Number(r.raw_data.distributor_share) : (Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100))).toFixed(2)}`
+                : `\nCharges: ₹${Number(r.charges || 0).toFixed(2)}`
+            }`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
@@ -330,7 +336,11 @@ export default function StatementReport() {
           ? `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`
           : r.type === 'PAYOUT'
             ? `PAYOUT: ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name})`
-            : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'CashFree'}`,
+            : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'Legacy'}${
+                r.raw_data?.users_profiles?.distributor_id
+                  ? ` (Admin: ${ (r.raw_data.admin_share !== null && r.raw_data.admin_share !== undefined ? Number(r.raw_data.admin_share) : ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2) } | S.Dist: ${ (r.raw_data.super_distributor_share !== null && r.raw_data.super_distributor_share !== undefined ? Number(r.raw_data.super_distributor_share) : 0).toFixed(2) } | Dist: ${ (r.raw_data.distributor_share !== null && r.raw_data.distributor_share !== undefined ? Number(r.raw_data.distributor_share) : (Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100))).toFixed(2) })`
+                  : ` (Charges: ${Number(r.charges || 0).toFixed(2)})`
+              }`,
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
         (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
@@ -504,21 +514,28 @@ export default function StatementReport() {
                         <>
                           <div className="break-all text-amber-600 font-bold">TxnId: {r.reference}</div>
                           {r.raw_data.users_profiles?.distributor_id ? (
-                            <div className="bg-slate-50/50 border border-slate-100 rounded p-2 my-1 max-w-[200px]">
-                              <div className="flex justify-between text-[11px] mb-0.5">
+                            <div className="bg-slate-50/50 border border-slate-100 rounded p-2.5 my-1 max-w-[220px] space-y-1 shadow-sm">
+                              <div className="flex justify-between text-[11px]">
                                 <span className="text-slate-500">Admin Profit:</span>
                                 <span className="font-bold text-rose-600">
-                                  ₹{((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100).toFixed(2)}
+                                  ₹{(r.raw_data.admin_share !== null && r.raw_data.admin_share !== undefined ? Number(r.raw_data.admin_share) : ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2)}
                                 </span>
                               </div>
-                              <div className="flex justify-between text-[11px] mb-1">
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-slate-500">S.Dist. Profit:</span>
+                                <span className="font-bold text-purple-600">
+                                  ₹{(r.raw_data.super_distributor_share !== null && r.raw_data.super_distributor_share !== undefined ? Number(r.raw_data.super_distributor_share) : 0).toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-[11px]">
                                 <span className="text-slate-500">Dist. Profit:</span>
                                 <span className="font-bold text-amber-600">
-                                  ₹{(Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2)}
+                                  ₹{(r.raw_data.distributor_share !== null && r.raw_data.distributor_share !== undefined ? Number(r.raw_data.distributor_share) : (Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100))).toFixed(2)}
                                 </span>
                               </div>
-                              <div className="text-[10px] text-slate-400 uppercase font-black border-t border-slate-100 pt-1 mt-1 leading-tight">
-                                Recipient: {(r as any).distributor_firm || 'N/A'}
+                              <div className="text-[10px] text-slate-400 uppercase font-black border-t border-slate-100 pt-1 mt-1 leading-tight flex justify-between">
+                                <span>Recipient:</span>
+                                <span className="text-slate-600">{(r as any).distributor_firm || 'N/A'}</span>
                               </div>
                             </div>
                           ) : (

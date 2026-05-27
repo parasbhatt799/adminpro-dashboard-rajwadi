@@ -594,6 +594,16 @@ export default function UsersList({ adminRole }: UsersListProps) {
                           Distributor
                         </span>
                       )}
+                      {user.role === 'super_distributor' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-600 text-white shadow-sm shadow-purple-200 ml-1">
+                          Super Distributor
+                        </span>
+                      )}
+                      {(user.role === 'user' || !user.role) && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-600 text-white shadow-sm shadow-emerald-200 ml-1">
+                          User
+                        </span>
+                      )}
                     </td>
                     <td className="px-2 py-4">
                       <div className="flex items-center justify-center gap-1.5">

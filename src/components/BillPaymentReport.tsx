@@ -98,7 +98,7 @@ export default function BillPaymentReport() {
     try {
       let query = supabase
         .from('bill_submissions')
-        .select('*, users_profiles!inner(name, firm_name)')
+        .select('*, users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name)')
         .order('created_at', { ascending: false });
 
       // Exclude rejected as per requirement
@@ -147,8 +147,8 @@ export default function BillPaymentReport() {
   const fetchFullTotals = async () => {
     try {
       let selectStr = 'amount, charges';
-      if (firmName) selectStr += ', users_profiles!inner(firm_name)';
-      else selectStr += ', users_profiles(firm_name)';
+      if (firmName) selectStr += ', users_profiles!bill_submissions_user_id_fkey!inner(firm_name)';
+      else selectStr += ', users_profiles!bill_submissions_user_id_fkey(firm_name)';
 
       let query = supabase
         .from('bill_submissions')
@@ -217,7 +217,7 @@ export default function BillPaymentReport() {
       setLoading(true);
       let query = supabase
         .from('bill_submissions')
-        .select('*, users_profiles(firm_name)')
+        .select('*, users_profiles!bill_submissions_user_id_fkey(firm_name)')
         .neq('status', 'rejected');
 
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);
@@ -291,7 +291,7 @@ export default function BillPaymentReport() {
       setLoading(true);
       let query = supabase
         .from('bill_submissions')
-        .select('*, users_profiles(firm_name)')
+        .select('*, users_profiles!bill_submissions_user_id_fkey(firm_name)')
         .neq('status', 'rejected');
 
       if (statusFilter !== 'all') query = query.eq('status', statusFilter);

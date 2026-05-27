@@ -27,9 +27,19 @@ interface AddUserProps {
   initialData?: any;
   isDistributorView?: boolean;
   distributorBaseCharge?: number;
+  isSuperDistributorView?: boolean;
+  superDistributorBaseCharge?: number;
 }
 
-export default function AddUser({ onBack, onSuccess, initialData, isDistributorView, distributorBaseCharge = 0 }: AddUserProps) {
+export default function AddUser({ 
+  onBack, 
+  onSuccess, 
+  initialData, 
+  isDistributorView, 
+  distributorBaseCharge = 0,
+  isSuperDistributorView,
+  superDistributorBaseCharge = 0
+}: AddUserProps) {
   const toast = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,9 +74,10 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
     hold_balance: initialData?.hold_balance?.toString() || '0',
     is_hold_active: (initialData?.hold_balance || 0) > 0,
     hold_input: initialData?.hold_balance?.toString() || '0',
-    role: initialData?.role || 'user',
+    role: initialData?.role || (isSuperDistributorView ? 'distributor' : 'user'),
     admin_base_qr_charge: initialData?.admin_base_qr_charge?.toString() || '0',
-    distributor_id: initialData?.distributor_id || ''
+    distributor_id: initialData?.distributor_id || '',
+    super_distributor_id: initialData?.super_distributor_id || ''
   });
 
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
@@ -76,20 +87,35 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
   const [isFetchingDistributor, setIsFetchingDistributor] = useState(false);
 
   const [distributors, setDistributors] = useState<any[]>([]);
+  const [superDistributors, setSuperDistributors] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!isDistributorView) {
+    if (!isDistributorView && !isSuperDistributorView) {
       const fetchDistributors = async () => {
         const { data } = await supabase
           .from('users_profiles')
-          .select('id, firm_name, name')
+          .select('id, firm_name, name, admin_base_qr_charge')
           .eq('role', 'distributor')
           .eq('status', 'Active');
         if (data) setDistributors(data);
       };
       fetchDistributors();
     }
-  }, [isDistributorView]);
+  }, [isDistributorView, isSuperDistributorView]);
+
+  useEffect(() => {
+    if (!isDistributorView && !isSuperDistributorView) {
+      const fetchSuperDistributors = async () => {
+        const { data } = await supabase
+          .from('users_profiles')
+          .select('id, firm_name, name, admin_base_qr_charge')
+          .eq('role', 'super_distributor')
+          .eq('status', 'Active');
+        if (data) setSuperDistributors(data);
+      };
+      fetchSuperDistributors();
+    }
+  }, [isDistributorView, isSuperDistributorView]);
 
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -157,6 +183,11 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
 
       // 2. Insert or Update user profile
       const fullName = [formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(' ');
+      
+      let finalRole = formData.role;
+      if (isDistributorView) finalRole = 'user';
+      if (isSuperDistributorView) finalRole = 'distributor';
+
       const userData: any = {
         name: fullName,
         email: formData.email,
@@ -167,17 +198,58 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
         charge_percentage: Number(formData.charge_percentage) || 0,
         profile_photo_url,
         status: initialData?.status || 'Active',
-        role: isDistributorView ? 'user' : formData.role,
-        admin_base_qr_charge: isDistributorView ? distributorBaseCharge : (parseFloat(formData.admin_base_qr_charge) || 0),
-        distributor_id: isDistributorView ? (initialData?.distributor_id || null) : (formData.distributor_id || null),
-        service_charge_enabled: isDistributorView ? false : formData.service_charge_enabled,
-        custom_service_charge: isDistributorView ? 0 : (parseFloat(formData.custom_service_charge) || 0)
+        role: finalRole,
+        admin_base_qr_charge: (finalRole === 'distributor' || finalRole === 'super_distributor')
+          ? (parseFloat(formData.admin_base_qr_charge) || 0)
+          : 0,
+        distributor_id: isDistributorView 
+          ? (initialData?.distributor_id || null) 
+          : (finalRole === 'user' ? (formData.distributor_id || null) : null),
+        super_distributor_id: isSuperDistributorView 
+          ? (initialData?.super_distributor_id || null) 
+          : (finalRole === 'distributor' ? (formData.super_distributor_id || null) : null),
+        service_charge_enabled: (isDistributorView || isSuperDistributorView) ? false : formData.service_charge_enabled,
+        custom_service_charge: (isDistributorView || isSuperDistributorView) ? 0 : (parseFloat(formData.custom_service_charge) || 0)
       };
 
-      // Validation for Distributors
+      // Validation for Distributors adding Users
       if (isDistributorView) {
-        if (userData.charge_percentage <= distributorBaseCharge) {
-          throw new Error(`Charge percentage must be higher than your base charge of ${distributorBaseCharge}%.`);
+        if (userData.charge_percentage < distributorBaseCharge) {
+          throw new Error(`Charge percentage must be greater than or equal to your base charge of ${distributorBaseCharge}%.`);
+        }
+      }
+
+      // Validation for Super Distributors adding Distributors
+      if (isSuperDistributorView) {
+        if (userData.admin_base_qr_charge < superDistributorBaseCharge) {
+          throw new Error(`Distributor base charge must be greater than or equal to your base charge of ${superDistributorBaseCharge}%.`);
+        }
+      }
+
+      // Validation for Admin View
+      if (!isDistributorView && !isSuperDistributorView) {
+        if (userData.role === 'user') {
+          if (userData.distributor_id) {
+            const { data: parentData } = await supabase
+              .from('users_profiles')
+              .select('admin_base_qr_charge')
+              .eq('id', userData.distributor_id)
+              .single();
+            if (parentData && userData.charge_percentage < parentData.admin_base_qr_charge) {
+              throw new Error(`User charge percentage (${userData.charge_percentage}%) cannot be less than parent distributor base charge (${parentData.admin_base_qr_charge}%).`);
+            }
+          }
+        } else if (userData.role === 'distributor') {
+          if (userData.super_distributor_id) {
+            const { data: parentData } = await supabase
+              .from('users_profiles')
+              .select('admin_base_qr_charge')
+              .eq('id', userData.super_distributor_id)
+              .single();
+            if (parentData && userData.admin_base_qr_charge < parentData.admin_base_qr_charge) {
+              throw new Error(`Distributor base charge (${userData.admin_base_qr_charge}%) cannot be less than parent super distributor base charge (${parentData.admin_base_qr_charge}%).`);
+            }
+          }
         }
       }
 
@@ -463,40 +535,47 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
             </div>
           </div>
 
-          {!isDistributorView && (
+          {!isDistributorView && !isSuperDistributorView && (
             <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
               <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
                 <Shield size={20} className="text-indigo-600" />
                 Role & Account Settings
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="flex flex-col justify-center">
-                  <label className="flex items-center gap-3 cursor-pointer group">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        className="sr-only"
-                        checked={formData.role === 'distributor'}
-                        disabled={initialData?.role === 'distributor'}
-                        onChange={(e) => setFormData({ ...formData, role: e.target.checked ? 'distributor' : 'user' })}
-                      />
-                      <div className={`w-12 h-6 rounded-full transition-colors ${formData.role === 'distributor' ? 'bg-indigo-600' : 'bg-slate-200'} ${initialData?.role === 'distributor' ? 'opacity-60 cursor-not-allowed' : ''}`}></div>
-                      <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${formData.role === 'distributor' ? 'translate-x-6' : ''}`}></div>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold text-slate-700">Make this user a Distributor</span>
-                      <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">
-                        {initialData?.role === 'distributor' ? 'Permanent Distributor (Cannot revert)' : `Currently: ${formData.role === 'distributor' ? 'Distributor' : 'Standard User'}`}
-                      </span>
-                    </div>
-                  </label>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Select Role</label>
+                  <div className="relative">
+                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <select
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
+                      value={formData.role}
+                      disabled={!!initialData?.id}
+                      onChange={(e) => {
+                        const newRole = e.target.value;
+                        setFormData(prev => ({
+                          ...prev,
+                          role: newRole,
+                          distributor_id: '',
+                          super_distributor_id: '',
+                          admin_base_qr_charge: '0'
+                        }));
+                      }}
+                    >
+                      <option value="user">Standard User</option>
+                      <option value="distributor">Distributor</option>
+                      <option value="super_distributor">Super Distributor</option>
+                    </select>
+                  </div>
                 </div>
-                {formData.role === 'distributor' && (
+
+                {(formData.role === 'distributor' || formData.role === 'super_distributor') && (
                   <motion.div
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                   >
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Admin Base QR Charge (%)</label>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                      {formData.role === 'super_distributor' ? 'Admin Base QR Charge (%)' : 'Distributor Base QR Charge (%)'}
+                    </label>
                     <div className="relative">
                       <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input
@@ -508,11 +587,15 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                         onChange={(e) => setFormData({ ...formData, admin_base_qr_charge: e.target.value })}
                       />
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-2">This is the fixed cost the distributor pays to the admin.</p>
+                    <p className="text-[10px] text-slate-400 mt-2">
+                      {formData.role === 'super_distributor'
+                        ? 'This is the fixed cost the Super Distributor pays to Admin.'
+                        : 'This is the fixed cost the Distributor pays.'}
+                    </p>
                   </motion.div>
                 )}
 
-                {!isDistributorView && (
+                {formData.role === 'user' && (
                   <div className="md:col-span-2">
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Assign to Distributor (Parent)</label>
                     <div className="relative">
@@ -574,6 +657,69 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                     </p>
                   </div>
                 )}
+
+                {formData.role === 'distributor' && (
+                  <div className="md:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Assign to Super Distributor (Parent)</label>
+                    <div className="relative">
+                      <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                      <select
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
+                        value={formData.super_distributor_id}
+                        onChange={async (e) => {
+                          const superDistId = e.target.value;
+                          setFormData(prev => ({ ...prev, super_distributor_id: superDistId }));
+                          
+                          if (superDistId) {
+                            setIsFetchingDistributor(true);
+                            try {
+                              const { data, error } = await supabase
+                                .from('users_profiles')
+                                .select('admin_base_qr_charge')
+                                .eq('id', superDistId)
+                                .single();
+                              
+                              if (error) throw error;
+                              if (data) {
+                                setFormData(prev => ({
+                                  ...prev,
+                                  admin_base_qr_charge: data.admin_base_qr_charge?.toString() || '0'
+                                }));
+                              }
+                            } catch (err) {
+                              console.error('Error fetching super distributor rates:', err);
+                            } finally {
+                              setIsFetchingDistributor(false);
+                            }
+                          } else {
+                            setFormData(prev => ({ ...prev, admin_base_qr_charge: '0' }));
+                          }
+                        }}
+                      >
+                        <option value="">NONE (DIRECT DISTRIBUTOR)</option>
+                        {superDistributors.map(sd => (
+                          <option key={sd.id} value={sd.id}>
+                            {sd.firm_name ? `${sd.firm_name} (${sd.name})` : sd.name}
+                          </option>
+                        ))}
+                      </select>
+                      {isFetchingDistributor && (
+                        <div className="absolute right-10 top-1/2 -translate-y-1/2">
+                          <Loader2 size={16} className="animate-spin text-indigo-500" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-2 font-medium uppercase tracking-wider ml-1">
+                      {formData.super_distributor_id ? (
+                        <span className="text-indigo-600 font-bold">
+                          Selected super distributor QR base charge: {formData.admin_base_qr_charge}%
+                        </span>
+                      ) : (
+                        "Choose which super distributor will manage this distributor and earn margin."
+                      )}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -586,7 +732,9 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">QR Service Charge (%) <span className="text-rose-500">*</span></label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                  {isSuperDistributorView ? 'Distributor Base QR Charge (%)' : 'QR Service Charge (%)'} <span className="text-rose-500">*</span>
+                </label>
                 <div className="relative">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                   <input
@@ -595,13 +743,21 @@ export default function AddUser({ onBack, onSuccess, initialData, isDistributorV
                     step="0.01"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     placeholder="0.00"
-                    value={formData.charge_percentage}
-                    onChange={(e) => setFormData({ ...formData, charge_percentage: e.target.value })}
+                    value={isSuperDistributorView ? formData.admin_base_qr_charge : formData.charge_percentage}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      [isSuperDistributorView ? 'admin_base_qr_charge' : 'charge_percentage']: e.target.value 
+                    })}
                   />
                 </div>
                 {isDistributorView && (
                   <p className="text-[10px] text-amber-600 mt-2 font-bold uppercase tracking-widest">
                     Must be higher than your base charge: {distributorBaseCharge}%
+                  </p>
+                )}
+                {isSuperDistributorView && (
+                  <p className="text-[10px] text-amber-600 mt-2 font-bold uppercase tracking-widest">
+                    Must be higher than your base charge: {superDistributorBaseCharge}%
                   </p>
                 )}
               </div>

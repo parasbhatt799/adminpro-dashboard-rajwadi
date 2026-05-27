@@ -66,6 +66,7 @@ export default function AdminWithdrawal() {
           amount, 
           admin_share,
           distributor_share,
+          super_distributor_share,
           user:user_id(
             distributor_id,
             admin_base_qr_charge,
@@ -113,7 +114,10 @@ export default function AdminWithdrawal() {
       // Calculate Distributor Share
       const totalDistributorShare = [...(qrData || []), ...(billData || [])].reduce((acc, curr: any) => acc + (Number(curr.distributor_share) || 0), 0);
 
-      const calculatedBalance = (totalQrCharges + totalBillCharges + totalPayoutCharges + totalDistributorShare) - totalWithdrawals;
+      // Calculate Super Distributor Share
+      const totalSuperDistributorShare = (qrData || []).reduce((acc, curr: any) => acc + (Number(curr.super_distributor_share) || 0), 0);
+
+      const calculatedBalance = (totalQrCharges + totalBillCharges + totalPayoutCharges + totalDistributorShare + totalSuperDistributorShare) - totalWithdrawals;
       setBalance(calculatedBalance);
       setTotalWithdrawalAmount(totalWithdrawals);
       setHistory(withdrawalData || []);

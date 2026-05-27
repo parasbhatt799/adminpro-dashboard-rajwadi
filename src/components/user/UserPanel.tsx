@@ -223,9 +223,9 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     }
   }, [userProfile]);
 
-  // Route Protection for Distributors
+  // Route Protection for Distributors and Super Distributors
   useEffect(() => {
-    if (userProfile?.role === 'distributor') {
+    if (userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') {
       const restrictedPaths = ['/user/payment', '/user/statement', '/user/reports'];
       if (restrictedPaths.includes(location.pathname)) {
         navigate('/user/dashboard', { replace: true });
@@ -431,7 +431,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
 
           <div className="flex items-center gap-4">
             <LiveClock colorClass="text-emerald-700" />
-            {userProfile?.role === 'distributor' ? (
+            {userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor' ? (
               <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="Commission Wallet">
                 <Wallet className="text-indigo-600" size={18} />
                 <span className="text-sm font-bold text-indigo-700">₹{(Number(userProfile?.commission_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

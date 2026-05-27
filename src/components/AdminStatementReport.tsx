@@ -103,7 +103,7 @@ export default function AdminStatementReport() {
       // QR Payments (Approved & Rejected)
       let qrQuery = supabase.from('payment_submissions').select(`
         *,
-        users_profiles!inner(name, firm_name),
+        users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name),
         qr_history(qr_name)
       `)
       .in('status', ['approved', 'rejected'])
@@ -112,7 +112,7 @@ export default function AdminStatementReport() {
       // Bill Payments (All statuses)
       let billQuery = supabase.from('bill_submissions').select(`
         *,
-        users_profiles!inner(name, firm_name)
+        users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name)
       `)
       .in('status', ['approved', 'pending', 'rejected', 'refunded'])
       .order('created_at', { ascending: false });

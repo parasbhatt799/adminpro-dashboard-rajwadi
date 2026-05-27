@@ -49,9 +49,11 @@ export default function Dashboard() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       let startDate: string | null = null;
       let endDate: string | null = null;
@@ -106,11 +108,12 @@ export default function Dashboard() {
         admin_bill_charges,
         range_payout_charges,
         range_withdrawals,
-        total_distributor_share
+        total_distributor_share,
+        total_super_distributor_share
       } = rpcStats;
 
       const totalEarnings = (admin_bill_charges || 0) + (admin_qr_charges || 0) + (range_payout_charges || 0);
-      const displayServiceCharge = totalEarnings + total_distributor_share;
+      const displayServiceCharge = totalEarnings + total_distributor_share + (total_super_distributor_share || 0);
 
       const dateDisplay = startDate && endDate
         ? `${format(parseISO(startDate), 'dd MMM')} - ${format(parseISO(endDate), 'dd MMM')}`
@@ -173,6 +176,13 @@ export default function Dashboard() {
           description: `Distributor Profit: ${dateDisplay}`
         },
         {
+          title: "Total Super Distributor Charge",
+          value: formatCurrency(total_super_distributor_share || 0),
+          icon: User,
+          color: "bg-pink-600",
+          description: `Super Distributor Profit: ${dateDisplay}`
+        },
+        {
           title: "Payout Service Charge",
           value: formatCurrency(range_payout_charges),
           icon: TrendingDown,
@@ -221,8 +231,9 @@ export default function Dashboard() {
           description: "Sync platform data"
         }
       ]);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching dashboard stats:', err);
+      setError(err.message || String(err));
     } finally {
       setLoading(false);
     }
@@ -232,7 +243,7 @@ export default function Dashboard() {
     try {
       const { data, error } = await supabase
         .from('bill_submissions')
-        .select('*, users_profiles(name, firm_name)')
+        .select('*, users_profiles!bill_submissions_user_id_fkey(name, firm_name)')
         .eq('status', 'refunded')
         .order('created_at', { ascending: false });
 
@@ -434,6 +445,13 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-bold flex items-center gap-3">
+          <AlertCircle size={20} className="shrink-0" />
+          <span>Error loading dashboard statistics: {error}</span>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 min-h-[400px]">

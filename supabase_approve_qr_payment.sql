@@ -4,7 +4,7 @@
 -- happen together or not at all, preventing balance glitches.
 -- ==========================================
 
-CREATE OR REPLACE FUNCTION public.approve_qr_payment(p_payment_id UUID)
+CREATE OR REPLACE FUNCTION public.approve_qr_payment(p_payment_id UUID, p_admin_id TEXT)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -98,7 +98,9 @@ BEGIN
         status = 'approved',
         charges = v_total_charges,
         admin_share = v_admin_share,
-        distributor_share = v_distributor_profit
+        distributor_share = v_distributor_profit,
+        actioned_by = p_admin_id,
+        actioned_at = NOW()
     WHERE id = p_payment_id;
 
     -- 9. Notify User

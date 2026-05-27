@@ -4,8 +4,10 @@
 -- and reverses wallet/profit updates if reversing an Approved payment.
 -- ==========================================
 
+DROP FUNCTION IF EXISTS public.revert_qr_payment_status(TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION public.revert_qr_payment_status(
-    p_payment_id TEXT, 
+    p_payment_id UUID, 
     p_new_status TEXT,
     p_rejection_reason TEXT DEFAULT NULL
 )

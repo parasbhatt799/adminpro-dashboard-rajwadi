@@ -1,7 +1,7 @@
 import React, { useState, useEffect, type ChangeEvent } from 'react';
-import { 
-  QrCode, Receipt, IndianRupee, ArrowRight, ShieldCheck, CreditCard, 
-  Upload, Loader2, CheckCircle2, AlertCircle, FileText, Hash, 
+import {
+  QrCode, Receipt, IndianRupee, ArrowRight, ShieldCheck, CreditCard,
+  Upload, Loader2, CheckCircle2, AlertCircle, FileText, Hash,
   ExternalLink, X, ChevronUp, ChevronDown, Search, RotateCcw, Clock, XCircle,
   Building2, User, History
 } from 'lucide-react';
@@ -25,7 +25,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [useOldQr, setUseOldQr] = useState(false);
   const [selectedOldQrId, setSelectedOldQrId] = useState('');
   const [showOldQrDropdown, setShowOldQrDropdown] = useState(false);
-  
+
   // QR Form state
   const [utrId, setUtrId] = useState('');
   const [qrCardNumber, setQrCardNumber] = useState('');
@@ -159,7 +159,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       if (qrSearch) query = query.ilike('utr_id', `%${qrSearch}%`);
       if (qrStatus !== 'all') query = query.eq('status', qrStatus);
       if (qrAmountSearch) query = query.eq('amount', qrAmountSearch);
-      
+
       // Handle Time Range
       let start: Date | null = null;
       let end: Date | null = new Date();
@@ -222,7 +222,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       if (billSearch) query = query.or(`card_number.ilike.%${billSearch}%,card_owner_name.ilike.%${billSearch}%`);
       if (billStatus !== 'all') query = query.eq('status', billStatus);
       if (billAmountSearch) query = query.eq('bill_amount', billAmountSearch);
-      
+
       // Handle Time Range
       let start: Date | null = null;
       let end: Date | null = new Date();
@@ -313,7 +313,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           .select('wallet_balance, service_charge_enabled, custom_service_charge, firm_name')
           .eq('id', userId)
           .single();
-        
+
         if (!userError && userData) {
           setUserProfile(userData);
           setUserBalance(Number(userData.wallet_balance) || 0);
@@ -347,7 +347,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           .select('id, qr_name')
           .eq('is_active', true)
           .single();
-        
+
         if (activeQR) {
           setActiveQrId(activeQR.id);
           setQrName(activeQR.qr_name);
@@ -355,31 +355,31 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
         // Fetch Inactive QRs from the last 24 hours
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        
+
         // Fetch more than 3 to ensure we cover the 24h window
         const { data: recentQRs } = await supabase
           .from('qr_history')
           .select('id, qr_name, created_at, is_active')
           .order('created_at', { ascending: false })
           .limit(15);
-        
+
         if (recentQRs) {
           const filteredOldQRs = recentQRs.filter((qr, index) => {
             if (qr.is_active) return false;
-            
+
             const createdAt = new Date(qr.created_at);
             const limit = new Date(twentyFourHoursAgo);
-            
+
             // Show if it was created in the last 24 hours
             if (createdAt >= limit) return true;
-            
+
             // OR if it was deactivated in the last 24 hours 
             // (the QR created immediately after it was created in the last 24 hours)
             if (index > 0) {
               const deactivatedAt = new Date(recentQRs[index - 1].created_at);
               if (deactivatedAt >= limit) return true;
             }
-            
+
             return false;
           });
           setInactiveQrs(filteredOldQRs);
@@ -391,7 +391,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           .select('is_bill_enabled')
           .eq('id', 1)
           .single();
-        
+
         if (globalSettings) {
           setIsBillEnabled(globalSettings.is_bill_enabled ?? true);
         }
@@ -447,9 +447,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     // even more robust real-time handling with duplicate check
     const qrChannel = supabase
       .channel('qr_submissions_realtime_v3')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
         table: 'payment_submissions'
       }, async (payload: any) => {
         if (payload.new && payload.new.user_id === userId) {
@@ -463,7 +463,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
               .select('*, qr_history(qr_name)')
               .eq('id', payload.new.id)
               .single();
-            
+
             const updatedRecord = fullRecord || payload.new;
             setQrRequests(prev => prev.map(req => req.id === updatedRecord.id ? updatedRecord : req));
           }
@@ -476,16 +476,16 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
     const billChannel = supabase
       .channel('bill_submissions_realtime_final')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
         table: 'bill_submissions'
       }, (payload: any) => {
         if (payload.eventType === 'UPDATE' && payload.new) {
           if (payload.new.user_id === userId) {
             setBillRequests(prev => prev.map(req => req.id === payload.new.id ? payload.new : req));
           }
-        } 
+        }
         else if (payload.eventType === 'INSERT' && payload.new) {
           if (payload.new.user_id === userId) {
             fetchBillHistory();
@@ -499,9 +499,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
     const payoutChannel = supabase
       .channel('payout_submissions_realtime_v1')
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
         table: 'payout_submissions'
       }, (payload: any) => {
         if (payload.new && payload.new.user_id === userId) {
@@ -660,11 +660,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
   const calculateBillCharge = (amount: number) => {
     if (!userProfile) return 0;
-    
+
     if (userProfile.service_charge_enabled) {
       return Number(userProfile.custom_service_charge) || 0;
     }
-    
+
     const slab = slabs.find(s => amount >= s.min_amount && amount <= s.max_amount);
     if (slab) {
       if (slab.is_percentage) {
@@ -761,7 +761,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           message: `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a bill payment of ₹${billAmountNum}.`,
           link: '/bill-payment-requests'
         }]);
-      
+
       if (nError) {
         console.error('Bill Notification Error (Admin):', nError);
       } else {
@@ -858,7 +858,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         `User ${userProfile?.firm_name || userProfile?.name || userId} requested a payout of ₹${amountNum}.`,
         '/payout-requests'
       );
-      
+
     } catch (err: any) {
       console.error('Error submitting payout:', err);
       setError(err.message || 'Failed to submit payout.');
@@ -890,7 +890,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setSubmitting(false);
       return;
     }
-    
+
     const finalQrId = useOldQr ? selectedOldQrId : activeQrId;
 
     if (!finalQrId) {
@@ -911,7 +911,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       if (checkError) throw checkError;
       if (existingRequests && existingRequests.length > 0) {
         const existingRequest = existingRequests[0];
-        const message = existingRequest.status === 'pending' 
+        const message = existingRequest.status === 'pending'
           ? 'A request with this UTR ID is already pending. Please wait for admin approval.'
           : 'A request with this UTR ID has already been approved.';
         setError(message);
@@ -972,7 +972,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           message: `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a QR payment of ₹${amountNum}.`,
           link: '/qr-payment-requests'
         }]);
-      
+
       if (nError) {
         console.error('QR Notification Error (Admin):', nError);
       } else {
@@ -994,37 +994,35 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
   return (
     <div className="space-y-8">
-        <div>
+      <div>
         <h2 className="text-2xl font-bold text-slate-900">Payments</h2>
         <p className="text-slate-500 mt-1">Make secure payments via QR or pay your bills.</p>
-        </div>
-         
+      </div>
+
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100">
           <button
             onClick={() => setActiveTab('qr')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${
-              activeTab === 'qr' 
-                ? 'text-emerald-600 bg-emerald-50/50 border-b-2 border-emerald-600' 
-                : 'text-slate-500 hover:bg-slate-50'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'qr'
+              ? 'text-emerald-600 bg-emerald-50/50 border-b-2 border-emerald-600'
+              : 'text-slate-500 hover:bg-slate-50'
+              }`}
           >
             <QrCode size={18} />
             QR Payment
           </button>
           <button
             onClick={() => setActiveTab('bill')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${
-              activeTab === 'bill' 
-                ? 'text-indigo-600 bg-indigo-50/50 border-b-2 border-indigo-600' 
-                : 'text-slate-500 hover:bg-slate-50'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'bill'
+              ? 'text-indigo-600 bg-indigo-50/50 border-b-2 border-indigo-600'
+              : 'text-slate-500 hover:bg-slate-50'
+              }`}
           >
             <Receipt size={18} />
             Bill Payment
           </button>
-          
+
           <button
             onClick={() => {
               if (payoutSettings?.is_enabled !== false) {
@@ -1032,13 +1030,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
               }
             }}
             disabled={payoutSettings?.is_enabled === false}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${
-              payoutSettings?.is_enabled === false 
-                ? 'opacity-40 grayscale cursor-not-allowed text-slate-400' 
-                : activeTab === 'payout' 
-                  ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600' 
-                  : 'text-slate-500 hover:bg-slate-50'
-            }`}
+            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${payoutSettings?.is_enabled === false
+              ? 'opacity-40 grayscale cursor-not-allowed text-slate-400'
+              : activeTab === 'payout'
+                ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600'
+                : 'text-slate-500 hover:bg-slate-50'
+              }`}
           >
             <History size={18} />
             Payout Request
@@ -1072,7 +1069,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     </p>
                     {isBillEnabled && (
                       <div className="mt-8 flex justify-center">
-                        <button 
+                        <button
                           onClick={() => setActiveTab('bill')}
                           className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
                         >
@@ -1084,263 +1081,261 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   </div>
                 ) : (
                   <>
-                  <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
-                    <div className="flex flex-col items-center text-center">
-                    <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center mb-6 overflow-hidden">
-                      {loadingQr ? (
-                        <Loader2 className="animate-spin text-slate-300" size={48} />
-                      ) : qrUrl ? (
-                        <img 
-                          src={qrUrl} 
-                          alt="Payment QR" 
-                          className="w-full h-full object-contain p-4"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-4 text-slate-400">
-                          <QrCode size={64} strokeWidth={1.5} />
-                          <p className="text-sm font-medium">QR Not Available</p>
-                        </div>
-                      )}
-                    </div>
-                      {qrName && (
-                        <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl mb-4 inline-flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
-                          <ShieldCheck className="text-emerald-500" size={16} />
-                          <span className="text-sm font-bold text-emerald-700 uppercase tracking-widest">
-                            {qrName}
-                          </span>
-                        </div>
-                      )}
-                      <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
-                    <p className="text-sm text-slate-500 mt-2">Scan the QR code above and complete the payment using any UPI app.</p>
-                  </div>
-
-                  <form onSubmit={handleSubmit} className="space-y-5">
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">UTR ID / Transaction ID</label>
-                    <div className="relative">
-                      <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input 
-                        type="text"
-                        placeholder="Enter 12-digit UTR ID"
-                        value={utrId}
-                        onChange={(e) => setUtrId(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Card Number (Last 4 Digits)</label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input 
-                        type="text"
-                        inputMode="numeric" 
-                        value={qrCardNumber}
-                        onChange={(e) => setQrCardNumber(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                        maxLength={4}
-                        placeholder="Enter Last 4 Digits"
-                        className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Amount Paid</label>
-                      <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-widest">
-                        Max: ₹1,00,000
-                      </span>
-                    </div>
-                    <div className="relative">
-                      <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={amount}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9.]/g, '');
-                          const parts = val.split('.');
-                          if (parts.length > 2) return;
-                          setAmount(val);
-                        }}
-                        placeholder="0.00"
-                        className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:outline-none transition-all font-bold ${
-                          parseFloat(amount) > 100000 
-                            ? 'border-rose-300 focus:ring-rose-500/10 focus:border-rose-500 text-rose-600' 
-                            : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
-                        }`}
-                        required
-                      />
-                    </div>
-                    {parseFloat(amount) > 100000 && (
-                      <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-pulse">
-                        ⚠️ Amount exceeds the ₹1,00,000 limit
-                      </p>
-                    )}
-                   </div>
-
-                  <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Payment Screenshot</label>
-                    <label className="relative flex items-center justify-center w-full h-32 px-4 transition bg-slate-50 border-2 border-slate-200 border-dashed rounded-xl appearance-none cursor-pointer hover:border-emerald-400 focus:outline-none group">
-                      <div className="flex flex-col items-center space-y-2">
-                        {file ? (
-                          <>
-                            <CheckCircle2 className="text-emerald-500" size={24} />
-                            <span className="text-xs font-medium text-slate-600 truncate max-w-[200px]">{file.name}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Upload className="text-slate-400 group-hover:text-emerald-500 transition-colors" size={24} />
-                            <span className="text-xs font-medium text-slate-500">Click to upload screenshot</span>
-                          </>
-                        )}
-                      </div>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} required />
-                    </label>
-                  </div>
-
-                  {/* Old QR Selector */}
-                  {inactiveQrs.length > 0 && (
-                    <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 space-y-3 shadow-sm">
-                      <label className="flex items-center gap-3 cursor-pointer group">
-                        <div className="relative flex items-center">
-                          <input 
-                            type="checkbox" 
-                            checked={useOldQr}
-                            onChange={(e) => setUseOldQr(e.target.checked)}
-                            className="w-5 h-5 rounded-md border-2 border-indigo-300 text-indigo-600 focus:ring-indigo-500/20 transition-all cursor-pointer"
-                          />
-                        </div>
-                        <span className="text-sm font-bold text-indigo-600 group-hover:text-indigo-700 transition-colors">Paid to an older QR code?</span>
-                      </label>
-
-                      <AnimatePresence>
-                        {useOldQr && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            className="overflow-visible"
-                          >
-                            <div className="pt-2">
-                              <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5 ml-1">Select QR Used</label>
-                              <div className="relative">
-                                <button
-                                  type="button"
-                                  onClick={() => setShowOldQrDropdown(!showOldQrDropdown)}
-                                  className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all flex items-center justify-between shadow-sm"
-                                >
-                                  <span className={selectedOldQrId ? 'text-slate-700' : 'text-slate-400'}>
-                                    {selectedOldQrId 
-                                      ? inactiveQrs.find(q => q.id === selectedOldQrId)?.qr_name 
-                                      : '-- Choose QR Name --'}
-                                  </span>
-                                  <ChevronDown size={16} className={`text-indigo-400 transition-transform ${showOldQrDropdown ? 'rotate-180' : ''}`} />
-                                </button>
-
-                                <AnimatePresence>
-                                  {showOldQrDropdown && (
-                                    <>
-                                      <div 
-                                        className="fixed inset-0 z-10" 
-                                        onClick={() => setShowOldQrDropdown(false)} 
-                                      />
-                                      <motion.div
-                                        initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                                        exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                        className="absolute top-full left-0 right-0 mt-2 bg-white border border-indigo-50 rounded-2xl shadow-2xl z-20 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar"
-                                      >
-                                        <div className="p-1">
-                                          {inactiveQrs.map(qr => (
-                                            <button
-                                              key={qr.id}
-                                              type="button"
-                                              onClick={() => {
-                                                setSelectedOldQrId(qr.id);
-                                                setShowOldQrDropdown(false);
-                                              }}
-                                              className={`w-full px-4 py-3 text-left rounded-xl transition-all flex flex-col gap-0.5 ${
-                                                selectedOldQrId === qr.id 
-                                                  ? 'bg-indigo-50 text-indigo-600' 
-                                                  : 'hover:bg-slate-50 text-slate-600'
-                                              }`}
-                                            >
-                                              <span className="text-sm font-bold uppercase">{qr.qr_name}</span>
-                                              {qr.created_at && (
-                                                <span className="text-[10px] font-medium opacity-60 uppercase tracking-wider">
-                                                  Used on: {new Date(qr.created_at).toLocaleString('en-GB', { 
-                                                    day: '2-digit', 
-                                                    month: '2-digit', 
-                                                    hour: '2-digit', 
-                                                    minute: '2-digit', 
-                                                    hour12: true 
-                                                  })}
-                                                </span>
-                                              )}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      </motion.div>
-                                    </>
-                                  )}
-                                </AnimatePresence>
-                              </div>
+                    <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
+                      <div className="flex flex-col items-center text-center">
+                        <div className="w-full aspect-square bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200 flex items-center justify-center mb-6 overflow-hidden">
+                          {loadingQr ? (
+                            <Loader2 className="animate-spin text-slate-300" size={48} />
+                          ) : qrUrl ? (
+                            <img
+                              src={qrUrl}
+                              alt="Payment QR"
+                              className="w-full h-full object-contain p-4"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <div className="flex flex-col items-center gap-4 text-slate-400">
+                              <QrCode size={64} strokeWidth={1.5} />
+                              <p className="text-sm font-medium">QR Not Available</p>
                             </div>
-                          </motion.div>
+                          )}
+                        </div>
+                        {qrName && (
+                          <div className="px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-2xl mb-4 inline-flex items-center gap-2 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-500">
+                            <ShieldCheck className="text-emerald-500" size={16} />
+                            <span className="text-sm font-bold text-emerald-700 uppercase tracking-widest">
+                              {qrName}
+                            </span>
+                          </div>
                         )}
-                      </AnimatePresence>
+                        <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
+                        <p className="text-sm text-slate-500 mt-2">Scan the QR code above and complete the payment using any UPI app.</p>
+                      </div>
+
+                      <form onSubmit={handleSubmit} className="space-y-5">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">UTR ID / Transaction ID</label>
+                          <div className="relative">
+                            <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input
+                              type="text"
+                              placeholder="Enter 12-digit UTR ID"
+                              value={utrId}
+                              onChange={(e) => setUtrId(e.target.value)}
+                              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Card Number (Last 4 Digits)</label>
+                          <div className="relative">
+                            <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={qrCardNumber}
+                              onChange={(e) => setQrCardNumber(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                              maxLength={4}
+                              placeholder="Enter Last 4 Digits"
+                              className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-medium"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Amount Paid</label>
+                            <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-widest">
+                              Max: ₹1,00,000
+                            </span>
+                          </div>
+                          <div className="relative">
+                            <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={amount}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                const parts = val.split('.');
+                                if (parts.length > 2) return;
+                                setAmount(val);
+                              }}
+                              placeholder="0.00"
+                              className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:outline-none transition-all font-bold ${parseFloat(amount) > 100000
+                                ? 'border-rose-300 focus:ring-rose-500/10 focus:border-rose-500 text-rose-600'
+                                : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
+                                }`}
+                              required
+                            />
+                          </div>
+                          {parseFloat(amount) > 100000 && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-pulse">
+                              ⚠️ Amount exceeds the ₹1,00,000 limit
+                            </p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Payment Screenshot</label>
+                          <label className="relative flex items-center justify-center w-full h-32 px-4 transition bg-slate-50 border-2 border-slate-200 border-dashed rounded-xl appearance-none cursor-pointer hover:border-emerald-400 focus:outline-none group">
+                            <div className="flex flex-col items-center space-y-2">
+                              {file ? (
+                                <>
+                                  <CheckCircle2 className="text-emerald-500" size={24} />
+                                  <span className="text-xs font-medium text-slate-600 truncate max-w-[200px]">{file.name}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Upload className="text-slate-400 group-hover:text-emerald-500 transition-colors" size={24} />
+                                  <span className="text-xs font-medium text-slate-500">Click to upload screenshot</span>
+                                </>
+                              )}
+                            </div>
+                            <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} required />
+                          </label>
+                        </div>
+
+                        {/* Old QR Selector */}
+                        {inactiveQrs.length > 0 && (
+                          <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 space-y-3 shadow-sm">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                              <div className="relative flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={useOldQr}
+                                  onChange={(e) => setUseOldQr(e.target.checked)}
+                                  className="w-5 h-5 rounded-md border-2 border-indigo-300 text-indigo-600 focus:ring-indigo-500/20 transition-all cursor-pointer"
+                                />
+                              </div>
+                              <span className="text-sm font-bold text-indigo-600 group-hover:text-indigo-700 transition-colors">Paid to an older QR code?</span>
+                            </label>
+
+                            <AnimatePresence>
+                              {useOldQr && (
+                                <motion.div
+                                  initial={{ height: 0, opacity: 0 }}
+                                  animate={{ height: 'auto', opacity: 1 }}
+                                  exit={{ height: 0, opacity: 0 }}
+                                  className="overflow-visible"
+                                >
+                                  <div className="pt-2">
+                                    <label className="block text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5 ml-1">Select QR Used</label>
+                                    <div className="relative">
+                                      <button
+                                        type="button"
+                                        onClick={() => setShowOldQrDropdown(!showOldQrDropdown)}
+                                        className="w-full px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all flex items-center justify-between shadow-sm"
+                                      >
+                                        <span className={selectedOldQrId ? 'text-slate-700' : 'text-slate-400'}>
+                                          {selectedOldQrId
+                                            ? inactiveQrs.find(q => q.id === selectedOldQrId)?.qr_name
+                                            : '-- Choose QR Name --'}
+                                        </span>
+                                        <ChevronDown size={16} className={`text-indigo-400 transition-transform ${showOldQrDropdown ? 'rotate-180' : ''}`} />
+                                      </button>
+
+                                      <AnimatePresence>
+                                        {showOldQrDropdown && (
+                                          <>
+                                            <div
+                                              className="fixed inset-0 z-10"
+                                              onClick={() => setShowOldQrDropdown(false)}
+                                            />
+                                            <motion.div
+                                              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                                              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                              className="absolute top-full left-0 right-0 mt-2 bg-white border border-indigo-50 rounded-2xl shadow-2xl z-20 overflow-hidden max-h-60 overflow-y-auto custom-scrollbar"
+                                            >
+                                              <div className="p-1">
+                                                {inactiveQrs.map(qr => (
+                                                  <button
+                                                    key={qr.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                      setSelectedOldQrId(qr.id);
+                                                      setShowOldQrDropdown(false);
+                                                    }}
+                                                    className={`w-full px-4 py-3 text-left rounded-xl transition-all flex flex-col gap-0.5 ${selectedOldQrId === qr.id
+                                                      ? 'bg-indigo-50 text-indigo-600'
+                                                      : 'hover:bg-slate-50 text-slate-600'
+                                                      }`}
+                                                  >
+                                                    <span className="text-sm font-bold uppercase">{qr.qr_name}</span>
+                                                    {qr.created_at && (
+                                                      <span className="text-[10px] font-medium opacity-60 uppercase tracking-wider">
+                                                        Used on: {new Date(qr.created_at).toLocaleString('en-GB', {
+                                                          day: '2-digit',
+                                                          month: '2-digit',
+                                                          hour: '2-digit',
+                                                          minute: '2-digit',
+                                                          hour12: true
+                                                        })}
+                                                      </span>
+                                                    )}
+                                                  </button>
+                                                ))}
+                                              </div>
+                                            </motion.div>
+                                          </>
+                                        )}
+                                      </AnimatePresence>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </div>
+                        )}
+
+                        <AnimatePresence>
+                          {error && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold flex items-center gap-2"
+                            >
+                              <AlertCircle size={14} />
+                              {error}
+                            </motion.div>
+                          )}
+                          {success && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-bold flex items-center gap-2"
+                            >
+                              <CheckCircle2 size={14} />
+                              {success}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <button
+                          type="submit"
+                          disabled={submitting}
+                          className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
+                        >
+                          {submitting ? (
+                            <>
+                              <Loader2 className="animate-spin" size={18} />
+                              Submitting...
+                            </>
+                          ) : (
+                            <>
+                              Submit
+                              <ArrowRight size={18} />
+                            </>
+                          )}
+                        </button>
+                      </form>
                     </div>
-                  )}
-
-                  <AnimatePresence>
-                    {error && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="p-3 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-xs font-bold flex items-center gap-2"
-                      >
-                        <AlertCircle size={14} />
-                        {error}
-                      </motion.div>
-                    )}
-                    {success && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 text-xs font-bold flex items-center gap-2"
-                      >
-                        <CheckCircle2 size={14} />
-                        {success}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <button 
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20"
-                  >
-                    {submitting ? (
-                      <>
-                        <Loader2 className="animate-spin" size={18} />
-                        Submitting...
-                      </>
-                    ) : (
-                      <>
-                        Submit
-                        <ArrowRight size={18} />
-                      </>
-                    )}
-                  </button>
-                </form>
-                </div>
-                </>
+                  </>
                 )}
 
                 {/* Recent QR Requests */}
@@ -1348,7 +1343,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">QR Payment History</h3>
                     <div className="flex flex-wrap items-center gap-3">
-                      <select 
+                      <select
                         value={qrTimeRange}
                         onChange={(e) => {
                           setQrTimeRange(e.target.value as any);
@@ -1367,8 +1362,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1 animate-in slide-in-from-right-2 duration-300">
                           <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-                            <input 
-                              type="date" 
+                            <input
+                              type="date"
                               value={qrStartDate}
                               onChange={(e) => setQrStartDate(e.target.value)}
                               className="text-xs font-bold text-slate-700 outline-none bg-transparent"
@@ -1377,8 +1372,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           <div className="w-px h-6 bg-slate-100 mx-1"></div>
                           <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-                            <input 
-                              type="date" 
+                            <input
+                              type="date"
                               value={qrEndDate}
                               onChange={(e) => setQrEndDate(e.target.value)}
                               className="text-xs font-bold text-slate-700 outline-none bg-transparent"
@@ -1386,15 +1381,15 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           </div>
                         </div>
                       )}
-                      
-                      <button 
+
+                      <button
                         onClick={clearQrFilters}
                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
                         title="Clear All Filters"
                       >
                         <RotateCcw size={18} />
                       </button>
-                      <select 
+                      <select
                         value={qrStatus}
                         onChange={(e) => setQrStatus(e.target.value as any)}
                         className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
@@ -1406,8 +1401,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </select>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Search UTR..."
                           value={qrSearch}
                           onChange={(e) => setQrSearch(e.target.value)}
@@ -1416,8 +1411,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </div>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Amount..."
                           value={qrAmountSearch}
                           onChange={(e) => setQrAmountSearch(e.target.value)}
@@ -1426,19 +1421,19 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </div>
                     </div>
                   </div>
-                  
-                   <div className="hidden md:grid grid-cols-10 gap-4 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">
-                     <div className="col-span-1">Date / Time</div>
-                     <div className="col-span-1">UTR ID</div>
-                     <div className="col-span-1">Card No</div>
-                     <div className="col-span-1">QR Name</div>
-                     <div className="col-span-1">Amount</div>
-                     <div className="col-span-1">Service Charge</div>
-                     <div className="col-span-1">Credited Amount</div>
-                     <div className="col-span-1">Reason</div>
-                     <div className="col-span-1">Status</div>
-                     <div className="col-span-1">Proof</div>
-                   </div>
+
+                  <div className="hidden md:grid grid-cols-10 gap-4 px-6 py-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 text-center">
+                    <div className="col-span-1">Date / Time</div>
+                    <div className="col-span-1">UTR ID</div>
+                    <div className="col-span-1">Card No</div>
+                    <div className="col-span-1">QR Name</div>
+                    <div className="col-span-1">Amount</div>
+                    <div className="col-span-1">Service Charge</div>
+                    <div className="col-span-1">Credited Amount</div>
+                    <div className="col-span-1">Reason</div>
+                    <div className="col-span-1">Status</div>
+                    <div className="col-span-1">Proof</div>
+                  </div>
 
                   <div className="grid grid-cols-1 gap-3">
                     {(() => {
@@ -1466,14 +1461,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           {qrRequests.map((req) => (
                             <React.Fragment key={req.id}>
                               {/* ... (existing row code) ... */}
-                              <div 
+                              <div
                                 id={`qr-row-${req.id}`}
                                 onClick={() => {
                                   if (req.status === 'rejected') {
                                     setExpandedRowId(expandedRowId === req.id ? null : req.id);
                                   }
                                 }}
-                               className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-10 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
+                                className={`bg-white p-4 md:px-6 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 md:grid-cols-10 gap-4 items-center group hover:border-emerald-200 transition-all ${req.status === 'rejected' ? 'cursor-pointer' : ''} ${expandedRowId === req.id ? 'border-rose-200 bg-rose-50/10' : ''}`}
                               >
                                 <div className="text-center">
                                   <p className="text-[11px] font-bold text-slate-900">{new Date(req.created_at).toLocaleDateString()}</p>
@@ -1564,14 +1559,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 Showing <span className="text-slate-900 font-bold">{(qrPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(qrPage * itemsPerPage, totalQrCount)}</span> of <span className="text-slate-900 font-bold">{totalQrCount}</span>
                               </p>
                               <div className="flex items-center gap-2">
-                                <button 
+                                <button
                                   onClick={() => setQrPage(prev => Math.max(prev - 1, 1))}
                                   disabled={qrPage === 1}
                                   className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
                                 >
                                   Prev
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => setQrPage(prev => Math.min(prev + 1, totalPages))}
                                   disabled={qrPage === totalPages}
                                   className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
@@ -1609,7 +1604,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       નોંધ: ઇમરજન્સી માટે એડમિન અથવા ડિસ્ટ્રિબ્યુટરનો અત્યારે જ સંપર્ક કરો
                     </p>
                     <div className="mt-8 flex justify-center">
-                      <button 
+                      <button
                         onClick={() => setActiveTab('qr')}
                         className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100"
                       >
@@ -1622,160 +1617,160 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   <div className="bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 p-8 md:p-12 relative overflow-hidden">
                     <div className="max-w-4xl mx-auto">
                       <form onSubmit={handleBillSubmit} className="space-y-8">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {/* Customer Mobile */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Customer Mobile:</label>
-                      <input 
-                        type="text" 
-                        inputMode="numeric"
-                        value={billForm.customerMobile}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                          setBillForm({...billForm, customerMobile: val});
-                        }}
-                        placeholder="10-digit Mobile Number"
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                        required
-                      />
-                    </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                          {/* Customer Mobile */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Customer Mobile:</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={billForm.customerMobile}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                setBillForm({ ...billForm, customerMobile: val });
+                              }}
+                              placeholder="10-digit Mobile Number"
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                              required
+                            />
+                          </div>
 
-                    {/* Card Bank */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Card Bank:</label>
-                      <select 
-                        value={billForm.cardBank}
-                        onChange={(e) => setBillForm({...billForm, cardBank: e.target.value})}
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none"
-                        required
-                      >
-                        <option value="">-- Select Bank --</option>
-                        {banks.map(bank => (
-                          <option key={bank.id} value={bank.bank_name}>{bank.bank_name}</option>
-                        ))}
-                      </select>
-                    </div>
+                          {/* Card Bank */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Card Bank:</label>
+                            <select
+                              value={billForm.cardBank}
+                              onChange={(e) => setBillForm({ ...billForm, cardBank: e.target.value })}
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all appearance-none"
+                              required
+                            >
+                              <option value="">-- Select Bank --</option>
+                              {banks.map(bank => (
+                                <option key={bank.id} value={bank.bank_name}>{bank.bank_name}</option>
+                              ))}
+                            </select>
+                          </div>
 
-                    {/* Card Number */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Card Number (Last 4 Digits):</label>
-                      <input 
-                        type="text" 
-                        inputMode="numeric"
-                        value={billForm.cardNumber}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                          setBillForm({...billForm, cardNumber: val});
-                        }}
-                        placeholder="Last 4 Digits"
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                        required
-                      />
-                    </div>
+                          {/* Card Number */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Card Number (Last 4 Digits):</label>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={billForm.cardNumber}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                                setBillForm({ ...billForm, cardNumber: val });
+                              }}
+                              placeholder="Last 4 Digits"
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                              required
+                            />
+                          </div>
 
-                    {/* Card Owner Name */}
-                    <div className="space-y-2">
-                      <label className="text-sm font-bold text-slate-700">Card Owner Name:</label>
-                      <input 
-                        type="text"
-                        value={billForm.cardOwnerName}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
-                          setBillForm({...billForm, cardOwnerName: val});
-                        }}
-                        placeholder="Enter Name"
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                        required
-                      />
-                    </div>
+                          {/* Card Owner Name */}
+                          <div className="space-y-2">
+                            <label className="text-sm font-bold text-slate-700">Card Owner Name:</label>
+                            <input
+                              type="text"
+                              value={billForm.cardOwnerName}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^a-zA-Z\s]/g, '');
+                                setBillForm({ ...billForm, cardOwnerName: val });
+                              }}
+                              placeholder="Enter Name"
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                              required
+                            />
+                          </div>
 
-                    {/* Bill Amount */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-sm font-bold text-slate-700">Bill Amount:</label>
-                        {slabs.length > 0 && (
-                          <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                            MAX: ₹{Math.max(...slabs.map(s => s.max_amount)).toLocaleString()}
-                          </span>
-                        )}
-                      </div>
-                      <input 
-                        type="text" 
-                        inputMode="decimal"
-                        value={billForm.billAmount}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/[^0-9.]/g, '');
-                          // Allow only one decimal point
-                          const parts = val.split('.');
-                          if (parts.length > 2) return;
-                          setBillForm({...billForm, billAmount: val});
-                        }}
-                        placeholder="Enter Amount"
-                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                        required
-                      />
+                          {/* Bill Amount */}
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-sm font-bold text-slate-700">Bill Amount:</label>
+                              {slabs.length > 0 && (
+                                <span className="text-[10px] font-bold text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                                  MAX: ₹{Math.max(...slabs.map(s => s.max_amount)).toLocaleString()}
+                                </span>
+                              )}
+                            </div>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={billForm.billAmount}
+                              onChange={(e) => {
+                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                // Allow only one decimal point
+                                const parts = val.split('.');
+                                if (parts.length > 2) return;
+                                setBillForm({ ...billForm, billAmount: val });
+                              }}
+                              placeholder="Enter Amount"
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <AnimatePresence>
+                          {error && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold flex items-center gap-2"
+                            >
+                              <AlertCircle size={18} />
+                              {error}
+                            </motion.div>
+                          )}
+                          {success && (
+                            <motion.div
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: 'auto' }}
+                              exit={{ opacity: 0, height: 0 }}
+                              className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-bold flex items-center gap-2"
+                            >
+                              <CheckCircle2 size={18} />
+                              {success}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+
+                        <div className="flex gap-4 pt-4">
+                          <button
+                            type="submit"
+                            disabled={submittingBill}
+                            className="px-12 py-4 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50 uppercase"
+                          >
+                            {submittingBill ? <Loader2 className="animate-spin" size={20} /> : null}
+                            SUBMIT
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setBillForm({
+                              customerMobile: '',
+                              cardBank: '',
+                              cardNumber: '',
+                              cardOwnerName: '',
+                              billAmount: ''
+                            })}
+                            className="px-12 py-4 bg-[#1F2937] hover:bg-[#111827] text-white rounded-xl font-bold transition-all uppercase"
+                          >
+                            CANCEL
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
+                )}
 
-                  <AnimatePresence>
-                    {error && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="p-4 rounded-xl bg-rose-50 border border-rose-100 text-rose-600 text-sm font-bold flex items-center gap-2"
-                      >
-                        <AlertCircle size={18} />
-                        {error}
-                      </motion.div>
-                    )}
-                    {success && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="p-4 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-bold flex items-center gap-2"
-                      >
-                        <CheckCircle2 size={18} />
-                        {success}
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  <div className="flex gap-4 pt-4">
-                    <button 
-                      type="submit"
-                      disabled={submittingBill}
-                      className="px-12 py-4 bg-[#8B5CF6] hover:bg-[#7C3AED] text-white rounded-xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50 uppercase"
-                    >
-                      {submittingBill ? <Loader2 className="animate-spin" size={20} /> : null}
-                      SUBMIT
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setBillForm({
-                        customerMobile: '',
-                        cardBank: '',
-                        cardNumber: '',
-                        cardOwnerName: '',
-                        billAmount: ''
-                      })}
-                      className="px-12 py-4 bg-[#1F2937] hover:bg-[#111827] text-white rounded-xl font-bold transition-all uppercase"
-                    >
-                      CANCEL
-                    </button>
-                  </div>
-                </form>
-                </div>
-                </div>
-              )}
-
-              {/* Recent Bill Requests */}
+                {/* Recent Bill Requests */}
                 <div id="bill-history-table" className="mt-12 space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">Bill Payment History</h3>
                     <div className="flex flex-wrap items-center gap-3">
-                      <select 
+                      <select
                         value={billTimeRange}
                         onChange={(e) => {
                           setBillTimeRange(e.target.value as any);
@@ -1794,8 +1789,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1 animate-in slide-in-from-right-2 duration-300">
                           <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 uppercase">Start</span>
-                            <input 
-                              type="date" 
+                            <input
+                              type="date"
                               value={billStartDate}
                               onChange={(e) => setBillStartDate(e.target.value)}
                               className="text-xs font-bold text-slate-700 outline-none bg-transparent"
@@ -1804,8 +1799,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           <div className="w-px h-6 bg-slate-100 mx-1"></div>
                           <div className="flex flex-col">
                             <span className="text-[10px] font-bold text-slate-400 uppercase">End</span>
-                            <input 
-                              type="date" 
+                            <input
+                              type="date"
                               value={billEndDate}
                               onChange={(e) => setBillEndDate(e.target.value)}
                               className="text-xs font-bold text-slate-700 outline-none bg-transparent"
@@ -1813,14 +1808,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           </div>
                         </div>
                       )}
-                      <button 
+                      <button
                         onClick={clearBillFilters}
                         className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white"
                         title="Clear All Filters"
                       >
                         <RotateCcw size={18} />
                       </button>
-                      <select 
+                      <select
                         value={billStatus}
                         onChange={(e) => setBillStatus(e.target.value as any)}
                         className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
@@ -1833,8 +1828,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </select>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Search Mobile or Name..."
                           value={billSearch}
                           onChange={(e) => setBillSearch(e.target.value)}
@@ -1843,8 +1838,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </div>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Amount..."
                           value={billAmountSearch}
                           onChange={(e) => setBillAmountSearch(e.target.value)}
@@ -1889,7 +1884,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         <>
                           {billRequests.map((req) => (
                             <React.Fragment key={req.id}>
-                              <div 
+                              <div
                                 id={`bill-row-${req.id}`}
                                 onClick={() => {
                                   if (req.status === 'rejected') {
@@ -1936,16 +1931,15 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                                 {/* Status */}
                                 <div className="flex md:justify-center items-center gap-3">
-                                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                                    req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
+                                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
                                     req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                                    req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
-                                    'bg-amber-50 text-amber-600'
-                                  }`}>
+                                      req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
+                                        'bg-amber-50 text-amber-600'
+                                    }`}>
                                     {req.status === 'refunded' ? 'Refund Policy' : req.status}
                                   </span>
                                   {req.status === 'rejected' && (
-                                    <button 
+                                    <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setExpandedRowId(expandedRowId === req.id ? null : req.id);
@@ -1959,7 +1953,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                               </div>
                               <AnimatePresence>
                                 {expandedRowId === req.id && (
-                                  <motion.div 
+                                  <motion.div
                                     initial={{ height: 0, opacity: 0 }}
                                     animate={{ height: 'auto', opacity: 1 }}
                                     exit={{ height: 0, opacity: 0 }}
@@ -1975,7 +1969,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                           <p className="text-sm font-bold text-slate-900">{req.rejection_reason || 'No reason provided'}</p>
                                         </div>
                                       </div>
-                                      <button 
+                                      <button
                                         onClick={() => setExpandedRowId(null)}
                                         className="p-2 bg-white border border-rose-100 text-rose-600 rounded-lg hover:bg-rose-50 transition-colors flex items-center justify-center shadow-sm"
                                         title="Shrink"
@@ -2013,14 +2007,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 Showing <span className="text-slate-900 font-bold">{(billPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(billPage * itemsPerPage, totalBillCount)}</span> of <span className="text-slate-900 font-bold">{totalBillCount}</span>
                               </p>
                               <div className="flex items-center gap-2">
-                                <button 
+                                <button
                                   onClick={() => setBillPage(prev => Math.max(prev - 1, 1))}
                                   disabled={billPage === 1}
                                   className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
                                 >
                                   Prev
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => setBillPage(prev => Math.min(prev + 1, totalPages))}
                                   disabled={billPage === totalPages}
                                   className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
@@ -2069,9 +2063,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">Bank Name:</label>
-                        <select 
+                        <select
                           value={payoutForm.bankName}
-                          onChange={(e) => setPayoutForm({...payoutForm, bankName: e.target.value})}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, bankName: e.target.value })}
                           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all appearance-none"
                           required
                         >
@@ -2084,10 +2078,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">A/c Holder Name:</label>
-                        <input 
+                        <input
                           type="text"
                           value={payoutForm.holderName}
-                          onChange={(e) => setPayoutForm({...payoutForm, holderName: e.target.value})}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, holderName: e.target.value })}
                           placeholder="Enter Holder Name"
                           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
                           required
@@ -2096,10 +2090,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">Account Number:</label>
-                        <input 
+                        <input
                           type="text"
                           value={payoutForm.accountNumber}
-                          onChange={(e) => setPayoutForm({...payoutForm, accountNumber: e.target.value.replace(/\D/g, '')})}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, accountNumber: e.target.value.replace(/\D/g, '') })}
                           placeholder="Enter Account Number"
                           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
                           required
@@ -2108,10 +2102,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">IFSC Code:</label>
-                        <input 
+                        <input
                           type="text"
                           value={payoutForm.ifscCode}
-                          onChange={(e) => setPayoutForm({...payoutForm, ifscCode: e.target.value.toUpperCase()})}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, ifscCode: e.target.value.toUpperCase() })}
                           placeholder="Enter IFSC Code"
                           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
                           required
@@ -2120,17 +2114,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">Amount:</label>
-                        <input 
+                        <input
                           type="number"
                           value={payoutForm.amount}
-                          onChange={(e) => setPayoutForm({...payoutForm, amount: e.target.value})}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })}
                           placeholder="0.00"
                           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all font-bold"
                           required
                         />
                       </div>
                       <div className="flex items-end pb-0.5">
-                        <button 
+                        <button
                           type="submit"
                           disabled={submittingPayout}
                           className="w-full px-12 py-[13px] bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-amber-100 flex items-center justify-center gap-2 disabled:opacity-50 uppercase whitespace-nowrap"
@@ -2143,7 +2137,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                     <AnimatePresence>
                       {error && (
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
@@ -2154,7 +2148,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         </motion.div>
                       )}
                       {success && (
-                        <motion.div 
+                        <motion.div
                           initial={{ opacity: 0, height: 0 }}
                           animate={{ opacity: 1, height: 'auto' }}
                           exit={{ opacity: 0, height: 0 }}
@@ -2173,7 +2167,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <h3 className="text-lg font-bold text-slate-900">Payout History</h3>
                     <div className="flex flex-wrap items-center gap-2">
-                       <select 
+                      <select
                         value={payoutStatus}
                         onChange={(e) => setPayoutStatus(e.target.value as any)}
                         className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-500/20 transition-all"
@@ -2186,8 +2180,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       </select>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           placeholder="Search Bank..."
                           value={payoutSearch}
                           onChange={(e) => setPayoutSearch(e.target.value)}
@@ -2221,10 +2215,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                       return (
                         <>
                           {payoutRequests.map((req) => (
-                            <PayoutRequestCard 
-                              key={req.id} 
-                              req={req} 
-                              settings={payoutSettings} 
+                            <PayoutRequestCard
+                              key={req.id}
+                              req={req}
+                              settings={payoutSettings}
                               onViewProof={setSelectedProof}
                             />
                           ))}
@@ -2253,14 +2247,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 Showing <span className="text-slate-900 font-bold">{(payoutPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(payoutPage * itemsPerPage, totalPayoutCount)}</span> of <span className="text-slate-900 font-bold">{totalPayoutCount}</span>
                               </p>
                               <div className="flex items-center gap-2">
-                                <button 
+                                <button
                                   onClick={() => setPayoutPage(prev => Math.max(prev - 1, 1))}
                                   disabled={payoutPage === 1}
                                   className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
                                 >
                                   Prev
                                 </button>
-                                <button 
+                                <button
                                   onClick={() => setPayoutPage(prev => Math.min(prev + 1, totalPages))}
                                   disabled={payoutPage === totalPages}
                                   className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50"
@@ -2284,14 +2278,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       <AnimatePresence>
         {selectedProof && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               className="relative w-fit max-w-[95vw] max-h-[95vh] bg-white rounded-3xl overflow-hidden shadow-2xl flex flex-col"
             >
               <div className="absolute top-4 right-4 z-10">
-                <button 
+                <button
                   onClick={() => setSelectedProof(null)}
                   className="p-2 bg-white/90 hover:bg-white text-slate-900 rounded-full shadow-lg transition-all"
                 >
@@ -2299,9 +2293,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                 </button>
               </div>
               <div className="flex-1 bg-slate-50 flex items-center justify-center overflow-hidden p-2 md:p-4">
-                <img 
-                  src={selectedProof} 
-                  alt="Payment Proof" 
+                <img
+                  src={selectedProof}
+                  alt="Payment Proof"
                   className="max-w-full max-h-[calc(95vh-120px)] object-contain rounded-xl"
                   referrerPolicy="no-referrer"
                 />
@@ -2311,7 +2305,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   <h4 className="text-sm font-bold text-slate-900">Payment Screenshot</h4>
                   <p className="text-xs text-slate-400 font-medium">Verification proof submitted by you</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setSelectedProof(null)}
                   className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors"
                 >
@@ -2338,13 +2332,13 @@ function PayoutRequestCard({ req, settings, onViewProof }: { req: any; settings:
 
     const interval = setInterval(() => {
       const now = new Date().getTime();
-      
+
       if (req.status === 'pending') {
         const startTime = new Date(req.created_at).getTime();
         const elapsedSecs = (now - startTime) / 1000;
         const pendingLimitSecs = (settings.pending_time_mins || 15) * 60;
-        
-        setStage(1); 
+
+        setStage(1);
         if (elapsedSecs < pendingLimitSecs) {
           setTimeLeft(Math.max(0, Math.floor(pendingLimitSecs - elapsedSecs)));
         } else {
@@ -2353,7 +2347,7 @@ function PayoutRequestCard({ req, settings, onViewProof }: { req: any; settings:
       } else if (req.status === 'processing' && req.processing_started_at) {
         const startTime = new Date(req.processing_started_at).getTime();
         const elapsedSecs = (now - startTime) / 1000;
-        
+
         const stage1LimitSecs = settings.processing_time_1_mins * 60;
         const stage2LimitSecs = settings.processing_time_2_mins * 60;
 
@@ -2394,20 +2388,19 @@ function PayoutRequestCard({ req, settings, onViewProof }: { req: any; settings:
         </div>
 
         <div className="flex items-center gap-8">
-           <div>
+          <div>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1 text-right">Amount</p>
             <p className="text-base font-black text-slate-900 text-right">₹{req.amount.toLocaleString()}</p>
           </div>
           <div className="w-px h-8 bg-slate-100"></div>
           <div className="flex flex-col items-end min-w-[100px]">
-             <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-               req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
-               req.status === 'rejected' ? 'bg-rose-50 text-rose-500' :
-               req.status === 'processing' ? 'bg-amber-50 text-amber-600' :
-               'bg-slate-100 text-slate-600'
-             }`}>
-               {req.status === 'approved' ? 'Completed' : req.status}
-             </span>
+            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' :
+              req.status === 'rejected' ? 'bg-rose-50 text-rose-500' :
+                req.status === 'processing' ? 'bg-amber-50 text-amber-600' :
+                  'bg-slate-100 text-slate-600'
+              }`}>
+              {req.status === 'approved' ? 'Completed' : req.status}
+            </span>
           </div>
         </div>
       </div>
@@ -2462,28 +2455,28 @@ function PayoutRequestCard({ req, settings, onViewProof }: { req: any; settings:
 
       {req.status === 'approved' && req.transaction_id && (
         <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 flex items-center justify-between">
-           <div className="flex items-center gap-3">
-             <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
-               <ShieldCheck size={16} />
-             </div>
-             <div>
-               <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Transaction ID</p>
-               <p className="text-sm font-black text-slate-800">{req.transaction_id}</p>
-             </div>
-           </div>
-           
-           <div className="flex items-center gap-3">
-             {req.proof_url && (
-               <button 
-                 onClick={() => onViewProof(req.proof_url)}
-                 className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100 flex items-center gap-2"
-               >
-                 <Upload size={12} />
-                 View Proof
-               </button>
-             )}
-             <CheckCircle2 className="text-emerald-500" size={24} />
-           </div>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600">
+              <ShieldCheck size={16} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Transaction ID</p>
+              <p className="text-sm font-black text-slate-800">{req.transaction_id}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {req.proof_url && (
+              <button
+                onClick={() => onViewProof(req.proof_url)}
+                className="px-4 py-2 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-700 transition-all shadow-md shadow-emerald-100 flex items-center gap-2"
+              >
+                <Upload size={12} />
+                View Proof
+              </button>
+            )}
+            <CheckCircle2 className="text-emerald-500" size={24} />
+          </div>
         </div>
       )}
     </div>

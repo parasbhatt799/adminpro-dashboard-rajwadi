@@ -36,6 +36,7 @@ interface SidebarProps {
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
   { id: 'users-list', label: 'Users list', icon: UserPlus, path: '/users-list', role: 'full' },
+  { id: 'super-distributors', label: 'Super Distributors', icon: Shield, path: '/super-distributors', role: 'full' },
   { id: 'distributors', label: 'Distributors', icon: Building2, path: '/distributors', role: 'full' },
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: Receipt, path: '/bill-payment-requests' },

@@ -137,8 +137,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
         setStats([
           {
-            title: profile?.role === 'distributor' ? "Commission Wallet" : "Total Balance",
-            value: `₹${(Number(profile?.role === 'distributor' ? profile?.commission_balance : profile?.wallet_balance) || 0).toLocaleString()}`,
+            title: (profile?.role === 'distributor' || profile?.role === 'super_distributor') ? "Commission Wallet" : "Total Balance",
+            value: `₹${(Number((profile?.role === 'distributor' || profile?.role === 'super_distributor') ? profile?.commission_balance : profile?.wallet_balance) || 0).toLocaleString()}`,
             trend: "neutral",
             icon: Wallet,
             color: "bg-emerald-500"
@@ -151,7 +151,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
             color: "bg-amber-500",
             subtitle: "Locked by Admin"
           }] : []),
-          ...(profile?.role !== 'distributor' ? [
+          ...((profile?.role !== 'distributor' && profile?.role !== 'super_distributor') ? [
             {
               title: "QR Payment",
               value: `₹${qrTotal.toLocaleString()}`,
@@ -248,10 +248,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
             <div>
               <div className="flex items-center gap-3">
                 <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
-                {userProfile?.role === 'distributor' && (
+                {(userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') && (
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-indigo-200">
-                      Distributor
+                      {userProfile?.role === 'super_distributor' ? 'Super Distributor' : 'Distributor'}
                     </span>
                     <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
                       ID: {userId}

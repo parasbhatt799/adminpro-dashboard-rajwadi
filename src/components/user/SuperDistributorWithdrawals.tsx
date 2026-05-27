@@ -12,17 +12,20 @@ import {
   Hash,
   AlertCircle,
   RotateCcw,
-  ExternalLink,
-  ChevronUp,
   Eye,
   Copy,
-  X
+  X,
+  ChevronUp
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../lib/supabase';
-import { useToast } from '../context/ToastContext';
+import { supabase } from '../../lib/supabase';
+import { useToast } from '../../context/ToastContext';
 
-export default function AdminDistributorWithdrawals() {
+interface SuperDistributorWithdrawalsProps {
+  userId: string;
+}
+
+export default function SuperDistributorWithdrawals({ userId }: SuperDistributorWithdrawalsProps) {
   const toast = useToast();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,9 +41,26 @@ export default function AdminDistributorWithdrawals() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
+      // 1. Fetch all distributors registered under this Super Distributor
+      const { data: distributors, error: distError } = await supabase
+        .from('users_profiles')
+        .select('id')
+        .eq('super_distributor_id', userId)
+        .eq('role', 'distributor');
+
+      if (distError) throw distError;
+
+      const distIds = (distributors || []).map(d => d.id);
+      if (distIds.length === 0) {
+        setRequests([]);
+        return;
+      }
+
+      // 2. Fetch withdrawals from these distributor IDs
       let query = supabase
         .from('distributor_withdrawals')
-        .select('*, users_profiles(name, firm_name, commission_balance, role, super_distributor_id)')
+        .select('*, users_profiles(name, firm_name, commission_balance)')
+        .in('distributor_id', distIds)
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -60,9 +80,9 @@ export default function AdminDistributorWithdrawals() {
   useEffect(() => {
     fetchRequests();
 
-    // Real-time subscription
+    // Subscribe to all changes in distributor_withdrawals
     const channel = supabase
-      .channel('admin_distributor_withdrawals')
+      .channel('super_distributor_withdrawals')
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -93,27 +113,26 @@ export default function AdminDistributorWithdrawals() {
       } else {
         const { data: result, error: rpcError } = await supabase.rpc('reject_distributor_withdrawal_atomic', {
           p_withdrawal_id: id,
-          p_remark: remark || 'Withdrawal rejected by administrator'
+          p_remark: remark || 'Withdrawal rejected by Super Distributor'
         });
 
         if (rpcError) throw rpcError;
         if (!result.success) throw new Error(result.message);
       }
 
-      // 3. Notify Distributor
+      // Notify Distributor
       const { error: notifyError } = await supabase.from('notifications').insert([{
         user_id: req.distributor_id,
         target_role: 'user',
         title: `Withdrawal ${type === 'approved' ? 'Approved' : 'Rejected'}`,
         message: type === 'approved'
           ? `Your withdrawal of ₹${req.amount.toLocaleString()} has been approved and processed!`
-          : `Your withdrawal of ₹${req.amount.toLocaleString()} was rejected. Reason: ${remark || 'Administrative decision'}`,
+          : `Your withdrawal of ₹${req.amount.toLocaleString()} was rejected. Reason: ${remark || 'Super Distributor decision'}`,
         link: '/user/withdrawal'
       }]);
 
       if (notifyError) {
         console.error('Notification Error:', notifyError);
-        // We don't throw here to avoid blocking the status update success message
       }
 
       toast.success(`Withdrawal ${type === 'approved' ? 'approved' : 'rejected'} successfully`);
@@ -129,12 +148,6 @@ export default function AdminDistributorWithdrawals() {
   };
 
   const filteredRequests = requests.filter(req => {
-    const role = req.users_profiles?.role;
-    const hasSuperDistributor = !!req.users_profiles?.super_distributor_id;
-    const isAdminViewable = role === 'super_distributor' || (role === 'distributor' && !hasSuperDistributor);
-
-    if (!isAdminViewable) return false;
-
     const matchesSearch =
       (req.users_profiles?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (req.users_profiles?.firm_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -149,16 +162,16 @@ export default function AdminDistributorWithdrawals() {
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Distributor Withdrawals</h2>
-          <p className="text-slate-500 mt-1">Review and approve commission payout requests.</p>
+          <p className="text-slate-500 mt-1">Review and approve your distributors' commission payout requests.</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={fetchRequests}
-            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all border border-slate-200 bg-white"
+            className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-xl transition-all border border-slate-200 bg-white"
             title="Refresh"
           >
             <RotateCcw size={18} />
@@ -170,13 +183,13 @@ export default function AdminDistributorWithdrawals() {
               placeholder="Search Dist. or Bank..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all w-64"
+              className="pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all w-64"
             />
           </div>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value as any)}
-            className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            className="px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all"
           >
             <option value="all">All Requests</option>
             <option value="pending">Pending</option>
@@ -186,7 +199,7 @@ export default function AdminDistributorWithdrawals() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
@@ -203,7 +216,7 @@ export default function AdminDistributorWithdrawals() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
-                    <Loader2 className="animate-spin text-indigo-600 mx-auto mb-2" size={32} />
+                    <Loader2 className="animate-spin text-emerald-600 mx-auto mb-2" size={32} />
                     <p className="text-sm text-slate-500 font-medium">Loading requests...</p>
                   </td>
                 </tr>
@@ -220,7 +233,7 @@ export default function AdminDistributorWithdrawals() {
                     <tr className="hover:bg-slate-50/50 transition-colors">
                       <td className="px-8 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 font-bold border border-indigo-200">
+                          <div className="w-10 h-10 bg-emerald-50 rounded-full flex items-center justify-center text-emerald-600 font-bold border border-emerald-100">
                             <User size={20} />
                           </div>
                           <div>
@@ -246,7 +259,7 @@ export default function AdminDistributorWithdrawals() {
                         <div className="flex flex-col items-center">
                           <button
                             onClick={() => setViewingRequest(req)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-indigo-100 transition-colors"
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-black uppercase tracking-wider hover:bg-emerald-100 transition-colors"
                           >
                             <Eye size={12} />
                             View Detail
@@ -255,10 +268,11 @@ export default function AdminDistributorWithdrawals() {
                         </div>
                       </td>
                       <td className="px-8 py-4 text-center">
-                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                              'bg-amber-50 text-amber-600'
-                          }`}>
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                          req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                          req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                          'bg-amber-50 text-amber-600'
+                        }`}>
                           {req.status === 'pending' && <Clock size={10} />}
                           {req.status === 'approved' && <CheckCircle2 size={10} />}
                           {req.status === 'rejected' && <XCircle size={10} />}
@@ -281,8 +295,8 @@ export default function AdminDistributorWithdrawals() {
                               className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
                               title="Approve"
                             >
-                              {processingId === req.id && req.status === 'pending' ? (
-                                <Loader2 size={20} className="animate-spin" />
+                              {processingId === req.id ? (
+                                <Loader2 size={20} className="animate-spin text-emerald-500" />
                               ) : (
                                 <CheckCircle2 size={20} />
                               )}
@@ -347,7 +361,7 @@ export default function AdminDistributorWithdrawals() {
             >
               <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm border border-slate-100">
+                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-emerald-600 shadow-sm border border-slate-100">
                     <Building2 size={20} />
                   </div>
                   <div>
@@ -376,13 +390,13 @@ export default function AdminDistributorWithdrawals() {
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Account Number</p>
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-mono font-bold text-indigo-600">{viewingRequest.bank_details?.accountNumber}</p>
+                      <p className="text-sm font-mono font-bold text-emerald-600">{viewingRequest.bank_details?.accountNumber}</p>
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(viewingRequest.bank_details?.accountNumber);
                           alert('Copied!');
                         }}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors"
                       >
                         <Copy size={14} />
                       </button>
@@ -397,7 +411,7 @@ export default function AdminDistributorWithdrawals() {
                           navigator.clipboard.writeText(viewingRequest.bank_details?.ifscCode);
                           alert('Copied!');
                         }}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 transition-colors"
+                        className="p-1.5 text-slate-400 hover:text-emerald-600 transition-colors"
                       >
                         <Copy size={14} />
                       </button>

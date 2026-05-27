@@ -16,7 +16,9 @@ import {
   CreditCard,
   Download,
   Lock,
-  Shield
+  Shield,
+  Search,
+  Users
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -31,13 +33,19 @@ interface UserDetailsProps {
 }
 
 export default function UserDetails({ user, onBack, onEdit, onDelete, isDistributorView }: UserDetailsProps) {
-  const [activeTab, setActiveTab] = useState<'firm' | 'kyc'>('firm');
+  const [activeTab, setActiveTab] = useState<string>('firm');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [kycDocs, setKycDocs] = useState<any>(null);
   const [loadingKyc, setLoadingKyc] = useState(false);
   const [selectedImage, setSelectedImage] = useState<{url: string, label: string} | null>(null);
+  const [subUsers, setSubUsers] = useState<any[]>([]);
+  const [loadingSubUsers, setLoadingSubUsers] = useState(false);
+  const [subUsersSearch, setSubUsersSearch] = useState('');
+  const [subDistributors, setSubDistributors] = useState<any[]>([]);
+  const [loadingSubDistributors, setLoadingSubDistributors] = useState(false);
+  const [subDistributorsSearch, setSubDistributorsSearch] = useState('');
 
   useEffect(() => {
     const fetchKycDocs = async () => {
@@ -65,6 +73,52 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
     
     fetchKycDocs();
   }, [activeTab, user.id, kycDocs]);
+
+  useEffect(() => {
+    const fetchSubUsers = async () => {
+      if (activeTab === 'users' && user.role === 'distributor') {
+        setLoadingSubUsers(true);
+        try {
+          const { data, error } = await supabase
+            .from('users_profiles')
+            .select('*')
+            .eq('distributor_id', user.id)
+            .eq('role', 'user')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          setSubUsers(data || []);
+        } catch (err) {
+          console.error('Error fetching sub-users:', err);
+        } finally {
+          setLoadingSubUsers(false);
+        }
+      }
+    };
+    fetchSubUsers();
+  }, [activeTab, user.id]);
+
+  useEffect(() => {
+    const fetchSubDistributors = async () => {
+      if (activeTab === 'distributors' && user.role === 'super_distributor') {
+        setLoadingSubDistributors(true);
+        try {
+          const { data, error } = await supabase
+            .from('users_profiles')
+            .select('*, sub_count:users_profiles!distributor_id(count)')
+            .eq('super_distributor_id', user.id)
+            .eq('role', 'distributor')
+            .order('created_at', { ascending: false });
+          if (error) throw error;
+          setSubDistributors(data || []);
+        } catch (err) {
+          console.error('Error fetching sub-distributors:', err);
+        } finally {
+          setLoadingSubDistributors(false);
+        }
+      }
+    };
+    fetchSubDistributors();
+  }, [activeTab, user.id]);
 
   const handleDelete = async () => {
     setIsDeleting(true);
@@ -297,6 +351,20 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
               </span>
             </div>
 
+            {user.role === 'distributor' && (
+              <div className="mt-3 flex justify-center">
+                {user.super_distributor ? (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200/60 shadow-sm">
+                    Super Dist: {user.super_distributor.name}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-200/60 shadow-sm">
+                    Created by: Admin
+                  </span>
+                )}
+              </div>
+            )}
+
             <div className="mt-8 pt-8 border-t border-slate-50 space-y-4 text-left">
               <div className="flex items-center gap-3 text-slate-600">
                 <Mail size={18} className="text-slate-400" />
@@ -399,19 +467,39 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
         {/* Details Tabs/Content */}
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden">
-            <div className="flex border-b border-slate-50">
+            <div className="flex border-b border-slate-50 overflow-x-auto">
               <button 
+                type="button"
                 onClick={() => setActiveTab('firm')}
-                className={`px-8 py-4 text-sm font-bold transition-colors ${activeTab === 'firm' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-8 py-4 text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'firm' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 Firm Details
               </button>
               <button 
+                type="button"
                 onClick={() => setActiveTab('kyc')}
-                className={`px-8 py-4 text-sm font-bold transition-colors ${activeTab === 'kyc' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-8 py-4 text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'kyc' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 KYC Documents
               </button>
+              {user.role === 'distributor' && (
+                <button 
+                  type="button"
+                  onClick={() => setActiveTab('users')}
+                  className={`px-8 py-4 text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'users' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Users List
+                </button>
+              )}
+              {user.role === 'super_distributor' && (
+                <button 
+                  type="button"
+                  onClick={() => setActiveTab('distributors')}
+                  className={`px-8 py-4 text-sm font-bold transition-colors whitespace-nowrap ${activeTab === 'distributors' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Distributors List
+                </button>
+              )}
             </div>
             
             <div className="p-8">
@@ -446,7 +534,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                     </div>
                   )}
                 </div>
-              ) : (
+              ) : activeTab === 'kyc' ? (
                 <div className="space-y-6">
                   {loadingKyc ? (
                     <div className="flex flex-col items-center justify-center py-12 gap-4">
@@ -501,7 +589,199 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                     </div>
                   )}
                 </div>
-              )}
+              ) : activeTab === 'users' ? (
+                loadingSubUsers ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <Loader2 size={32} className="animate-spin text-indigo-600" />
+                    <p className="text-slate-500 text-sm font-medium">Loading users list...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        value={subUsersSearch}
+                        onChange={(e) => setSubUsersSearch(e.target.value)}
+                        placeholder="Search associated users..." 
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      />
+                    </div>
+                    {(() => {
+                      const filtered = subUsers.filter(su => {
+                        const term = subUsersSearch.toLowerCase();
+                        return (
+                          su.name?.toLowerCase().includes(term) ||
+                          su.id?.toLowerCase().includes(term) ||
+                          su.mobile_number?.toLowerCase().includes(term) ||
+                          su.firm_name?.toLowerCase().includes(term)
+                        );
+                      });
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-12 text-slate-400">
+                            <p className="font-bold text-slate-700">No users found</p>
+                            <p className="text-xs mt-1">This distributor has not registered any users yet.</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50/50">
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">User Details</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Firm Details</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">Wallet Balance</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">KYC Status</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">Joined Date</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {filtered.map((su) => (
+                                <tr key={su.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs border border-indigo-100">
+                                        {su.profile_photo_url ? (
+                                          <img src={su.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                          su.name.charAt(0)
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-bold text-slate-900">{su.name}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium">ID: {su.id}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-xs text-slate-700 font-semibold">{su.firm_name || 'N/A'}</div>
+                                    <div className="text-[10px] text-slate-400">{su.mobile_number}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-lg">
+                                      ₹{Number(su.wallet_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <div className={`w-2 h-2 rounded-full ${su.kyc_status === 'verified' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                      <span className={`text-[10px] font-bold uppercase ${su.kyc_status === 'verified' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        {su.kyc_status === 'verified' ? 'Verified' : 'Pending'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4 text-center text-xs text-slate-500 font-medium">
+                                    {new Date(su.created_at).toLocaleDateString()}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )
+              ) : activeTab === 'distributors' ? (
+                loadingSubDistributors ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <Loader2 size={32} className="animate-spin text-indigo-600" />
+                    <p className="text-slate-500 text-sm font-medium">Loading distributors list...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="text" 
+                        value={subDistributorsSearch}
+                        onChange={(e) => setSubDistributorsSearch(e.target.value)}
+                        placeholder="Search associated distributors..." 
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      />
+                    </div>
+                    {(() => {
+                      const filtered = subDistributors.filter(sd => {
+                        const term = subDistributorsSearch.toLowerCase();
+                        return (
+                          sd.name?.toLowerCase().includes(term) ||
+                          sd.id?.toLowerCase().includes(term) ||
+                          sd.mobile_number?.toLowerCase().includes(term) ||
+                          sd.firm_name?.toLowerCase().includes(term)
+                        );
+                      });
+                      if (filtered.length === 0) {
+                        return (
+                          <div className="text-center py-12 text-slate-400">
+                            <p className="font-bold text-slate-700">No distributors found</p>
+                            <p className="text-xs mt-1">This super distributor has not registered any distributors yet.</p>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="overflow-x-auto rounded-2xl border border-slate-100 shadow-sm">
+                          <table className="w-full text-left border-collapse">
+                            <thead>
+                              <tr className="bg-slate-50/50">
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Distributor Details</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest">Firm Details</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">Total Users</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">Commission Balance</th>
+                                <th className="px-6 py-4 text-[11px] font-black text-slate-600 uppercase tracking-widest text-center">KYC Status</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                              {filtered.map((sd) => (
+                                <tr key={sd.id} className="hover:bg-slate-50 transition-colors">
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-9 h-9 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-xs border border-indigo-100">
+                                        {sd.profile_photo_url ? (
+                                          <img src={sd.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                                        ) : (
+                                          sd.name.charAt(0)
+                                        )}
+                                      </div>
+                                      <div>
+                                        <p className="text-xs font-bold text-slate-900">{sd.name}</p>
+                                        <p className="text-[10px] text-slate-400 font-medium">ID: {sd.id}</p>
+                                      </div>
+                                    </div>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="text-xs text-slate-700 font-semibold">{sd.firm_name || 'N/A'}</div>
+                                    <div className="text-[10px] text-slate-400">{sd.mobile_number}</div>
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <span className="inline-flex items-center justify-center bg-indigo-50 text-indigo-700 text-xs font-black px-2.5 py-1 rounded-lg">
+                                      {sd.sub_count?.[0]?.count || 0}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4 text-center">
+                                    <span className="inline-flex items-center justify-center bg-emerald-50 text-emerald-700 text-xs font-bold px-2.5 py-1 rounded-lg">
+                                      ₹{Number(sd.commission_balance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                  </td>
+                                  <td className="px-6 py-4">
+                                    <div className="flex items-center justify-center gap-1.5">
+                                      <div className={`w-2 h-2 rounded-full ${sd.kyc_status === 'verified' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                                      <span className={`text-[10px] font-bold uppercase ${sd.kyc_status === 'verified' ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                        {sd.kyc_status === 'verified' ? 'Verified' : 'Pending'}
+                                      </span>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )
+              ) : null}
             </div>
           </div>
 
