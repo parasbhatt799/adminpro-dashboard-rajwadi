@@ -3,7 +3,7 @@ import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
 import ChangePassword from './ChangePassword';
 import ErrorBoundary from '../ErrorBoundary';
-import { Search, Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock } from 'lucide-react';
+import { Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -420,14 +420,6 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             >
               <Menu size={20} />
             </button>
-            <div className="relative w-96">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search transactions, bills..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-              />
-            </div>
           </div>
 
           <div className="flex items-center gap-4">

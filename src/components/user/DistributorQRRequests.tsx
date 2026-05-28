@@ -24,8 +24,60 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProof, setSelectedProof] = useState<any>(null);
+  const [dateFilter, setDateFilter] = useState('today');
+  const [amountFilter, setAmountFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [currentUserRole, setCurrentUserRole] = useState<string>('distributor');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, dateFilter, amountFilter, statusFilter]);
+
+  const getDateRange = (filter: string) => {
+    const now = new Date();
+    const start = new Date();
+    const end = new Date();
+
+    switch (filter) {
+      case 'today':
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'yesterday':
+        start.setDate(now.getDate() - 1);
+        start.setHours(0, 0, 0, 0);
+        end.setDate(now.getDate() - 1);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'last7days':
+        start.setDate(now.getDate() - 6);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'thismonth':
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'lastmonth':
+        start.setMonth(now.getMonth() - 1);
+        start.setDate(1);
+        start.setHours(0, 0, 0, 0);
+        
+        end.setDate(0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case 'alltime':
+      default:
+        return null;
+    }
+    return { start, end };
+  };
 
   const fetchRequests = async () => {
     setLoading(true);
@@ -74,11 +126,19 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
       }
 
       // 2. Fetch their payment submissions
+      const range = getDateRange(dateFilter);
       let query = supabase
         .from('payment_submissions')
         .select('*, users_profiles!payment_submissions_user_id_fkey(name, firm_name, charge_percentage, admin_base_qr_charge), qr_history(qr_name)')
-        .in('user_id', subUserIds)
-        .order('created_at', { ascending: false });
+        .in('user_id', subUserIds);
+
+      if (range) {
+        query = query
+          .gte('created_at', range.start.toISOString())
+          .lte('created_at', range.end.toISOString());
+      }
+
+      query = query.order('created_at', { ascending: false });
 
       const { data, error } = await query;
       if (error) throw error;
@@ -92,12 +152,20 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
 
   useEffect(() => {
     fetchRequests();
-  }, [userId]);
+  }, [userId, dateFilter]);
 
-  const filteredRequests = requests.filter(req =>
-    req.utr_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (req.users_profiles?.firm_name || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredRequests = requests.filter(req => {
+    const matchesSearch = !searchTerm ||
+      req.utr_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (req.users_profiles?.firm_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesAmount = !amountFilter ||
+      req.amount.toString().includes(amountFilter);
+
+    const matchesStatus = statusFilter === 'all' || req.status === statusFilter;
+
+    return matchesSearch && matchesAmount && matchesStatus;
+  });
 
   const exportToExcel = () => {
     const isSD = currentUserRole === 'super_distributor';
@@ -148,6 +216,28 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
 
   const isSD = currentUserRole === 'super_distributor';
 
+  const totalPages = Math.ceil(filteredRequests.length / itemsPerPage);
+  const paginatedRequests = filteredRequests.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisible = 5;
+    let start = Math.max(1, currentPage - 2);
+    let end = Math.min(totalPages, start + maxVisible - 1);
+    
+    if (end - start < maxVisible - 1) {
+      start = Math.max(1, end - maxVisible + 1);
+    }
+    
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -164,16 +254,67 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
         </button>
       </div>
 
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="relative w-full">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by UTR or Firm Name..."
-            className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-          />
+      <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-center">
+        {/* Date Filter */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Date Period</label>
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer h-[42px]"
+          >
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="last7days">Last 7 Days</option>
+            <option value="thismonth">This Month</option>
+            <option value="lastmonth">Last Month</option>
+            <option value="alltime">All Time</option>
+          </select>
+        </div>
+
+        {/* Amount Filter */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Amount</label>
+          <div className="relative">
+            <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="number"
+              value={amountFilter}
+              onChange={(e) => setAmountFilter(e.target.value)}
+              placeholder="Filter amount..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all h-[42px] font-semibold"
+            />
+          </div>
+        </div>
+
+        {/* Status Filter */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 transition-all cursor-pointer h-[42px]"
+          >
+            <option value="all">All Status</option>
+            <option value="pending">Pending</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        {/* Search Input */}
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Search</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search UTR, Firm Name..."
+              className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all h-[42px] font-semibold"
+            />
+          </div>
         </div>
       </div>
 
@@ -204,7 +345,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                   </td>
                 </tr>
               ) : (
-                filteredRequests.map((req) => (
+                paginatedRequests.map((req) => (
                   <tr key={req.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
                       <p className="text-sm font-bold text-slate-900">{req.users_profiles?.firm_name || req.users_profiles?.name}</p>
@@ -277,6 +418,48 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
               </tfoot>
             )}
           </table>
+
+          {totalPages > 1 && (
+            <div className="px-6 py-4 bg-slate-50/50 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <span className="text-xs font-bold text-slate-500">
+                Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRequests.length)} of {filteredRequests.length} entries
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed select-none"
+                >
+                  Previous
+                </button>
+                <div className="flex items-center gap-1.5">
+                  {getPageNumbers().map(page => (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-8 h-8 rounded-xl text-xs font-black transition-all select-none ${
+                        currentPage === page
+                          ? 'bg-emerald-600 text-white shadow-md shadow-emerald-200'
+                          : 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed select-none"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

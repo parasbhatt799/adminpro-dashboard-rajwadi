@@ -19,7 +19,8 @@ import {
   Settings,
   TrendingDown,
   Wallet,
-  LayoutGrid
+  LayoutGrid,
+  History
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
@@ -51,6 +52,7 @@ const menuItems = [
   { id: 'payout-requests', label: 'Payout Request', icon: TrendingDown, path: '/payout-requests' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },
+  { id: 'qr-history', label: 'QR Tracking History', icon: History, path: '/qr-history' },
   { id: 'qr-gallery', label: 'QR Gallery', icon: LayoutGrid, path: '/qr-gallery' },
   {
     id: 'wallet',
@@ -141,6 +143,11 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
   }, []);
 
   const filteredMenuItems = menuItems.map(item => {
+    if (item.id === 'report-generate' && adminRole !== 'full') {
+      const hasPerm = adminPermissions ? adminPermissions.includes('report-generate') : false;
+      if (!hasPerm) return null;
+    }
+
     if (item.subItems) {
       const filteredSubs = item.subItems.filter(sub => {
         const s = sub as { id?: string; role?: string; label: string; path: string };
@@ -165,8 +172,8 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
     if (item.role === 'developer') return isDeveloper ? item : null;
     if (adminRole === 'full') return item;
 
-    // Limited Admin: Always allow dashboard and change-password
-    if (item.id === 'dashboard' || item.id === 'change-password') return item;
+    // Limited Admin: Always allow change-password
+    if (item.id === 'change-password') return item;
 
     // Everything else requires explicit permission
     const hasPerm = adminPermissions ? adminPermissions.includes(item.id) : false;

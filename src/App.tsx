@@ -12,6 +12,7 @@ const Sidebar = lazy(() => import('./components/Sidebar'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const UsersList = lazy(() => import('./components/UsersList'));
 const QRManagement = lazy(() => import('./components/QRManagement'));
+const QRHistoryTracking = lazy(() => import('./components/QRHistoryTracking'));
 const BankManagement = lazy(() => import('./components/BankManagement'));
 const ServiceChargeManagement = lazy(() => import('./components/ServiceChargeManagement'));
 const ReasonManagement = lazy(() => import('./components/ReasonManagement'));
@@ -48,6 +49,8 @@ const DistributorQRRequests = lazy(() => import('./components/user/DistributorQR
 const DistributorWithdrawal = lazy(() => import('./components/user/DistributorWithdrawal'));
 const DistributorBillPayments = lazy(() => import('./components/user/DistributorBillPayments'));
 const DistributorStatementReport = lazy(() => import('./components/user/DistributorStatementReport'));
+const QRDistributorReport = lazy(() => import('./components/user/QRDistributorReport'));
+const BillDistributorReport = lazy(() => import('./components/user/BillDistributorReport'));
 const SuperDistributorWithdrawals = lazy(() => import('./components/user/SuperDistributorWithdrawals'));
 const AdminDistributorWithdrawals = lazy(() => import('./components/AdminDistributorWithdrawals'));
 const DistributorsList = lazy(() => import('./components/DistributorsList'));
@@ -276,14 +279,6 @@ const AdminLayout = ({
             >
               <Menu size={20} />
             </button>
-            <div className="relative w-96 font-sans">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input
-                type="text"
-                placeholder="Search anything..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-              />
-            </div>
           </div>
 
           <div className="flex items-center gap-4">
@@ -1040,7 +1035,30 @@ export default function App() {
               />
           }
         >
-          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="dashboard" element={
+            (adminRole === 'full' || adminPermissions.includes('dashboard')) ? <Dashboard /> :
+            adminPermissions.includes('users-list') ? <Navigate to="/users-list" replace /> :
+            adminPermissions.includes('qr-payment-requests') ? <Navigate to="/qr-payment-requests" replace /> :
+            adminPermissions.includes('bill-payment-requests') ? <Navigate to="/bill-payment-requests" replace /> :
+            adminPermissions.includes('payout-requests') ? <Navigate to="/payout-requests" replace /> :
+            adminPermissions.includes('qr-upload') ? <Navigate to="/qr-upload" replace /> :
+            adminPermissions.includes('qr-history') ? <Navigate to="/qr-history" replace /> :
+            adminPermissions.includes('super-distributors') ? <Navigate to="/super-distributors" replace /> :
+            adminPermissions.includes('distributors') ? <Navigate to="/distributors" replace /> :
+            adminPermissions.includes('distributor-withdrawals') ? <Navigate to="/distributor-withdrawals" replace /> :
+            adminPermissions.includes('service-charge') ? <Navigate to="/service-charge" replace /> :
+            adminPermissions.includes('reason-entry') ? <Navigate to="/reason-entry" replace /> :
+            adminPermissions.includes('complaints-management') ? <Navigate to="/complaints-management" replace /> :
+            adminPermissions.includes('headlines') ? <Navigate to="/headlines" replace /> :
+            adminPermissions.includes('policies') ? <Navigate to="/policies" replace /> :
+            adminPermissions.includes('user-agreement') ? <Navigate to="/agreement" replace /> :
+            adminPermissions.includes('bank-upload') ? <Navigate to="/bank-upload" replace /> :
+            adminPermissions.includes('withdrawal-balance') ? <Navigate to="/withdrawal-balance" replace /> :
+            adminPermissions.includes('qr-master') ? <Navigate to="/qr-master" replace /> :
+            adminPermissions.includes('kyc-verification-requests') ? <Navigate to="/kyc-verification-requests" replace /> :
+            adminPermissions.includes('qr-gallery') ? <Navigate to="/qr-gallery" replace /> :
+            <Navigate to="/change-password" replace />
+          } />
           <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
 
           {/* Permission-Checked Routes */}
@@ -1059,7 +1077,8 @@ export default function App() {
           <Route path="agreement" element={(adminRole === 'full' || adminPermissions.includes('user-agreement')) ? <AgreementManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="bank-upload" element={(adminRole === 'full' || adminPermissions.includes('bank-upload')) ? <BankManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="withdrawal-balance" element={(adminRole === 'full' || adminPermissions.includes('withdrawal-balance')) ? <AdminWithdrawal /> : <Navigate to="/dashboard" replace />} />
-          <Route path="qr-upload" element={(adminRole === 'full' || adminPermissions.includes('qr-upload')) ? <QRManagement /> : <Navigate to="/dashboard" replace />} />
+          <Route path="qr-upload" element={(adminRole === 'full' || adminPermissions.includes('qr-upload')) ? <QRManagement adminRole={adminRole} adminPermissions={adminPermissions} /> : <Navigate to="/dashboard" replace />} />
+          <Route path="qr-history" element={(adminRole === 'full' || adminPermissions.includes('qr-history')) ? <QRHistoryTracking adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-master" element={(adminRole === 'full' || adminPermissions.includes('qr-master')) ? <QRMasterManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="kyc-verification-requests" element={(adminRole === 'full' || adminPermissions.includes('kyc-verification-requests')) ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
@@ -1095,6 +1114,8 @@ export default function App() {
           <Route path="users-qr-requests" element={<DistributorQRRequests userId={userId} />} />
           <Route path="users-bill-payments" element={<DistributorBillPayments userId={userId} />} />
           <Route path="users-statement" element={<DistributorStatementReport userId={userId} />} />
+          <Route path="qr-distributor-report" element={<QRDistributorReport userId={userId} />} />
+          <Route path="bill-distributor-report" element={<BillDistributorReport userId={userId} />} />
           <Route path="withdrawal" element={<DistributorWithdrawal userId={userId} />} />
           <Route path="dist-withdrawals" element={<SuperDistributorWithdrawals userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />

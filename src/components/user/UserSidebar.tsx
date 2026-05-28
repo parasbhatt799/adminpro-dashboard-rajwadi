@@ -62,6 +62,18 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
     },
     ...(role === 'super_distributor' ? [
       {
+        id: 'qr-distributor-report',
+        label: 'QR Distributor Report',
+        icon: FileBarChart,
+        path: '/user/qr-distributor-report'
+      },
+      {
+        id: 'bill-distributor-report',
+        label: 'Bill Distributor Report',
+        icon: FileBarChart,
+        path: '/user/bill-distributor-report'
+      },
+      {
         id: 'dist-withdrawals',
         label: 'Dist. Withdrawals',
         icon: Wallet,

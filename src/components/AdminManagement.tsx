@@ -38,7 +38,9 @@ interface AdminManagementProps {
   const [actionLoading, setActionLoading] = useState(false);
 
   const AVAILABLE_PERMISSIONS = [
+    { id: 'dashboard', label: 'Dashboard' },
     { id: 'users-list', label: 'Users list' },
+    { id: 'super-distributors', label: 'Super Distributors' },
     { id: 'distributors', label: 'Distributors' },
     { id: 'qr-payment-requests', label: 'QR Payment Request' },
     { id: 'bill-payment-requests', label: 'Bill Payment Request' },
@@ -46,6 +48,8 @@ interface AdminManagementProps {
     { id: 'distributor-withdrawals', label: 'Dist. Withdrawals' },
     { id: 'kyc-verification-requests', label: 'KYC Verification' },
     { id: 'qr-upload', label: 'QR upload' },
+    { id: 'qr-history', label: 'QR Tracking History' },
+    { id: 'qr-master', label: 'QR Name Entry' },
     { id: 'qr-gallery', label: 'QR Gallery' },
     { id: 'bank-upload', label: 'Bank Upload' },
     { id: 'reason-entry', label: 'Reason entry' },

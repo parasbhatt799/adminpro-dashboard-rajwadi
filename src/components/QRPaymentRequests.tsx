@@ -24,6 +24,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { LogoLoader } from './shared/LoadingSpinner';
+import Tesseract from 'tesseract.js';
 
 interface QRPaymentRequest {
   id: string;
@@ -96,6 +97,107 @@ export default function QRPaymentRequests() {
   const [totalApprovedAmount, setTotalApprovedAmount] = useState(0);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const currentUserId = localStorage.getItem('userId');
+
+  // OCR state variables
+  const [ocrState, setOcrState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [detectedUtrs, setDetectedUtrs] = useState<string[]>([]);
+  const [ocrUtrMatchStatus, setOcrUtrMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
+  const [ocrQrMatchStatus, setOcrQrMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
+  const [ocrAmountMatchStatus, setOcrAmountMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
+  const [bypassOcr, setBypassOcr] = useState(false);
+
+  const runOcrOnProof = async (imageUrl: string, targetUtr: string, qrName: string, targetAmount: number) => {
+    setOcrState('loading');
+    setOcrProgress(0);
+    setDetectedUtrs([]);
+    setOcrUtrMatchStatus('unchecked');
+    setOcrQrMatchStatus('unchecked');
+    setOcrAmountMatchStatus('unchecked');
+    setBypassOcr(false);
+
+    try {
+      // Fetch the image as a blob first to prevent any CORS issues in Tesseract canvas operations
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const result = await Tesseract.recognize(
+        blobUrl,
+        'eng',
+        {
+          logger: (m) => {
+            if (m.status === 'recognizing text') {
+              setOcrProgress(Math.round(m.progress * 100));
+            }
+          }
+        }
+      );
+
+      URL.revokeObjectURL(blobUrl);
+
+      const text = result.data.text || '';
+      
+      // 1. UTR Match Checking
+      const matches = text.match(/\b\d{12}\b/g) || [];
+      const uniqueMatches = Array.from(new Set(matches));
+      setDetectedUtrs(uniqueMatches);
+
+      const cleanText = text.replace(/[^a-zA-Z0-9]/g, '');
+      const cleanTargetUtr = targetUtr.replace(/[^a-zA-Z0-9]/g, '');
+      const isUtrMatched = uniqueMatches.includes(cleanTargetUtr) || cleanText.includes(cleanTargetUtr);
+      setOcrUtrMatchStatus(isUtrMatched ? 'matched' : 'mismatch');
+
+      // 2. Merchant/QR Name Match Checking (Case-insensitive & space-stripped checks)
+      const cleanOcrText = text.toUpperCase().replace(/\s+/g, '');
+      const cleanQrName = qrName.toUpperCase().replace(/\s+/g, '');
+      
+      const isQrNameMatched = 
+        !qrName || 
+        qrName === 'Legacy QR' || 
+        text.toUpperCase().includes(qrName.toUpperCase()) || 
+        cleanOcrText.includes(cleanQrName);
+      
+      setOcrQrMatchStatus(isQrNameMatched ? 'matched' : 'mismatch');
+
+      // 3. Amount Match Checking (Extract numeric sequences, clean commas, and match mathematically)
+      const candidates = text.match(/[0-9,.]+/g) || [];
+      const uniqueAmounts = Array.from(new Set(
+        candidates
+          .map(c => {
+            let clean = c.replace(/[,]/g, '').replace(/\.$/, '');
+            return parseFloat(clean);
+          })
+          .filter(v => !isNaN(v) && v > 0)
+      ));
+      const isAmountMatched = uniqueAmounts.some(val => Math.abs(val - Number(targetAmount)) < 0.01);
+      setOcrAmountMatchStatus(isAmountMatched ? 'matched' : 'mismatch');
+
+      setOcrState('success');
+    } catch (err) {
+      console.error('OCR Error:', err);
+      setOcrState('error');
+    }
+  };
+
+  useEffect(() => {
+    if (selectedProof && selectedProof.status === 'pending') {
+      runOcrOnProof(
+        selectedProof.proof_url, 
+        selectedProof.utr_id, 
+        selectedProof.qr_history?.qr_name || '', 
+        selectedProof.amount
+      );
+    } else {
+      setOcrState('idle');
+      setOcrProgress(0);
+      setDetectedUtrs([]);
+      setOcrUtrMatchStatus('unchecked');
+      setOcrQrMatchStatus('unchecked');
+      setOcrAmountMatchStatus('unchecked');
+      setBypassOcr(false);
+    }
+  }, [selectedProof]);
   const isDeveloper = currentUserId === '9999099999';
   const isGodAdmin = currentUserId === '7777077377';
   const canEditQR = isDeveloper || isGodAdmin;
@@ -830,7 +932,10 @@ export default function QRPaymentRequests() {
                               <XCircle size={20} />
                             </button>
                             <button
-                              onClick={() => handleStatusUpdate(req.id, 'approved')}
+                              onClick={() => {
+                                setSelectedProof(req);
+                                toast.info("Please verify the proof screenshot via OCR before approving.");
+                              }}
                               disabled={processingId === req.id}
                               className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-lg transition-colors disabled:opacity-50"
                               title="Approve"
@@ -1104,6 +1209,189 @@ export default function QRPaymentRequests() {
                 />
               </div>
 
+              {/* OCR Verification Banner */}
+              {selectedProof.status === 'pending' && (() => {
+                const isOcrMatched = ocrUtrMatchStatus === 'matched' && ocrQrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched';
+                const isOcrMismatched = ocrUtrMatchStatus === 'mismatch' || ocrQrMatchStatus === 'mismatch' || ocrAmountMatchStatus === 'mismatch';
+                
+                return (
+                  <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-400">OCR Screenshot Verification</span>
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+                        ocrState === 'loading'
+                          ? 'bg-indigo-50 text-indigo-600 animate-pulse'
+                          : ocrState === 'error'
+                          ? 'bg-rose-50 text-rose-600'
+                          : isOcrMatched
+                          ? 'bg-emerald-50 text-emerald-600'
+                          : 'bg-amber-50 text-amber-600'
+                      }`}>
+                        {ocrState === 'loading' && <Loader2 size={12} className="animate-spin shrink-0" />}
+                        {ocrState === 'loading' && `Scanning Screenshot (${ocrProgress}%)`}
+                        {ocrState === 'success' && isOcrMatched && <CheckCircle2 size={12} className="shrink-0" />}
+                        {ocrState === 'success' && isOcrMatched && 'Verification Success'}
+                        {ocrState === 'success' && isOcrMismatched && <AlertCircle size={12} className="shrink-0" />}
+                        {ocrState === 'success' && isOcrMismatched && 'Verification Warning'}
+                        {ocrState === 'error' && <XCircle size={12} className="shrink-0" />}
+                        {ocrState === 'error' && 'OCR Failed'}
+                      </span>
+                    </div>
+
+                    {ocrState === 'loading' && (
+                      <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-indigo-600 h-full rounded-full transition-all duration-300"
+                          style={{ width: `${ocrProgress}%` }}
+                        ></div>
+                      </div>
+                    )}
+
+                    {ocrState === 'success' && (
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* UTR Check Status */}
+                        <div className={`p-3 rounded-2xl border text-xs flex gap-2.5 items-start ${
+                          ocrUtrMatchStatus === 'matched' 
+                            ? 'bg-emerald-50/40 border-emerald-100 text-emerald-800' 
+                            : 'bg-amber-50/40 border-amber-100 text-amber-800'
+                        }`}>
+                          {ocrUtrMatchStatus === 'matched' ? (
+                            <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-bold text-slate-900 text-[11px]">UTR ID</p>
+                              <span className={`text-[9px] font-extrabold uppercase tracking-wide shrink-0 ${
+                                ocrUtrMatchStatus === 'matched' ? 'text-emerald-600' : 'text-amber-600'
+                              }`}>
+                                {ocrUtrMatchStatus === 'matched' ? '✓ Found' : '✗ Mismatch'}
+                              </span>
+                            </div>
+                            <div className="mt-2 space-y-1.5 text-xs">
+                              <p className="leading-normal flex flex-wrap items-center gap-1.5">
+                                <span className="font-bold text-slate-500">Submitted:</span>
+                                <code className={`px-1.5 py-0.5 rounded font-mono font-bold ${
+                                  ocrUtrMatchStatus === 'matched' ? 'bg-emerald-100/50 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                                }`}>{selectedProof.utr_id}</code>
+                              </p>
+                              {ocrUtrMatchStatus === 'mismatch' && detectedUtrs.length > 0 && (
+                                <p className="leading-normal flex flex-wrap items-center gap-1.5">
+                                  <span className="font-bold text-amber-700">Detected:</span>
+                                  {detectedUtrs.map((utr, index) => (
+                                    <code key={index} className="bg-amber-100/80 text-amber-900 px-1.5 py-0.5 rounded font-mono text-xs font-extrabold">
+                                      {utr}
+                                    </code>
+                                  ))}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Merchant/QR Name Check Status */}
+                        <div className={`p-3 rounded-2xl border text-xs flex gap-2.5 items-start ${
+                          ocrQrMatchStatus === 'matched' 
+                            ? 'bg-emerald-50/40 border-emerald-100 text-emerald-800' 
+                            : 'bg-amber-50/40 border-amber-100 text-amber-800'
+                        }`}>
+                          {ocrQrMatchStatus === 'matched' ? (
+                            <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-bold text-slate-900 text-[11px]">Merchant QR Name</p>
+                              <span className={`text-[9px] font-extrabold uppercase tracking-wide shrink-0 ${
+                                ocrQrMatchStatus === 'matched' ? 'text-emerald-600' : 'text-amber-600'
+                              }`}>
+                                {ocrQrMatchStatus === 'matched' 
+                                  ? (!selectedProof.qr_history?.qr_name || selectedProof.qr_history?.qr_name === 'Legacy QR' ? '✓ Legacy' : '✓ Matched')
+                                  : '✗ Mismatch'
+                                }
+                              </span>
+                            </div>
+                            <p className="mt-2 leading-normal">
+                              Expected: <span className="font-bold text-slate-800">"{selectedProof.qr_history?.qr_name || 'Legacy QR'}"</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Amount Check Status */}
+                        <div className={`p-3 rounded-2xl border text-xs flex gap-2.5 items-start ${
+                          ocrAmountMatchStatus === 'matched' 
+                            ? 'bg-emerald-50/40 border-emerald-100 text-emerald-800' 
+                            : 'bg-amber-50/40 border-amber-100 text-amber-800'
+                        }`}>
+                          {ocrAmountMatchStatus === 'matched' ? (
+                            <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-bold text-slate-900 text-[11px]">Payment Amount</p>
+                              <span className={`text-[9px] font-extrabold uppercase tracking-wide shrink-0 ${
+                                ocrAmountMatchStatus === 'matched' ? 'text-emerald-600' : 'text-amber-600'
+                              }`}>
+                                {ocrAmountMatchStatus === 'matched' ? '✓ Matched' : '✗ Mismatch'}
+                              </span>
+                            </div>
+                            <p className="mt-2 leading-normal">
+                              Expected: <span className="font-extrabold text-slate-800">₹{selectedProof.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {ocrState === 'success' && isOcrMismatched && (
+                      <div className="mt-1">
+                        <label className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
+                          <input
+                            type="checkbox"
+                            checked={bypassOcr}
+                            onChange={(e) => setBypassOcr(e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-xs font-bold text-slate-700">
+                            I have visually verified the screenshot and wish to bypass this OCR warning.
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    {ocrState === 'error' && (
+                      <div className="space-y-3">
+                        <div className="flex items-start gap-3 p-3 bg-rose-50/50 border border-rose-100 rounded-2xl text-rose-800 text-xs">
+                          <XCircle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+                          <div>
+                            <p className="font-bold">OCR Scan Failed</p>
+                            <p className="text-rose-600 mt-1">
+                              Unable to perform client-side text recognition on the proof image (it may be a format/CORS error or network failure loading OCR engine).
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="flex items-center gap-2 p-3 bg-white border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors shadow-sm">
+                          <input
+                            type="checkbox"
+                            checked={bypassOcr}
+                            onChange={(e) => setBypassOcr(e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500"
+                          />
+                          <span className="text-xs font-bold text-slate-700">
+                            I have visually verified the screenshot and wish to bypass this OCR warning.
+                          </span>
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div className="p-6 bg-white border-t border-slate-100 space-y-6">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                   <div className="flex flex-wrap items-center gap-2">
@@ -1276,8 +1564,13 @@ export default function QRPaymentRequests() {
                         </button>
                         <button
                           onClick={() => handleStatusUpdate(selectedProof.id, 'approved')}
-                          disabled={processingId === selectedProof.id}
-                          className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 disabled:opacity-50"
+                          disabled={
+                            processingId === selectedProof.id ||
+                            ocrState === 'loading' ||
+                            ((ocrUtrMatchStatus === 'mismatch' || ocrQrMatchStatus === 'mismatch' || ocrAmountMatchStatus === 'mismatch') && !bypassOcr) ||
+                            (ocrState === 'error' && !bypassOcr)
+                          }
+                          className="px-4 py-2 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {processingId === selectedProof.id ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
                           Approve

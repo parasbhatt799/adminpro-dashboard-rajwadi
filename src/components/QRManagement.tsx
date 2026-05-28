@@ -70,7 +70,8 @@ interface QRHistoryItem {
   };
 }
 
-export default function QRManagement() {
+export default function QRManagement({ adminRole, adminPermissions }: { adminRole?: string | null; adminPermissions?: string[] }) {
+  const isFullAdmin = adminRole === 'full';
   const [loading, setLoading] = useState(true);
   const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean; is_service_enabled: boolean; active_qr_id: string | null }>({
     qr_url: null,
@@ -175,6 +176,9 @@ export default function QRManagement() {
 
         // Filter: Only show rows that have activity in the selected time range
         const filtered = enrichedHistory.filter(item => {
+          if (!isFullAdmin && item.qr_name?.toUpperCase() === 'MADHAV ENTERPRISE') {
+            return false;
+          }
           if (historyTimeRange === 'all') return true;
           return Number(item.total_count) > 0;
         });
@@ -756,7 +760,8 @@ export default function QRManagement() {
       </div>
 
       {/* History Section */}
-      <div className="space-y-4">
+      {(adminRole === 'full' || adminPermissions?.includes('qr-history')) && (
+        <div className="space-y-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 px-2">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-50 rounded-xl">
@@ -1202,6 +1207,7 @@ export default function QRManagement() {
           </div>
         )}
       </div>
+      )}
 
       {/* Usage Info */}
       <div className="bg-indigo-50 rounded-3xl p-6 border border-indigo-100/50">
