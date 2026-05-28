@@ -72,15 +72,15 @@ interface QRHistoryItem {
 
 export default function QRManagement() {
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
-  const [qrName, setQrName] = useState('');
-  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean; is_service_enabled: boolean; active_qr_id: string | null }>({
     qr_url: null,
     is_enabled: true,
     is_service_enabled: true,
     active_qr_id: null
   });
+  const [uploading, setUploading] = useState(false);
+  const [qrName, setQrName] = useState('');
+  const [whatsappNumber, setWhatsappNumber] = useState('');
   const [qrHistory, setQrHistory] = useState<QRHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);

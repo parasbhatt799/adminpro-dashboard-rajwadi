@@ -149,6 +149,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
 
+  const [qrMinLimit, setQrMinLimit] = useState<number>(100);
+  const [qrMaxLimit, setQrMaxLimit] = useState<number>(100000);
+
   const fetchQrHistory = async () => {
     setFetchingHistory(prev => ({ ...prev, qr: true }));
     try {
@@ -332,7 +335,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch QR
         const { data: qrData, error: qrError } = await supabase
           .from('qr_settings')
-          .select('qr_url, is_enabled, is_service_enabled')
+          .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit')
           .eq('id', 1)
           .single();
 
@@ -341,6 +344,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           if (qrData.is_enabled) {
             setQrUrl(qrData.qr_url);
           }
+          setQrMinLimit(Number(qrData.qr_min_limit) || 100);
+          setQrMaxLimit(Number(qrData.qr_max_limit) || 100000);
         }
 
         const offlineUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site_assets/offline_qr.png`;
@@ -573,6 +578,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         if (!billEnabled && activeTab === 'bill') {
           setActiveTab('qr');
         }
+
+        // Sync limits
+        if (payload.new.qr_min_limit !== undefined) {
+          setQrMinLimit(Number(payload.new.qr_min_limit) || 100);
+        }
+        if (payload.new.qr_max_limit !== undefined) {
+          setQrMaxLimit(Number(payload.new.qr_max_limit) || 100000);
+        }
       })
       .subscribe();
 
@@ -648,6 +661,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setQrUrl(newData.qr_url);
         } else {
           setQrUrl(null);
+        }
+        if (newData.qr_min_limit !== undefined) {
+          setQrMinLimit(Number(newData.qr_min_limit) || 100);
+        }
+        if (newData.qr_max_limit !== undefined) {
+          setQrMaxLimit(Number(newData.qr_max_limit) || 100000);
         }
       })
       .subscribe();
@@ -890,8 +909,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       return;
     }
 
-    if (amountNum > 100000) {
-      setError('Maximum allowed amount for QR payment is ₹1,00,000. Please reduce the amount.');
+    if (amountNum < qrMinLimit) {
+      setError(`Minimum allowed amount for QR payment is ₹${qrMinLimit.toLocaleString()}. Please increase the amount.`);
+      setSubmitting(false);
+      return;
+    }
+
+    if (amountNum > qrMaxLimit) {
+      setError(`Maximum allowed amount for QR payment is ₹${qrMaxLimit.toLocaleString()}. Please reduce the amount.`);
       setSubmitting(false);
       return;
     }
@@ -1172,7 +1197,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           <div className="flex items-center justify-between mb-2">
                             <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Amount Paid</label>
                             <span className="text-[10px] font-bold text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 uppercase tracking-widest">
-                              Max: ₹1,00,000
+                              Limit: ₹{qrMinLimit.toLocaleString()} - ₹{qrMaxLimit.toLocaleString()}
                             </span>
                           </div>
                           <div className="relative">
@@ -1188,16 +1213,21 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 setAmount(val);
                               }}
                               placeholder="0.00"
-                              className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:outline-none transition-all font-bold ${parseFloat(amount) > 100000
+                              className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:outline-none transition-all font-bold ${(parseFloat(amount) > 0 && parseFloat(amount) < qrMinLimit) || parseFloat(amount) > qrMaxLimit
                                 ? 'border-rose-300 focus:ring-rose-500/10 focus:border-rose-500 text-rose-600'
                                 : 'border-slate-200 focus:ring-emerald-500/20 focus:border-emerald-500'
                                 }`}
                               required
                             />
                           </div>
-                          {parseFloat(amount) > 100000 && (
+                          {parseFloat(amount) > 0 && parseFloat(amount) < qrMinLimit && (
                             <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-pulse">
-                              ⚠️ Amount exceeds the ₹1,00,000 limit
+                              ⚠️ Amount is less than the ₹{qrMinLimit.toLocaleString()} minimum limit
+                            </p>
+                          )}
+                          {parseFloat(amount) > qrMaxLimit && (
+                            <p className="text-[10px] font-bold text-rose-500 mt-1.5 ml-1 animate-pulse">
+                              ⚠️ Amount exceeds the ₹{qrMaxLimit.toLocaleString()} maximum limit
                             </p>
                           )}
                         </div>

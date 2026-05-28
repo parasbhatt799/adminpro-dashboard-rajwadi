@@ -468,10 +468,7 @@ export default function Dashboard() {
             const Icon = stat.icon;
             const isClickable = !!stat.path;
             return (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
+              <div
                 key={stat.title}
                 onClick={() => {
                   if (stat.path) {
@@ -507,7 +504,7 @@ export default function Dashboard() {
                 <div className="absolute right-[-20px] bottom-[-20px] opacity-[0.03] group-hover:scale-110 transition-transform duration-500">
                   <Icon size={120} />
                 </div>
-              </motion.div>
+              </div>
             );
           })}
         </div>

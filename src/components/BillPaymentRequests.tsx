@@ -53,7 +53,7 @@ export default function BillPaymentRequests() {
   const [requests, setRequests] = useState<BillRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'refunded'>('all');
-  const [dateFilter, setDateFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
@@ -64,20 +64,21 @@ export default function BillPaymentRequests() {
   const [charges, setCharges] = useState('');
   const [showActionModal, setShowActionModal] = useState<{ id: string; type: 'approved' } | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
   const [isBillEnabled, setIsBillEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
+  const [totalApprovedAmount, setTotalApprovedAmount] = useState(0);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const itemsPerPage = 10;
 
   const clearFilters = () => {
     setSearchQuery('');
     setFilter('all');
-    setDateFilter('all');
-    setStartDate('');
-    setEndDate('');
+    setDateFilter('today');
+    setStartDate(getTodayStr());
+    setEndDate(getTodayStr());
     setCurrentPage(1);
   };
 
@@ -157,6 +158,30 @@ export default function BillPaymentRequests() {
           map[a.mobile_number] = a.name || a.mobile_number;
         });
         setAdminMap(map);
+      }
+
+      // Fetch Total Approved Amount matching active filters
+      let sumQuery = supabase
+        .from('bill_submissions')
+        .select('amount, users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name)')
+        .eq('status', 'approved');
+
+      if (searchQuery) {
+        sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%`);
+      }
+      if (startDate) {
+        sumQuery = sumQuery.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
+      }
+      if (endDate) {
+        sumQuery = sumQuery.lte('created_at', new Date(`${endDate}T23:59:59.999`).toISOString());
+      }
+
+      const { data: sumData, error: sumError } = await sumQuery;
+      if (!sumError && sumData) {
+        const totalSum = sumData.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
+        setTotalApprovedAmount(totalSum);
+      } else {
+        setTotalApprovedAmount(0);
       }
 
       setRequests(data || []);
@@ -427,7 +452,16 @@ export default function BillPaymentRequests() {
           <h2 className="text-2xl font-bold text-slate-900">Bill Payment Requests</h2>
           <p className="text-slate-500 mt-1">Manage and process user bill payment submissions.</p>
         </div>
-        <div className="flex items-end gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Approved Total Amount */}
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 text-emerald-700 px-4 py-2 rounded-xl text-sm font-bold shadow-sm">
+            <CheckCircle2 size={16} className="text-emerald-500" />
+            <span>CC Bill:</span>
+            <span className="font-extrabold text-emerald-800">
+              ₹{totalApprovedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+
           <select
             value={dateFilter}
             onChange={(e) => handleDateFilterChange(e.target.value)}

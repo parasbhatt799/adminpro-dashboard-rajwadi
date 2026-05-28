@@ -42,6 +42,12 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [qrMinLimit, setQrMinLimit] = useState<number>(100);
+  const [qrMaxLimit, setQrMaxLimit] = useState<number>(100000);
+  const [limitsSaving, setLimitsSaving] = useState(false);
+  const [limitsSuccess, setLimitsSuccess] = useState<string | null>(null);
+  const [limitsError, setLimitsError] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     min_amount: '',
     max_amount: '',
@@ -69,6 +75,50 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   useEffect(() => {
     fetchSlabs();
   }, []);
+
+  useEffect(() => {
+    const fetchQRSettings = async () => {
+      try {
+        const { data } = await supabase
+          .from('qr_settings')
+          .select('qr_min_limit, qr_max_limit')
+          .eq('id', 1)
+          .single();
+        if (data) {
+          setQrMinLimit(Number(data.qr_min_limit) || 100);
+          setQrMaxLimit(Number(data.qr_max_limit) || 100000);
+        }
+      } catch (err) {
+        console.error('Error fetching QR settings limits:', err);
+      }
+    };
+    fetchQRSettings();
+  }, []);
+
+  const handleSaveLimits = async () => {
+    setLimitsSaving(true);
+    setLimitsSuccess(null);
+    setLimitsError(null);
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({
+          qr_min_limit: qrMinLimit,
+          qr_max_limit: qrMaxLimit
+        })
+        .eq('id', 1);
+
+      if (error) throw error;
+      setLimitsSuccess('QR payment limits updated successfully!');
+      setTimeout(() => setLimitsSuccess(null), 3000);
+    } catch (err: any) {
+      console.error('Error saving QR limits:', err);
+      setLimitsError('Failed to update payment limits');
+      setTimeout(() => setLimitsError(null), 3000);
+    } finally {
+      setLimitsSaving(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,6 +238,66 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           </button>
         )}
       </div>
+
+      {/* QR Payment Limits Card */}
+      {isFullAdmin && (
+        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shrink-0">
+              <IndianRupee size={20} />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900 leading-tight">QR Payment Limits</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Configure the minimum and maximum amount range that users can submit for QR payments.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-end gap-4 max-w-2xl">
+            <div className="flex-1 space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Min QR Limit (₹)</label>
+              <input
+                type="number"
+                placeholder="e.g. 100"
+                value={qrMinLimit || ''}
+                onChange={(e) => setQrMinLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="flex-1 space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Max QR Limit (₹)</label>
+              <input
+                type="number"
+                placeholder="e.g. 100000"
+                value={qrMaxLimit || ''}
+                onChange={(e) => setQrMaxLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveLimits}
+              disabled={limitsSaving}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 disabled:opacity-50 h-[42px] shrink-0 active:scale-95"
+            >
+              {limitsSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
+              <span>Save Limits</span>
+            </button>
+          </div>
+
+          {limitsSuccess && (
+            <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1">
+              <CheckCircle2 size={14} />
+              {limitsSuccess}
+            </div>
+          )}
+          {limitsError && (
+            <div className="text-xs font-bold text-rose-600 flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1">
+              <AlertCircle size={14} />
+              {limitsError}
+            </div>
+          )}
+        </div>
+      )}
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-4">
