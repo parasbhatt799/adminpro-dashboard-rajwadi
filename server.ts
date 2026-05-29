@@ -350,6 +350,192 @@ async function startServer() {
 
 
 
+  // ==========================================
+  // BBPS API PROXY ROUTES (PayPrime Integration)
+  // ==========================================
+
+  app.post("/api/bbps/category", async (req, res) => {
+    try {
+      const response = await fetch("https://b2b.payprime.in/api/v1/bbps/category", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z" })
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BBPS Proxy] Category Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/biller", async (req, res) => {
+    try {
+      const { cat_id } = req.body;
+      if (!cat_id) {
+        return res.status(400).json({ status: "ERROR", message: "Category ID (cat_id) is required." });
+      }
+
+      const response = await fetch("https://b2b.payprime.in/api/v1/bbps/biller", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z", cat_id })
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BBPS Proxy] Biller Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/fetch-biller-info", async (req, res) => {
+    try {
+      const { biller_id } = req.body;
+      if (!biller_id) {
+        return res.status(400).json({ status: "ERROR", message: "Biller ID (biller_id) is required." });
+      }
+
+      const response = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-biller-info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z", biller_id })
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BBPS Proxy] Fetch Biller Info Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/fetch-bill", async (req, res) => {
+    try {
+      const { biller_id, customerParams } = req.body;
+      if (!biller_id || !customerParams) {
+        return res.status(400).json({ status: "ERROR", message: "Biller ID and customer parameters are required." });
+      }
+
+      const response = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-bill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z",
+          biller_id,
+          ...customerParams
+        })
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BBPS Proxy] Fetch Bill Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/pay-bill", async (req, res) => {
+    try {
+      const { userId, biller_id, amount, customerParams, service_type, provider, consumer_number } = req.body;
+
+      if (!userId || !biller_id || !amount) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+
+      const paymentAmount = Number(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ status: "ERROR", message: "Invalid amount specified." });
+      }
+
+      // 1. Fetch user's current wallet balance
+      const { data: user, error: userError } = await supabaseAdmin
+        .from("users_profiles")
+        .select("wallet_balance")
+        .eq("id", userId)
+        .single();
+
+      if (userError || !user) {
+        return res.status(400).json({ status: "ERROR", message: "User profile not found." });
+      }
+
+      const currentBalance = Number(user.wallet_balance) || 0;
+
+      // 2. Enforce minimum ₹250 wallet balance rule
+      if (currentBalance - paymentAmount < 250) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: "Insufficient balance. You must maintain at least ₹250 in your wallet after payment."
+        });
+      }
+
+      // 3. Prepare parameters and call PayPrime API
+      // PayPrime requires amount in Paisa, so multiply Rupees by 100
+      const amountInPaisa = Math.round(paymentAmount * 100);
+
+      const payPrimePayload = {
+        token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z",
+        biller_id,
+        amount: amountInPaisa.toString(),
+        ...customerParams
+      };
+
+      const response = await fetch("https://b2b.payprime.in/api/v1/bbps/pay-bill", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payPrimePayload)
+      });
+
+      const data: any = await response.json();
+
+      if (data.status === "SUCCESS") {
+        const newBalance = currentBalance - paymentAmount;
+
+        // 4. Deduct wallet balance in Supabase
+        const { error: updateError } = await supabaseAdmin
+          .from("users_profiles")
+          .update({ wallet_balance: newBalance })
+          .eq("id", userId);
+
+        if (updateError) {
+          console.error("[CRITICAL] Wallet deduction failed for completed BBPS transaction:", updateError);
+        }
+
+        // 5. Log transaction into bill_submissions with approved status
+        const { error: insertError } = await supabaseAdmin
+          .from("bill_submissions")
+          .insert({
+            user_id: userId,
+            service_type: service_type || "BBPS Bill Pay",
+            provider: provider || biller_id,
+            consumer_number: consumer_number || "BBPS Account",
+            amount: paymentAmount,
+            status: "approved"
+          });
+
+        if (insertError) {
+          console.error("[BBPS Proxy] Failed to log transaction in bill_submissions:", insertError);
+        }
+
+        return res.json({
+          status: "SUCCESS",
+          message: "Transaction SUCCESS",
+          new_balance: newBalance,
+          data: data.data
+        });
+      } else {
+        // Return structured transaction failure message from operator/PayPrime
+        return res.json({
+          status: "FAILED",
+          message: data.message || "Transaction failed at BBPS Gateway.",
+          data: data
+        });
+      }
+
+    } catch (error: any) {
+      console.error("[BBPS Proxy] Pay Bill Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
   app.get("/api/full-backup", async (req, res) => {
     const debugLog = (msg: string) => {
       const entry = `[${new Date().toISOString()}] ${msg}\n`;

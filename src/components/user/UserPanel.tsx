@@ -227,7 +227,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   // Route Protection for Distributors and Super Distributors
   useEffect(() => {
     if (userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') {
-      const restrictedPaths = ['/user/payment', '/user/statement', '/user/reports'];
+      const restrictedPaths = ['/user/payment', '/user/bill-payment', '/user/statement', '/user/reports'];
       if (restrictedPaths.includes(location.pathname)) {
         navigate('/user/dashboard', { replace: true });
       }

@@ -26,6 +26,7 @@ interface UserSidebarProps {
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
+  { id: 'bill-payment', label: 'Bill Payment', icon: Receipt, path: '/user/bill-payment' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
@@ -92,7 +93,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
     ...menuItems.slice(0, 1),
     ...distributorItems,
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment')) {
         return false;
       }
       return true;
