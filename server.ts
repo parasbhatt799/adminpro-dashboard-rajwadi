@@ -354,6 +354,17 @@ async function startServer() {
   // BBPS API PROXY ROUTES (PayPrime Integration)
   // ==========================================
 
+  app.get("/api/check-ip", async (req, res) => {
+    try {
+      const response = await fetch("https://api.ipify.org?format=json");
+      const data = await response.json();
+      res.json({ outgoingIp: data.ip });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+
   app.post("/api/bbps/category", async (req, res) => {
     try {
       const response = await fetch("https://b2b.payprime.in/api/v1/bbps/category", {
