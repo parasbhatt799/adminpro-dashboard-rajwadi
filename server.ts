@@ -9,6 +9,7 @@ import https from "https";
 import archiver from "archiver";
 import fs from "fs-extra";
 import os from "os";
+import ws from "ws";
 
 dotenv.config();
 
@@ -23,7 +24,12 @@ process.on('uncaughtException', (err) => {
 
 const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL || "",
-  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+  process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+  {
+    realtime: {
+      transport: ws,
+    },
+  }
 );
 
 const __filename = fileURLToPath(import.meta.url);
