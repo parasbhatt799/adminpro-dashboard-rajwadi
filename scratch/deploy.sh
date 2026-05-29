@@ -6,6 +6,9 @@ rm -rf node_modules package-lock.json
 echo "2. Re-installing clean Linux-specific dependencies..."
 npm install
 
+echo "2.5. Force-installing Linux-specific Tailwind oxide bindings to bypass npm bug..."
+npm install @tailwindcss/oxide-linux-x64-gnu --save-dev --force
+
 echo "3. Building the React frontend..."
 npm run build
 
