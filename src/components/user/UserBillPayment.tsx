@@ -403,6 +403,23 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
   // Form value change handler
   const handleInputChange = (paramName: string, value: string) => {
+    const lower = paramName.toLowerCase();
+    
+    // Proactive length and character restrictions
+    if (lower.includes("card") || lower.includes("last 4") || lower.includes("last 4 digits")) {
+      const cleanValue = value.replace(/\D/g, ""); // Allow only digits
+      if (cleanValue.length > 4) return;
+      setFormInputs(prev => ({ ...prev, [paramName]: cleanValue }));
+      return;
+    }
+    
+    if (lower.includes("mobile") || lower.includes("phone")) {
+      const cleanValue = value.replace(/\D/g, ""); // Allow only digits
+      if (cleanValue.length > 10) return;
+      setFormInputs(prev => ({ ...prev, [paramName]: cleanValue }));
+      return;
+    }
+
     setFormInputs(prev => ({
       ...prev,
       [paramName]: value
@@ -420,9 +437,25 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     
     // Validate inputs
     for (const param of inputParams) {
-      if (!param.optional && !formInputs[param.paramName]?.trim()) {
+      const val = formInputs[param.paramName]?.trim() || '';
+      if (!param.optional && !val) {
         toast.error(`Please enter ${param.paramName}`);
         return;
+      }
+      
+      const lower = param.paramName.toLowerCase();
+      if (lower.includes("card") || lower.includes("last 4") || lower.includes("last 4 digits")) {
+        if (val.length !== 4) {
+          toast.error("Please enter exactly 4 digits for the Credit Card number");
+          return;
+        }
+      }
+      
+      if (lower.includes("mobile") || lower.includes("phone")) {
+        if (val.length !== 10) {
+          toast.error("Please enter exactly 10 digits for the Mobile Number");
+          return;
+        }
       }
     }
 
