@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { 
-  Receipt, 
-  Search, 
-  ArrowLeft, 
-  CheckCircle2, 
-  X, 
+import {
+  Receipt,
+  Search,
+  ArrowLeft,
+  CheckCircle2,
+  X,
   AlertTriangle,
-  Lightbulb, 
-  Tv, 
-  Smartphone, 
-  Wifi, 
-  Flame, 
-  Droplets, 
-  PhoneCall, 
+  Lightbulb,
+  Tv,
+  Smartphone,
+  Wifi,
+  Flame,
+  Droplets,
+  PhoneCall,
   Layers,
   ChevronRight,
   ShieldCheck,
@@ -49,7 +49,7 @@ interface CategoryInfo {
 const getBankLogoUrl = (bankName: string) => {
   const name = bankName.toLowerCase();
   let domain = "";
-  
+
   if (name.includes("axis")) return "/axis_logo.png";
   else if (name.includes("hdfc")) domain = "hdfcbank.com";
   else if (name.includes("icici")) domain = "icicibank.com";
@@ -82,7 +82,7 @@ const getBankLogoUrl = (bankName: string) => {
   else if (name.includes("suryoday")) return "/suryoday_logo.png";
   else if (name.includes("yes bank")) domain = "yesbank.in";
   else if (name.includes("onecard") || name.includes("one -")) domain = "getonecard.app";
-  
+
   if (domain) {
     return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
   }
@@ -91,63 +91,63 @@ const getBankLogoUrl = (bankName: string) => {
 
 // Preset mapping for beautiful icons and gradients per category
 const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradient: string, shadow: string, border: string }> = {
-  "Electricity": { 
-    icon: Lightbulb, 
-    gradient: "from-amber-400 to-orange-500", 
+  "Electricity": {
+    icon: Lightbulb,
+    gradient: "from-amber-400 to-orange-500",
     shadow: "shadow-amber-500/10",
     border: "border-amber-100"
   },
-  "DTH": { 
-    icon: Tv, 
-    gradient: "from-blue-400 to-indigo-600", 
+  "DTH": {
+    icon: Tv,
+    gradient: "from-blue-400 to-indigo-600",
     shadow: "shadow-blue-500/10",
     border: "border-blue-100"
   },
-  "Mobile Postpaid": { 
-    icon: Smartphone, 
-    gradient: "from-emerald-400 to-teal-600", 
+  "Mobile Postpaid": {
+    icon: Smartphone,
+    gradient: "from-emerald-400 to-teal-600",
     shadow: "shadow-emerald-500/10",
     border: "border-emerald-100"
   },
-  "Broadband": { 
-    icon: Wifi, 
-    gradient: "from-purple-400 to-pink-600", 
+  "Broadband": {
+    icon: Wifi,
+    gradient: "from-purple-400 to-pink-600",
     shadow: "shadow-purple-500/10",
     border: "border-purple-100"
   },
-  "Gas": { 
-    icon: Flame, 
-    gradient: "from-red-400 to-rose-600", 
+  "Gas": {
+    icon: Flame,
+    gradient: "from-red-400 to-rose-600",
     shadow: "shadow-red-500/10",
     border: "border-red-100"
   },
-  "Water": { 
-    icon: Droplets, 
-    gradient: "from-cyan-400 to-blue-600", 
+  "Water": {
+    icon: Droplets,
+    gradient: "from-cyan-400 to-blue-600",
     shadow: "shadow-cyan-500/10",
     border: "border-cyan-100"
   },
-  "Landline": { 
-    icon: PhoneCall, 
-    gradient: "from-violet-400 to-fuchsia-600", 
+  "Landline": {
+    icon: PhoneCall,
+    gradient: "from-violet-400 to-fuchsia-600",
     shadow: "shadow-violet-500/10",
     border: "border-violet-100"
   },
-  "Fastag": { 
-    icon: Tag, 
-    gradient: "from-sky-450 to-indigo-600", 
+  "Fastag": {
+    icon: Tag,
+    gradient: "from-sky-450 to-indigo-600",
     shadow: "shadow-sky-500/10",
     border: "border-sky-100"
   },
-  "Credit Card": { 
-    icon: CreditCard, 
-    gradient: "from-rose-500 to-pink-650", 
+  "Credit Card": {
+    icon: CreditCard,
+    gradient: "from-rose-500 to-pink-650",
     shadow: "shadow-rose-500/10",
     border: "border-rose-100"
   },
-  "default": { 
-    icon: Layers, 
-    gradient: "from-slate-400 to-slate-600", 
+  "default": {
+    icon: Layers,
+    gradient: "from-slate-400 to-slate-600",
     shadow: "shadow-slate-500/10",
     border: "border-slate-100"
   }
@@ -155,32 +155,32 @@ const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradi
 
 export default function UserBillPayment({ userId }: { userId: string }) {
   const toast = useToast();
-  
+
   // Wallet state
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
-  
+
   // BBPS flows states
   const [step, setStep] = useState<number>(1); // 1: Categories, 2: Billers, 3: Form/Fetch, 4: Payment success
   const [loading, setLoading] = useState<boolean>(false);
   const [apiError, setApiError] = useState<string | null>(null);
-  
+
   // Loaded list data
   const [categories, setCategories] = useState<CategoryInfo[]>([]);
   const [billers, setBillers] = useState<BillerInfo[]>([]);
   const [filteredBillers, setFilteredBillers] = useState<BillerInfo[]>([]);
   const [inputParams, setInputParams] = useState<BillerInputParam[]>([]);
-  
+
   // Selections
   const [selectedCategory, setSelectedCategory] = useState<CategoryInfo | null>(null);
   const [selectedBiller, setSelectedBiller] = useState<BillerInfo | null>(null);
   const [searchBillerQuery, setSearchBillerQuery] = useState<string>('');
-  
+
   // Form values
   const [formInputs, setFormInputs] = useState<Record<string, string>>({});
   const [manualAmount, setManualAmount] = useState<string>('');
-  
+
   // Bill Details
   const [billDetails, setBillDetails] = useState<{
     customerName: string;
@@ -405,7 +405,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   const handleInputChange = (paramName: string, value: string) => {
     if (apiError) setApiError(null);
     const lower = paramName.toLowerCase();
-    
+
     // Proactive length and character restrictions
     if (lower.includes("card") || lower.includes("last 4") || lower.includes("last 4 digits")) {
       const cleanValue = value.replace(/\D/g, ""); // Allow only digits
@@ -413,7 +413,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       setFormInputs(prev => ({ ...prev, [paramName]: cleanValue }));
       return;
     }
-    
+
     if (lower.includes("mobile") || lower.includes("phone")) {
       const cleanValue = value.replace(/\D/g, ""); // Allow only digits
       if (cleanValue.length > 10) return;
@@ -435,7 +435,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   // Trigger Fetch Bill details (Step 4 check)
   const handleFetchBill = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validate inputs
     for (const param of inputParams) {
       const val = formInputs[param.paramName]?.trim() || '';
@@ -443,7 +443,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         toast.error(`Please enter ${param.paramName}`);
         return;
       }
-      
+
       const lower = param.paramName.toLowerCase();
       if (lower.includes("card") || lower.includes("last 4") || lower.includes("last 4 digits")) {
         if (val.length !== 4) {
@@ -451,7 +451,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           return;
         }
       }
-      
+
       if (lower.includes("mobile") || lower.includes("phone")) {
         if (val.length !== 10) {
           toast.error("Please enter exactly 10 digits for the Mobile Number");
@@ -476,11 +476,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         })
       });
       const data = await response.json();
-      
+
       if (data.status === 'SUCCESS' && data.data?.billerResponse) {
         setFetchResponse(data);
         const responseData = data.data.billerResponse;
-        
+
         // Amount is sent in Paisa or Rupees from fetch-bill? 
         // Typically pay-bill requires Paisa, but fetch-bill returns in Paisa or Rupees depending on API.
         // Let's parse the bill amount: if it's high like 50000 for ₹500, we treat it as Paisa, or if it's returned as string.
@@ -510,10 +510,10 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         // Fetch failed
         const msg = data.message || "Failed to fetch bill. Please verify entered details.";
         const msgLower = msg.toLowerCase();
-        
+
         const isCreditCard = selectedCategory?.cat_name.toLowerCase().includes("credit card");
         const isFetchUnsupported = msgLower.includes("not supported") || msgLower.includes("unsupported") || msgLower.includes("not enabled");
-        
+
         if (isCreditCard || !isFetchUnsupported) {
           // Validation error (khoti details) -> Strictly do NOT allow payment or amount input
           setApiError(msg);
@@ -596,7 +596,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       if (data.status === 'SUCCESS') {
         toast.success("Bill Paid successfully!");
         setWalletBalance(data.new_balance);
-        
+
         // Save receipt with charges
         setReceipt({
           txnid: data.data?.bbpsrecent?.[0]?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
@@ -606,7 +606,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           date: new Date().toLocaleString(),
           consumerDetails: formInputs
         });
-        
+
         // Go to success screen
         setStep(4);
       } else {
@@ -641,33 +641,33 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-8 select-none max-w-4xl mx-auto">
-      
+
       {/* Dynamic Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 border border-slate-200 p-8 rounded-[32px] shadow-sm relative overflow-hidden">
-        
+
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center border border-emerald-100 shadow-sm shrink-0">
-            <img src="/bbps_logo.png" className="w-9 h-9 object-contain" alt="BBPS Logo" />
+          <div className="w-14 h-14  rounded-2xl flex items-center justify-center  shadow-sm shrink-0">
+            <img src="/bbps_logo.png" className="w-10 h-10 object-contain" alt="BBPS Logo" />
           </div>
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-800">BBPS Utility Payments</h2>
-            <p className="text-slate-500 text-sm mt-0.5">Pay electricity, gas, water, DTH, and mobile bills instantly.</p>
+            <p className="text-slate-500 text-sm mt-0.5">Pay electricity, gas, Credit Cards bills instantly.</p>
           </div>
         </div>
 
         {/* Bharat Connect Logo */}
-        <img 
-          src="/bharat_connect.png" 
-          alt="Bharat Connect" 
+        <img
+          src="/bharat_connect.png"
+          alt="Bharat Connect"
           className="h-10 md:h-12 object-contain relative z-10 shrink-0 select-none pointer-events-none"
         />
       </div>
 
       {/* Main interaction screen */}
       <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-8 pb-16 relative overflow-hidden min-h-[50vh]">
-        
+
         <AnimatePresence mode="wait">
-          
+
           {/* STEP 1: CATEGORIES SELECTION */}
           {step === 1 && (
             <motion.div
@@ -696,12 +696,12 @@ export default function UserBillPayment({ userId }: { userId: string }) {
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
                   {categories.map((cat) => {
-                    const style = CATEGORY_STYLE_MAP[cat.cat_name] || 
-                                  (cat.cat_name.toLowerCase().includes("gas") ? CATEGORY_STYLE_MAP["Gas"] : null) ||
-                                  (cat.cat_name.toLowerCase().includes("broadband") ? CATEGORY_STYLE_MAP["Broadband"] : null) ||
-                                  (cat.cat_name.toLowerCase().includes("fastag") || cat.cat_name.toLowerCase().includes("fast tag") ? CATEGORY_STYLE_MAP["Fastag"] : null) ||
-                                  (cat.cat_name.toLowerCase().includes("credit card") ? CATEGORY_STYLE_MAP["Credit Card"] : null) ||
-                                  CATEGORY_STYLE_MAP["default"];
+                    const style = CATEGORY_STYLE_MAP[cat.cat_name] ||
+                      (cat.cat_name.toLowerCase().includes("gas") ? CATEGORY_STYLE_MAP["Gas"] : null) ||
+                      (cat.cat_name.toLowerCase().includes("broadband") ? CATEGORY_STYLE_MAP["Broadband"] : null) ||
+                      (cat.cat_name.toLowerCase().includes("fastag") || cat.cat_name.toLowerCase().includes("fast tag") ? CATEGORY_STYLE_MAP["Fastag"] : null) ||
+                      (cat.cat_name.toLowerCase().includes("credit card") ? CATEGORY_STYLE_MAP["Credit Card"] : null) ||
+                      CATEGORY_STYLE_MAP["default"];
                     const Icon = style.icon;
 
                     return (
@@ -782,9 +782,9 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 overflow-hidden relative group-hover:bg-indigo-50 transition-colors shadow-sm">
                           {getBankLogoUrl(biller.biller_name) ? (
-                            <img 
-                              src={getBankLogoUrl(biller.biller_name) || ''} 
-                              alt="" 
+                            <img
+                              src={getBankLogoUrl(biller.biller_name) || ''}
+                              alt=""
                               className="w-full h-full object-contain p-1.5"
                               onError={(e) => {
                                 (e.target as HTMLElement).style.display = 'none';
@@ -846,7 +846,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  
+
                   {/* Dynamic Fields Left Column */}
                   <form onSubmit={handleFetchBill} className="space-y-5">
                     <div className="space-y-4">
@@ -918,7 +918,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                               <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
                               <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                             </div>
-                            
+
                             <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
                               <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
                               <input
@@ -976,15 +976,15 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                             {billDetails.additionalInfo && billDetails.additionalInfo
                               .filter((info) => info.infoName.toLowerCase() !== "maximum permissible amount")
                               .map((info) => (
-                              <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
-                                <span className="text-slate-400 font-bold uppercase tracking-wider">{info.infoName}</span>
-                                <span className="font-bold text-slate-600">
-                                  {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
-                                    ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                    : info.infoValue}
-                                </span>
-                              </div>
-                            ))}
+                                <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
+                                  <span className="text-slate-400 font-bold uppercase tracking-wider">{info.infoName}</span>
+                                  <span className="font-bold text-slate-600">
+                                    {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
+                                      ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                      : info.infoValue}
+                                  </span>
+                                </div>
+                              ))}
                           </div>
                         ) : (
                           // Manual entry (QuickPay)
@@ -1043,7 +1043,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                             )}
                           </button>
                         </div>
-                        
+
                       </motion.div>
                     ) : (
                       // Waiting placeholder state
@@ -1076,7 +1076,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
               className="space-y-8 flex flex-col items-center justify-center py-6"
             >
               {/* Inject pristine print-only styles */}
-              <style dangerouslySetInnerHTML={{__html: `
+              <style dangerouslySetInnerHTML={{
+                __html: `
                 @media print {
                   body * {
                     visibility: hidden !important;
@@ -1116,7 +1117,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
               {/* Slate Detailed Receipt Card */}
               <div id="bbps-receipt" className="w-full max-w-md bg-white border border-slate-200 rounded-[32px] p-8 shadow-xl shadow-slate-100/50 space-y-6 relative print:border-0 print:shadow-none">
-                
+
                 {/* Print/Design Watermarks */}
                 <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full flex items-center justify-center pointer-events-none">
                   <ShieldCheck size={18} className="text-emerald-500/20 translate-x-3 -translate-y-3" />
@@ -1133,7 +1134,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                     <span className="text-slate-400 font-bold uppercase tracking-wider">Operator</span>
                     <span className="font-black text-slate-800 text-right">{receipt.billerName}</span>
                   </div>
-                  
+
                   {Object.entries(receipt.consumerDetails).map(([key, val]) => (
                     <div key={key} className="flex justify-between">
                       <span className="text-slate-400 font-bold uppercase tracking-wider">{key}</span>
@@ -1197,7 +1198,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           )}
 
         </AnimatePresence>
-        
+
         {/* 100% Secured Payment Badge */}
         <div className="absolute bottom-6 left-8 flex items-center gap-1.5 text-slate-400 font-extrabold uppercase tracking-widest text-[9px] select-none pointer-events-none print:hidden z-0">
           <ShieldCheck size={12} className="text-teal-500" />
