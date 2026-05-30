@@ -13,6 +13,8 @@ import ws from "ws";
 
 dotenv.config();
 
+export const PAYPRIME_TOKEN = process.env.PAYPRIME_TOKEN || "RP54BwilcHzw0zWEB7IBx3g9C5P2IK";
+
 // Global Error Handlers to prevent silent crashes
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[CRITICAL] Unhandled Rejection at:', promise, 'reason:', reason);
@@ -376,7 +378,7 @@ async function startServer() {
       const response = await fetch("https://b2b.payprime.in/api/v1/bbps/category", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z" })
+        body: JSON.stringify({ token: PAYPRIME_TOKEN })
       });
       const data = await response.json();
       res.json(data);
@@ -396,7 +398,7 @@ async function startServer() {
       const response = await fetch("https://b2b.payprime.in/api/v1/bbps/biller", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z", cat_id })
+        body: JSON.stringify({ token: PAYPRIME_TOKEN, cat_id })
       });
       const data = await response.json();
       res.json(data);
@@ -416,7 +418,7 @@ async function startServer() {
       const response = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-biller-info", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z", biller_id })
+        body: JSON.stringify({ token: PAYPRIME_TOKEN, biller_id })
       });
       const data = await response.json();
       res.json(data);
@@ -437,7 +439,7 @@ async function startServer() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z",
+          token: PAYPRIME_TOKEN,
           biller_id,
           ...customerParams
         })
@@ -489,7 +491,7 @@ async function startServer() {
       const amountInPaisa = Math.round(paymentAmount * 100);
 
       const payPrimePayload = {
-        token: "W2voQ2YPnb95on4Ceiw2j24SaVPg0Z",
+        token: PAYPRIME_TOKEN,
         biller_id,
         amount: amountInPaisa.toString(),
         ...customerParams
