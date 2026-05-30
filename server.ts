@@ -497,16 +497,23 @@ async function startServer() {
       const amountInPaisa = Math.round(paymentAmount * 100);
 
       let isAdhoc = !fetchResponse || !fetchResponse.data?.billerResponse;
+      let quickPay = "N";
+      let billerAdhoc = false;
 
-      if (!isAdhoc) {
+      if (isAdhoc) {
+        quickPay = "Y";
+        billerAdhoc = true;
+      } else {
         const fetchedRawAmount = Number(fetchResponse.data.billerResponse.billAmount) || 0;
         // If the payment amount in paisa does not match the fetched billAmount,
-        // we must process it as an Adhoc/QuickPay payment to avoid signature/value mismatch.
+        // it is a custom/partial payment on a fetched bill. We set quickPay = "Y" and billerAdhoc = true.
         if (amountInPaisa !== fetchedRawAmount) {
-          console.log(`[BBPS Proxy] Custom amount specified (${amountInPaisa} vs fetched ${fetchedRawAmount}). Switching to Adhoc/QuickPay mode.`);
-          isAdhoc = true;
+          console.log(`[BBPS Proxy] Custom amount specified (${amountInPaisa} vs fetched ${fetchedRawAmount}). Setting quickPay = "Y" (Adhoc/Partial).`);
+          quickPay = "Y";
+          billerAdhoc = true;
         }
       }
+
       const paramArray = Object.entries(customerParams || {}).map(([paramName, paramValue]) => ({
         paramName,
         paramValue: String(paramValue)
@@ -522,7 +529,7 @@ async function startServer() {
         token: PAYPRIME_TOKEN,
         biller_id,
         amount: amountInPaisa.toString(),
-        quickPay: isAdhoc ? "Y" : "N",
+        quickPay,
         payment_mode: "Cash",
         paymentInfo: {
           info: [
@@ -530,13 +537,15 @@ async function startServer() {
           ]
         },
         mobile: userMobile,
-        billerAdhoc: isAdhoc,
+        billerAdhoc,
         inputParams: {
           input: paramArray
         }
       };
 
-      if (!isAdhoc) {
+      // Always pass request_id, billerResponse, and additionalInfo if a fetch was performed first,
+      // regardless of whether we are paying custom amount (quickPay = "Y") or exact amount (quickPay = "N").
+      if (fetchResponse && fetchResponse.data?.billerResponse) {
         payPrimePayload.request_id = fetchResponse.request_id;
         payPrimePayload.billerResponse = fetchResponse.data.billerResponse;
         if (fetchResponse.data.additionalInfo) {
