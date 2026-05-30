@@ -592,6 +592,26 @@ async function startServer() {
     }
   });
 
+  app.post("/api/payprime-balance", async (req, res) => {
+    try {
+      const response = await fetch("https://b2b.payprime.in/api/get-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: PAYPRIME_TOKEN })
+      });
+      const data: any = await response.json();
+      if (data.status === true) {
+        res.json({ balance: Number(data.balance) || 0, username: data.username });
+      } else {
+        res.json({ balance: 0, error: data.message || "Failed to fetch balance" });
+      }
+    } catch (err: any) {
+      console.error("[PayPrime] Fetch Balance Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+
   app.get("/api/full-backup", async (req, res) => {
     const debugLog = (msg: string) => {
       const entry = `[${new Date().toISOString()}] ${msg}\n`;

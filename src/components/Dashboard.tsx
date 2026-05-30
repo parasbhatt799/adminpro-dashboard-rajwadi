@@ -96,6 +96,22 @@ export default function Dashboard() {
 
       if (rpcError) throw rpcError;
 
+      let payprimeBalance = 0;
+      let payprimeUsername = "";
+      try {
+        const balanceRes = await fetch("/api/payprime-balance", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" }
+        });
+        const balanceData = await balanceRes.json();
+        if (balanceData && typeof balanceData.balance === 'number') {
+          payprimeBalance = balanceData.balance;
+          payprimeUsername = balanceData.username || "";
+        }
+      } catch (e) {
+        console.error("Failed to fetch PayPrime balance:", e);
+      }
+
       const {
         admin_wallet_balance,
         total_user_wallet_balance,
@@ -128,6 +144,13 @@ export default function Dashboard() {
       };
 
       setStats([
+        {
+          title: "PayPrime Balance",
+          value: formatCurrency(payprimeBalance),
+          icon: Wallet,
+          color: "bg-gradient-to-br from-blue-600 to-indigo-700 shadow-blue-500/20",
+          description: payprimeUsername ? `User: ${payprimeUsername}` : "Live Gateway Balance"
+        },
         {
           title: "Total QR Payments",
           value: formatCurrency(range_qr_amount),
