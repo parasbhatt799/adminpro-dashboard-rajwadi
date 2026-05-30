@@ -849,6 +849,35 @@ export default function UserBillPayment({ userId }: { userId: string }) {
               exit={{ opacity: 0, scale: 0.95 }}
               className="space-y-8 flex flex-col items-center justify-center py-6"
             >
+              {/* Inject pristine print-only styles */}
+              <style dangerouslySetInnerHTML={{__html: `
+                @media print {
+                  body * {
+                    visibility: hidden !important;
+                  }
+                  #bbps-receipt, #bbps-receipt * {
+                    visibility: visible !important;
+                  }
+                  #bbps-receipt {
+                    position: absolute !important;
+                    left: 50% !important;
+                    top: 20px !important;
+                    transform: translateX(-50%) !important;
+                    width: 100% !important;
+                    max-width: 450px !important;
+                    border: none !important;
+                    box-shadow: none !important;
+                    padding: 0 !important;
+                    margin: 0 !important;
+                    background: white !important;
+                  }
+                  html, body {
+                    background: white !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                  }
+                }
+              `}} />
               <div className="text-center space-y-3">
                 <div className="w-20 h-20 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mx-auto shadow-inner animate-bounce">
                   <CheckCircle2 size={44} />
