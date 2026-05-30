@@ -544,6 +544,8 @@ async function startServer() {
         }
       }
 
+      console.log("[BBPS Proxy] Outgoing PayPrime Payload:", JSON.stringify(payPrimePayload, null, 2));
+
       const response = await fetch("https://b2b.payprime.in/api/v1/bbps/pay-bill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -551,14 +553,18 @@ async function startServer() {
       });
 
       const responseText = await response.text();
+      console.log("[BBPS Proxy] Raw Response from PayPrime Gateway:", responseText);
+
       let data: any;
       try {
         data = JSON.parse(responseText);
       } catch (err: any) {
         console.error("[BBPS Proxy] Failed to parse PayPrime response as JSON. Raw response was:", responseText);
+        // Clean and strip HTML tags from response to get a readable message
+        const responseSnippet = responseText.substring(0, 300).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
         return res.status(400).json({
           status: "FAILED",
-          message: "PayPrime Gateway Error: The gateway returned an unexpected response. This usually indicates that the operator (e.g., SBI Card) does not accept custom/partial payments or requires the exact outstanding bill amount."
+          message: `PayPrime Gateway Error: The gateway returned an unexpected response. Raw snippet: "${responseSnippet || "Empty Response"}"`
         });
       }
 
