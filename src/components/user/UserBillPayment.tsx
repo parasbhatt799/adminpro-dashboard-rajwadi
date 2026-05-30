@@ -340,6 +340,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         const rawAmount = Number(responseData.billAmount) || 0;
         const amountInRupees = rawAmount > 5000 ? rawAmount / 100 : rawAmount; // Auto-scaling safety
 
+        setManualAmount(amountInRupees.toFixed(2));
+
         const additionalInfoList = data.data?.additionalInfo?.info || [];
 
         setBillDetails({
@@ -377,10 +379,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
   // Execute Pay Bill Transaction (Step 5 execution)
   const handlePayBill = async () => {
-    const finalAmountStr = billDetails?.fetchSupported 
-      ? billDetails.billAmount.toString() 
-      : manualAmount;
-    
+    const finalAmountStr = manualAmount;
     const finalAmount = Number(finalAmountStr);
 
     if (isNaN(finalAmount) || finalAmount <= 0) {
@@ -729,6 +728,18 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                             <div className="flex justify-between items-center text-xs">
                               <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
                               <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            </div>
+                            
+                            <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
+                              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                              <input
+                                type="number"
+                                required
+                                value={manualAmount}
+                                onChange={(e) => setManualAmount(e.target.value)}
+                                placeholder="Enter exact amount to pay"
+                                className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
+                              />
                             </div>
                             {billDetails.dueDate && (
                               <div className="flex justify-between items-center text-xs">
