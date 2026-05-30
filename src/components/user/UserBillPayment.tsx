@@ -72,14 +72,14 @@ const getBankLogoUrl = (bankName: string) => {
   else if (name.includes("indian bank") || name.includes("indianbank")) return "/indian_logo.png";
   else if (name.includes("indusind")) domain = "indusind.com";
   else if (name.includes("iob")) domain = "iob.in";
-  else if (name.includes("kotak")) domain = "kotak.com";
+  else if (name.includes("kotak")) return "/kotak_logo.png";
   else if (name.includes("punjab") || name.includes("pnb")) return "/pnb_logo.png";
   else if (name.includes("rbl")) domain = "rblbank.com";
   else if (name.includes("saraswat")) domain = "saraswatbank.com";
   else if (name.includes("sbm")) domain = "sbmbank.co.in";
   else if (name.includes("south indian")) return "/south_indian_logo.png";
   else if (name.includes("suryoday")) domain = "suryodaybank.com";
-  else if (name.includes("union bank")) domain = "unionbankofindia.co.in";
+  else if (name.includes("union bank")) return "/union_logo.png";
   else if (name.includes("yes bank")) domain = "yesbank.in";
   else if (name.includes("onecard") || name.includes("one -")) domain = "getonecard.app";
   
