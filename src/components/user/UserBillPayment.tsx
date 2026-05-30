@@ -45,6 +45,37 @@ interface CategoryInfo {
   cat_name: string;
 }
 
+// Helper to resolve clean dynamic bank logo URLs based on keyword matching
+const getBankLogoUrl = (bankName: string) => {
+  const name = bankName.toLowerCase();
+  
+  if (name.includes("axis")) return "https://logo.clearbit.com/axisbank.com";
+  if (name.includes("hdfc")) return "https://logo.clearbit.com/hdfcbank.com";
+  if (name.includes("icici")) return "https://logo.clearbit.com/icicibank.com";
+  if (name.includes("sbi") || name.includes("state bank")) return "https://logo.clearbit.com/sbi.co.in";
+  if (name.includes("bob") || name.includes("baroda")) return "https://logo.clearbit.com/bankofbaroda.in";
+  if (name.includes("au bank")) return "https://logo.clearbit.com/aubank.in";
+  if (name.includes("bandhan")) return "https://logo.clearbit.com/bandhanbank.com";
+  if (name.includes("india credit") || name.includes("bank of india")) return "https://logo.clearbit.com/bankofindia.co.in";
+  if (name.includes("canara")) return "https://logo.clearbit.com/canarabank.com";
+  if (name.includes("cub") || name.includes("city union")) return "https://logo.clearbit.com/cityunionbank.com";
+  if (name.includes("dbs")) return "https://logo.clearbit.com/dbs.com";
+  if (name.includes("dcb")) return "https://logo.clearbit.com/dcbbank.com";
+  if (name.includes("dhanlaxmi")) return "https://logo.clearbit.com/dhanbank.com";
+  if (name.includes("idfc")) return "https://logo.clearbit.com/idfcfirstbank.com";
+  if (name.includes("indusind")) return "https://logo.clearbit.com/indusind.com";
+  if (name.includes("kotak")) return "https://logo.clearbit.com/kotak.com";
+  if (name.includes("pnb") || name.includes("punjab")) return "https://logo.clearbit.com/pnbindia.in";
+  if (name.includes("federal")) return "https://logo.clearbit.com/federalbank.co.in";
+  if (name.includes("rbl")) return "https://logo.clearbit.com/rblbank.com";
+  if (name.includes("yes bank")) return "https://logo.clearbit.com/yesbank.in";
+  if (name.includes("standard chartered")) return "https://logo.clearbit.com/sc.com";
+  if (name.includes("hsbc")) return "https://logo.clearbit.com/hsbc.co.in";
+  if (name.includes("onecard")) return "https://logo.clearbit.com/getonecard.app";
+  
+  return null;
+};
+
 // Preset mapping for beautiful icons and gradients per category
 const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradient: string, shadow: string, border: string }> = {
   "Electricity": { 
@@ -688,8 +719,22 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                       className="w-full text-left bg-white hover:bg-indigo-50/20 border border-slate-200 hover:border-indigo-100 p-4 rounded-2xl flex items-center justify-between group transition-all cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 group-hover:bg-indigo-100 transition-colors">
-                          {biller.biller_name.charAt(0)}
+                        <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 overflow-hidden relative group-hover:bg-indigo-50 transition-colors shadow-sm">
+                          {getBankLogoUrl(biller.biller_name) ? (
+                            <img 
+                              src={getBankLogoUrl(biller.biller_name) || ''} 
+                              alt="" 
+                              className="w-full h-full object-contain p-1.5"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                                const fallbackEl = (e.target as HTMLElement).nextElementSibling;
+                                if (fallbackEl) fallbackEl.classList.remove('hidden');
+                              }}
+                            />
+                          ) : null}
+                          <span className={`${getBankLogoUrl(biller.biller_name) ? 'hidden' : ''} text-indigo-500 font-black text-xs`}>
+                            {biller.biller_name.charAt(0)}
+                          </span>
                         </div>
                         <span className="text-sm font-bold text-slate-800 line-clamp-1">{biller.biller_name}</span>
                       </div>
