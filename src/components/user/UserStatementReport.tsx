@@ -443,7 +443,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                             : 'PAYMENT'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600">
-                      {r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : r.raw_data?.card_bank || '-'}
+                      {r.type === 'QR'
+                        ? (r.raw_data?.qr_name || 'N/A')
+                        : r.type === 'PAYOUT'
+                          ? r.raw_data?.bank_name
+                          : (r.raw_data?.is_bbps ? r.raw_data?.provider : r.raw_data?.card_bank) || '-'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">
                       {r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
