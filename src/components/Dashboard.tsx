@@ -18,7 +18,8 @@ import {
   Search,
   ShieldAlert,
   TrendingDown,
-  RefreshCw
+  RefreshCw,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect, useCallback } from 'react';
@@ -116,6 +117,33 @@ export default function Dashboard() {
       setPayprimeBalance(fetchedBalance);
       setPayprimeUsername(fetchedUsername);
 
+      // Fetch BBPS stats within range
+      let bbpsStatsQuery = supabase
+        .from('bbps_submissions')
+        .select('amount, charges')
+        .in('status', ['approved', 'pending']);
+      
+      if (startDate) {
+        bbpsStatsQuery = bbpsStatsQuery.gte('created_at', startDate);
+      }
+      if (endDate) {
+        bbpsStatsQuery = bbpsStatsQuery.lte('created_at', endDate);
+      }
+
+      const { data: bbpsData, error: bbpsError } = await bbpsStatsQuery;
+      if (bbpsError) throw bbpsError;
+
+      const rangeBbpsAmount = (bbpsData || []).reduce((acc, r) => acc + Number(r.amount || 0), 0);
+      const rangeBbpsCharges = (bbpsData || []).reduce((acc, r) => acc + Number(r.charges || 0), 0);
+
+      // Get pending BBPS count
+      const { count: pendingBbpsCount, error: pendingBbpsErr } = await supabase
+        .from('bbps_submissions')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      
+      const pendingBbps = pendingBbpsErr ? 0 : (pendingBbpsCount || 0);
+
       const {
         admin_wallet_balance,
         total_user_wallet_balance,
@@ -135,7 +163,7 @@ export default function Dashboard() {
         total_super_distributor_share
       } = rpcStats;
 
-      const totalEarnings = (admin_bill_charges || 0) + (admin_qr_charges || 0) + (range_payout_charges || 0);
+      const totalEarnings = (admin_bill_charges || 0) + (admin_qr_charges || 0) + (range_payout_charges || 0) + rangeBbpsCharges;
       const displayServiceCharge = totalEarnings + total_distributor_share + (total_super_distributor_share || 0);
 
       const dateDisplay = startDate && endDate
@@ -165,6 +193,14 @@ export default function Dashboard() {
           path: "/bill-payment-requests"
         },
         {
+          title: "Total BBPS Payments",
+          value: formatCurrency(rangeBbpsAmount),
+          icon: Zap,
+          color: "bg-teal-500",
+          description: `Range: ${dateDisplay}`,
+          path: "/bbps-history"
+        },
+        {
           title: "Total User Wallet",
           value: formatCurrency(total_user_wallet_balance),
           icon: Wallet,
@@ -191,6 +227,13 @@ export default function Dashboard() {
           value: formatCurrency(admin_bill_charges),
           icon: CreditCard,
           color: "bg-indigo-500",
+          description: `Range: ${dateDisplay}`
+        },
+        {
+          title: "BBPS Service Charges",
+          value: formatCurrency(rangeBbpsCharges),
+          icon: Zap,
+          color: "bg-teal-600",
           description: `Range: ${dateDisplay}`
         },
         {
@@ -225,6 +268,10 @@ export default function Dashboard() {
               <div className="flex flex-col items-center bg-indigo-50 px-2 py-1.5 rounded-xl border border-indigo-100/50 min-w-[42px]">
                 <span className="text-lg font-black text-indigo-700 leading-none">{pending_bill_count}</span>
                 <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">Bill</span>
+              </div>
+              <div className="flex flex-col items-center bg-teal-50 px-2 py-1.5 rounded-xl border border-teal-100/50 min-w-[42px]">
+                <span className="text-lg font-black text-teal-700 leading-none">{pendingBbps}</span>
+                <span className="text-[10px] font-bold text-teal-500 uppercase tracking-tighter">BBPS</span>
               </div>
               <div className="flex flex-col items-center bg-amber-50 px-2 py-1.5 rounded-xl border border-amber-100/50 min-w-[42px]">
                 <span className="text-lg font-black text-amber-700 leading-none">{pending_payout_count}</span>
@@ -366,6 +413,7 @@ export default function Dashboard() {
       .channel('dashboard_stats_realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payment_submissions' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bill_submissions' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bbps_submissions' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'payout_submissions' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_withdrawals' }, () => fetchStats())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'users_profiles' }, () => fetchStats())
