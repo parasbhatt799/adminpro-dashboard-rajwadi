@@ -45,40 +45,7 @@ interface CategoryInfo {
   cat_name: string;
 }
 
-// Helper to resolve clean dynamic bank logo URLs based on keyword matching
-const getBankLogoUrl = (bankName: string) => {
-  const name = bankName.toLowerCase();
-  let domain = "";
-  
-  if (name.includes("axis")) domain = "axisbank.com";
-  else if (name.includes("hdfc")) domain = "hdfcbank.com";
-  else if (name.includes("icici")) domain = "icicibank.com";
-  else if (name.includes("sbi") || name.includes("state bank")) domain = "sbi.co.in";
-  else if (name.includes("bob") || name.includes("baroda")) domain = "bankofbaroda.in";
-  else if (name.includes("au bank")) domain = "aubank.in";
-  else if (name.includes("bandhan")) domain = "bandhanbank.com";
-  else if (name.includes("india credit") || name.includes("bank of india")) domain = "bankofindia.co.in";
-  else if (name.includes("canara")) domain = "canarabank.com";
-  else if (name.includes("cub") || name.includes("city union")) domain = "cityunionbank.com";
-  else if (name.includes("dbs")) domain = "dbs.com";
-  else if (name.includes("dcb")) domain = "dcbbank.com";
-  else if (name.includes("dhanlaxmi")) domain = "dhanbank.com";
-  else if (name.includes("idfc")) domain = "idfcfirstbank.com";
-  else if (name.includes("indusind")) domain = "indusind.com";
-  else if (name.includes("kotak")) domain = "kotak.com";
-  else if (name.includes("pnb") || name.includes("punjab")) domain = "pnbindia.in";
-  else if (name.includes("federal")) domain = "federalbank.co.in";
-  else if (name.includes("rbl")) domain = "rblbank.com";
-  else if (name.includes("yes bank")) domain = "yesbank.in";
-  else if (name.includes("standard chartered")) domain = "sc.com";
-  else if (name.includes("hsbc")) domain = "hsbc.co.in";
-  else if (name.includes("onecard")) domain = "getonecard.app";
-  
-  if (domain) {
-    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
-  }
-  return null;
-};
+
 
 // Preset mapping for beautiful icons and gradients per category
 const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradient: string, shadow: string, border: string }> = {
@@ -723,22 +690,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                       className="w-full text-left bg-white hover:bg-indigo-50/20 border border-slate-200 hover:border-indigo-100 p-4 rounded-2xl flex items-center justify-between group transition-all cursor-pointer"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 overflow-hidden relative group-hover:bg-indigo-50 transition-colors shadow-sm">
-                          {getBankLogoUrl(biller.biller_name) ? (
-                            <img 
-                              src={getBankLogoUrl(biller.biller_name) || ''} 
-                              alt="" 
-                              className="w-full h-full object-contain p-1.5"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                                const fallbackEl = (e.target as HTMLElement).nextElementSibling;
-                                if (fallbackEl) fallbackEl.classList.remove('hidden');
-                              }}
-                            />
-                          ) : null}
-                          <span className={`${getBankLogoUrl(biller.biller_name) ? 'hidden' : ''} text-indigo-500 font-black text-xs`}>
-                            {biller.biller_name.charAt(0)}
-                          </span>
+                        <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 group-hover:bg-indigo-100 transition-colors">
+                          {biller.biller_name.charAt(0)}
                         </div>
                         <span className="text-sm font-bold text-slate-800 line-clamp-1">{biller.biller_name}</span>
                       </div>
