@@ -75,7 +75,7 @@ const getBankLogoUrl = (bankName: string) => {
   else if (name.includes("kotak")) return "/kotak_logo.png";
   else if (name.includes("punjab") || name.includes("pnb")) return "/pnb_logo.png";
   else if (name.includes("rbl")) domain = "rblbank.com";
-  else if (name.includes("saraswat")) domain = "saraswatbank.com";
+  else if (name.includes("saraswat")) return "/saraswat_logo.png";
   else if (name.includes("sbm")) return "/sbm_logo.png";
   else if (name.includes("south indian")) return "/south_indian_logo.png";
   else if (name.includes("suryoday")) return "/suryoday_logo.png";
