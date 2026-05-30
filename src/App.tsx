@@ -60,6 +60,7 @@ const SuperDistributorsList = lazy(() => import('./components/SuperDistributorsL
 const AdminStatementReport = lazy(() => import('./components/AdminStatementReport.tsx'));
 const QRMasterManagement = lazy(() => import('./components/QRMasterManagement'));
 const HomePage = lazy(() => import('./components/HomePage'));
+const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -1070,6 +1071,7 @@ export default function App() {
             adminPermissions.includes('qr-master') ? <Navigate to="/qr-master" replace /> :
             adminPermissions.includes('kyc-verification-requests') ? <Navigate to="/kyc-verification-requests" replace /> :
             adminPermissions.includes('qr-gallery') ? <Navigate to="/qr-gallery" replace /> :
+            adminPermissions.includes('bbps-history') ? <Navigate to="/bbps-history" replace /> :
             <Navigate to="/change-password" replace />
           } />
           <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
@@ -1095,6 +1097,7 @@ export default function App() {
           <Route path="qr-master" element={(adminRole === 'full' || adminPermissions.includes('qr-master')) ? <QRMasterManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="kyc-verification-requests" element={(adminRole === 'full' || adminPermissions.includes('kyc-verification-requests')) ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
+          <Route path="bbps-history" element={(adminRole === 'full' || adminPermissions.includes('bbps-history')) ? <BBPSHistory /> : <Navigate to="/dashboard" replace />} />
           
           <Route path="reports">
             <Route path="qr-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
