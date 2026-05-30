@@ -70,7 +70,7 @@ export default function StatementReport() {
     try {
       let openingBalance = 0;
 
-      // Calculate Opening Balance using optimized RPC if start date is provided
+      // Calculate Opening Balance client-side to ensure bbps_submissions are included
       if (startDate) {
         let userId: string | null = null;
         if (firmName.trim()) {
@@ -82,12 +82,46 @@ export default function StatementReport() {
           if (userProfile) userId = userProfile.id;
         }
 
-        const { data: openBal, error: openBalError } = await supabase.rpc('get_opening_balance', {
-          p_user_id: userId,
-          p_start_date: `${startDate}T00:00:00`
-        });
+        let qrPreQuery = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+        let billPreQuery = supabase.from('bill_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
+        let bbpsPreQuery = supabase.from('bbps_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
+        let payoutPreQuery = supabase.from('payout_submissions').select('amount, charge_amount, status').in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
 
-        if (!openBalError) openingBalance = Number(openBal) || 0;
+        if (userId) {
+          qrPreQuery = qrPreQuery.eq('user_id', userId);
+          billPreQuery = billPreQuery.eq('user_id', userId);
+          bbpsPreQuery = bbpsPreQuery.eq('user_id', userId);
+          payoutPreQuery = payoutPreQuery.eq('user_id', userId);
+        }
+
+        const [qrPre, billPre, bbpsPre, payoutPre] = await Promise.all([
+          qrPreQuery,
+          billPreQuery,
+          bbpsPreQuery,
+          payoutPreQuery
+        ]);
+
+        const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+        const billNet = (billPre.data || []).reduce((acc, r) => {
+          if (r.status === 'approved' || r.status === 'pending') {
+            return acc + (Number(r.amount) + Number(r.charges || 0));
+          }
+          return acc;
+        }, 0) + (bbpsPre.data || []).reduce((acc, r) => {
+          if (r.status === 'approved' || r.status === 'pending') {
+            return acc + (Number(r.amount) + Number(r.charges || 0));
+          }
+          return acc;
+        }, 0);
+
+        const payoutNet = (payoutPre.data || []).reduce((acc, r) => {
+          if (r.status === 'approved' || r.status === 'pending' || r.status === 'processing') {
+            return acc + (Number(r.amount) + Number(r.charge_amount || 0));
+          }
+          return acc;
+        }, 0);
+
+        openingBalance = qrTotal - billNet - payoutNet;
       }
 
       let qrMapped: any[] = [];
@@ -129,31 +163,59 @@ export default function StatementReport() {
         }));
       }
 
-      // 2. Fetch Bill Payments
+      // 2. Fetch Bill Payments (both standard and BBPS)
       if (typeFilter === 'all' || typeFilter === 'BILL') {
         let billQuery = supabase.from('bill_submissions').select('*, users_profiles!bill_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'refunded']);
+        let bbpsQuery = supabase.from('bbps_submissions').select('*, users_profiles!bbps_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'refunded']);
 
-        if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
-        if (exactAmount) billQuery = billQuery.eq('amount', Number(exactAmount));
-        if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+        if (firmName) {
+          billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+          bbpsQuery = bbpsQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+        }
+        if (exactAmount) {
+          billQuery = billQuery.eq('amount', Number(exactAmount));
+          bbpsQuery = bbpsQuery.eq('amount', Number(exactAmount));
+        }
+        if (startDate) {
+          billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
+          bbpsQuery = bbpsQuery.gte('created_at', `${startDate}T00:00:00`);
+        }
+        if (endDate) {
+          billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+          bbpsQuery = bbpsQuery.lte('created_at', `${endDate}T23:59:59`);
+        }
 
-        const { data, error } = await billQuery;
-        if (error) throw error;
+        const [billRes, bbpsRes] = await Promise.all([billQuery, bbpsQuery]);
+        if (billRes.error) throw billRes.error;
+        if (bbpsRes.error) throw bbpsRes.error;
         
-        (data || []).forEach(r => {
+        const combinedBills = [
+          ...(billRes.data || []).map(b => ({ ...b, is_bbps: false })),
+          ...(bbpsRes.data || []).map(b => ({ ...b, is_bbps: true }))
+        ];
+        
+        combinedBills.forEach(r => {
+          const isBbps = r.is_bbps;
+          let mobile = '0000000000';
+          if (isBbps) {
+            const details = r.metadata?.consumerDetails || {};
+            mobile = details["Registered Mobile Number"] || details["Mobile Number"] || details["Mobile"] || 'BBPS';
+          } else {
+            mobile = r.customer_mobile;
+          }
+
           billMapped.push({
             id: String(r.id || ''),
             numericId: String(r.id || '').split('-')[0].toUpperCase(),
             type: 'BILL',
             date: r.created_at,
             firm_name: r.users_profiles?.firm_name || 'N/A',
-            reference: r.customer_mobile || '0000000000',
+            reference: mobile || '0000000000',
             amount: Number(r.amount),
             charges: Number(r.charges || 0),
             final_total: Number(r.amount) + Number(r.charges || 0),
             status: r.status,
-            raw_data: r
+            raw_data: { ...r, card_number: isBbps ? r.consumer_number : r.card_number }
           });
 
           if (r.status === 'rejected') {
@@ -163,12 +225,12 @@ export default function StatementReport() {
               type: 'REFUND',
               date: r.created_at,
               firm_name: r.users_profiles?.firm_name || 'N/A',
-              reference: r.customer_mobile || '0000000000',
+              reference: mobile || '0000000000',
               amount: Number(r.amount),
               charges: Number(r.charges || 0),
               final_total: Number(r.amount) + Number(r.charges || 0),
               status: 'refunded',
-              raw_data: { ...r, is_refund_row: true }
+              raw_data: { ...r, is_refund_row: true, card_number: isBbps ? r.consumer_number : r.card_number }
             });
           }
         });
@@ -290,20 +352,32 @@ export default function StatementReport() {
         hour12: true
       }),
       'PaymentId': r.numericId,
-      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
+      'Transaction Type': r.type === 'BILL'
+        ? (r.raw_data?.is_bbps
+            ? (r.raw_data?.service_type === 'Credit Card'
+                ? 'BBPS CREDITCARD'
+                : `BBPS ${r.raw_data?.service_type?.toUpperCase() || 'UTILITY'}`)
+            : 'CCBILLPAY')
+        : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT',
       'Card No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
       'Description': r.type === 'BILL'
-        ? `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)`
+        ? (r.raw_data?.is_bbps
+            ? (r.raw_data?.service_type === 'Credit Card'
+                ? `BBPS CreditCard Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)`
+                : `BBPS ${r.raw_data?.service_type}:${r.raw_data?.provider} Account:${r.raw_data?.consumer_number} Mobile:${r.reference}\nUtility Bill Payment (${r.amount} + ${r.charges} Txn Charge)`)
+            : `CCBILLPAY Mobile:${r.reference} CardNo:${r.raw_data?.card_number || '0000'}\nCredit Card BILL (${r.amount} + ${r.charges} Txn Charge)`)
         : r.type === 'PAYOUT'
           ? `PAYOUT to ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name} A/c:${r.raw_data?.account_number})\nTxnId: ${r.reference}\n(${r.amount} + ${r.charges} Txn Charge)`
-          : `TxnId: ${r.reference}\nPAYMENT QR ${r.raw_data?.qr_history?.qr_name || 'N/A'}${
-              r.raw_data?.users_profiles?.distributor_id
-                ? `\nAdmin Profit: ₹${(r.raw_data.admin_share !== null && r.raw_data.admin_share !== undefined ? Number(r.raw_data.admin_share) : ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2)}` +
-                  `\nS.Dist. Profit: ₹${(r.raw_data.super_distributor_share !== null && r.raw_data.super_distributor_share !== undefined ? Number(r.raw_data.super_distributor_share) : 0).toFixed(2)}` +
-                  `\nDist. Profit: ₹${(r.raw_data.distributor_share !== null && r.raw_data.distributor_share !== undefined ? Number(r.raw_data.distributor_share) : (Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100))).toFixed(2)}`
-                : `\nCharges: ₹${Number(r.charges || 0).toFixed(2)}`
-            }`,
-      'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
+          : r.type === 'REFUND'
+            ? `Refund: ${r.raw_data?.card_bank || r.raw_data?.bank_name || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} Reason: ${r.raw_data?.rejection_reason || 'Rejection'}`
+            : `TxnId: ${r.reference}\nPAYMENT QR ${r.raw_data?.qr_history?.qr_name || 'N/A'}${
+                r.raw_data?.users_profiles?.distributor_id
+                  ? `\nAdmin Profit: ₹${(r.raw_data.admin_share !== null && r.raw_data.admin_share !== undefined ? Number(r.raw_data.admin_share) : ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2)}` +
+                    `\nS.Dist. Profit: ₹${(r.raw_data.super_distributor_share !== null && r.raw_data.super_distributor_share !== undefined ? Number(r.raw_data.super_distributor_share) : 0).toFixed(2)}` +
+                    `\nDist. Profit: ₹${(r.raw_data.distributor_share !== null && r.raw_data.distributor_share !== undefined ? Number(r.raw_data.distributor_share) : (Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100))).toFixed(2)}`
+                  : `\nCharges: ₹${Number(r.charges || 0).toFixed(2)}`
+              }`,
+      'Credit Amount': (r.type === 'QR' && r.status === 'approved') || r.type === 'REFUND' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
       'Payment From': r.type === 'QR' ? 'Admin' : '',
@@ -331,18 +405,30 @@ export default function StatementReport() {
           hour12: true
         }),
         r.numericId,
-        r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
+        r.type === 'BILL'
+          ? (r.raw_data?.is_bbps
+              ? (r.raw_data?.service_type === 'Credit Card'
+                  ? 'BBPS CREDITCARD'
+                  : `BBPS ${r.raw_data?.service_type?.toUpperCase() || 'UTILITY'}`)
+              : 'CCBILLPAY')
+          : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT',
         r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
         r.type === 'BILL'
-          ? `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`
+          ? (r.raw_data?.is_bbps
+              ? (r.raw_data?.service_type === 'Credit Card'
+                  ? `BBPS CreditCard Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`
+                  : `BBPS ${r.raw_data?.service_type}: ${r.raw_data?.provider} Account:${r.raw_data?.consumer_number}`)
+              : `Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`)
           : r.type === 'PAYOUT'
             ? `PAYOUT: ${r.raw_data?.account_holder_name} (${r.raw_data?.bank_name})`
-            : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'Legacy'}${
-                r.raw_data?.users_profiles?.distributor_id
-                  ? ` (Admin: ${ (r.raw_data.admin_share !== null && r.raw_data.admin_share !== undefined ? Number(r.raw_data.admin_share) : ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2) } | S.Dist: ${ (r.raw_data.super_distributor_share !== null && r.raw_data.super_distributor_share !== undefined ? Number(r.raw_data.super_distributor_share) : 0).toFixed(2) } | Dist: ${ (r.raw_data.distributor_share !== null && r.raw_data.distributor_share !== undefined ? Number(r.raw_data.distributor_share) : (Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100))).toFixed(2) })`
-                  : ` (Charges: ${Number(r.charges || 0).toFixed(2)})`
-              }`,
-        r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
+            : r.type === 'REFUND'
+              ? `Refund: ${r.raw_data?.card_bank || r.raw_data?.bank_name || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} Reason: ${r.raw_data?.rejection_reason || 'Rejection'}`
+              : `Txn:${r.reference} QR:${r.raw_data?.qr_history?.qr_name || 'Legacy'}${
+                  r.raw_data?.users_profiles?.distributor_id
+                    ? ` (Admin: ${ (r.raw_data.admin_share !== null && r.raw_data.admin_share !== undefined ? Number(r.raw_data.admin_share) : ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100)).toFixed(2) } | S.Dist: ${ (r.raw_data.super_distributor_share !== null && r.raw_data.super_distributor_share !== undefined ? Number(r.raw_data.super_distributor_share) : 0).toFixed(2) } | Dist: ${ (r.raw_data.distributor_share !== null && r.raw_data.distributor_share !== undefined ? Number(r.raw_data.distributor_share) : (Number(r.charges || 0) - ((r.amount * Number(r.raw_data.users_profiles.admin_base_qr_charge || 0)) / 100))).toFixed(2) })`
+                    : ` (Charges: ${Number(r.charges || 0).toFixed(2)})`
+                }`,
+        (r.type === 'QR' && r.status === 'approved') || r.type === 'REFUND' ? r.final_total.toFixed(2) : '0.00',
         (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
         r.type === 'QR' ? 'Admin' : '',
@@ -483,20 +569,52 @@ export default function StatementReport() {
                       {formatDateTimeSplit(r.date)}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
-                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT'}</td>
+                    <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
+                      {r.type === 'BILL'
+                        ? (r.raw_data?.is_bbps
+                            ? (r.raw_data?.service_type === 'Credit Card'
+                                ? 'BBPS CREDITCARD'
+                                : `BBPS ${r.raw_data?.service_type?.toUpperCase() || 'UTILITY'}`)
+                            : 'CCBILLPAY')
+                        : r.type === 'PAYOUT'
+                          ? 'PAYOUT'
+                          : r.type === 'REFUND'
+                            ? 'REFUND'
+                            : 'PAYMENT'}
+                    </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center uppercase">
-                      {r.type === 'QR' ? (r.raw_data?.qr_history?.qr_name || 'N/A') : r.type === 'PAYOUT' || r.type === 'REFUND' ? r.raw_data?.bank_name : r.raw_data?.card_bank || '-'}
+                      {r.type === 'QR'
+                        ? (r.raw_data?.qr_history?.qr_name || 'N/A')
+                        : r.type === 'PAYOUT' || r.type === 'REFUND'
+                          ? r.raw_data?.bank_name
+                          : (r.raw_data?.is_bbps ? r.raw_data?.provider : r.raw_data?.card_bank) || '-'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">
-                      {r.type === 'PAYOUT' || r.type === 'REFUND' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
+                      {r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
-                        <>
-                          <div>CCBILLPAY Mobile: <span className="text-amber-600 font-bold">{r.reference}</span> <br /> CardNo: <span className="text-amber-600 font-bold">{r.raw_data?.card_number || '0000'}</span></div>
-                          <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
-                          <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
-                        </>
+                        r.raw_data?.is_bbps ? (
+                          r.raw_data?.service_type === 'Credit Card' ? (
+                            <>
+                              <div>BBPS CreditCard Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
+                              <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                              <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div>BBPS {r.raw_data?.service_type}: <span className='text-amber-600 font-bold'>{r.raw_data?.provider}</span> Account: <span className='text-amber-600 font-bold'>{r.raw_data?.consumer_number}</span> Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span></div>
+                              <div>Utility Bill Payment ({r.amount} + {r.charges} Txn Charge)</div>
+                              <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
+                            </>
+                          )
+                        ) : (
+                          <>
+                            <div>CCBILLPAY Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
+                            <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                            <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
+                          </>
+                        )
                       ) : r.type === 'PAYOUT' ? (
                         <>
                           <div className="font-bold text-slate-900">{r.raw_data?.account_holder_name}</div>
@@ -508,7 +626,7 @@ export default function StatementReport() {
                       ) : r.type === 'REFUND' ? (
                         <div className="bg-emerald-50 border border-emerald-100 p-2 rounded">
                           <div className="font-bold text-emerald-700 uppercase text-[11px]">Wallet Refund</div>
-                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || 'Bill/Payout'} (#{r.numericId})</div>
+                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} (#{r.numericId})</div>
                           <div className="text-[10px] text-emerald-500 font-medium">Rejection Reason: {r.raw_data?.rejection_reason || 'Admin Rejection'}</div>
                         </div>
                       ) : (

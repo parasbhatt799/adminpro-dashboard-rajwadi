@@ -155,19 +155,22 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           const targetUserId = userProfile.id;
           const qrPreQ = supabase.from('payment_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
           const billPreQ = supabase.from('bill_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+          const bbpsPreQ = supabase.from('bbps_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
           const payoutPreQ = supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
 
-          const [qrPre, billPre, payoutPre] = await Promise.all([
+          const [qrPre, billPre, bbpsPre, payoutPre] = await Promise.all([
             fetchAll(qrPreQ),
             fetchAll(billPreQ),
+            fetchAll(bbpsPreQ),
             fetchAll(payoutPreQ)
           ]);
 
           const qrTotal = (qrPre || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
           const billTotal = (billPre || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
+          const bbpsTotal = (bbpsPre || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charges || 0)), 0);
           const payoutTotal = (payoutPre || []).reduce((acc, r) => acc + (Number(r.amount) + Number(r.charge_amount || 0)), 0);
 
-          openingBalance = qrTotal - billTotal - payoutTotal;
+          openingBalance = qrTotal - billTotal - bbpsTotal - payoutTotal;
         }
       }
 
@@ -386,14 +389,24 @@ export default function DistributorStatementReport({ userId }: { userId: string 
     const exportData = dataToExport.map(r => ({
       'Payment Date': new Date(r.date).toLocaleString('en-IN'),
       'PaymentId': r.numericId,
-      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
+      'Transaction Type': r.type === 'BILL'
+        ? (r.raw_data?.is_bbps
+            ? (r.raw_data?.service_type === 'Credit Card'
+                ? 'BBPS CREDITCARD'
+                : `BBPS ${r.raw_data?.service_type?.toUpperCase() || 'UTILITY'}`)
+            : 'CCBILLPAY')
+        : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
       'Card/Account No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
       'Firm Name': r.firm_name,
       'Description': r.type === 'BILL'
-        ? `CCBILLPAY Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`
+        ? (r.raw_data?.is_bbps
+            ? (r.raw_data?.service_type === 'Credit Card'
+                ? `BBPS CreditCard Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`
+                : `BBPS ${r.raw_data?.service_type}:${r.raw_data?.provider} Account:${r.raw_data?.consumer_number} Mobile:${r.reference}`)
+            : `CCBILLPAY Mobile:${r.reference} Card:${r.raw_data?.card_number || '0000'}`)
         : r.type === 'PAYOUT'
           ? `PAYOUT: ${r.raw_data?.account_holder_name} (Txn: ${r.reference})`
-          : `Txn: ${r.reference} (QR: ${r.raw_data?.qr_history?.qr_name})`,
+          : `Txn: ${r.reference} (QR: ${r.raw_data?.qr_history?.qr_name || 'N/A'})`,
       'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
     }));
