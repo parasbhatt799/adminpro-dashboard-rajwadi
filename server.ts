@@ -696,21 +696,24 @@ async function startServer() {
       // Append the query params from the client, mapping transaction_id to rejection_reason
       for (const [key, val] of Object.entries(req.query)) {
         let mappedKey = key;
-        let mappedVal = String(val);
-
         if (key === "transaction_id") {
           mappedKey = "rejection_reason";
         }
-        mappedVal = mappedVal.replace(/transaction_id/g, "rejection_reason");
 
-        // Fix lowercase t and z in ISO timestamps (e.g. from Nginx case-lowercased URLs)
-        // to prevent PostgREST parsing failures where it rejects "lte.2026-05-31t18:29:59.999z"
-        mappedVal = mappedVal.replace(
-          /(\d{4}-\d{2}-\d{2})t(\d{2}:\d{2}:\d{2}(?:\.\d+)?)z/gi,
-          (match, p1, p2) => `${p1}T${p2}Z`
-        );
+        const values = Array.isArray(val) ? val : [val];
+        for (const rawVal of values) {
+          let mappedVal = String(rawVal);
+          mappedVal = mappedVal.replace(/transaction_id/g, "rejection_reason");
 
-        urlObj.searchParams.set(mappedKey, mappedVal);
+          // Fix lowercase t and z in ISO timestamps (e.g. from Nginx case-lowercased URLs)
+          // to prevent PostgREST parsing failures where it rejects "lte.2026-05-31t18:29:59.999z"
+          mappedVal = mappedVal.replace(
+            /(\d{4}-\d{2}-\d{2})t(\d{2}:\d{2}:\d{2}(?:\.\d+)?)z/gi,
+            (match, p1, p2) => `${p1}T${p2}Z`
+          );
+
+          urlObj.searchParams.append(mappedKey, mappedVal);
+        }
       }
 
       // Build the headers, replacing the key with service role key to bypass RLS
