@@ -587,18 +587,15 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     <div className="space-y-8 select-none max-w-4xl mx-auto">
       
       {/* Dynamic Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-900 text-white p-8 rounded-[32px] shadow-xl relative overflow-hidden">
-        {/* Glowing background elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px]"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-teal-500/10 rounded-full blur-[60px]"></div>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 border border-slate-200 p-8 rounded-[32px] shadow-sm relative overflow-hidden">
         
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-14 h-14 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center text-emerald-400 border border-white/10 shadow-inner">
+          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm">
             <Receipt size={30} />
           </div>
           <div>
-            <h2 className="text-2xl font-black tracking-tight">BBPS Utility Payments</h2>
-            <p className="text-slate-400 text-sm mt-0.5">Pay electricity, gas, water, DTH, and mobile bills instantly.</p>
+            <h2 className="text-2xl font-black tracking-tight text-slate-800">BBPS Utility Payments</h2>
+            <p className="text-slate-500 text-sm mt-0.5">Pay electricity, gas, water, DTH, and mobile bills instantly.</p>
           </div>
         </div>
       </div>
