@@ -1197,6 +1197,12 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           )}
 
         </AnimatePresence>
+        
+        {/* 100% Secured Payment Badge */}
+        <div className="absolute bottom-6 left-8 flex items-center gap-1.5 text-slate-400 font-extrabold uppercase tracking-widest text-[9px] select-none pointer-events-none print:hidden z-0">
+          <ShieldCheck size={12} className="text-teal-500" />
+          <span>100% Secured Payment</span>
+        </div>
 
       </div>
 
