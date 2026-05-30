@@ -590,7 +590,9 @@ async function startServer() {
           console.error("[CRITICAL] Wallet deduction failed for completed BBPS transaction:", updateError);
         }
 
-        // 5. Log transaction into bill_submissions with approved status
+        const txnid = data.txnid || data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`;
+
+        // 5. Log transaction into bill_submissions with approved status and full metadata
         const { error: insertError } = await supabaseAdmin
           .from("bill_submissions")
           .insert({
@@ -599,7 +601,15 @@ async function startServer() {
             provider: provider || biller_id,
             consumer_number: consumer_number || "BBPS Account",
             amount: paymentAmount,
-            status: "approved"
+            status: "approved",
+            transaction_id: txnid,
+            metadata: {
+              txnid,
+              amount: paymentAmount,
+              billerName: provider || biller_id,
+              date: new Date().toLocaleString(),
+              consumerDetails: customerParams
+            }
           });
 
         if (insertError) {
