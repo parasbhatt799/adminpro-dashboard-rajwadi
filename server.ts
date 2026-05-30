@@ -703,6 +703,13 @@ async function startServer() {
         }
         mappedVal = mappedVal.replace(/transaction_id/g, "rejection_reason");
 
+        // Fix lowercase t and z in ISO timestamps (e.g. from Nginx case-lowercased URLs)
+        // to prevent PostgREST parsing failures where it rejects "lte.2026-05-31t18:29:59.999z"
+        mappedVal = mappedVal.replace(
+          /(\d{4}-\d{2}-\d{2})t(\d{2}:\d{2}:\d{2}(?:\.\d+)?)z/gi,
+          (match, p1, p2) => `${p1}T${p2}Z`
+        );
+
         urlObj.searchParams.set(mappedKey, mappedVal);
       }
 
