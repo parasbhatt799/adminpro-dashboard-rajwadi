@@ -80,14 +80,19 @@ export default function AdminWithdrawal() {
         .select(`charges, admin_share, distributor_share`)
         .eq('status', 'approved');
 
+      const bbpsQuery = supabase.from('bbps_submissions')
+        .select('charges')
+        .eq('status', 'approved');
+
       const payoutQuery = supabase.from('payout_submissions').select('charge_amount').eq('status', 'approved');
       const withdrawalQuery = supabase.from('admin_withdrawals').select('*').order('created_at', { ascending: false });
 
-      const [qrData, billData, payoutData, withdrawalData] = await Promise.all([
+      const [qrData, billData, payoutData, withdrawalData, bbpsData] = await Promise.all([
         fetchAll(qrQuery),
         fetchAll(billQuery),
         fetchAll(payoutQuery),
-        fetchAll(withdrawalQuery)
+        fetchAll(withdrawalQuery),
+        fetchAll(bbpsQuery)
       ]);
 
       // Calculate QR Charges (with split logic)
@@ -109,6 +114,9 @@ export default function AdminWithdrawal() {
       // Calculate Bill Charges (Always full for admin as per user request)
       const totalBillCharges = (billData || []).reduce((acc, curr: any) => acc + (Number(curr.charges) || 0), 0);
 
+      // Calculate BBPS Charges
+      const totalBbpsCharges = (bbpsData || []).reduce((acc, curr: any) => acc + (Number(curr.charges) || 0), 0);
+
       const totalPayoutCharges = (payoutData || []).reduce((acc, r) => acc + (Number(r.charge_amount) || 0), 0);
       const totalWithdrawals = (withdrawalData || []).reduce((acc, r) => acc + (Number(r.amount) || 0), 0);
 
@@ -118,7 +126,7 @@ export default function AdminWithdrawal() {
       // Calculate Super Distributor Share
       const totalSuperDistributorShare = (qrData || []).reduce((acc, curr: any) => acc + (Number(curr.super_distributor_share) || 0), 0);
 
-      const calculatedBalance = (totalQrCharges + totalBillCharges + totalPayoutCharges + totalDistributorShare + totalSuperDistributorShare) - totalWithdrawals;
+      const calculatedBalance = (totalQrCharges + totalBillCharges + totalBbpsCharges + totalPayoutCharges + totalDistributorShare + totalSuperDistributorShare) - totalWithdrawals;
       setBalance(calculatedBalance);
       setTotalWithdrawalAmount(totalWithdrawals);
       setHistory(withdrawalData || []);
