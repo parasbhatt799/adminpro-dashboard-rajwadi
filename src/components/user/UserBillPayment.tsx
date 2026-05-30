@@ -754,7 +754,9 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
                               </div>
                             )}
-                            {billDetails.additionalInfo && billDetails.additionalInfo.map((info) => (
+                            {billDetails.additionalInfo && billDetails.additionalInfo
+                              .filter((info) => info.infoName.toLowerCase() !== "maximum permissible amount")
+                              .map((info) => (
                               <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
                                 <span className="text-slate-400 font-bold uppercase tracking-wider">{info.infoName}</span>
                                 <span className="font-bold text-slate-600">
