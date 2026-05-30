@@ -236,6 +236,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         const allowedCategories = ["electricity", "mobile postpaid", "credit card", "broadband", "gas"];
         const filtered = data.data.bbps.filter((cat: any) => {
           const nameLower = cat.cat_name.toLowerCase();
+          if (nameLower.includes("lpg gas")) return false;
           return allowedCategories.some(allowed => nameLower.includes(allowed));
         });
 
