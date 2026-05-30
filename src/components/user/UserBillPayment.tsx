@@ -813,7 +813,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 Paying Bill...
                               </>
                             ) : (
-                              `Pay ₹${Number(billDetails.fetchSupported ? billDetails.billAmount : manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })} Now`
+                              "Pay Now"
                             )}
                           </button>
                         </div>
