@@ -664,7 +664,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       </div>
 
       {/* Main interaction screen */}
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-8 relative overflow-hidden min-h-[50vh]">
+      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-8 pb-16 relative overflow-hidden min-h-[50vh]">
         
         <AnimatePresence mode="wait">
           
