@@ -94,6 +94,12 @@ export default function UserDashboard({ userId }: { userId: string }) {
           .eq('user_id', userId)
           .eq('status', 'approved');
 
+        let bbpsQuery = supabase
+          .from('bbps_submissions')
+          .select('amount')
+          .eq('user_id', userId)
+          .eq('status', 'approved');
+
         let pendingQrQuery = supabase
           .from('payment_submissions')
           .select('*', { count: 'exact', head: true })
@@ -106,18 +112,28 @@ export default function UserDashboard({ userId }: { userId: string }) {
           .eq('user_id', userId)
           .eq('status', 'pending');
 
+        let pendingBbpsQuery = supabase
+          .from('bbps_submissions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId)
+          .eq('status', 'pending');
+
         if (startDate && endDate) {
           qrQuery = qrQuery.gte('created_at', startDate).lte('created_at', endDate);
           billQuery = billQuery.gte('created_at', startDate).lte('created_at', endDate);
+          bbpsQuery = bbpsQuery.gte('created_at', startDate).lte('created_at', endDate);
           pendingQrQuery = pendingQrQuery.gte('created_at', startDate).lte('created_at', endDate);
           pendingBillQuery = pendingBillQuery.gte('created_at', startDate).lte('created_at', endDate);
+          pendingBbpsQuery = pendingBbpsQuery.gte('created_at', startDate).lte('created_at', endDate);
         }
 
-        const [qrRes, billRes, pendingQrRes, pendingBillRes, qrSettingsRes] = await Promise.all([
+        const [qrRes, billRes, bbpsRes, pendingQrRes, pendingBillRes, pendingBbpsRes, qrSettingsRes] = await Promise.all([
           qrQuery,
           billQuery,
+          bbpsQuery,
           pendingQrQuery,
           pendingBillQuery,
+          pendingBbpsQuery,
           supabase
             .from('qr_settings')
             .select('watermark_url, is_watermark_enabled')
@@ -133,8 +149,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
         }
 
         const qrTotal = qrRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-        const billTotal = billRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
-        const totalPending = (pendingQrRes.count || 0) + (pendingBillRes.count || 0);
+        const billTotal = (billRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0) +
+                          (bbpsRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0);
+        const totalPending = (pendingQrRes.count || 0) + (pendingBillRes.count || 0) + (pendingBbpsRes.count || 0);
 
         setStats([
           {

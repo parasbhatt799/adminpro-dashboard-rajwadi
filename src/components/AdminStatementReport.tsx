@@ -117,6 +117,14 @@ export default function AdminStatementReport() {
       `)
       .in('status', ['approved', 'pending', 'rejected', 'refunded'])
       .order('created_at', { ascending: false });
+
+      // BBPS Payments (All statuses)
+      let bbpsQuery = supabase.from('bbps_submissions').select(`
+        *,
+        users_profiles!bbps_submissions_user_id_fkey!inner(name, firm_name)
+      `)
+      .in('status', ['approved', 'pending', 'rejected', 'refunded'])
+      .order('created_at', { ascending: false });
       
       // Payouts (All statuses)
       let payoutQuery = supabase.from('payout_submissions').select(`
@@ -126,9 +134,10 @@ export default function AdminStatementReport() {
       .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded'])
       .order('created_at', { ascending: false });
 
-      const [qrData, billData, payoutData] = await Promise.all([
+      const [qrData, billData, bbpsData, payoutData] = await Promise.all([
         fetchAll(qrQuery),
         fetchAll(billQuery),
+        fetchAll(bbpsQuery),
         fetchAll(payoutQuery)
       ]);
 
@@ -153,7 +162,7 @@ export default function AdminStatementReport() {
       }));
 
       const billMapped: UnifiedRecord[] = [];
-      (billData || []).forEach(r => {
+      const processBillRow = (r: any, isBbps: boolean) => {
         billMapped.push({
           id: r.id,
           numericId: String(r.id).split('-')[0].toUpperCase(),
@@ -161,12 +170,12 @@ export default function AdminStatementReport() {
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
           user_name: r.users_profiles?.name || 'N/A',
-          reference: r.customer_mobile || '0000000000',
+          reference: isBbps ? r.consumer_number : (r.customer_mobile || '0000000000'),
           amount: Number(r.amount),
           charges: Number(r.charges || 0),
           final_total: Number(r.amount) + Number(r.charges || 0),
           status: r.status,
-          raw_data: r,
+          raw_data: { ...r, is_bbps: isBbps },
           balance: 0,
           before_balance: Number(r.remaining_balance || 0) + (Number(r.amount) + Number(r.charges || 0)),
           after_balance: Number(r.remaining_balance || 0),
@@ -181,19 +190,22 @@ export default function AdminStatementReport() {
             date: r.created_at,
             firm_name: r.users_profiles?.firm_name || 'N/A',
             user_name: r.users_profiles?.name || 'N/A',
-            reference: r.customer_mobile || '0000000000',
+            reference: isBbps ? r.consumer_number : (r.customer_mobile || '0000000000'),
             amount: Number(r.amount),
             charges: Number(r.charges || 0),
             final_total: Number(r.amount) + Number(r.charges || 0),
             status: 'refunded',
-            raw_data: { ...r, is_refund_row: true },
+            raw_data: { ...r, is_refund_row: true, is_bbps: isBbps },
             balance: 0,
             before_balance: 0,
             after_balance: 0,
             current_wallet: 0,
           });
         }
-      });
+      };
+
+      (billData || []).forEach(r => processBillRow(r, false));
+      (bbpsData || []).forEach(r => processBillRow(r, true));
 
       const payoutMapped: UnifiedRecord[] = [];
       (payoutData || []).forEach(r => {
@@ -332,7 +344,9 @@ export default function AdminStatementReport() {
       'Description': r.type === 'QR' 
         ? `${r.raw_data?.qr_history?.qr_name || 'QR'} - Ref: ${r.reference}`
         : r.type === 'BILL'
-          ? `Card: ${r.raw_data?.card_number || '****'} - Mob: ${r.reference}`
+          ? (r.raw_data?.is_bbps 
+              ? `BBPS: ${r.raw_data?.service_type} (${r.raw_data?.provider}) - Consumer: ${r.reference}`
+              : `Card: ${r.raw_data?.card_number || '****'} - Mob: ${r.reference}`)
           : `${r.raw_data?.bank_name || 'Payout'} - Txn: ${r.reference}`,
       'Credit': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
       'Debit': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
@@ -358,7 +372,9 @@ export default function AdminStatementReport() {
         r.type === 'QR' 
           ? `${r.raw_data?.qr_history?.qr_name || 'QR'} - Ref: ${r.reference}`
           : r.type === 'BILL'
-            ? `Card: ${r.raw_data?.card_number || '****'} - Mob: ${r.reference}`
+            ? (r.raw_data?.is_bbps 
+                ? `BBPS: ${r.raw_data?.service_type} (${r.raw_data?.provider}) - Consumer: ${r.reference}`
+                : `Card: ${r.raw_data?.card_number || '****'} - Mob: ${r.reference}`)
             : `${r.raw_data?.bank_name || 'Payout'} - Txn: ${r.reference}`,
         r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
         (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
@@ -610,12 +626,27 @@ export default function AdminStatementReport() {
                               <span className="text-slate-400 italic">({r.amount} - {r.charges} Profit)</span>
                             </>
                           ) : r.type === 'BILL' ? (
-                            <>
-                              <div className="font-bold text-slate-900">Card No: {r.raw_data?.card_number || '****'}</div>
-                              <span className="font-medium text-slate-500">Mob:</span> {r.reference}
-                              <br />
-                              <span className="text-slate-400 italic">({r.amount} + {r.charges} Txn Fee)</span>
-                            </>
+                            r.raw_data?.is_bbps ? (
+                              <>
+                                <div className="font-bold text-slate-900">BBPS: {r.raw_data?.service_type} ({r.raw_data?.provider})</div>
+                                <span className="font-medium text-slate-500">Consumer No:</span> {r.reference}
+                                {r.raw_data?.transaction_id && (
+                                  <>
+                                    <br />
+                                    <span className="font-medium text-slate-500">Txn ID:</span> {r.raw_data?.transaction_id}
+                                  </>
+                                )}
+                                <br />
+                                <span className="text-slate-400 italic">({r.amount} + {r.charges} Txn Fee)</span>
+                              </>
+                            ) : (
+                              <>
+                                <div className="font-bold text-slate-900">Card No: {r.raw_data?.card_number || '****'}</div>
+                                <span className="font-medium text-slate-500">Mob:</span> {r.reference}
+                                <br />
+                                <span className="text-slate-400 italic">({r.amount} + {r.charges} Txn Fee)</span>
+                              </>
+                            )
                           ) : r.type === 'ADJUSTMENT' ? (
                             <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-xl">
                               <div className="font-bold text-emerald-700 uppercase text-[10px]">Wallet Refund</div>

@@ -60,19 +60,21 @@ export default function UserReports({ userId }: UserReportsProps) {
           .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
-        // Fetch Bill Payments
-        const { data: billData } = await supabase
-          .from('bill_submissions')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
+        // Fetch Bill Payments and BBPS Payments
+        const [billRes, bbpsRes] = await Promise.all([
+          supabase.from('bill_submissions').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+          supabase.from('bbps_submissions').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+        ]);
+
+        const combinedBills = [...(billRes.data || []), ...(bbpsRes.data || [])];
+        combinedBills.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
         setQrRequests(qrData || []);
-        setBillRequests(billData || []);
+        setBillRequests(combinedBills);
 
         // Extract unique banks for filter
-        if (billData) {
-          const uniqueBanks = Array.from(new Set(billData.map(b => b.card_bank))).filter(Boolean);
+        if (combinedBills.length > 0) {
+          const uniqueBanks = Array.from(new Set(combinedBills.map(b => b.card_bank || b.provider))).filter(Boolean);
           setBanks(uniqueBanks as string[]);
         }
       } catch (err) {

@@ -33,6 +33,7 @@ interface BillSubmission {
     name: string;
     firm_name: string;
   };
+  is_bbps?: boolean;
 }
 
 export default function DistributorBillPayments({ userId }: { userId: string }) {
@@ -114,6 +115,13 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
           users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name, distributor_id)
         `);
 
+      let bbpsQuery = supabase
+        .from('bbps_submissions')
+        .select(`
+          *,
+          users_profiles!bbps_submissions_user_id_fkey!inner(name, firm_name, distributor_id)
+        `);
+
       if (role === 'super_distributor') {
         const { data: distributors } = await supabase
           .from('users_profiles')
@@ -127,8 +135,10 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
           return;
         }
         query = query.in('users_profiles.distributor_id', distIds);
+        bbpsQuery = bbpsQuery.in('users_profiles.distributor_id', distIds);
       } else {
         query = query.eq('users_profiles.distributor_id', userId);
+        bbpsQuery = bbpsQuery.eq('users_profiles.distributor_id', userId);
       }
 
       const range = getDateRange(dateFilter);
@@ -136,11 +146,43 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
         query = query
           .gte('created_at', range.start.toISOString())
           .lte('created_at', range.end.toISOString());
+        bbpsQuery = bbpsQuery
+          .gte('created_at', range.start.toISOString())
+          .lte('created_at', range.end.toISOString());
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
-      setSubmissions(data || []);
+      const [billRes, bbpsRes] = await Promise.all([
+        query.order('created_at', { ascending: false }),
+        bbpsQuery.order('created_at', { ascending: false })
+      ]);
+      
+      if (billRes.error) throw billRes.error;
+      if (bbpsRes.error) throw bbpsRes.error;
+      
+      const mappedBills: BillSubmission[] = (billRes.data || []).map(r => ({
+        ...r,
+        is_bbps: false
+      }));
+
+      const mappedBbps: BillSubmission[] = (bbpsRes.data || []).map(r => ({
+        id: r.id,
+        user_id: r.user_id,
+        customer_mobile: r.consumer_number,
+        card_bank: r.provider,
+        card_number: r.transaction_id || r.service_type || 'BBPS',
+        card_owner_name: `BBPS: ${r.service_type}`,
+        amount: Number(r.amount),
+        charges: Number(r.charges || 0),
+        status: r.status,
+        rejection_reason: r.rejection_reason,
+        created_at: r.created_at,
+        users_profiles: r.users_profiles,
+        is_bbps: true
+      }));
+
+      const combined = [...mappedBills, ...mappedBbps];
+      combined.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setSubmissions(combined);
     } catch (err) {
       console.error('Error fetching distributor bill payments:', err);
     } finally {
@@ -303,12 +345,16 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-xs font-bold text-slate-900">{req.card_bank}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{req.customer_mobile}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{req.is_bbps ? `Consumer: ${req.customer_mobile}` : req.customer_mobile}</p>
                       </td>
                       <td className="px-6 py-4 text-center">
                         <p className="text-xs font-bold text-slate-900 flex items-center justify-center gap-1">
-                          <CreditCard size={12} className="text-slate-400" />
-                          {req.card_number}
+                          {req.is_bbps ? (
+                            <Receipt size={12} className="text-slate-400" />
+                          ) : (
+                            <CreditCard size={12} className="text-slate-400" />
+                          )}
+                          {req.is_bbps ? req.card_number : req.card_number.slice(-4)}
                         </p>
                         <p className="text-[10px] text-slate-500 font-medium truncate max-w-[120px] mx-auto">{req.card_owner_name}</p>
                       </td>

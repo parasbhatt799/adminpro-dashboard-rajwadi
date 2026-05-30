@@ -706,6 +706,16 @@ export default function App() {
         })
         .subscribe();
 
+      const bbpsSub = supabase
+        .channel('bbps_pending_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'bbps_submissions' }, (payload) => {
+          fetchPendingCounts();
+          if (payload.eventType === 'INSERT') {
+            playNotificationSound('bill');
+          }
+        })
+        .subscribe();
+
       const kycSub = supabase
         .channel('kyc_pending_realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'kyc_submissions' }, (payload) => {
@@ -773,6 +783,7 @@ export default function App() {
         supabase.removeChannel(holdChannel);
         supabase.removeChannel(qrSub);
         supabase.removeChannel(billSub);
+        supabase.removeChannel(bbpsSub);
         supabase.removeChannel(kycSub);
         supabase.removeChannel(payoutSub);
       };

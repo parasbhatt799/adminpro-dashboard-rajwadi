@@ -235,25 +235,47 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         `)
           .eq('status', 'approved');
 
+        let bbpsQuery = supabase.from('bbps_submissions').select(`
+          *, 
+          users_profiles!bbps_submissions_user_id_fkey!inner(firm_name, distributor_id)
+        `)
+          .eq('status', 'approved');
+
         if (currentUserRole === 'super_distributor') {
           if (distIds.length > 0) {
             billQuery = billQuery.in('users_profiles.distributor_id', distIds);
+            bbpsQuery = bbpsQuery.in('users_profiles.distributor_id', distIds);
           } else {
             billQuery = billQuery.eq('id', '00000000-0000-0000-0000-000000000000');
+            bbpsQuery = bbpsQuery.eq('id', '00000000-0000-0000-0000-000000000000');
           }
         } else {
           billQuery = billQuery.eq('users_profiles.distributor_id', userId);
+          bbpsQuery = bbpsQuery.eq('users_profiles.distributor_id', userId);
         }
 
-        if (firmName) billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
-        if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+        if (firmName) {
+          billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+          bbpsQuery = bbpsQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
+        }
+        if (startDate) {
+          billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
+          bbpsQuery = bbpsQuery.gte('created_at', `${startDate}T00:00:00`);
+        }
+        if (endDate) {
+          billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+          bbpsQuery = bbpsQuery.lte('created_at', `${endDate}T23:59:59`);
+        }
 
-        const billData = await fetchAll(billQuery);
-        billMapped = (billData || []).map((r) => ({
+        const [billData, bbpsData] = await Promise.all([
+          fetchAll(billQuery),
+          fetchAll(bbpsQuery)
+        ]);
+
+        const mappedBills = (billData || []).map((r) => ({
           id: String(r.id || ''),
           numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
-          type: 'BILL',
+          type: 'BILL' as const,
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
           reference: r.customer_mobile || '0000000000',
@@ -261,8 +283,24 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           charges: Number(r.charges || 0),
           final_total: Number(r.amount) + Number(r.charges || 0),
           status: r.status,
-          raw_data: r
+          raw_data: { ...r, is_bbps: false }
         }));
+
+        const mappedBbps = (bbpsData || []).map((r) => ({
+          id: String(r.id || ''),
+          numericId: String(r.id || '').split('-')[0].toUpperCase(),
+          type: 'BILL' as const,
+          date: r.created_at,
+          firm_name: r.users_profiles?.firm_name || 'N/A',
+          reference: r.consumer_number,
+          amount: Number(r.amount),
+          charges: Number(r.charges || 0),
+          final_total: Number(r.amount) + Number(r.charges || 0),
+          status: r.status,
+          raw_data: { ...r, is_bbps: true }
+        }));
+
+        billMapped = [...mappedBills, ...mappedBbps];
       }
 
       // 3. Fetch Payouts
@@ -528,10 +566,17 @@ export default function DistributorStatementReport({ userId }: { userId: string 
                     <td className="px-6 py-4">
                       <div className="text-[13px] text-slate-600 leading-relaxed">
                         {r.type === 'BILL' ? (
-                          <>
-                            <div>Mobile: <span className="font-bold">{r.reference}</span></div>
-                            <div className="text-[11px] text-slate-400">Card: {r.raw_data?.card_number || '****'}</div>
-                          </>
+                          r.raw_data?.is_bbps ? (
+                            <>
+                              <div>BBPS: <span className="font-bold">{r.raw_data?.service_type} ({r.raw_data?.provider})</span></div>
+                              <div className="text-[11px] text-slate-400">Consumer: {r.reference}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div>Mobile: <span className="font-bold">{r.reference}</span></div>
+                              <div className="text-[11px] text-slate-400">Card: {r.raw_data?.card_number || '****'}</div>
+                            </>
+                          )
                         ) : r.type === 'PAYOUT' ? (
                           <>
                             <div className="font-bold">{r.raw_data?.account_holder_name}</div>

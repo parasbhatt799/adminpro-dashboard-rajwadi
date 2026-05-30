@@ -31,11 +31,9 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('bill_submissions')
+        .from('bbps_submissions')
         .select('*')
         .eq('user_id', userId)
-        .not('service_type', 'is', null)
-        .neq('service_type', 'Credit Card')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

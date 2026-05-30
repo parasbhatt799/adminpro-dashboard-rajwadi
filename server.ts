@@ -617,9 +617,9 @@ async function startServer() {
           console.error("[CRITICAL] Wallet deduction failed for completed BBPS transaction:", updateError);
         }
 
-        // 5. Log transaction into bill_submissions with approved status and dynamic charges
+        // 5. Log transaction into bbps_submissions with approved status and dynamic charges
         const { error: insertError } = await supabaseAdmin
-          .from("bill_submissions")
+          .from("bbps_submissions")
           .insert({
             user_id: userId,
             service_type: service_type || "BBPS Bill Pay",
@@ -627,11 +627,17 @@ async function startServer() {
             consumer_number: consumer_number || "BBPS Account",
             amount: paymentAmount,
             charges: serviceCharge,
-            status: "approved"
+            status: "approved",
+            transaction_id: data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
+            metadata: {
+              billerName: provider || biller_id,
+              date: new Date().toLocaleString(),
+              consumerDetails: customerParams
+            }
           });
 
         if (insertError) {
-          console.error("[BBPS Proxy] Failed to log transaction in bill_submissions:", insertError);
+          console.error("[BBPS Proxy] Failed to log transaction in bbps_submissions:", insertError);
         }
 
         return res.json({

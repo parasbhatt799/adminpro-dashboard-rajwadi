@@ -225,8 +225,9 @@ export default function BillDistributorReport({ userId }: BillDistributorReportP
       }
 
       // 3. Query Bill payments
+      // 3. Query Bill payments
       const range = getDateRange(dateFilter);
-      let query = supabase
+      let billQuery = supabase
         .from('bill_submissions')
         .select(`
           *,
@@ -234,17 +235,33 @@ export default function BillDistributorReport({ userId }: BillDistributorReportP
         `)
         .in('user_id', userIds);
 
+      let bbpsQuery = supabase
+        .from('bbps_submissions')
+        .select(`
+          *,
+          users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, distributor_id)
+        `)
+        .in('user_id', userIds);
+
       if (range) {
-        query = query
+        billQuery = billQuery
+          .gte('created_at', range.start.toISOString())
+          .lte('created_at', range.end.toISOString());
+        bbpsQuery = bbpsQuery
           .gte('created_at', range.start.toISOString())
           .lte('created_at', range.end.toISOString());
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) throw error;
+      const [billRes, bbpsRes] = await Promise.all([
+        billQuery.order('created_at', { ascending: false }),
+        bbpsQuery.order('created_at', { ascending: false })
+      ]);
+
+      if (billRes.error) throw billRes.error;
+      if (bbpsRes.error) throw bbpsRes.error;
 
       // 4. Map distributor details to the requests
-      const processed = (data || []).map(req => {
+      const mappedBills = (billRes.data || []).map(req => {
         const userProfile = req.users_profiles;
         const distId = userProfile?.distributor_id;
         const distInfo = distId ? distMap.get(distId) : null;
@@ -254,10 +271,40 @@ export default function BillDistributorReport({ userId }: BillDistributorReportP
           user_name: userProfile?.name || 'N/A',
           user_firm: userProfile?.firm_name || 'N/A',
           dist_name: distInfo?.name || 'N/A',
-          dist_firm: distInfo?.firm_name || 'N/A'
+          dist_firm: distInfo?.firm_name || 'N/A',
+          is_bbps: false
         };
       });
 
+      const mappedBbps = (bbpsRes.data || []).map(req => {
+        const userProfile = req.users_profiles;
+        const distId = userProfile?.distributor_id;
+        const distInfo = distId ? distMap.get(distId) : null;
+
+        return {
+          id: req.id,
+          user_id: req.user_id,
+          customer_mobile: req.consumer_number,
+          card_bank: req.provider,
+          card_number: req.transaction_id || req.service_type || 'BBPS',
+          card_owner_name: `BBPS: ${req.service_type}`,
+          amount: Number(req.amount),
+          charges: Number(req.charges || 0),
+          status: req.status,
+          rejection_reason: req.rejection_reason,
+          created_at: req.created_at,
+          super_distributor_share: req.super_distributor_share || 0,
+          users_profiles: req.users_profiles,
+          user_name: userProfile?.name || 'N/A',
+          user_firm: userProfile?.firm_name || 'N/A',
+          dist_name: distInfo?.name || 'N/A',
+          dist_firm: distInfo?.firm_name || 'N/A',
+          is_bbps: true
+        };
+      });
+
+      const processed = [...mappedBills, ...mappedBbps];
+      processed.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setRequests(processed);
     } catch (err) {
       console.error('Error fetching Bill distributor report:', err);
@@ -557,12 +604,16 @@ export default function BillDistributorReport({ userId }: BillDistributorReportP
                         <UserIcon size={12} className="text-slate-400" />
                         {req.card_owner_name}
                       </p>
-                      <p className="text-[10px] text-slate-500">{req.customer_mobile}</p>
+                      <p className="text-[10px] text-slate-500">{req.is_bbps ? `Consumer No: ${req.customer_mobile}` : req.customer_mobile}</p>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                        <CreditCard size={12} className="text-slate-400" />
-                        {req.card_number}
+                        {req.is_bbps ? (
+                          <Receipt size={12} className="text-slate-400" />
+                        ) : (
+                          <CreditCard size={12} className="text-slate-400" />
+                        )}
+                        {req.is_bbps ? req.card_number : (req.card_number || '').slice(-4)}
                       </p>
                       <p className="text-[10px] text-slate-500">{req.card_bank}</p>
                     </td>

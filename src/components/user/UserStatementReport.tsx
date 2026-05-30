@@ -51,9 +51,10 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       if (startDate) {
         const startDateTime = `${startDate}T00:00:00`;
         
-        const [qrPre, billPre, payoutPre] = await Promise.all([
+        const [qrPre, billPre, bbpsPre, payoutPre] = await Promise.all([
           supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', startDateTime),
           supabase.from('bill_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', startDateTime),
+          supabase.from('bbps_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', startDateTime),
           supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']).lt('created_at', startDateTime)
         ]);
 
@@ -69,6 +70,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             return acc + (Number(r.amount) + Number(r.charges || 0));
           }
           return acc; // rejected/refunded net effect is 0
+        }, 0) + (bbpsPre.data || []).reduce((acc, r) => {
+          if (r.status === 'approved' || r.status === 'pending') {
+            return acc + (Number(r.amount) + Number(r.charges || 0));
+          }
+          return acc; 
         }, 0);
 
         const payoutNet = (payoutPre.data || []).reduce((acc, r) => {
@@ -120,13 +126,28 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           .eq('user_id', userId)
           .in('status', ['approved', 'pending', 'rejected', 'refunded']);
 
-        if (startDate) billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+        let bbpsQuery = supabase
+          .from('bbps_submissions')
+          .select('*')
+          .eq('user_id', userId)
+          .in('status', ['approved', 'pending', 'rejected', 'refunded']);
 
-        const { data, error } = await billQuery;
-        if (error) throw error;
+        if (startDate) {
+          billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
+          bbpsQuery = bbpsQuery.gte('created_at', `${startDate}T00:00:00`);
+        }
+        if (endDate) {
+          billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
+          bbpsQuery = bbpsQuery.lte('created_at', `${endDate}T23:59:59`);
+        }
+
+        const [billRes, bbpsRes] = await Promise.all([billQuery, bbpsQuery]);
+        if (billRes.error) throw billRes.error;
+        if (bbpsRes.error) throw bbpsRes.error;
         
-        (data || []).forEach(r => {
+        const combinedBills = [...(billRes.data || []), ...(bbpsRes.data || [])];
+        
+        combinedBills.forEach(r => {
           // Deduction
           billMapped.push({
             id: String(r.id || ''),
