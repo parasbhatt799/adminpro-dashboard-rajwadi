@@ -244,18 +244,29 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       if (data.status === 'SUCCESS' && data.data?.billerInputParams) {
         // Flatten params list from API structure
         const list: BillerInputParam[] = [];
-        data.data.billerInputParams.forEach((paramGroup: any) => {
-          if (paramGroup.paramsList) {
-            paramGroup.paramsList.forEach((p: any) => {
-              list.push({
-                paramName: p.paramName,
-                dataType: p.dataType,
-                optional: p.optional === "true" || p.optional === true
-              });
-            });
+        let paramsData = data.data.billerInputParams;
+        if (typeof paramsData === 'string') {
+          try {
+            paramsData = JSON.parse(paramsData);
+          } catch (e) {
+            console.error("Failed to parse billerInputParams string:", e);
           }
-        });
-        setInputParams(list);
+        }
+
+        if (Array.isArray(paramsData)) {
+          paramsData.forEach((paramGroup: any) => {
+            if (paramGroup.paramsList) {
+              paramGroup.paramsList.forEach((p: any) => {
+                list.push({
+                  paramName: p.paramName,
+                  dataType: p.dataType,
+                  optional: p.optional === "true" || p.optional === true || p.isOptional === "true" || p.isOptional === true
+                });
+              });
+            }
+          });
+        }
+        setInputParams(list.length > 0 ? list : [{ paramName: "Account / Consumer Number", dataType: "ALPHANUMERIC" }]);
       } else {
         // If parameters call fails, supply a default Consumer Number input
         setInputParams([{ paramName: "Account / Consumer Number", dataType: "ALPHANUMERIC" }]);
