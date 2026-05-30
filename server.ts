@@ -52,11 +52,11 @@ async function startServer() {
   app.post("/api/send-email", async (req, res) => {
     const { to, subject, text, html } = req.body;
     console.log("Incoming email request to:", to);
-    
+
     if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
       console.error("SMTP configuration missing in process.env");
-      return res.status(500).json({ 
-        error: "SMTP configuration missing. Please ensure your .env file is correct and you have RESTARTED the server." 
+      return res.status(500).json({
+        error: "SMTP configuration missing. Please ensure your .env file is correct and you have RESTARTED the server."
       });
     }
 
@@ -90,7 +90,7 @@ async function startServer() {
 
   app.post("/api/manage-admin", async (req, res) => {
     const { action, password, mobileNumber } = req.body;
-    
+
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY === "Paste_your_service_role_key_here") {
       return res.status(500).json({ error: "Service Role Key is missing. Please add it to your .env file." });
     }
@@ -104,12 +104,12 @@ async function startServer() {
         });
         if (error) throw error;
         return res.json({ success: true, user: data.user });
-      } 
-      
+      }
+
       if (action === "delete") {
         const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
         if (listError) throw listError;
-        
+
         const user = usersData.users.find((u: any) => u.phone?.replace('+', '') === mobileNumber.replace('+', ''));
         if (!user) {
           // If not found in Auth, just return success as we probably just need to clean up the table
@@ -118,7 +118,7 @@ async function startServer() {
 
         const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
         if (deleteError) throw deleteError;
-        
+
         return res.json({ success: true });
       }
 
@@ -273,7 +273,7 @@ async function startServer() {
           .from('users_profiles')
           .select('onesignal_id')
           .in('id', externalUserIds.map((id: any) => String(id)));
-        
+
         if (profiles) {
           const freshPlayerIds = profiles.map(p => p.onesignal_id).filter(Boolean);
           targetPlayerIds = [...new Set([...targetPlayerIds, ...freshPlayerIds])];
@@ -292,7 +292,7 @@ async function startServer() {
       // 3. Target specific players if provided
       const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
       const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
-      
+
       const hasValidTarget = cleanPlayerIds.length > 0 || cleanExternalIds.length > 0;
 
       if (hasValidTarget) {
@@ -333,7 +333,7 @@ async function startServer() {
             if (osRes.statusCode && osRes.statusCode >= 200 && osRes.statusCode < 300) {
               res.json({ success: true, id: parsed.id });
             } else {
-              res.status(osRes.statusCode || 500).json({ 
+              res.status(osRes.statusCode || 500).json({
                 error: parsed.errors?.[0] || "OneSignal API Error",
                 details: parsed.errors
               });
@@ -471,10 +471,10 @@ async function startServer() {
         return res.status(400).json({ status: "ERROR", message: "Invalid amount specified." });
       }
 
-      // 1. Fetch user's current wallet balance
+      // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
         .from("users_profiles")
-        .select("wallet_balance")
+        .select("wallet_balance, service_charge_enabled, custom_service_charge")
         .eq("id", userId)
         .single();
 
@@ -484,11 +484,38 @@ async function startServer() {
 
       const currentBalance = Number(user.wallet_balance) || 0;
 
-      // 2. Enforce minimum ₹250 wallet balance rule
-      if (currentBalance - paymentAmount < 250) {
+      // 1.5 Fetch active service charge slabs to compute commission fee
+      const { data: slabs, error: slabsError } = await supabaseAdmin
+        .from("service_charge_slabs")
+        .select("*")
+        .eq("is_active", true)
+        .order("min_amount", { ascending: true });
+
+      if (slabsError) {
+        console.error("[BBPS Proxy] Error fetching slabs:", slabsError);
+      }
+
+      let serviceCharge = 0;
+      if (user.service_charge_enabled) {
+        serviceCharge = Number(user.custom_service_charge) || 0;
+      } else if (slabs && slabs.length > 0) {
+        const slab = slabs.find(s => paymentAmount >= Number(s.min_amount) && paymentAmount <= Number(s.max_amount));
+        if (slab) {
+          if (slab.is_percentage) {
+            serviceCharge = (paymentAmount * Number(slab.charge_amount)) / 100;
+          } else {
+            serviceCharge = Number(slab.charge_amount);
+          }
+        }
+      }
+
+      const totalDeduction = paymentAmount + serviceCharge;
+
+      // 2. Enforce minimum ₹250 wallet balance rule taking calculated charges into account
+      if (currentBalance - totalDeduction < 250) {
         return res.status(400).json({
           status: "ERROR",
-          message: "Insufficient balance. You must maintain at least ₹250 in your wallet after payment."
+          message: `Insufficient balance. You must maintain at least ₹250 in your wallet after payment (Bill Amount: ₹${paymentAmount} + Charges: ₹${serviceCharge}).`
         });
       }
 
@@ -520,10 +547,10 @@ async function startServer() {
       }));
 
       // Extract user mobile number for validation, or fall back to default
-      const userMobile = customerParams["Registered Mobile Number"] || 
-                         customerParams["Mobile Number"] || 
-                         customerParams["Mobile"] || 
-                         "9999999999";
+      const userMobile = customerParams["Registered Mobile Number"] ||
+        customerParams["Mobile Number"] ||
+        customerParams["Mobile"] ||
+        "9999999999";
 
       const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
@@ -578,7 +605,7 @@ async function startServer() {
       }
 
       if (data.status === "SUCCESS") {
-        const newBalance = currentBalance - paymentAmount;
+        const newBalance = currentBalance - totalDeduction;
 
         // 4. Deduct wallet balance in Supabase
         const { error: updateError } = await supabaseAdmin
@@ -590,9 +617,7 @@ async function startServer() {
           console.error("[CRITICAL] Wallet deduction failed for completed BBPS transaction:", updateError);
         }
 
-        const txnid = data.txnid || data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`;
-
-        // 5. Log transaction into bill_submissions with approved status and full metadata
+        // 5. Log transaction into bill_submissions with approved status and dynamic charges
         const { error: insertError } = await supabaseAdmin
           .from("bill_submissions")
           .insert({
@@ -601,15 +626,8 @@ async function startServer() {
             provider: provider || biller_id,
             consumer_number: consumer_number || "BBPS Account",
             amount: paymentAmount,
-            status: "approved",
-            transaction_id: txnid,
-            metadata: {
-              txnid,
-              amount: paymentAmount,
-              billerName: provider || biller_id,
-              date: new Date().toLocaleString(),
-              consumerDetails: customerParams
-            }
+            charges: serviceCharge,
+            status: "approved"
           });
 
         if (insertError) {
@@ -620,6 +638,7 @@ async function startServer() {
           status: "SUCCESS",
           message: "Transaction SUCCESS",
           new_balance: newBalance,
+          charges: serviceCharge,
           data: data.data
         });
       } else {
@@ -677,13 +696,13 @@ async function startServer() {
 
       await fs.ensureDir(tempDir);
       debugLog(`Temp dir created at ${tempDir}`);
-      
+
       // 1. DATABASE EXPORT
       const tables = [
-        'users_profiles', 'qr_history', 'rejection_categories', 'rejection_reasons', 
-        'admin_profiles', 'admin_withdrawals', 'app_policies', 'bank_details', 
-        'bill_submissions', 'complaint_messages', 'complaints', 'distributor_withdrawals', 
-        'headlines', 'kyc_submissions', 'notifications', 'onesignal_settings', 
+        'users_profiles', 'qr_history', 'rejection_categories', 'rejection_reasons',
+        'admin_profiles', 'admin_withdrawals', 'app_policies', 'bank_details',
+        'bill_submissions', 'complaint_messages', 'complaints', 'distributor_withdrawals',
+        'headlines', 'kyc_submissions', 'notifications', 'onesignal_settings',
         'payment_submissions', 'payout_settings', 'payout_submissions', 'qr_settings',
         'service_charge_slabs', 'system_status', 'whatsapp_api_settings'
       ];
@@ -777,10 +796,10 @@ async function startServer() {
       const archive = archiver('zip', { zlib: { level: 9 } });
       archive.pipe(res);
       archive.directory(tempDir, false);
-      
+
       archive.on('end', async () => {
         debugLog("--- BACKUP COMPLETED AND SENT ---");
-        try { await fs.remove(tempDir); } catch {}
+        try { await fs.remove(tempDir); } catch { }
       });
 
       await archive.finalize();
@@ -788,7 +807,7 @@ async function startServer() {
     } catch (error: any) {
       debugLog(`GLOBAL CRITICAL FAILURE: ${error.message}`);
       if (!res.headersSent) res.status(500).send(`Backup failed: ${error.message}`);
-      try { await fs.remove(tempDir); } catch {}
+      try { await fs.remove(tempDir); } catch { }
     }
   });
 

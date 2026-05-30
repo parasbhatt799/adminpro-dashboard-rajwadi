@@ -100,6 +100,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   
   // Wallet state
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [slabs, setSlabs] = useState<any[]>([]);
   
   // BBPS flows states
   const [step, setStep] = useState<number>(1); // 1: Categories, 2: Billers, 3: Form/Fetch, 4: Payment success
@@ -139,25 +141,54 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   const [receipt, setReceipt] = useState<{
     txnid: string;
     amount: number;
+    charges?: number;
     billerName: string;
     date: string;
     consumerDetails: Record<string, string>;
   } | null>(null);
 
-  // Fetch Wallet Balance
+  // Fetch Wallet Balance and service charge configurations
   const fetchWalletBalance = async () => {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select('wallet_balance')
+        .select('wallet_balance, service_charge_enabled, custom_service_charge')
         .eq('id', userId)
         .single();
       if (!error && data) {
         setWalletBalance(Number(data.wallet_balance) || 0);
+        setUserProfile(data);
+      }
+
+      // Fetch active service charge slabs
+      const { data: slabData } = await supabase
+        .from('service_charge_slabs')
+        .select('*')
+        .eq('is_active', true)
+        .order('min_amount', { ascending: true });
+      if (slabData) {
+        setSlabs(slabData);
       }
     } catch (err) {
-      console.error("Error loading balance:", err);
+      console.error("Error loading profile / slabs:", err);
     }
+  };
+
+  const calculateBillCharge = (amount: number) => {
+    if (!userProfile) return 0;
+
+    if (userProfile.service_charge_enabled) {
+      return Number(userProfile.custom_service_charge) || 0;
+    }
+
+    const slab = slabs.find(s => amount >= s.min_amount && amount <= s.max_amount);
+    if (slab) {
+      if (slab.is_percentage) {
+        return (amount * slab.charge_amount) / 100;
+      }
+      return slab.charge_amount;
+    }
+    return 0;
   };
 
   useEffect(() => {
@@ -387,8 +418,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       return;
     }
 
-    if (walletBalance - finalAmount < 250) {
-      toast.error("Insufficient wallet balance. You must maintain at least ₹250 after transaction.");
+    const serviceCharge = calculateBillCharge(finalAmount);
+    const totalDeduction = finalAmount + serviceCharge;
+
+    if (walletBalance - totalDeduction < 250) {
+      toast.error(`Insufficient wallet balance. You must maintain at least ₹250 after transaction (Bill Amount: ₹${finalAmount} + Service Charge: ₹${serviceCharge}).`);
       return;
     }
 
@@ -420,10 +454,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         toast.success("Bill Paid successfully!");
         setWalletBalance(data.new_balance);
         
-        // Save receipt
+        // Save receipt with charges
         setReceipt({
           txnid: data.data?.bbpsrecent?.[0]?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
           amount: finalAmount,
+          charges: data.charges || serviceCharge,
           billerName: selectedBiller?.biller_name || "Utility Operator",
           date: new Date().toLocaleString(),
           consumerDetails: formInputs
@@ -741,6 +776,25 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
                               />
                             </div>
+
+                            {/* Dynamic Premium Breakdown */}
+                            {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                              <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                  <span>Bill Base Amount</span>
+                                  <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                  <span>Transaction Charges</span>
+                                  <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                  <span>Total Debited</span>
+                                  <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              </div>
+                            )}
+
                             {billDetails.dueDate && (
                               <div className="flex justify-between items-center text-xs">
                                 <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
@@ -796,6 +850,24 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
                               />
                             </div>
+
+                            {/* Dynamic Premium Breakdown */}
+                            {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                              <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                  <span>Bill Base Amount</span>
+                                  <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                  <span>Transaction Charges</span>
+                                  <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                  <span>Total Debited</span>
+                                  <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -898,7 +970,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
                 <div className="text-center border-b border-dashed border-slate-200 pb-6">
                   <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">BBPS E-Receipt</span>
-                  <div className="text-3xl font-black text-slate-800 mt-4">₹{receipt.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                  <div className="text-3xl font-black text-slate-800 mt-4">₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                   <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
                 </div>
 
@@ -915,7 +987,22 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                     </div>
                   ))}
 
+                  <div className="flex justify-between border-t border-slate-100 pt-3">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">Base Bill Amount</span>
+                    <span className="font-black text-slate-800">₹{receipt.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+
                   <div className="flex justify-between">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider">Transaction Charges</span>
+                    <span className="font-black text-slate-800">₹{(receipt.charges || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div className="flex justify-between border-t border-slate-100 pt-3">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider font-black">Total Debited</span>
+                    <span className="font-black text-emerald-600 text-sm">₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>
+
+                  <div className="flex justify-between border-t border-slate-100 pt-3">
                     <span className="text-slate-400 font-bold uppercase tracking-wider">Transaction ID</span>
                     <span className="font-black text-slate-800 font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">{receipt.txnid}</span>
                   </div>

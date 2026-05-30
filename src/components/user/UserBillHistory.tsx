@@ -34,6 +34,8 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
         .from('bill_submissions')
         .select('*')
         .eq('user_id', userId)
+        .not('service_type', 'is', null)
+        .neq('service_type', 'Credit Card')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
