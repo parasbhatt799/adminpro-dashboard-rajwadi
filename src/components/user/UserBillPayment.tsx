@@ -48,31 +48,35 @@ interface CategoryInfo {
 // Helper to resolve clean dynamic bank logo URLs based on keyword matching
 const getBankLogoUrl = (bankName: string) => {
   const name = bankName.toLowerCase();
+  let domain = "";
   
-  if (name.includes("axis")) return "https://logo.clearbit.com/axisbank.com";
-  if (name.includes("hdfc")) return "https://logo.clearbit.com/hdfcbank.com";
-  if (name.includes("icici")) return "https://logo.clearbit.com/icicibank.com";
-  if (name.includes("sbi") || name.includes("state bank")) return "https://logo.clearbit.com/sbi.co.in";
-  if (name.includes("bob") || name.includes("baroda")) return "https://logo.clearbit.com/bankofbaroda.in";
-  if (name.includes("au bank")) return "https://logo.clearbit.com/aubank.in";
-  if (name.includes("bandhan")) return "https://logo.clearbit.com/bandhanbank.com";
-  if (name.includes("india credit") || name.includes("bank of india")) return "https://logo.clearbit.com/bankofindia.co.in";
-  if (name.includes("canara")) return "https://logo.clearbit.com/canarabank.com";
-  if (name.includes("cub") || name.includes("city union")) return "https://logo.clearbit.com/cityunionbank.com";
-  if (name.includes("dbs")) return "https://logo.clearbit.com/dbs.com";
-  if (name.includes("dcb")) return "https://logo.clearbit.com/dcbbank.com";
-  if (name.includes("dhanlaxmi")) return "https://logo.clearbit.com/dhanbank.com";
-  if (name.includes("idfc")) return "https://logo.clearbit.com/idfcfirstbank.com";
-  if (name.includes("indusind")) return "https://logo.clearbit.com/indusind.com";
-  if (name.includes("kotak")) return "https://logo.clearbit.com/kotak.com";
-  if (name.includes("pnb") || name.includes("punjab")) return "https://logo.clearbit.com/pnbindia.in";
-  if (name.includes("federal")) return "https://logo.clearbit.com/federalbank.co.in";
-  if (name.includes("rbl")) return "https://logo.clearbit.com/rblbank.com";
-  if (name.includes("yes bank")) return "https://logo.clearbit.com/yesbank.in";
-  if (name.includes("standard chartered")) return "https://logo.clearbit.com/sc.com";
-  if (name.includes("hsbc")) return "https://logo.clearbit.com/hsbc.co.in";
-  if (name.includes("onecard")) return "https://logo.clearbit.com/getonecard.app";
+  if (name.includes("axis")) domain = "axisbank.com";
+  else if (name.includes("hdfc")) domain = "hdfcbank.com";
+  else if (name.includes("icici")) domain = "icicibank.com";
+  else if (name.includes("sbi") || name.includes("state bank")) domain = "sbi.co.in";
+  else if (name.includes("bob") || name.includes("baroda")) domain = "bankofbaroda.in";
+  else if (name.includes("au bank")) domain = "aubank.in";
+  else if (name.includes("bandhan")) domain = "bandhanbank.com";
+  else if (name.includes("india credit") || name.includes("bank of india")) domain = "bankofindia.co.in";
+  else if (name.includes("canara")) domain = "canarabank.com";
+  else if (name.includes("cub") || name.includes("city union")) domain = "cityunionbank.com";
+  else if (name.includes("dbs")) domain = "dbs.com";
+  else if (name.includes("dcb")) domain = "dcbbank.com";
+  else if (name.includes("dhanlaxmi")) domain = "dhanbank.com";
+  else if (name.includes("idfc")) domain = "idfcfirstbank.com";
+  else if (name.includes("indusind")) domain = "indusind.com";
+  else if (name.includes("kotak")) domain = "kotak.com";
+  else if (name.includes("pnb") || name.includes("punjab")) domain = "pnbindia.in";
+  else if (name.includes("federal")) domain = "federalbank.co.in";
+  else if (name.includes("rbl")) domain = "rblbank.com";
+  else if (name.includes("yes bank")) domain = "yesbank.in";
+  else if (name.includes("standard chartered")) domain = "sc.com";
+  else if (name.includes("hsbc")) domain = "hsbc.co.in";
+  else if (name.includes("onecard")) domain = "getonecard.app";
   
+  if (domain) {
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+  }
   return null;
 };
 
