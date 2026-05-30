@@ -598,6 +598,13 @@ export default function UserBillPayment({ userId }: { userId: string }) {
             <p className="text-slate-500 text-sm mt-0.5">Pay electricity, gas, water, DTH, and mobile bills instantly.</p>
           </div>
         </div>
+
+        {/* Bharat Connect Logo */}
+        <img 
+          src="/bharat_connect.png" 
+          alt="Bharat Connect" 
+          className="h-10 md:h-12 object-contain relative z-10 shrink-0 select-none pointer-events-none"
+        />
       </div>
 
       {/* Main interaction screen */}
