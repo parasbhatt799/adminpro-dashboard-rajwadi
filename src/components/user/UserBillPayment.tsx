@@ -233,18 +233,19 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       });
       const data = await response.json();
       if (data.status === 'SUCCESS' && data.data?.bbps) {
-        const allowedCategories = ["electricity", "mobile postpaid", "credit card", "broadband"];
+        const allowedCategories = ["electricity", "mobile postpaid", "credit card", "broadband", "gas"];
         const filtered = data.data.bbps.filter((cat: any) => {
           const nameLower = cat.cat_name.toLowerCase();
           return allowedCategories.some(allowed => nameLower.includes(allowed));
         });
 
-        // Sort dynamically into exact layout requested: Electricity, Mobile Postpaid, Credit Card, Broadband
+        // Sort dynamically into exact layout requested: Electricity, Mobile Postpaid, Credit Card, Broadband, Gas
         const orderMap: Record<string, number> = {
           "electricity": 1,
           "mobile postpaid": 2,
           "credit card": 3,
-          "broadband": 4
+          "broadband": 4,
+          "gas": 5
         };
 
         filtered.sort((a: any, b: any) => {
@@ -254,6 +255,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
             if (lower.includes("mobile postpaid")) return orderMap["mobile postpaid"];
             if (lower.includes("credit card")) return orderMap["credit card"];
             if (lower.includes("broadband")) return orderMap["broadband"];
+            if (lower.includes("gas")) return orderMap["gas"];
             return 99;
           };
           return getOrder(a.cat_name) - getOrder(b.cat_name);
@@ -599,7 +601,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading bill categories...</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
                   {categories.map((cat) => {
                     const style = CATEGORY_STYLE_MAP[cat.cat_name] || 
                                   (cat.cat_name.toLowerCase().includes("gas") ? CATEGORY_STYLE_MAP["Gas"] : null) ||
