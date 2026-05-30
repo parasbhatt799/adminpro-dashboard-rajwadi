@@ -528,7 +528,10 @@ async function startServer() {
 
       if (!isAdhoc) {
         payPrimePayload.request_id = fetchResponse.request_id;
-        payPrimePayload.billerResponse = fetchResponse.data.billerResponse;
+        payPrimePayload.billerResponse = {
+          ...fetchResponse.data.billerResponse,
+          billAmount: amountInPaisa.toString()
+        };
         if (fetchResponse.data.additionalInfo) {
           payPrimePayload.additionalInfo = fetchResponse.data.additionalInfo;
         }
