@@ -403,6 +403,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
   // Form value change handler
   const handleInputChange = (paramName: string, value: string) => {
+    if (apiError) setApiError(null);
     const lower = paramName.toLowerCase();
     
     // Proactive length and character restrictions
@@ -506,23 +507,45 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           fetchSupported: true
         });
       } else {
-        // Fetch not supported, fallback to QuickPay
+        // Fetch failed
+        const msg = data.message || "Failed to fetch bill. Please verify entered details.";
+        const msgLower = msg.toLowerCase();
+        
+        const isCreditCard = selectedCategory?.cat_name.toLowerCase().includes("credit card");
+        const isFetchUnsupported = msgLower.includes("not supported") || msgLower.includes("unsupported") || msgLower.includes("not enabled");
+        
+        if (isCreditCard || !isFetchUnsupported) {
+          // Validation error (khoti details) -> Strictly do NOT allow payment or amount input
+          setApiError(msg);
+          setBillDetails(null); // Keep as null so right side is empty/shows placeholder, and NO input/button is shown!
+          toast.error(msg);
+        } else {
+          // Biller genuinely doesn't support fetch, fallback to QuickPay
+          setBillDetails({
+            customerName: "QuickPay User",
+            billAmount: 0,
+            fetchSupported: false
+          });
+          toast.info("This biller does not support bill fetching. You can pay directly via QuickPay!");
+        }
+      }
+    } catch (err: any) {
+      console.error("Fetch Bill Error:", err);
+      const isCreditCard = selectedCategory?.cat_name.toLowerCase().includes("credit card");
+      if (isCreditCard) {
+        const errorMsg = err.message || "Direct billing query failed. Please verify credentials.";
+        setApiError(errorMsg);
+        setBillDetails(null);
+        toast.error("Credit card validation failed.");
+      } else {
+        // Fallback to QuickPay on error as well
         setBillDetails({
           customerName: "QuickPay User",
           billAmount: 0,
           fetchSupported: false
         });
-        toast.info("This biller does not support bill fetching. You can pay directly via QuickPay!");
+        toast.info("Direct billing query unavailable. Proceeding with QuickPay manual entry.");
       }
-    } catch (err: any) {
-      console.error("Fetch Bill Error:", err);
-      // Fallback to QuickPay on error as well
-      setBillDetails({
-        customerName: "QuickPay User",
-        billAmount: 0,
-        fetchSupported: false
-      });
-      toast.info("Direct billing query unavailable. Proceeding with QuickPay manual entry.");
     } finally {
       setLoading(false);
     }
