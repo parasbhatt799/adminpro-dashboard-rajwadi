@@ -127,6 +127,9 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     billAmount: number; // in Rupees
     dueDate?: string;
     billNumber?: string;
+    billDate?: string;
+    billPeriod?: string;
+    additionalInfo?: Array<{ infoName: string; infoValue: string }>;
     fetchSupported: boolean;
   } | null>(null);
 
@@ -337,11 +340,16 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         const rawAmount = Number(responseData.billAmount) || 0;
         const amountInRupees = rawAmount > 5000 ? rawAmount / 100 : rawAmount; // Auto-scaling safety
 
+        const additionalInfoList = data.data?.additionalInfo?.info || [];
+
         setBillDetails({
           customerName: responseData.customerName || "Valued Customer",
           billAmount: amountInRupees,
           dueDate: responseData.dueDate || undefined,
           billNumber: responseData.billNumber || undefined,
+          billDate: responseData.billDate || undefined,
+          billPeriod: responseData.billPeriod || undefined,
+          additionalInfo: additionalInfoList,
           fetchSupported: true
         });
       } else {
@@ -728,12 +736,34 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
                               </div>
                             )}
-                            {billDetails.billNumber && (
+                            {billDetails.billNumber && billDetails.billNumber !== "NA" && (
                               <div className="flex justify-between items-center text-xs">
                                 <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
                                 <span className="font-bold text-slate-600">{billDetails.billNumber}</span>
                               </div>
                             )}
+                            {billDetails.billDate && billDetails.billDate !== "NA" && (
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
+                                <span className="font-bold text-slate-600">{billDetails.billDate}</span>
+                              </div>
+                            )}
+                            {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
+                                <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
+                              </div>
+                            )}
+                            {billDetails.additionalInfo && billDetails.additionalInfo.map((info) => (
+                              <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
+                                <span className="text-slate-400 font-bold uppercase tracking-wider">{info.infoName}</span>
+                                <span className="font-bold text-slate-600">
+                                  {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
+                                    ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                    : info.infoValue}
+                                </span>
+                              </div>
+                            ))}
                           </div>
                         ) : (
                           // Manual entry (QuickPay)
