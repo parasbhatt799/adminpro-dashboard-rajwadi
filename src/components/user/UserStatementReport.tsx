@@ -145,21 +145,35 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         if (billRes.error) throw billRes.error;
         if (bbpsRes.error) throw bbpsRes.error;
         
-        const combinedBills = [...(billRes.data || []), ...(bbpsRes.data || [])];
+        const combinedBills = [
+          ...(billRes.data || []).map(b => ({ ...b, is_bbps: false })),
+          ...(bbpsRes.data || []).map(b => ({ ...b, is_bbps: true }))
+        ];
         
         combinedBills.forEach(r => {
+          const isBbps = r.is_bbps;
+          let mobile = '0000000000';
+          if (isBbps) {
+            const details = r.metadata?.consumerDetails || {};
+            mobile = details["Registered Mobile Number"] || details["Mobile Number"] || details["Mobile"] || 'BBPS';
+          } else {
+            mobile = r.customer_mobile;
+          }
+
+          const cardNo = isBbps ? r.consumer_number : r.card_number;
+
           // Deduction
           billMapped.push({
             id: String(r.id || ''),
             numericId: String(r.id || '').split('-')[0].toUpperCase(),
             type: 'BILL',
             date: r.created_at,
-            reference: r.customer_mobile || '0000000000',
+            reference: mobile || '0000000000',
             amount: Number(r.amount),
             charges: Number(r.charges || 0),
             final_total: Number(r.amount) + Number(r.charges || 0),
             status: r.status,
-            raw_data: r
+            raw_data: { ...r, card_number: cardNo }
           });
 
           // Refund synthesis
@@ -169,12 +183,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
               date: r.created_at,
-              reference: r.customer_mobile || '0000000000',
+              reference: mobile || '0000000000',
               amount: Number(r.amount),
               charges: Number(r.charges || 0),
               final_total: Number(r.amount) + Number(r.charges || 0),
               status: 'refunded',
-              raw_data: { ...r, is_refund_row: true }
+              raw_data: { ...r, card_number: cardNo, is_refund_row: true }
             });
           }
         });
@@ -416,7 +430,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">{r.numericId}</td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c]">
-                      {r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT'}
+                      {r.type === 'BILL'
+                        ? (r.raw_data?.is_bbps
+                            ? (r.raw_data?.service_type === 'Credit Card' ? 'CCBILLPAY' : 'BBPS')
+                            : 'CCBILLPAY')
+                        : r.type === 'PAYOUT'
+                          ? 'PAYOUT'
+                          : 'PAYMENT'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600">
                       {r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : r.raw_data?.card_bank || '-'}
@@ -426,11 +446,27 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
-                        <>
-                          <div>CCBILLPAY Mobile: <span className='text-amber-600  font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600  font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
-                          <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
-                          <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
-                        </>
+                        r.raw_data?.is_bbps ? (
+                          r.raw_data?.service_type === 'Credit Card' ? (
+                            <>
+                              <div>CCBILLPAY Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
+                              <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                              <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div>BBPS {r.raw_data?.service_type}: <span className='text-amber-600 font-bold'>{r.raw_data?.provider}</span> Account: <span className='text-amber-600 font-bold'>{r.raw_data?.consumer_number}</span> Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span></div>
+                              <div>Utility Bill Payment ({r.amount} + {r.charges} Txn Charge)</div>
+                              <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
+                            </>
+                          )
+                        ) : (
+                          <>
+                            <div>CCBILLPAY Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
+                            <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
+                            <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
+                          </>
+                        )
                       ) : r.type === 'PAYOUT' ? (
                         <>
                           <div className="font-bold text-slate-900">PAYOUT FOR: {r.raw_data?.account_holder_name}</div>
