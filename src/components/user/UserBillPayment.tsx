@@ -135,13 +135,13 @@ const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradi
   },
   "Fastag": {
     icon: Tag,
-    gradient: "from-sky-450 to-indigo-600",
+    gradient: "from-sky-400 to-indigo-600",
     shadow: "shadow-sky-500/10",
     border: "border-sky-100"
   },
   "Credit Card": {
     icon: CreditCard,
-    gradient: "from-rose-500 to-pink-650",
+    gradient: "from-pink-500 to-rose-600",
     shadow: "shadow-rose-500/10",
     border: "border-rose-100"
   },
