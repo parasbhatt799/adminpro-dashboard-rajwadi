@@ -679,7 +679,6 @@ export default function UserBillPayment({ userId }: { userId: string }) {
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <h3 className="text-lg font-black text-slate-800">Select Bill Category</h3>
-                <span className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full font-bold uppercase tracking-wider">Bharat BillPay</span>
               </div>
 
               {apiError && (
