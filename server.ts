@@ -496,7 +496,17 @@ async function startServer() {
       // PayPrime requires amount in Paisa, so multiply Rupees by 100
       const amountInPaisa = Math.round(paymentAmount * 100);
 
-      const isAdhoc = !fetchResponse || !fetchResponse.data?.billerResponse;
+      let isAdhoc = !fetchResponse || !fetchResponse.data?.billerResponse;
+
+      if (!isAdhoc) {
+        const fetchedRawAmount = Number(fetchResponse.data.billerResponse.billAmount) || 0;
+        // If the payment amount in paisa does not match the fetched billAmount,
+        // we must process it as an Adhoc/QuickPay payment to avoid signature/value mismatch.
+        if (amountInPaisa !== fetchedRawAmount) {
+          console.log(`[BBPS Proxy] Custom amount specified (${amountInPaisa} vs fetched ${fetchedRawAmount}). Switching to Adhoc/QuickPay mode.`);
+          isAdhoc = true;
+        }
+      }
       const paramArray = Object.entries(customerParams || {}).map(([paramName, paramValue]) => ({
         paramName,
         paramValue: String(paramValue)
@@ -528,10 +538,7 @@ async function startServer() {
 
       if (!isAdhoc) {
         payPrimePayload.request_id = fetchResponse.request_id;
-        payPrimePayload.billerResponse = {
-          ...fetchResponse.data.billerResponse,
-          billAmount: amountInPaisa.toString()
-        };
+        payPrimePayload.billerResponse = fetchResponse.data.billerResponse;
         if (fetchResponse.data.additionalInfo) {
           payPrimePayload.additionalInfo = fetchResponse.data.additionalInfo;
         }
