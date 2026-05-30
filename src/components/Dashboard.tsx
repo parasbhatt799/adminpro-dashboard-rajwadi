@@ -53,6 +53,8 @@ export default function Dashboard() {
   const [rejectionRowId, setRejectionRowId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [payprimeBalance, setPayprimeBalance] = useState<number | null>(null);
+  const [payprimeUsername, setPayprimeUsername] = useState<string>('');
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -96,8 +98,8 @@ export default function Dashboard() {
 
       if (rpcError) throw rpcError;
 
-      let payprimeBalance = 0;
-      let payprimeUsername = "";
+      let fetchedBalance = 0;
+      let fetchedUsername = "";
       try {
         const balanceRes = await fetch("/api/payprime-balance", {
           method: "POST",
@@ -105,12 +107,14 @@ export default function Dashboard() {
         });
         const balanceData = await balanceRes.json();
         if (balanceData && typeof balanceData.balance === 'number') {
-          payprimeBalance = balanceData.balance;
-          payprimeUsername = balanceData.username || "";
+          fetchedBalance = balanceData.balance;
+          fetchedUsername = balanceData.username || "";
         }
       } catch (e) {
         console.error("Failed to fetch PayPrime balance:", e);
       }
+      setPayprimeBalance(fetchedBalance);
+      setPayprimeUsername(fetchedUsername);
 
       const {
         admin_wallet_balance,
@@ -144,13 +148,6 @@ export default function Dashboard() {
       };
 
       setStats([
-        {
-          title: "PayPrime Balance",
-          value: formatCurrency(payprimeBalance),
-          icon: Wallet,
-          color: "bg-gradient-to-br from-blue-600 to-indigo-700 shadow-blue-500/20",
-          description: payprimeUsername ? `User: ${payprimeUsername}` : "Live Gateway Balance"
-        },
         {
           title: "Total QR Payments",
           value: formatCurrency(range_qr_amount),
@@ -392,7 +389,7 @@ export default function Dashboard() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center flex-wrap gap-3">
             <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
             <motion.button
               whileHover={{ rotate: 360 }}
@@ -403,6 +400,21 @@ export default function Dashboard() {
             >
               <RefreshCw size={18} className="group-active:scale-90 transition-transform" />
             </motion.button>
+
+            {payprimeBalance !== null && (
+              <div className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100/80 px-3.5 py-1.5 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300">
+                <Wallet size={14} className="text-blue-600 animate-pulse" />
+                <span className="text-[10px] font-black text-blue-700 tracking-wider uppercase">payprime blance:</span>
+                <span className="text-sm font-extrabold text-indigo-900 font-mono">
+                  ₹{payprimeBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                {payprimeUsername && (
+                  <span className="hidden sm:inline-block text-[9px] font-bold text-blue-500 bg-blue-100/50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                    {payprimeUsername}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           <p className="text-slate-500 mt-1">Real-time statistics for your platform.</p>
         </div>
