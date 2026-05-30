@@ -50,7 +50,7 @@ const getBankLogoUrl = (bankName: string) => {
   const name = bankName.toLowerCase();
   let domain = "";
   
-  if (name.includes("axis")) domain = "axisbank.com";
+  if (name.includes("axis")) return "/axis_logo.png";
   else if (name.includes("hdfc")) domain = "hdfcbank.com";
   else if (name.includes("icici")) domain = "icicibank.com";
   else if (name.includes("sbi") || name.includes("state bank")) domain = "sbicard.com";
