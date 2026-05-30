@@ -124,12 +124,14 @@ export default function BillPaymentReport() {
         bbpsQuery = bbpsQuery.eq('amount', Number(exactAmount));
       }
       if (startDate) {
-        const startISO = new Date(`${startDate}T00:00:00`).toISOString();
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startISO = new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
         billQuery = billQuery.gte('created_at', startISO);
         bbpsQuery = bbpsQuery.gte('created_at', startISO);
       }
       if (endDate) {
-        const endISO = new Date(`${endDate}T23:59:59`).toISOString();
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endISO = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
         billQuery = billQuery.lte('created_at', endISO);
         bbpsQuery = bbpsQuery.lte('created_at', endISO);
       }
@@ -227,12 +229,14 @@ export default function BillPaymentReport() {
         bbpsQuery = bbpsQuery.eq('amount', Number(exactAmount));
       }
       if (startDate) {
-        const startISO = new Date(`${startDate}T00:00:00`).toISOString();
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startISO = new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
         billQuery = billQuery.gte('created_at', startISO);
         bbpsQuery = bbpsQuery.gte('created_at', startISO);
       }
       if (endDate) {
-        const endISO = new Date(`${endDate}T23:59:59`).toISOString();
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endISO = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
         billQuery = billQuery.lte('created_at', endISO);
         bbpsQuery = bbpsQuery.lte('created_at', endISO);
       }
@@ -323,12 +327,14 @@ export default function BillPaymentReport() {
         bbpsQuery = bbpsQuery.eq('amount', Number(exactAmount));
       }
       if (startDate) {
-        const startISO = new Date(`${startDate}T00:00:00`).toISOString();
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startISO = new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
         billQuery = billQuery.gte('created_at', startISO);
         bbpsQuery = bbpsQuery.gte('created_at', startISO);
       }
       if (endDate) {
-        const endISO = new Date(`${endDate}T23:59:59`).toISOString();
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endISO = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
         billQuery = billQuery.lte('created_at', endISO);
         bbpsQuery = bbpsQuery.lte('created_at', endISO);
       }
@@ -444,12 +450,14 @@ export default function BillPaymentReport() {
         bbpsQuery = bbpsQuery.eq('amount', Number(exactAmount));
       }
       if (startDate) {
-        const startISO = new Date(`${startDate}T00:00:00`).toISOString();
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startISO = new Date(y, m - 1, d, 0, 0, 0, 0).toISOString();
         billQuery = billQuery.gte('created_at', startISO);
         bbpsQuery = bbpsQuery.gte('created_at', startISO);
       }
       if (endDate) {
-        const endISO = new Date(`${endDate}T23:59:59`).toISOString();
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endISO = new Date(y, m - 1, d, 23, 59, 59, 999).toISOString();
         billQuery = billQuery.lte('created_at', endISO);
         bbpsQuery = bbpsQuery.lte('created_at', endISO);
       }

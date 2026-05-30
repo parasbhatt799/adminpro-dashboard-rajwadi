@@ -136,10 +136,14 @@ export default function BBPSHistory() {
 
       // Apply Date Filters
       if (startDate) {
-        query = query.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
+        const [y, m, d] = startDate.split('-').map(Number);
+        const startLocal = new Date(y, m - 1, d, 0, 0, 0, 0);
+        query = query.gte('created_at', startLocal.toISOString());
       }
       if (endDate) {
-        query = query.lte('created_at', new Date(`${endDate}T23:59:59.999`).toISOString());
+        const [y, m, d] = endDate.split('-').map(Number);
+        const endLocal = new Date(y, m - 1, d, 23, 59, 59, 999);
+        query = query.lte('created_at', endLocal.toISOString());
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
