@@ -54,7 +54,7 @@ const getBankLogoUrl = (bankName: string) => {
   else if (name.includes("hdfc")) domain = "hdfcbank.com";
   else if (name.includes("icici")) domain = "icicibank.com";
   else if (name.includes("sbi") || name.includes("state bank")) domain = "sbicard.com";
-  else if (name.includes("bob") || name.includes("baroda") || name.includes("bobcard")) domain = "bankofbaroda.in";
+  else if (name.includes("bob") || name.includes("baroda") || name.includes("bobcard")) return "/bob_logo.png";
   else if (name.includes("au bank")) domain = "aubank.in";
   else if (name.includes("bandhan")) return "/bandhan_logo.png";
   else if (name.includes("india credit") || name.includes("bank of india")) return "/boi_logo.png";
