@@ -435,13 +435,19 @@ async function startServer() {
         return res.status(400).json({ status: "ERROR", message: "Biller ID and customer parameters are required." });
       }
 
+      // Map raw customerParams to PayPrime param array format
+      const paramArray = Object.entries(customerParams || {}).map(([paramName, paramValue]) => ({
+        paramName,
+        paramValue: String(paramValue)
+      }));
+
       const response = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-bill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token: PAYPRIME_TOKEN,
           biller_id,
-          ...customerParams
+          param: paramArray
         })
       });
       const data = await response.json();
@@ -454,7 +460,7 @@ async function startServer() {
 
   app.post("/api/bbps/pay-bill", async (req, res) => {
     try {
-      const { userId, biller_id, amount, customerParams, service_type, provider, consumer_number } = req.body;
+      const { userId, biller_id, amount, customerParams, fetchResponse, service_type, provider, consumer_number } = req.body;
 
       if (!userId || !biller_id || !amount) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
@@ -490,12 +496,43 @@ async function startServer() {
       // PayPrime requires amount in Paisa, so multiply Rupees by 100
       const amountInPaisa = Math.round(paymentAmount * 100);
 
-      const payPrimePayload = {
+      const isAdhoc = !fetchResponse || !fetchResponse.data?.billerResponse;
+      const paramArray = Object.entries(customerParams || {}).map(([paramName, paramValue]) => ({
+        paramName,
+        paramValue: String(paramValue)
+      }));
+
+      // Extract user mobile number for validation, or fall back to default
+      const userMobile = customerParams["Registered Mobile Number"] || 
+                         customerParams["Mobile Number"] || 
+                         customerParams["Mobile"] || 
+                         "9999999999";
+
+      const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
         biller_id,
         amount: amountInPaisa.toString(),
-        ...customerParams
+        quickPay: isAdhoc ? "Y" : "N",
+        payment_mode: "Cash",
+        paymentInfo: {
+          info: [
+            { "infoName": "Cash Payment", "infoValue": "Cash Payment" }
+          ]
+        },
+        mobile: userMobile,
+        billerAdhoc: isAdhoc,
+        inputParams: {
+          input: paramArray
+        }
       };
+
+      if (!isAdhoc) {
+        payPrimePayload.request_id = fetchResponse.request_id;
+        payPrimePayload.billerResponse = fetchResponse.data.billerResponse;
+        if (fetchResponse.data.additionalInfo) {
+          payPrimePayload.additionalInfo = fetchResponse.data.additionalInfo;
+        }
+      }
 
       const response = await fetch("https://b2b.payprime.in/api/v1/bbps/pay-bill", {
         method: "POST",

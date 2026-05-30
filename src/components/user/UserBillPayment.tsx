@@ -130,6 +130,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     fetchSupported: boolean;
   } | null>(null);
 
+  const [fetchResponse, setFetchResponse] = useState<any>(null);
+
   // Success transaction details
   const [receipt, setReceipt] = useState<{
     txnid: string;
@@ -277,24 +279,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
   // Build the payload mapping for the customer fields
   const getCustomerParamsPayload = () => {
-    // Dynamically format input inputs into customerParams required by backend/PayPrime
-    // Typically PayPrime accepts params list as key-value inside body
-    const params: Record<string, string> = {};
-    inputParams.forEach((param, index) => {
-      // Map param name e.g., 'Customer Id' to corresponding keys like 'customerMobile', or generic param1, param2
-      // We will send generic key mappings or the raw formInputs.
-      // PayPrime typically maps fields in sequence or matching names in the body.
-      // Let's pass the customer parameters directly under structured fields.
-      const userValue = formInputs[param.paramName] || '';
-      // We will map parameter names using generic keys to backend, or as an object.
-      // To be safe, we will pass a mapped generic key or a custom structured fields.
-      // Let's structure customerParams as a flat object where each key matches the parameter name or generic index
-      params[`param${index + 1}`] = userValue;
-      // Also pass by actual paramName as key in lowerCamelCase for robust mapping
-      const key = param.paramName.replace(/\s+/g, '').replace(/^\w/, c => c.toLowerCase());
-      params[key] = userValue;
-    });
-    return params;
+    return formInputs;
   };
 
   // Trigger Fetch Bill details (Step 4 check)
@@ -327,6 +312,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       const data = await response.json();
       
       if (data.status === 'SUCCESS' && data.data?.billerResponse) {
+        setFetchResponse(data);
         const responseData = data.data.billerResponse;
         
         // Amount is sent in Paisa or Rupees from fetch-bill? 
@@ -404,6 +390,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           biller_id: selectedBiller?.biller_id,
           amount: finalAmount,
           customerParams,
+          fetchResponse,
           service_type: selectedCategory?.cat_name || "BBPS Utility",
           provider: selectedBiller?.biller_name || selectedBiller?.biller_id,
           consumer_number: consumerNumber
@@ -449,6 +436,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     setFormInputs({});
     setManualAmount('');
     setBillDetails(null);
+    setFetchResponse(null);
     setReceipt(null);
     setStep(1);
     setApiError(null);
