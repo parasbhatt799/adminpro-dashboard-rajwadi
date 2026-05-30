@@ -335,7 +335,15 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
               >
                 {({ isActive }) => (
                   <>
-                    <Icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                    {item.id === 'bill-payment-requests' ? (
+                      <img 
+                        src="/bbps_logo.png" 
+                        alt="" 
+                        className={`w-5 h-5 object-contain shrink-0 transition-all ${isActive ? 'brightness-0 invert' : 'opacity-70 group-hover:opacity-100'}`}
+                      />
+                    ) : (
+                      <Icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                    )}
                     {!isCollapsed && (
                       <motion.span
                         initial={{ opacity: 0, x: -10 }}

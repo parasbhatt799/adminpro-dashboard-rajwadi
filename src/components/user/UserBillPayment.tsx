@@ -646,8 +646,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 border border-slate-200 p-8 rounded-[32px] shadow-sm relative overflow-hidden">
         
         <div className="relative z-10 flex items-center gap-4">
-          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm">
-            <Receipt size={30} />
+          <div className="w-14 h-14 bg-emerald-50 rounded-2xl flex items-center justify-center border border-emerald-100 shadow-sm shrink-0">
+            <img src="/bbps_logo.png" className="w-9 h-9 object-contain" alt="BBPS Logo" />
           </div>
           <div>
             <h2 className="text-2xl font-black tracking-tight text-slate-800">BBPS Utility Payments</h2>

@@ -174,7 +174,15 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
               >
                 {({ isActive }) => (
                   <>
-                    <Icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                    {item.id === 'bill-payment' || item.id === 'users-bill-payments' ? (
+                      <img 
+                        src="/bbps_logo.png" 
+                        alt="" 
+                        className={`w-5 h-5 object-contain shrink-0 transition-all ${isActive ? 'brightness-0 invert' : 'opacity-70 group-hover:opacity-100'}`}
+                      />
+                    ) : (
+                      <Icon size={20} className={`shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+                    )}
                     {!isCollapsed && (
                       <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>
                     )}
