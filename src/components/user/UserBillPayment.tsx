@@ -141,7 +141,7 @@ const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradi
   },
   "Credit Card": {
     icon: CreditCard,
-    gradient: "from-pink-500 to-rose-600",
+    gradient: "from-pink-400 to-rose-600",
     shadow: "shadow-rose-500/10",
     border: "border-rose-100"
   },

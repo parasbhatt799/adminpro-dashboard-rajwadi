@@ -628,7 +628,7 @@ async function startServer() {
             amount: paymentAmount,
             charges: serviceCharge,
             status: "approved",
-            transaction_id: data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
+            rejection_reason: data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
             metadata: {
               billerName: provider || biller_id,
               date: new Date().toLocaleString(),
@@ -677,6 +677,109 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error("[PayPrime] Fetch Balance Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+
+  app.all("/api/bbps-proxy", async (req, res) => {
+    try {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+
+      if (!supabaseUrl || !serviceKey) {
+        return res.status(500).json({ error: "Supabase configuration missing on server" });
+      }
+
+      // Build the remote target URL
+      const urlObj = new URL(`${supabaseUrl}/rest/v1/bbps_submissions`);
+      // Append the query params from the client, mapping transaction_id to rejection_reason
+      for (const [key, val] of Object.entries(req.query)) {
+        let mappedKey = key;
+        let mappedVal = String(val);
+
+        if (key === "transaction_id") {
+          mappedKey = "rejection_reason";
+        }
+        mappedVal = mappedVal.replace(/transaction_id/g, "rejection_reason");
+
+        urlObj.searchParams.set(mappedKey, mappedVal);
+      }
+
+      // Build the headers, replacing the key with service role key to bypass RLS
+      const headers: Record<string, string> = {
+        "apikey": serviceKey,
+        "Authorization": `Bearer ${serviceKey}`,
+        "Content-Type": "application/json"
+      };
+
+      // Forward relevant client request headers
+      if (req.headers["prefer"]) {
+        headers["Prefer"] = req.headers["prefer"] as string;
+      }
+      if (req.headers["range"]) {
+        headers["Range"] = req.headers["range"] as string;
+      }
+
+      const fetchOptions: RequestInit = {
+        method: req.method,
+        headers,
+      };
+
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        let body = req.body;
+        if (body && typeof body === 'object') {
+          if ('transaction_id' in body) {
+            body.rejection_reason = body.transaction_id;
+            delete body.transaction_id;
+          }
+        }
+        fetchOptions.body = JSON.stringify(body || {});
+      }
+
+      const response = await fetch(urlObj.toString(), fetchOptions);
+
+      // Set response status
+      res.status(response.status);
+
+      // Copy response headers back to client
+      const contentRange = response.headers.get("content-range");
+      if (contentRange) {
+        res.setHeader("Content-Range", contentRange);
+      }
+      const preferenceApplied = response.headers.get("preference-applied");
+      if (preferenceApplied) {
+        res.setHeader("Preference-Applied", preferenceApplied);
+      }
+      const contentType = response.headers.get("content-type");
+      if (contentType) {
+        res.setHeader("Content-Type", contentType);
+      }
+
+      let responseText = await response.text();
+      try {
+        const json = JSON.parse(responseText);
+        const mapRow = (row: any) => {
+          if (row && typeof row === 'object') {
+            if ('rejection_reason' in row) {
+              row.transaction_id = row.rejection_reason;
+            }
+          }
+        };
+
+        if (Array.isArray(json)) {
+          json.forEach(mapRow);
+        } else {
+          mapRow(json);
+        }
+        responseText = JSON.stringify(json);
+      } catch (e) {
+        // Fall back if not JSON
+      }
+
+      res.send(responseText);
+    } catch (err: any) {
+      console.error("[BBPS Proxy Error]:", err);
       res.status(500).json({ error: err.message });
     }
   });
