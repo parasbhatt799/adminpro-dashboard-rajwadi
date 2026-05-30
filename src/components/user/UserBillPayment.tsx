@@ -601,17 +601,6 @@ export default function UserBillPayment({ userId }: { userId: string }) {
             <p className="text-slate-400 text-sm mt-0.5">Pay electricity, gas, water, DTH, and mobile bills instantly.</p>
           </div>
         </div>
-
-        {/* Dynamic Balance indicator */}
-        <div className="relative z-10 bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-400">
-            <Wallet size={18} />
-          </div>
-          <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Wallet Balance</p>
-            <p className="text-lg font-black text-white mt-1 leading-none">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
       </div>
 
       {/* Main interaction screen */}
