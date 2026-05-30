@@ -631,7 +631,7 @@ async function startServer() {
             rejection_reason: data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
             metadata: {
               billerName: provider || biller_id,
-              date: new Date().toLocaleString(),
+              date: new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
               consumerDetails: customerParams
             }
           });
