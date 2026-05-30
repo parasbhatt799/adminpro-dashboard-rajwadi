@@ -65,7 +65,7 @@ const getBankLogoUrl = (bankName: string) => {
   else if (name.includes("dhanlaxmi")) domain = "dhanbank.com";
   else if (name.includes("csb")) return "/csb_logo.png";
   else if (name.includes("esaf")) domain = "esafbank.com";
-  else if (name.includes("federal")) domain = "federalbank.co.in";
+  else if (name.includes("federal")) return "/federal_logo.png";
   else if (name.includes("hsbc")) domain = "hsbc.co.in";
   else if (name.includes("idbi")) domain = "idbibank.in";
   else if (name.includes("idfc")) domain = "idfcfirstbank.com";
