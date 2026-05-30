@@ -22,7 +22,9 @@ import {
   Wallet,
   Clock,
   HelpCircle,
-  FileText
+  FileText,
+  Tag,
+  CreditCard
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
@@ -86,6 +88,18 @@ const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradi
     gradient: "from-violet-400 to-fuchsia-600", 
     shadow: "shadow-violet-500/10",
     border: "border-violet-100"
+  },
+  "Fastag": { 
+    icon: Tag, 
+    gradient: "from-sky-450 to-indigo-600", 
+    shadow: "shadow-sky-500/10",
+    border: "border-sky-100"
+  },
+  "Credit Card": { 
+    icon: CreditCard, 
+    gradient: "from-rose-500 to-pink-650", 
+    shadow: "shadow-rose-500/10",
+    border: "border-rose-100"
   },
   "default": { 
     icon: Layers, 
@@ -219,7 +233,35 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       });
       const data = await response.json();
       if (data.status === 'SUCCESS' && data.data?.bbps) {
-        setCategories(data.data.bbps);
+        const allowedCategories = ["electricity", "gas", "fastag", "mobile postpaid", "credit card"];
+        const filtered = data.data.bbps.filter((cat: any) => {
+          const nameLower = cat.cat_name.toLowerCase();
+          return allowedCategories.some(allowed => nameLower.includes(allowed));
+        });
+
+        // Sort dynamically into exact layout requested: Electricity, Gas, Fastag, Mobile Postpaid, Credit Card
+        const orderMap: Record<string, number> = {
+          "electricity": 1,
+          "gas": 2,
+          "fastag": 3,
+          "mobile postpaid": 4,
+          "credit card": 5
+        };
+
+        filtered.sort((a: any, b: any) => {
+          const getOrder = (name: string) => {
+            const lower = name.toLowerCase();
+            if (lower.includes("electricity")) return orderMap["electricity"];
+            if (lower.includes("gas")) return orderMap["gas"];
+            if (lower.includes("fastag")) return orderMap["fastag"];
+            if (lower.includes("mobile postpaid")) return orderMap["mobile postpaid"];
+            if (lower.includes("credit card")) return orderMap["credit card"];
+            return 99;
+          };
+          return getOrder(a.cat_name) - getOrder(b.cat_name);
+        });
+
+        setCategories(filtered);
       } else {
         throw new Error(data.message || "Failed to load categories");
       }
@@ -559,9 +601,13 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                   <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading bill categories...</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
                   {categories.map((cat) => {
-                    const style = CATEGORY_STYLE_MAP[cat.cat_name] || CATEGORY_STYLE_MAP["default"];
+                    const style = CATEGORY_STYLE_MAP[cat.cat_name] || 
+                                  (cat.cat_name.toLowerCase().includes("gas") ? CATEGORY_STYLE_MAP["Gas"] : null) ||
+                                  (cat.cat_name.toLowerCase().includes("fastag") || cat.cat_name.toLowerCase().includes("fast tag") ? CATEGORY_STYLE_MAP["Fastag"] : null) ||
+                                  (cat.cat_name.toLowerCase().includes("credit card") ? CATEGORY_STYLE_MAP["Credit Card"] : null) ||
+                                  CATEGORY_STYLE_MAP["default"];
                     const Icon = style.icon;
 
                     return (
