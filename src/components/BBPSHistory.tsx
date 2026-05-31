@@ -680,7 +680,7 @@ export default function BBPSHistory() {
 
               {/* Receipt Header */}
               <div className="text-center border-b border-dashed border-slate-200 pb-6 relative">
-                <img src="/logo.png" alt="UsePay" className="absolute left-0 top-0 h-7 w-auto object-contain" />
+                <img src="/logo_receipt.png" alt="UsePay" className="absolute left-0 top-0 h-7 w-auto object-contain" />
                 <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">BBPS E-Receipt</span>
                 <div className="text-3xl font-black text-slate-800 mt-4">
                   ₹{(Number(selectedReceipt.amount) + Number(selectedReceipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
