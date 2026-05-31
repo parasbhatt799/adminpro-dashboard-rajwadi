@@ -333,7 +333,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                               }`}
                           >
                             <span>{sub.label}</span>
-                            {sub.id === 'payout-requests' && pendingCounts.payout > 0 && (
+                            {'id' in sub && sub.id === 'payout-requests' && pendingCounts.payout > 0 && (
                               <span className="bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse ml-2">
                                 {pendingCounts.payout}
                               </span>
