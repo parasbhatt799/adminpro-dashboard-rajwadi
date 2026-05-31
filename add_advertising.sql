@@ -3,12 +3,16 @@ CREATE TABLE IF NOT EXISTS public.advertising (
     id INTEGER PRIMARY KEY DEFAULT 1,
     banner_url TEXT,
     redirect_link TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure is_active column exists (in case table was already created)
+ALTER TABLE public.advertising ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+
 -- Insert default placeholder row
-INSERT INTO public.advertising (id, banner_url, redirect_link)
-VALUES (1, 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024', 'https://www.usepay.in')
+INSERT INTO public.advertising (id, banner_url, redirect_link, is_active)
+VALUES (1, 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1024', 'https://www.usepay.in', true)
 ON CONFLICT (id) DO NOTHING;
 
 -- Enable public RLS policies

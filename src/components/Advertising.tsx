@@ -23,6 +23,7 @@ export default function Advertising() {
   const [saving, setSaving] = useState(false);
   const [bannerUrl, setBannerUrl] = useState('');
   const [redirectLink, setRedirectLink] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
@@ -42,6 +43,7 @@ export default function Advertising() {
       } else if (data) {
         setBannerUrl(data.banner_url || '');
         setRedirectLink(data.redirect_link || '');
+        setIsActive(data.is_active !== false);
       }
     } catch (err) {
       console.error('Unexpected error:', err);
@@ -115,6 +117,7 @@ export default function Advertising() {
         .update({
           banner_url: finalBannerUrl,
           redirect_link: redirectLink || null,
+          is_active: isActive,
           updated_at: new Date().toISOString()
         })
         .eq('id', 1);
@@ -159,6 +162,26 @@ export default function Advertising() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
             <form onSubmit={handleSave} className="space-y-6">
+              {/* Advertisement Active/Inactive Toggle */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-700">Display Banner</h4>
+                  <p className="text-xs text-slate-400 mt-0.5">Toggle whether the login screen banner is visible or hidden.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(!isActive)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isActive ? 'bg-indigo-600' : 'bg-slate-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isActive ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
               {/* Image Upload Input Area */}
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-1.5">

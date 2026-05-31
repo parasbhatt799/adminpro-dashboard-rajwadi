@@ -25,7 +25,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
   const [forgotMessage, setForgotMessage] = useState('');
 
   // Advertisement settings state
-  const [adSettings, setAdSettings] = useState<{ banner_url: string; redirect_link: string } | null>(null);
+  const [adSettings, setAdSettings] = useState<{ banner_url: string; redirect_link: string; is_active: boolean } | null>(null);
 
   // Fetch advertisement details if not in admin login mode
   useEffect(() => {
@@ -34,13 +34,14 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
       try {
         const { data } = await supabase
           .from('advertising')
-          .select('banner_url, redirect_link')
+          .select('banner_url, redirect_link, is_active')
           .eq('id', 1)
           .single();
         if (data) {
           setAdSettings({
             banner_url: data.banner_url || '',
-            redirect_link: data.redirect_link || ''
+            redirect_link: data.redirect_link || '',
+            is_active: data.is_active !== false
           });
         }
       } catch (err) {
@@ -416,7 +417,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
     <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row relative">
       {/* Left Column: Wide Advertisement Banner (Desktop only) */}
       <div className="hidden md:flex md:w-[60%] lg:w-[65%] xl:w-[70%] h-screen relative bg-slate-900 overflow-hidden">
-        {adSettings?.banner_url ? (
+        {adSettings?.banner_url && adSettings?.is_active ? (
           adSettings.redirect_link ? (
             <a
               href={adSettings.redirect_link}
