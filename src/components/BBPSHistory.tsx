@@ -662,7 +662,7 @@ export default function BBPSHistory() {
 
                     {/* Category */}
                     <td className="px-6 py-4 text-center">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 uppercase">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 uppercase whitespace-nowrap">
                         {item.service_type || 'Utility'}
                       </span>
                     </td>
