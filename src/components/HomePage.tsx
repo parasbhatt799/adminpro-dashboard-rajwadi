@@ -166,7 +166,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
             className="space-y-8"
           >
             <div className="inline-flex items-center gap-2 bg-indigo-50 text-indigo-600 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest leading-none">
-              <Zap size={14} className="fill-current" /> UsePay Fintech Solution
+              <Zap size={14} className="fill-current" /> UsePay Fintech Solution Pvt Ltd
             </div>
             <h1 className="text-5xl md:text-7xl font-black text-slate-900 leading-[1.1]">
               Seamless Digital <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-emerald-500">Payments</span> For Everyone
@@ -469,7 +469,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
       <footer id="contact" className="bg-slate-900 py-12 px-6">
         <div className="max-w-7xl mx-auto text-center space-y-4">
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-            © {new Date().getFullYear()} UsePay. All rights reserved.
+            © {new Date().getFullYear()} UsePay Fintech Solution Pvt Ltd. All rights reserved.
           </p>
           <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">
             Developed By <a href="https://codefixer.in" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-400 transition-colors">Codefixer</a>
