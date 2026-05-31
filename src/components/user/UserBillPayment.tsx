@@ -736,29 +736,31 @@ export default function UserBillPayment({ userId }: { userId: string }) {
               exit={{ opacity: 0, x: -15 }}
               className="space-y-6"
             >
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <button
-                  onClick={() => setStep(1)}
-                  className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <ArrowLeft size={20} />
-                </button>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800">Select Operator</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Category: {selectedCategory?.cat_name}</p>
+              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 flex-wrap sm:flex-nowrap">
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setStep(1)}
+                    className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    <ArrowLeft size={20} />
+                  </button>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800">Select Operator</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Category: {selectedCategory?.cat_name}</p>
+                  </div>
                 </div>
-              </div>
 
-              {/* Biller Search Bar */}
-              <div className="relative">
-                <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search operator / board name..."
-                  value={searchBillerQuery}
-                  onChange={(e) => setSearchBillerQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 outline-none rounded-2xl pl-12 pr-4 py-3.5 text-sm font-medium text-slate-700 transition-colors"
-                />
+                {/* Biller Search Bar */}
+                <div className="relative w-full sm:w-72 shrink-0">
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search operator..."
+                    value={searchBillerQuery}
+                    onChange={(e) => setSearchBillerQuery(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 outline-none rounded-2xl pl-10 pr-4 py-2 text-xs font-bold text-slate-700 transition-colors"
+                  />
+                </div>
               </div>
 
               {loading ? (
