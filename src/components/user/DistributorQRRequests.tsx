@@ -371,15 +371,25 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                       )}
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                          req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                            'bg-amber-50 text-amber-600'
-                        }`}>
-                        {req.status === 'pending' && <Clock size={10} />}
-                        {req.status === 'approved' && <CheckCircle2 size={10} />}
-                        {req.status === 'rejected' && <XCircle size={10} />}
-                        {req.status}
-                      </span>
+                      <div className="flex flex-col items-center gap-1">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
+                              'bg-amber-50 text-amber-600'
+                          }`}>
+                          {req.status === 'pending' && <Clock size={10} />}
+                          {req.status === 'approved' && <CheckCircle2 size={10} />}
+                          {req.status === 'rejected' && <XCircle size={10} />}
+                          {req.status}
+                        </span>
+                        {req.status === 'rejected' && req.rejection_reason && (
+                          <span 
+                            className="text-[9px] text-rose-600 font-bold uppercase tracking-wider bg-rose-50 px-2 py-0.5 rounded border border-rose-100/80 mt-1 max-w-[120px] truncate block text-center" 
+                            title={req.rejection_reason}
+                          >
+                            {req.rejection_reason}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <button
