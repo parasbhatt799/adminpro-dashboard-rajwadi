@@ -44,6 +44,7 @@ interface AdminManagementProps {
     { id: 'distributors', label: 'Distributors' },
     { id: 'qr-payment-requests', label: 'QR Payment Request' },
     { id: 'bill-payment-requests', label: 'Bill Payment Request' },
+    { id: 'bbps-history', label: 'BBPS Bill History' },
     { id: 'payout-requests', label: 'Payout Request' },
     { id: 'distributor-withdrawals', label: 'Dist. Withdrawals' },
     { id: 'kyc-verification-requests', label: 'KYC Verification' },
