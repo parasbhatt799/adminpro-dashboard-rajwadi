@@ -423,12 +423,19 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
               href={adSettings.redirect_link}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full h-full relative group overflow-hidden cursor-pointer"
+              className="block w-full h-full relative group overflow-hidden cursor-pointer flex items-center justify-center bg-slate-950"
             >
+              {/* Blurred background to fill space */}
+              <img
+                src={adSettings.banner_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover filter blur-2xl opacity-40 scale-105 pointer-events-none"
+              />
+              {/* Sharp centered banner */}
               <img
                 src={adSettings.banner_url}
                 alt="Advertisement"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                className="relative z-10 w-full h-full object-contain p-4 transition-transform duration-700 group-hover:scale-[1.02]"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 opacity-80 group-hover:opacity-60 transition-opacity duration-300" />
               <div className="absolute bottom-6 right-6 bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -437,11 +444,18 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
               </div>
             </a>
           ) : (
-            <div className="w-full h-full relative overflow-hidden">
+            <div className="w-full h-full relative overflow-hidden flex items-center justify-center bg-slate-950">
+              {/* Blurred background to fill space */}
+              <img
+                src={adSettings.banner_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover filter blur-2xl opacity-40 scale-105 pointer-events-none"
+              />
+              {/* Sharp centered banner */}
               <img
                 src={adSettings.banner_url}
                 alt="Advertisement"
-                className="w-full h-full object-cover"
+                className="relative z-10 w-full h-full object-contain p-4"
               />
             </div>
           )
