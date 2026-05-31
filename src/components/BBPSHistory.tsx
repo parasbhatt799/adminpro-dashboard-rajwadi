@@ -67,6 +67,21 @@ export default function BBPSHistory() {
   const [selectedReceipt, setSelectedReceipt] = useState<BBPSTransaction | null>(null);
   const [adminMap, setAdminMap] = useState<Record<string, string>>({});
 
+  const getConsumerDetailsList = (item: BBPSTransaction) => {
+    if (item.metadata?.consumerDetails && typeof item.metadata.consumerDetails === 'object') {
+      const details = item.metadata.consumerDetails;
+      const values: string[] = [];
+      Object.keys(details).forEach(key => {
+        const val = String(details[key] || '').trim();
+        if (val && !values.includes(val)) {
+          values.push(val);
+        }
+      });
+      return values;
+    }
+    return item.consumer_number ? [item.consumer_number] : [];
+  };
+
   // Stats
   const [stats, setStats] = useState({
     count: 0,
@@ -287,7 +302,7 @@ export default function BBPSHistory() {
         'User Name': item.users_profiles?.name || 'N/A',
         'Category': item.service_type.toUpperCase(),
         'Operator / Biller': item.provider,
-        'Consumer Number': item.consumer_number,
+        'Consumer Number': getConsumerDetailsList(item).join(' / '),
         'Transaction UTR': item.transaction_id || 'N/A',
         'Base Amount': Number(item.amount),
         'Service Charge': Number(item.charges),
@@ -339,7 +354,7 @@ export default function BBPSHistory() {
         item.users_profiles?.firm_name || 'N/A',
         item.service_type.toUpperCase(),
         item.provider,
-        item.consumer_number,
+        getConsumerDetailsList(item).join(' / '),
         item.transaction_id || 'N/A',
         item.status.toUpperCase(),
         Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
@@ -659,7 +674,17 @@ export default function BBPSHistory() {
 
                     {/* Consumer No */}
                     <td className="px-6 py-4 text-center">
-                      <p className="text-xs font-bold text-slate-600 font-mono">{item.consumer_number}</p>
+                      {(() => {
+                        const vals = getConsumerDetailsList(item);
+                        if (vals.length === 0) return <p className="text-xs font-bold text-slate-400">N/A</p>;
+                        if (vals.length === 1) return <p className="text-xs font-bold text-slate-600 font-mono">{vals[0]}</p>;
+                        return (
+                          <div className="flex flex-col items-center justify-center gap-0.5">
+                            <span className="text-xs font-black text-slate-800 font-mono leading-none">{vals[0]}</span>
+                            <span className="text-[10px] text-slate-400 font-bold font-mono leading-none">{vals[1]}</span>
+                          </div>
+                        );
+                      })()}
                     </td>
 
                     {/* Transaction ID */}
