@@ -146,6 +146,14 @@ export default function AddUser({
         throw new Error("Mobile number must be exactly 10 digits.");
       }
 
+      if (!formData.home_address.trim()) {
+        throw new Error("Home address is required.");
+      }
+
+      if (!formData.firm_address.trim()) {
+        throw new Error("Firm address is required.");
+      }
+
       // Check for duplicate mobile number
       const { data: existingUser, error: checkError } = await supabase
         .from('users_profiles')
@@ -498,8 +506,9 @@ export default function AddUser({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Home Address (Optional)</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Home Address <span className="text-rose-500">*</span></label>
                 <textarea
+                  required
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all min-h-[80px]"
                   style={{ textTransform: 'uppercase' }}
                   placeholder="ENTER COMPLETE HOME ADDRESS"
@@ -523,8 +532,9 @@ export default function AddUser({
                 </div>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Address (Optional)</label>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Firm Address <span className="text-rose-500">*</span></label>
                 <textarea
+                  required
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all min-h-[80px]"
                   style={{ textTransform: 'uppercase' }}
                   placeholder="ENTER FIRM ADDRESS"
