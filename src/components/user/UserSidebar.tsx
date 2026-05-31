@@ -27,7 +27,7 @@ interface UserSidebarProps {
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
-  { id: 'bill-payment', label: 'Bill Payment', icon: Receipt, path: '/user/bill-payment' },
+  { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },

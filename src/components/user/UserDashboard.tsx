@@ -178,7 +178,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
               color: "bg-blue-500"
             },
             {
-              title: "Bill Payment",
+              title: "Live Bill Payment",
               value: `₹${billTotal.toLocaleString()}`,
               trend: "neutral",
               icon: CreditCard,
