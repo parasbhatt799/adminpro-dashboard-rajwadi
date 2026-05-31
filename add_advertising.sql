@@ -20,5 +20,14 @@ CREATE POLICY "Allow public read access" ON public.advertising FOR SELECT USING 
 DROP POLICY IF EXISTS "Allow public update access" ON public.advertising;
 CREATE POLICY "Allow public update access" ON public.advertising FOR ALL USING (true);
 
--- Enable Realtime for the table
-ALTER PUBLICATION supabase_realtime ADD TABLE public.advertising;
+-- Enable Realtime conditionally to avoid duplicate membership errors
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_rel pr 
+        JOIN pg_class c ON pr.prrelid = c.oid 
+        WHERE c.relname = 'advertising'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.advertising;
+    END IF;
+END $$;
