@@ -23,6 +23,22 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     this.setState({ errorInfo });
     console.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
+
+    // Auto-reload on chunk load/dynamic import failure to fetch fresh build assets
+    const isChunkError = 
+      error.message?.includes('Failed to fetch dynamically imported module') || 
+      error.name === 'ChunkLoadError';
+
+    if (isChunkError) {
+      const lastReload = sessionStorage.getItem('last_chunk_reload');
+      const now = Date.now();
+      // Prevent reload loop if server is down or chunk is truly missing
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem('last_chunk_reload', now.toString());
+        console.warn('[ErrorBoundary] Chunk load error detected. Forcing page reload to fetch new assets...');
+        window.location.reload();
+      }
+    }
   }
 
   handleReset = () => {
