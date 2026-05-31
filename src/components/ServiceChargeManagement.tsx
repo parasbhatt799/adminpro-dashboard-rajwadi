@@ -44,6 +44,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
 
   const [qrMinLimit, setQrMinLimit] = useState<number>(100);
   const [qrMaxLimit, setQrMaxLimit] = useState<number>(100000);
+  const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
   const [limitsSaving, setLimitsSaving] = useState(false);
   const [limitsSuccess, setLimitsSuccess] = useState<string | null>(null);
   const [limitsError, setLimitsError] = useState<string | null>(null);
@@ -81,12 +82,13 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       try {
         const { data } = await supabase
           .from('qr_settings')
-          .select('qr_min_limit, qr_max_limit')
+          .select('qr_min_limit, qr_max_limit, bbps_max_limit')
           .eq('id', 1)
           .single();
         if (data) {
           setQrMinLimit(Number(data.qr_min_limit) || 100);
           setQrMaxLimit(Number(data.qr_max_limit) || 100000);
+          setBbpsMaxLimit(Number(data.bbps_max_limit) || 50000);
         }
       } catch (err) {
         console.error('Error fetching QR settings limits:', err);
@@ -104,15 +106,16 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
         .from('qr_settings')
         .update({
           qr_min_limit: qrMinLimit,
-          qr_max_limit: qrMaxLimit
+          qr_max_limit: qrMaxLimit,
+          bbps_max_limit: bbpsMaxLimit
         })
         .eq('id', 1);
 
       if (error) throw error;
-      setLimitsSuccess('QR payment limits updated successfully!');
+      setLimitsSuccess('Payment limits updated successfully!');
       setTimeout(() => setLimitsSuccess(null), 3000);
     } catch (err: any) {
-      console.error('Error saving QR limits:', err);
+      console.error('Error saving limits:', err);
       setLimitsError('Failed to update payment limits');
       setTimeout(() => setLimitsError(null), 3000);
     } finally {
@@ -239,7 +242,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
         )}
       </div>
 
-      {/* QR Payment Limits Card */}
+      {/* Payment Limits Card */}
       {isFullAdmin && (
         <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
           <div className="flex items-center gap-3">
@@ -247,12 +250,12 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
               <IndianRupee size={20} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-900 leading-tight">QR Payment Limits</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Configure the minimum and maximum amount range that users can submit for QR payments.</p>
+              <h3 className="font-bold text-slate-900 leading-tight">Payment Limits</h3>
+              <p className="text-xs text-slate-400 mt-0.5">Configure the minimum and maximum amount range that users can submit for payments.</p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-end gap-4 max-w-2xl">
+          <div className="flex flex-col sm:flex-row items-end gap-4 max-w-3xl">
             <div className="flex-1 space-y-1.5 w-full">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Min QR Limit (₹)</label>
               <input
@@ -267,9 +270,19 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Max QR Limit (₹)</label>
               <input
                 type="number"
-                placeholder="e.g. 100000"
+                placeholder="e.g. 200000"
                 value={qrMaxLimit || ''}
                 onChange={(e) => setQrMaxLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="flex-1 space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Max BBPS Limit (₹)</label>
+              <input
+                type="number"
+                placeholder="e.g. 50000"
+                value={bbpsMaxLimit || ''}
+                onChange={(e) => setBbpsMaxLimit(Number(e.target.value))}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
               />
             </div>
@@ -277,7 +290,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
               type="button"
               onClick={handleSaveLimits}
               disabled={limitsSaving}
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 disabled:opacity-50 h-[42px] shrink-0 active:scale-95"
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-indigo-100 flex items-center gap-2 disabled:opacity-50 h-[42px] shrink-0 active:scale-95 cursor-pointer"
             >
               {limitsSaving ? <Loader2 className="animate-spin" size={16} /> : <CheckCircle2 size={16} />}
               <span>Save Limits</span>

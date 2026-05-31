@@ -160,6 +160,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
+  const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
 
   // BBPS flows states
   const [step, setStep] = useState<number>(1); // 1: Categories, 2: Billers, 3: Form/Fetch, 4: Payment success
@@ -226,6 +227,16 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         .order('min_amount', { ascending: true });
       if (slabData) {
         setSlabs(slabData);
+      }
+
+      // Fetch BBPS max limit from qr_settings
+      const { data: settingsData } = await supabase
+        .from('qr_settings')
+        .select('bbps_max_limit')
+        .eq('id', 1)
+        .single();
+      if (settingsData) {
+        setBbpsMaxLimit(Number(settingsData.bbps_max_limit) || 50000);
       }
     } catch (err) {
       console.error("Error loading profile / slabs:", err);
@@ -558,6 +569,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
     if (isNaN(finalAmount) || finalAmount <= 0) {
       toast.error("Please specify a valid payment amount.");
+      return;
+    }
+
+    if (finalAmount > bbpsMaxLimit) {
+      toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${finalAmount.toLocaleString()}.`);
       return;
     }
 
@@ -935,20 +951,27 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
                             {/* Dynamic Premium Breakdown */}
                             {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                              <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                  <span>Bill Base Amount</span>
-                                  <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                              Number(manualAmount) > bbpsMaxLimit ? (
+                                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                  <AlertTriangle size={16} className="shrink-0" />
+                                  <span>Amount exceeds maximum BBPS limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                  <span>Transaction Charges</span>
-                                  <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                              ) : (
+                                <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                    <span>Bill Base Amount</span>
+                                    <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                    <span>Transaction Charges</span>
+                                    <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                    <span>Total Debited</span>
+                                    <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
                                 </div>
-                                <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                  <span>Total Debited</span>
-                                  <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                              </div>
+                              )
                             )}
 
                             {billDetails.dueDate && (
@@ -1009,20 +1032,27 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
                             {/* Dynamic Premium Breakdown */}
                             {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                              <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                  <span>Bill Base Amount</span>
-                                  <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                              Number(manualAmount) > bbpsMaxLimit ? (
+                                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                  <AlertTriangle size={16} className="shrink-0" />
+                                  <span>Amount exceeds maximum BBPS limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
                                 </div>
-                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                  <span>Transaction Charges</span>
-                                  <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                              ) : (
+                                <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                    <span>Bill Base Amount</span>
+                                    <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                    <span>Transaction Charges</span>
+                                    <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                  <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                    <span>Total Debited</span>
+                                    <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
                                 </div>
-                                <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                  <span>Total Debited</span>
-                                  <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                </div>
-                              </div>
+                              )
                             )}
                           </div>
                         )}
@@ -1032,7 +1062,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                           <button
                             type="button"
                             onClick={handlePayBill}
-                            disabled={loading || (!billDetails.fetchSupported && !manualAmount)}
+                            disabled={loading || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
                             className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
                           >
                             {loading ? (
