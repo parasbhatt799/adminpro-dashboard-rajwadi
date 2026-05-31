@@ -415,7 +415,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row relative">
       {/* Left Column: Wide Advertisement Banner (Desktop only) */}
-      <div className="hidden md:flex md:w-[60%] lg:w-[65%] xl:w-[70%] h-screen relative bg-[#090d16] overflow-hidden">
+      <div className="hidden md:flex md:w-[60%] lg:w-[65%] xl:w-[70%] h-screen relative bg-slate-900 overflow-hidden">
         {adSettings?.banner_url ? (
           <a
             href={adSettings.redirect_link || '#'}
@@ -435,11 +435,11 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
             </div>
           </a>
         ) : (
-          <div className="w-full h-full relative flex items-center justify-center p-12 overflow-hidden">
+          <div className="w-full h-full relative flex items-center justify-center p-12 overflow-hidden bg-slate-900">
             {/* Background image grid & dots */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(79,70,229,0.15),rgba(255,255,255,0))]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_500px_at_50%_400px,#0b111e,transparent)]" />
-            <div className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity" style={{ backgroundImage: "url('/default_login_banner.png')" }} />
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(79,70,229,0.12),rgba(255,255,255,0))]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_400px,rgba(15,23,42,0.3),#0f172a)]" />
+            <div className="absolute inset-0 bg-cover bg-center opacity-[0.18] mix-blend-overlay" style={{ backgroundImage: "url('/default_login_banner.png')" }} />
             
             {/* Ambient glowing shapes */}
             <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" />
@@ -549,7 +549,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
       </div>
 
       {/* Right Column: Centered Login Form */}
-      <div className="w-full md:w-[40%] lg:w-[35%] xl:w-[30%] min-h-screen bg-slate-900 flex flex-col justify-between p-8 relative border-l border-white/5">
+      <div className="w-full md:w-[40%] lg:w-[35%] xl:w-[30%] min-h-screen bg-slate-900 flex flex-col justify-between p-8 relative">
         <header className="flex justify-between items-center z-10 w-full mb-6">
           <span />
           <Link to="/" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">
