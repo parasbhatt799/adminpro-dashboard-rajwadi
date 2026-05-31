@@ -415,7 +415,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row relative">
       {/* Left Column: Wide Advertisement Banner (Desktop only) */}
-      <div className="hidden md:flex md:w-[60%] lg:w-[65%] xl:w-[70%] h-screen relative bg-slate-950 overflow-hidden">
+      <div className="hidden md:flex md:w-[60%] lg:w-[65%] xl:w-[70%] h-screen relative bg-[#090d16] overflow-hidden">
         {adSettings?.banner_url ? (
           <a
             href={adSettings.redirect_link || '#'}
@@ -435,10 +435,115 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
             </div>
           </a>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 bg-slate-900/50 p-8">
-            <ShieldCheck className="text-indigo-500/20 mb-4 animate-pulse" size={64} />
-            <h3 className="text-lg font-bold text-slate-400">UsePay Secure Payment Network</h3>
-            <p className="text-xs text-slate-500 mt-1">Smart. Safe. Secure.</p>
+          <div className="w-full h-full relative flex items-center justify-center p-12 overflow-hidden">
+            {/* Background image grid & dots */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(79,70,229,0.15),rgba(255,255,255,0))]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_500px_at_50%_400px,#0b111e,transparent)]" />
+            <div className="absolute inset-0 bg-cover bg-center opacity-30 mix-blend-luminosity" style={{ backgroundImage: "url('/default_login_banner.png')" }} />
+            
+            {/* Ambient glowing shapes */}
+            <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" />
+            <div className="absolute bottom-[20%] right-[20%] w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+
+            {/* Glowing Ring graphic behind the floating cards */}
+            <div className="absolute w-[500px] h-[500px] rounded-full border border-indigo-500/10 flex items-center justify-center animate-[spin_60s_linear_infinite]">
+              <div className="w-[400px] h-[400px] rounded-full border border-dashed border-indigo-500/5" />
+              <div className="w-[200px] h-[200px] rounded-full border border-emerald-500/5" />
+            </div>
+
+            {/* Content Wrapper */}
+            <div className="relative z-10 w-full max-w-2xl flex flex-col items-center justify-center">
+              {/* Floating Cards Container */}
+              <div className="relative w-full h-[400px] flex items-center justify-center">
+                {/* 3D-like Central Pulsing Ring */}
+                <motion.div 
+                  animate={{ scale: [0.95, 1.05, 0.95] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                  className="w-48 h-48 rounded-full bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center shadow-[0_0_50px_rgba(79,70,229,0.1)] relative"
+                >
+                  <ShieldCheck className="text-indigo-400" size={64} />
+                  <div className="absolute -inset-4 rounded-full border border-indigo-500/10 animate-ping" style={{ animationDuration: '3s' }} />
+                </motion.div>
+
+                {/* Floating Card 1: Profit (Left-Top) */}
+                <motion.div 
+                  initial={{ y: 0 }}
+                  animate={{ y: [-10, 10, -10] }}
+                  transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+                  className="absolute left-4 top-8 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl w-60 text-left"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Volume</p>
+                      <p className="text-2xl font-bold text-white mt-1">$624k</p>
+                    </div>
+                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-bold">
+                      +8.24%
+                    </span>
+                  </div>
+                  
+                  {/* Mini Line Chart SVG */}
+                  <svg className="w-full h-12 mt-4 text-emerald-500 overflow-visible" viewBox="0 0 100 30">
+                    <defs>
+                      <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.2"/>
+                        <stop offset="100%" stopColor="currentColor" stopOpacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M0,25 Q15,10 30,20 T60,5 T90,15 L100,8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M0,25 Q15,10 30,20 T60,5 T90,15 L100,8 L100,30 L0,30 Z"
+                      fill="url(#lineGrad)"
+                    />
+                  </svg>
+                </motion.div>
+
+                {/* Floating Card 2: Successful Payments (Right-Bottom) */}
+                <motion.div 
+                  initial={{ y: 0 }}
+                  animate={{ y: [10, -10, 10] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+                  className="absolute right-4 bottom-8 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl w-56 text-left"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orders / Success</p>
+                      <p className="text-xl font-bold text-white mt-1">124k</p>
+                    </div>
+                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-[10px] font-bold">
+                      +12.6%
+                    </span>
+                  </div>
+                  
+                  {/* Mini Bar Chart */}
+                  <div className="flex items-end justify-between h-10 gap-1.5 px-2">
+                    {[35, 60, 45, 80, 55, 95, 70].map((h, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${h}%` }}
+                        transition={{ duration: 1, delay: i * 0.1 }}
+                        className="flex-1 bg-indigo-500/60 rounded-t-sm"
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              </div>
+
+              {/* Dynamic Welcome / Status message at bottom */}
+              <div className="text-center mt-6">
+                <h3 className="text-lg font-bold text-white tracking-wide">UsePay Secure Gateway</h3>
+                <p className="text-xs text-slate-400 mt-1.5 max-w-sm mx-auto">
+                  Next-generation digital payment processing and merchant network management.
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
