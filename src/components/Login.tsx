@@ -417,30 +417,40 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
       {/* Left Column: Wide Advertisement Banner (Desktop only) */}
       <div className="hidden md:flex md:w-[60%] lg:w-[65%] xl:w-[70%] h-screen relative bg-slate-900 overflow-hidden">
         {adSettings?.banner_url ? (
-          <a
-            href={adSettings.redirect_link || '#'}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full h-full relative group overflow-hidden cursor-pointer"
-          >
-            <img
-              src={adSettings.banner_url}
-              alt="Advertisement"
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 opacity-80 group-hover:opacity-60 transition-opacity duration-300" />
-            <div className="absolute bottom-6 right-6 bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <span>Visit Link</span>
-              <ArrowRight size={14} />
+          adSettings.redirect_link ? (
+            <a
+              href={adSettings.redirect_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full h-full relative group overflow-hidden cursor-pointer"
+            >
+              <img
+                src={adSettings.banner_url}
+                alt="Advertisement"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 opacity-80 group-hover:opacity-60 transition-opacity duration-300" />
+              <div className="absolute bottom-6 right-6 bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <span>Visit Link</span>
+                <ArrowRight size={14} />
+              </div>
+            </a>
+          ) : (
+            <div className="w-full h-full relative overflow-hidden">
+              <img
+                src={adSettings.banner_url}
+                alt="Advertisement"
+                className="w-full h-full object-cover"
+              />
             </div>
-          </a>
+          )
         ) : (
           <div className="w-full h-full relative flex items-center justify-center p-12 overflow-hidden bg-slate-900">
             {/* Background image grid & dots */}
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(79,70,229,0.12),rgba(255,255,255,0))]" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_400px,rgba(15,23,42,0.3),#0f172a)]" />
             <div className="absolute inset-0 bg-cover bg-center opacity-[0.18] mix-blend-overlay" style={{ backgroundImage: "url('/default_login_banner.png')" }} />
-            
+
             {/* Ambient glowing shapes */}
             <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" />
             <div className="absolute bottom-[20%] right-[20%] w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
@@ -456,7 +466,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
               {/* Floating Cards Container */}
               <div className="relative w-full h-[400px] flex items-center justify-center">
                 {/* 3D-like Central Pulsing Ring */}
-                <motion.div 
+                <motion.div
                   animate={{ scale: [0.95, 1.05, 0.95] }}
                   transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                   className="w-48 h-48 rounded-full bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center shadow-[0_0_50px_rgba(79,70,229,0.1)] relative"
@@ -466,7 +476,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
                 </motion.div>
 
                 {/* Floating Card 1: Profit (Left-Top) */}
-                <motion.div 
+                <motion.div
                   initial={{ y: 0 }}
                   animate={{ y: [-10, 10, -10] }}
                   transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
@@ -475,19 +485,19 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Volume</p>
-                      <p className="text-2xl font-bold text-white mt-1">$624k</p>
+                      <p className="text-2xl font-bold text-white mt-1">$2524k</p>
                     </div>
                     <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-bold">
-                      +8.24%
+                      +12.60%
                     </span>
                   </div>
-                  
+
                   {/* Mini Line Chart SVG */}
                   <svg className="w-full h-12 mt-4 text-emerald-500 overflow-visible" viewBox="0 0 100 30">
                     <defs>
                       <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.2"/>
-                        <stop offset="100%" stopColor="currentColor" stopOpacity="0"/>
+                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.2" />
+                        <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
                       </linearGradient>
                     </defs>
                     <path
@@ -505,7 +515,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
                 </motion.div>
 
                 {/* Floating Card 2: Successful Payments (Right-Bottom) */}
-                <motion.div 
+                <motion.div
                   initial={{ y: 0 }}
                   animate={{ y: [10, -10, 10] }}
                   transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
@@ -514,13 +524,13 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orders / Success</p>
-                      <p className="text-xl font-bold text-white mt-1">124k</p>
+                      <p className="text-xl font-bold text-white mt-1">525k</p>
                     </div>
                     <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-[10px] font-bold">
-                      +12.6%
+                      +11.6%
                     </span>
                   </div>
-                  
+
                   {/* Mini Bar Chart */}
                   <div className="flex items-end justify-between h-10 gap-1.5 px-2">
                     {[35, 60, 45, 80, 55, 95, 70].map((h, i) => (

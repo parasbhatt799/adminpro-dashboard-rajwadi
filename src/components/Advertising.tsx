@@ -114,7 +114,7 @@ export default function Advertising() {
         .from('advertising')
         .update({
           banner_url: finalBannerUrl,
-          redirect_link: redirectLink,
+          redirect_link: redirectLink || null,
           updated_at: new Date().toISOString()
         })
         .eq('id', 1);
@@ -197,7 +197,7 @@ export default function Advertising() {
               {/* Redirect Link Input */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1 flex items-center gap-1.5">
-                  <LinkIcon size={12} /> Redirect Link (URL)
+                  <LinkIcon size={12} /> Redirect Link (URL) - Optional
                 </label>
                 <div className="relative">
                   <Globe className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -206,7 +206,6 @@ export default function Advertising() {
                     placeholder="https://example.com/promo-landing"
                     value={redirectLink}
                     onChange={(e) => setRedirectLink(e.target.value)}
-                    required
                     className="w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all placeholder:text-slate-400 text-slate-800 font-medium"
                   />
                 </div>
