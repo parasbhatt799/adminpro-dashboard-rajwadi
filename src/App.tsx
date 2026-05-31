@@ -30,6 +30,7 @@ const PolicyManagement = lazy(() => import('./components/PolicyManagement'));
 const AdminManagement = lazy(() => import('./components/AdminManagement'));
 const ChangePassword = lazy(() => import('./components/ChangePassword'));
 const Login = lazy(() => import('./components/Login'));
+const Advertising = lazy(() => import('./components/Advertising'));
 const AgreementManagement = lazy(() => import('./components/AgreementManagement'));
 const QRScreenshotGallery = lazy(() => import('./components/QRScreenshotGallery'));
 const Settings = lazy(() => import('./components/Settings'));
@@ -1029,7 +1030,7 @@ export default function App() {
         <Route path="/" element={<HomePage isAdmin={isAdmin} isUser={isUser} onLogout={handleLogout} />} />
         <Route
           element={
-            !isAdmin ? <Navigate to="/login" replace /> :
+            !isAdmin ? <Navigate to="/admin-login" replace /> :
               <AdminLayout
                 handleLogout={handleLogout}
                 isSidebarCollapsed={isSidebarCollapsed}
@@ -1114,6 +1115,7 @@ export default function App() {
             <>
               <Route path="admin-management" element={<AdminManagement currentAdminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
               <Route path="settings" element={<Settings />} />
+              <Route path="advertising" element={<Advertising />} />
               <Route path="developer-logs" element={<DeveloperLogs />} />
             </>
           )}
@@ -1144,11 +1146,19 @@ export default function App() {
 
         </Route>
         <Route
+          path="/admin-login"
+          element={
+            isAdmin ? <Navigate to="/dashboard" replace /> :
+              isUser ? <Navigate to="/user/dashboard" replace /> :
+                <Login onLogin={handleLogin} isAdminMode={true} />
+          }
+        />
+        <Route
           path="/login"
           element={
             isAdmin ? <Navigate to="/dashboard" replace /> :
               isUser ? <Navigate to="/user/dashboard" replace /> :
-                <Login onLogin={handleLogin} />
+                <Login onLogin={handleLogin} isAdminMode={false} />
           }
         />
       </Routes>

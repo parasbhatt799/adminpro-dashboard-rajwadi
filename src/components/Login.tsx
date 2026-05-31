@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, ArrowRight, Lock, User, Loader2, X, Mail, Eye, EyeOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -6,9 +6,10 @@ import { supabase } from '../lib/supabase';
 
 interface LoginProps {
   onLogin: (id: string, userType: 'admin' | 'user', role?: string, permissions?: string[]) => void;
+  isAdminMode?: boolean;
 }
 
-export default function Login({ onLogin }: LoginProps) {
+export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
   const navigate = useNavigate();
   const [id, setId] = useState('');
   const [password, setPassword] = useState('');
@@ -22,6 +23,32 @@ export default function Login({ onLogin }: LoginProps) {
   const [forgotLoading, setForgotLoading] = useState(false);
   const [forgotError, setForgotError] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
+
+  // Advertisement settings state
+  const [adSettings, setAdSettings] = useState<{ banner_url: string; redirect_link: string } | null>(null);
+
+  // Fetch advertisement details if not in admin login mode
+  useEffect(() => {
+    if (isAdminMode) return;
+    const fetchAdSettings = async () => {
+      try {
+        const { data } = await supabase
+          .from('advertising')
+          .select('banner_url, redirect_link')
+          .eq('id', 1)
+          .single();
+        if (data) {
+          setAdSettings({
+            banner_url: data.banner_url || '',
+            redirect_link: data.redirect_link || ''
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching advertising banner:', err);
+      }
+    };
+    fetchAdSettings();
+  }, [isAdminMode]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -186,193 +213,278 @@ export default function Login({ onLogin }: LoginProps) {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6">
-      <header className="fixed top-0 left-0 right-0 p-6 flex justify-between items-center z-10">
-        <Link to="/" className="flex items-center gap-2 group">
-          {/* Logo hidden if no src to avoid broken image request */}
-        </Link>
-        <Link to="/" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">
-          Back to Website
-        </Link>
-      </header>
-
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/10 rounded-full blur-[120px]"></div>
+  const renderLoginForm = () => (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div>
+        <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
+          Access ID
+        </label>
+        <div className="relative">
+          <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+          <input
+            type="text"
+            value={id}
+            onChange={(e) => {
+              setId(e.target.value);
+              setError('');
+            }}
+            placeholder="Enter ID"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
+          />
+        </div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md relative z-10"
-      >
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-50 h-30 rounded-2xl flex items-center justify-center mb-4 p-2">
-              <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
-                Access ID
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                <input
-                  type="text"
-                  value={id}
-                  onChange={(e) => {
-                    setId(e.target.value);
-                    setError('');
-                  }}
-                  placeholder="Enter ID"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all"
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setIsForgotModalOpen(true)}
-                  className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                <input
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setError('');
-                  }}
-                  placeholder="••••••••••"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono tracking-widest"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
-              {error && (
-                <motion.p
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-rose-500 text-xs font-bold mt-2 ml-1"
-                >
-                  {error}
-                </motion.p>
-              )}
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-50"
-            >
-              {loading ? <Loader2 className="animate-spin" size={18} /> : 'Verify Identity'}
-              {!loading && <ArrowRight size={18} />}
-            </button>
-          </form>
-
-          <div className="mt-8 pt-6 border-t border-white/5 text-center">
-            <p className="text-xs text-slate-500">
-              Authorized personnel only. All access attempts are logged.
-            </p>
-          </div>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">
+            Password
+          </label>
+          <button
+            type="button"
+            onClick={() => setIsForgotModalOpen(true)}
+            className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            Forgot Password?
+          </button>
         </div>
-      </motion.div>
+        <div className="relative">
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+          <input
+            type={showPassword ? "text" : "password"}
+            value={password}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              setError('');
+            }}
+            placeholder="••••••••••"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono tracking-widest"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-rose-500 text-xs font-bold mt-2 ml-1"
+          >
+            {error}
+          </motion.p>
+        )}
+      </div>
 
-      {/* Forgot Password Modal */}
-      <AnimatePresence>
-        {isForgotModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+      <button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-50"
+      >
+        {loading ? <Loader2 className="animate-spin" size={18} /> : 'Verify Identity'}
+        {!loading && <ArrowRight size={18} />}
+      </button>
+    </form>
+  );
+
+  const renderForgotModal = () => (
+    <AnimatePresence>
+      {isForgotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsForgotModalOpen(false)}
+            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            className="w-full max-w-sm relative z-10 bg-slate-900 border border-white/10 p-8 rounded-3xl shadow-2xl"
+          >
+            <button
               onClick={() => setIsForgotModalOpen(false)}
-              className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-sm relative z-10 bg-slate-900 border border-white/10 p-8 rounded-3xl shadow-2xl"
+              className="absolute right-6 top-6 text-slate-500 hover:text-white transition-colors"
             >
-              <button
-                onClick={() => setIsForgotModalOpen(false)}
-                className="absolute right-6 top-6 text-slate-500 hover:text-white transition-colors"
-              >
-                <X size={20} />
-              </button>
+              <X size={20} />
+            </button>
 
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 bg-indigo-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Mail className="text-indigo-400" size={32} />
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 bg-indigo-600/20 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Mail className="text-indigo-400" size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-white">Forgot Password</h3>
+              <p className="text-slate-400 text-sm mt-2">Enter your registered mobile number to recover your credentials.</p>
+            </div>
+
+            <form onSubmit={handleForgotPassword} className="space-y-6">
+              <div>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
+                  Mobile Number
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+                  <input
+                    type="text"
+                    required
+                    value={forgotMobile}
+                    onChange={(e) => setForgotMobile(e.target.value)}
+                    placeholder="Enter mobile number"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-medium"
+                  />
                 </div>
-                <h3 className="text-xl font-bold text-white">Forgot Password</h3>
-                <p className="text-slate-400 text-sm mt-2">Enter your registered mobile number to recover your credentials.</p>
               </div>
 
-              <form onSubmit={handleForgotPassword} className="space-y-6">
-                <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">
-                    Mobile Number
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-                    <input
-                      type="text"
-                      required
-                      value={forgotMobile}
-                      onChange={(e) => setForgotMobile(e.target.value)}
-                      placeholder="Enter mobile number"
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-medium"
-                    />
-                  </div>
-                </div>
+              {forgotError && (
+                <p className="text-rose-500 text-xs font-bold text-center">{forgotError}</p>
+              )}
+              {forgotMessage && (
+                <p className="text-emerald-500 text-xs font-bold text-center">{forgotMessage}</p>
+              )}
 
-                {forgotError && (
-                  <p className="text-rose-500 text-xs font-bold text-center">{forgotError}</p>
+              <button
+                type="submit"
+                disabled={forgotLoading}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
+              >
+                {forgotLoading ? (
+                  <Loader2 className="animate-spin" size={18} />
+                ) : (
+                  <>
+                    <span>Send Recovery Mail</span>
+                    <ArrowRight size={18} />
+                  </>
                 )}
-                {forgotMessage && (
-                  <p className="text-emerald-500 text-xs font-bold text-center">{forgotMessage}</p>
-                )}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
 
-                <button
-                  type="submit"
-                  disabled={forgotLoading}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-indigo-600/20"
-                >
-                  {forgotLoading ? (
-                    <Loader2 className="animate-spin" size={18} />
-                  ) : (
-                    <>
-                      <span>Send Recovery Mail</span>
-                      <ArrowRight size={18} />
-                    </>
-                  )}
-                </button>
-              </form>
-            </motion.div>
+  // Layout for Admin Mode (Centered)
+  if (isAdminMode) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 relative">
+        <header className="fixed top-0 left-0 right-0 p-6 flex justify-between items-center z-10">
+          <span />
+          <Link to="/" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+            Back to Website
+          </Link>
+        </header>
+
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-600/10 rounded-full blur-[120px]"></div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md relative z-10"
+        >
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl">
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-50 h-30 rounded-2xl flex items-center justify-center mb-4 p-2">
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+              </div>
+              <h2 className="text-sm font-bold text-indigo-400 uppercase tracking-widest mt-2">Admin Portal</h2>
+            </div>
+
+            {renderLoginForm()}
+
+            <div className="mt-8 pt-6 border-t border-white/5 text-center">
+              <p className="text-xs text-slate-500">
+                Authorized personnel only. All access attempts are logged.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        {renderForgotModal()}
+      </div>
+    );
+  }
+
+  // Layout for User / Distributor Mode (Split-Screen)
+  return (
+    <div className="min-h-screen bg-slate-900 flex flex-col md:flex-row relative">
+      {/* Left Column: Wide Advertisement Banner (Desktop only) */}
+      <div className="hidden md:flex md:w-[60%] lg:w-[65%] xl:w-[70%] h-screen relative bg-slate-950 overflow-hidden">
+        {adSettings?.banner_url ? (
+          <a
+            href={adSettings.redirect_link || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full h-full relative group overflow-hidden cursor-pointer"
+          >
+            <img
+              src={adSettings.banner_url}
+              alt="Advertisement"
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-slate-950/20 opacity-80 group-hover:opacity-60 transition-opacity duration-300" />
+            <div className="absolute bottom-6 right-6 bg-white/10 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl text-white text-xs font-bold flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <span>Visit Link</span>
+              <ArrowRight size={14} />
+            </div>
+          </a>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-500 bg-slate-900/50 p-8">
+            <ShieldCheck className="text-indigo-500/20 mb-4 animate-pulse" size={64} />
+            <h3 className="text-lg font-bold text-slate-400">UsePay Secure Payment Network</h3>
+            <p className="text-xs text-slate-500 mt-1">Smart. Safe. Secure.</p>
           </div>
         )}
-      </AnimatePresence>
+      </div>
+
+      {/* Right Column: Centered Login Form */}
+      <div className="w-full md:w-[40%] lg:w-[35%] xl:w-[30%] min-h-screen bg-slate-900 flex flex-col justify-between p-8 relative border-l border-white/5">
+        <header className="flex justify-between items-center z-10 w-full mb-6">
+          <span />
+          <Link to="/" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">
+            Back to Website
+          </Link>
+        </header>
+
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-[20%] right-[-10%] w-[50%] h-[30%] bg-indigo-600/10 rounded-full blur-[120px]"></div>
+          <div className="absolute bottom-[10%] left-[-10%] w-[50%] h-[30%] bg-emerald-600/5 rounded-full blur-[120px]"></div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="w-full max-w-md mx-auto my-auto relative z-10"
+        >
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 p-8 rounded-3xl shadow-2xl">
+            <div className="flex flex-col items-center mb-8">
+              <div className="w-50 h-30 rounded-2xl flex items-center justify-center mb-4 p-2">
+                <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
+              </div>
+            </div>
+
+            {renderLoginForm()}
+
+            <div className="mt-8 pt-6 border-t border-white/5 text-center">
+              <p className="text-xs text-slate-500">
+                Authorized personnel only. All access attempts are logged.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+
+        <footer className="text-center mt-6 text-[10px] text-slate-600 z-10">
+          &copy; {new Date().getFullYear()} UsePay. All rights reserved.
+        </footer>
+      </div>
+
+      {renderForgotModal()}
     </div>
   );
 }
-
