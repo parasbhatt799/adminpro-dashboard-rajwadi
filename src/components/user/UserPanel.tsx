@@ -56,6 +56,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const [coinDirection, setCoinDirection] = useState<'add' | 'deduct'>('add');
   const [targetEntryId, setTargetEntryId] = useState<string | null>(null);
   const [isAnimationEnabled, setIsAnimationEnabled] = useState(true);
+  const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const isAnimationEnabledRef = useRef(true);
   const walletRef = useRef<HTMLDivElement>(null);
 
@@ -151,26 +152,32 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     };
   }, [userId]);
 
-  // Subscribe to QR Approvals for animation
+  // Subscribe to QR Approvals for animation & BBPS settings
   useEffect(() => {
-    // Fetch Animation Setting
+    // Fetch Settings
     const fetchSettings = async () => {
-      const { data } = await supabase.from('qr_settings').select('is_animation_enabled').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('is_animation_enabled, is_bbps_enabled').eq('id', 1).single();
       if (data) {
         const val = data.is_animation_enabled ?? true;
         setIsAnimationEnabled(val);
         isAnimationEnabledRef.current = val;
+        setIsBbpsEnabled(data.is_bbps_enabled ?? true);
       }
     };
     fetchSettings();
 
-    // Global Settings Listener for Animation toggle
+    // Global Settings Listener for toggles
     const settingsChannel = supabase.channel('animation_settings_user')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
-        if (payload.new && 'is_animation_enabled' in payload.new) {
-          const val = payload.new.is_animation_enabled;
-          setIsAnimationEnabled(val);
-          isAnimationEnabledRef.current = val;
+        if (payload.new) {
+          if ('is_animation_enabled' in payload.new) {
+            const val = payload.new.is_animation_enabled;
+            setIsAnimationEnabled(val);
+            isAnimationEnabledRef.current = val;
+          }
+          if ('is_bbps_enabled' in payload.new) {
+            setIsBbpsEnabled(payload.new.is_bbps_enabled ?? true);
+          }
         }
       })
       .subscribe();
@@ -224,15 +231,20 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     }
   }, [userProfile]);
 
-  // Route Protection for Distributors and Super Distributors
+  // Route Protection for Distributors, Super Distributors, and BBPS status
   useEffect(() => {
     if (userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') {
       const restrictedPaths = ['/user/payment', '/user/bill-payment', '/user/statement', '/user/reports'];
       if (restrictedPaths.includes(location.pathname)) {
         navigate('/user/dashboard', { replace: true });
+        return;
       }
     }
-  }, [location.pathname, userProfile, navigate]);
+
+    if (!isBbpsEnabled && location.pathname === '/user/bill-payment') {
+      navigate('/user/dashboard', { replace: true });
+    }
+  }, [location.pathname, userProfile, navigate, isBbpsEnabled]);
 
 
   if (loading) {

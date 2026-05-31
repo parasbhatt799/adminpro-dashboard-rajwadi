@@ -90,11 +90,16 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
     },
   ] : [];
 
+  const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
+
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
     ...distributorItems,
     ...menuItems.slice(1).filter(item => {
       if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'bill-history')) {
+        return false;
+      }
+      if (!isBbpsEnabled && item.id === 'bill-payment') {
         return false;
       }
       return true;
@@ -103,13 +108,14 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
 
   useEffect(() => {
     const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled').eq('id', 1).single();
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
           mini: data.logo_mini_url || data.favicon_url || '/fav.png',
           fav: data.favicon_url || '/fav.png'
         });
+        setIsBbpsEnabled(data.is_bbps_enabled ?? true);
       }
     };
     fetchBranding();
@@ -122,6 +128,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
             mini: payload.new.logo_mini_url || payload.new.favicon_url || '/fav.png',
             fav: payload.new.favicon_url || '/fav.png'
           });
+          if ('is_bbps_enabled' in payload.new) {
+            setIsBbpsEnabled(payload.new.is_bbps_enabled ?? true);
+          }
         }
       })
       .subscribe();
