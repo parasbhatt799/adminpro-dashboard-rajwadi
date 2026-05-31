@@ -50,11 +50,19 @@ const menuItems = [
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: Receipt, path: '/bill-payment-requests' },
   { id: 'bbps-history', label: 'BBPS Bill History', icon: History, path: '/bbps-history' },
-  { id: 'payout-requests', label: 'Payout Request', icon: TrendingDown, path: '/payout-requests' },
+  {
+    id: 'history',
+    label: 'History',
+    icon: History,
+    path: '/payout-requests',
+    subItems: [
+      { id: 'payout-requests', label: 'Payout Request', path: '/payout-requests' },
+      { id: 'qr-history', label: 'QR Tracking History', path: '/qr-history' },
+      { id: 'qr-gallery', label: 'QR Gallery', path: '/qr-gallery' }
+    ]
+  },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },
-  { id: 'qr-history', label: 'QR Tracking History', icon: History, path: '/qr-history' },
-  { id: 'qr-gallery', label: 'QR Gallery', icon: LayoutGrid, path: '/qr-gallery' },
   {
     id: 'wallet',
     label: 'Wallet',
@@ -187,6 +195,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
   const [masterExpanded, setMasterExpanded] = useState(false);
   const [walletExpanded, setWalletExpanded] = useState(false);
   const [usersExpanded, setUsersExpanded] = useState(false);
+  const [historyExpanded, setHistoryExpanded] = useState(false);
 
   return (
     <motion.div
@@ -220,6 +229,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
             const isMaster = item.id === 'master-management';
             const isWallet = item.id === 'wallet';
             const isUsers = item.id === 'users';
+            const isHistory = item.id === 'history';
             const isExpanded = isReports
               ? reportsExpanded
               : isSystem
@@ -230,6 +240,8 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
               ? walletExpanded
               : isUsers
               ? usersExpanded
+              : isHistory
+              ? historyExpanded
               : false;
 
             const isActive = isSubMenu
@@ -245,7 +257,11 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                 ? setMasterExpanded
                 : isWallet
                 ? setWalletExpanded
-                : setUsersExpanded;
+                : isUsers
+                ? setUsersExpanded
+                : isHistory
+                ? setHistoryExpanded
+                : () => {};
               return (
                 <div key={item.id} className="space-y-1">
                   <button
@@ -259,6 +275,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                         setMasterExpanded(isMaster ? nextState : false);
                         setWalletExpanded(isWallet ? nextState : false);
                         setUsersExpanded(isUsers ? nextState : false);
+                        setHistoryExpanded(isHistory ? nextState : false);
 
                         // Default navigate to first subitem if not already in its subitems
                         const isInSubItems = item.subItems?.some(sub => location.pathname.startsWith(sub.path));
@@ -282,13 +299,21 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                         >
                           {item.label}
                         </motion.span>
+                        {item.id === 'history' && pendingCounts.payout > 0 && (
+                          <span className="ml-auto bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse">
+                            {pendingCounts.payout}
+                          </span>
+                        )}
                         <motion.div
                           animate={{ rotate: isExpanded ? 180 : 0 }}
-                          className="ml-auto"
+                          className={item.id === 'history' && pendingCounts.payout > 0 ? "ml-2" : "ml-auto"}
                         >
                           <ChevronDown size={16} />
                         </motion.div>
                       </>
+                    )}
+                    {isCollapsed && item.id === 'history' && pendingCounts.payout > 0 && (
+                      <div className="absolute top-2 right-2 w-2 h-2 bg-rose-500 rounded-full border-2 border-slate-900 animate-pulse" />
                     )}
                   </button>
 
@@ -304,10 +329,15 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                           <NavLink
                             key={sub.path}
                             to={sub.path}
-                            className={({ isActive }) => `block py-2.5 pl-11 pr-4 text-xs font-medium transition-colors ${isActive ? 'text-white bg-white/5' : 'text-slate-400 hover:text-white hover:bg-white/5'
+                            className={({ isActive }) => `flex items-center justify-between py-2.5 pl-11 pr-4 text-xs font-medium transition-colors ${isActive ? 'text-white bg-white/5' : 'text-slate-400 hover:text-white hover:bg-white/5'
                               }`}
                           >
-                            {sub.label}
+                            <span>{sub.label}</span>
+                            {sub.id === 'payout-requests' && pendingCounts.payout > 0 && (
+                              <span className="bg-rose-500 text-[10px] font-bold text-white px-2 py-0.5 rounded-full min-w-[20px] text-center shadow-sm shadow-rose-500/20 animate-pulse ml-2">
+                                {pendingCounts.payout}
+                              </span>
+                            )}
                           </NavLink>
                         ))}
                       </motion.div>
@@ -328,6 +358,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
                   setMasterExpanded(false);
                   setWalletExpanded(false);
                   setUsersExpanded(false);
+                  setHistoryExpanded(false);
                 }}
                 className={({ isActive }) => `w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${isActive
                   ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
