@@ -24,7 +24,13 @@ import {
   HelpCircle,
   FileText,
   Tag,
-  CreditCard
+  CreditCard,
+  Lock,
+  ShieldAlert,
+  Eye,
+  EyeOff,
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
@@ -162,6 +168,17 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   const [slabs, setSlabs] = useState<any[]>([]);
   const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
 
+  // TPIN & Lockout state
+  const [dbTpinValue, setDbTpinValue] = useState<string | null>(null);
+  const [tpinAttempts, setTpinAttempts] = useState<number>(0);
+  const [tpinLockedUntil, setTpinLockedUntil] = useState<string | null>(null);
+  const [showTpinModal, setShowTpinModal] = useState<boolean>(false);
+  const [tpinInput, setTpinInput] = useState<string>('');
+  const [showTpinDigits, setShowTpinDigits] = useState<boolean>(false);
+  const [tpinError, setTpinError] = useState<string | null>(null);
+  const [tpinLoading, setTpinLoading] = useState<boolean>(false);
+  const [lockoutSeconds, setLockoutSeconds] = useState<number>(0);
+
   // BBPS flows states
   const [step, setStep] = useState<number>(1); // 1: Categories, 2: Billers, 3: Form/Fetch, 4: Payment success
   const [loading, setLoading] = useState<boolean>(false);
@@ -211,12 +228,24 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select('wallet_balance, service_charge_enabled, custom_service_charge')
+        .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until')
         .eq('id', userId)
         .single();
       if (!error && data) {
         setWalletBalance(Number(data.wallet_balance) || 0);
         setUserProfile(data);
+        setDbTpinValue(data.tpin || null);
+        setTpinAttempts(Number(data.tpin_attempts) || 0);
+        setTpinLockedUntil(data.tpin_locked_until || null);
+
+        const lockedUntil = data.tpin_locked_until ? new Date(data.tpin_locked_until).getTime() : 0;
+        const now = Date.now();
+        if (lockedUntil > now) {
+          const secs = Math.ceil((lockedUntil - now) / 1000);
+          setLockoutSeconds(secs);
+        } else {
+          setLockoutSeconds(0);
+        }
       }
 
       // Fetch active service charge slabs
@@ -264,6 +293,33 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     fetchWalletBalance();
     fetchCategories();
   }, []);
+
+  useEffect(() => {
+    if (lockoutSeconds <= 0) return;
+
+    const timer = setInterval(() => {
+      setLockoutSeconds(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          supabase
+            .from('users_profiles')
+            .update({
+              tpin_attempts: 0,
+              tpin_locked_until: null
+            })
+            .eq('id', userId)
+            .then(() => {
+              setTpinAttempts(0);
+              setTpinLockedUntil(null);
+            });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockoutSeconds, userId]);
 
   // Filter billers based on query search
   useEffect(() => {
@@ -559,6 +615,135 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePrePayCheck = () => {
+    if (!dbTpinValue || dbTpinValue.trim().length !== 4) {
+      toast.error("Please set your 4-digit TPIN in 'Create TPIN' section before paying bills.");
+      return;
+    }
+
+    if (lockoutSeconds > 0) {
+      const minutes = Math.floor(lockoutSeconds / 60);
+      const seconds = lockoutSeconds % 60;
+      toast.error(`Account is locked. Please try again after ${minutes}m ${seconds}s.`);
+      return;
+    }
+
+    // Check balance check here too as precheck
+    const finalAmount = Number(manualAmount);
+    if (isNaN(finalAmount) || finalAmount <= 0) {
+      toast.error("Please specify a valid payment amount.");
+      return;
+    }
+
+    if (finalAmount > bbpsMaxLimit) {
+      toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${finalAmount.toLocaleString()}.`);
+      return;
+    }
+
+    const serviceCharge = calculateBillCharge(finalAmount);
+    const totalDeduction = finalAmount + serviceCharge;
+
+    if (walletBalance - totalDeduction < 250) {
+      toast.error(`Insufficient wallet balance. You must maintain at least ₹250 after transaction (Bill Amount: ₹${finalAmount} + Service Charge: ₹${serviceCharge}).`);
+      return;
+    }
+
+    setTpinInput('');
+    setTpinError(null);
+    setShowTpinModal(true);
+  };
+
+  const handleTpinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tpinInput.length !== 4) {
+      setTpinError("Please enter a 4-digit TPIN.");
+      return;
+    }
+
+    setTpinLoading(true);
+    setTpinError(null);
+
+    try {
+      const { data: latestProfile, error: fetchErr } = await supabase
+        .from('users_profiles')
+        .select('tpin, tpin_attempts, tpin_locked_until')
+        .eq('id', userId)
+        .single();
+
+      if (fetchErr || !latestProfile) {
+        throw new Error("Failed to verify user profile.");
+      }
+
+      const now = Date.now();
+      const lockedUntil = latestProfile.tpin_locked_until ? new Date(latestProfile.tpin_locked_until).getTime() : 0;
+      if (lockedUntil > now) {
+        const secs = Math.ceil((lockedUntil - now) / 1000);
+        setLockoutSeconds(secs);
+        setShowTpinModal(false);
+        throw new Error(`Your account is locked out for bill payments. Please try again later.`);
+      }
+
+      if (latestProfile.tpin !== tpinInput) {
+        const nextAttempts = (Number(latestProfile.tpin_attempts) || 0) + 1;
+        
+        if (nextAttempts >= 3) {
+          const lockTime = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+          const { error: lockErr } = await supabase
+            .from('users_profiles')
+            .update({
+              tpin_attempts: nextAttempts,
+              tpin_locked_until: lockTime
+            })
+            .eq('id', userId);
+
+          if (lockErr) throw lockErr;
+
+          setTpinAttempts(nextAttempts);
+          setTpinLockedUntil(lockTime);
+          setLockoutSeconds(600);
+          setShowTpinModal(false);
+          toast.error("Too many incorrect TPIN attempts. You have been locked out for 10 minutes.");
+        } else {
+          const { error: attemptErr } = await supabase
+            .from('users_profiles')
+            .update({
+              tpin_attempts: nextAttempts
+            })
+            .eq('id', userId);
+
+          if (attemptErr) throw attemptErr;
+
+          setTpinAttempts(nextAttempts);
+          setTpinInput('');
+          setTpinError(`Incorrect TPIN. ${3 - nextAttempts} attempts remaining.`);
+          toast.error(`Incorrect TPIN. ${3 - nextAttempts} attempts remaining.`);
+        }
+      } else {
+        const { error: resetErr } = await supabase
+          .from('users_profiles')
+          .update({
+            tpin_attempts: 0,
+            tpin_locked_until: null
+          })
+          .eq('id', userId);
+
+        if (resetErr) throw resetErr;
+
+        setTpinAttempts(0);
+        setTpinLockedUntil(null);
+        setLockoutSeconds(0);
+        setShowTpinModal(false);
+
+        await handlePayBill();
+      }
+    } catch (err: any) {
+      console.error("TPIN Verification Error:", err);
+      setTpinError(err.message || "Something went wrong. Please try again.");
+    } finally {
+      setTpinLoading(false);
     }
   };
 
@@ -1061,15 +1246,21 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                         <div className="pt-2">
                           <button
                             type="button"
-                            onClick={handlePayBill}
-                            disabled={loading || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
-                            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                            onClick={handlePrePayCheck}
+                            disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
+                            className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
+                              lockoutSeconds > 0
+                                ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
+                                : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
+                            }`}
                           >
                             {loading ? (
                               <>
                                 <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
                                 Paying Bill...
                               </>
+                            ) : lockoutSeconds > 0 ? (
+                              `Locked (${Math.floor(lockoutSeconds / 60)}m ${lockoutSeconds % 60}s)`
                             ) : (
                               "Pay Now"
                             )}
@@ -1241,6 +1432,110 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         </div>
 
       </div>
+
+      {/* TPIN Verification Modal */}
+      <AnimatePresence>
+        {showTpinModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative max-w-md w-full bg-white rounded-[32px] p-8 shadow-2xl border border-slate-100 flex flex-col gap-6"
+            >
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                    <Lock size={20} />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-800">TPIN Verification</h3>
+                    <p className="text-xs text-slate-400 mt-0.5 font-medium">Enter Transaction PIN to authorize</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTpinModal(false)}
+                  className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleTpinSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1 text-center">
+                    Enter 4-Digit TPIN
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showTpinDigits ? 'text' : 'password'}
+                      value={tpinInput}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setTpinInput(val);
+                      }}
+                      placeholder="••••"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 text-center text-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-mono tracking-[1em]"
+                      maxLength={4}
+                      disabled={tpinLoading}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTpinDigits(!showTpinDigits)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                      {showTpinDigits ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                {tpinError && (
+                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600">
+                    <AlertCircle size={20} className="shrink-0" />
+                    <p className="text-xs font-bold leading-tight">{tpinError}</p>
+                  </div>
+                )}
+
+                <div className="text-center">
+                  {3 - tpinAttempts === 1 ? (
+                    <span className="text-xs font-black text-rose-600 animate-pulse">
+                      ⚠️ Last Attempt! Incorrect TPIN will lock your account for 10 minutes.
+                    </span>
+                  ) : (
+                    <span className="text-xs font-bold text-slate-500">
+                      Remaining attempts: <strong className="text-indigo-600">{3 - tpinAttempts}</strong>
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowTpinModal(false)}
+                    disabled={tpinLoading}
+                    className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-sm uppercase tracking-wider transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={tpinLoading || tpinInput.length !== 4}
+                    className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                  >
+                    {tpinLoading ? (
+                      <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                      "Confirm & Pay"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
