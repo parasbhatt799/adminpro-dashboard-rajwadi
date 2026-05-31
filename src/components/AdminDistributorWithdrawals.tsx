@@ -131,7 +131,8 @@ export default function AdminDistributorWithdrawals() {
 
   const filteredRequests = requests.filter(req => {
     const role = req.users_profiles?.role;
-    const isAdminViewable = role === 'super_distributor' || role === 'distributor';
+    const hasSuperDistributor = !!req.users_profiles?.super_distributor_id;
+    const isAdminViewable = role === 'super_distributor' || (role === 'distributor' && !hasSuperDistributor);
 
     if (!isAdminViewable) return false;
 
