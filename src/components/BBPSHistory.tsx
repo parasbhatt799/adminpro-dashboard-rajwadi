@@ -87,7 +87,8 @@ export default function BBPSHistory() {
     count: 0,
     totalBase: 0,
     totalCharges: 0,
-    totalDebited: 0
+    totalDebited: 0,
+    totalBbpsCommission: 0
   });
 
   const clearFilters = () => {
@@ -194,9 +195,10 @@ export default function BBPSHistory() {
           count: acc.count + 1,
           totalBase: acc.totalBase + amt,
           totalCharges: acc.totalCharges + chg,
-          totalDebited: acc.totalDebited + (amt + chg)
+          totalDebited: acc.totalDebited + (amt + chg),
+          totalBbpsCommission: acc.totalBbpsCommission + 1.95
         };
-      }, { count: 0, totalBase: 0, totalCharges: 0, totalDebited: 0 });
+      }, { count: 0, totalBase: 0, totalCharges: 0, totalDebited: 0, totalBbpsCommission: 0 });
 
       setStats(statsObj);
 
@@ -306,6 +308,7 @@ export default function BBPSHistory() {
         'Transaction UTR': item.transaction_id || 'N/A',
         'Base Amount': Number(item.amount),
         'Service Charge': Number(item.charges),
+        'BBPS Commission': 1.95,
         'Debited Total': Number(item.amount) + Number(item.charges),
         'Status': item.status.toUpperCase()
       }));
@@ -322,6 +325,7 @@ export default function BBPSHistory() {
         'Transaction UTR': '',
         'Base Amount': Number(stats.totalBase.toFixed(2)),
         'Service Charge': Number(stats.totalCharges.toFixed(2)),
+        'BBPS Commission': Number(stats.totalBbpsCommission.toFixed(2)),
         'Debited Total': Number(stats.totalDebited.toFixed(2)),
         'Status': ''
       });
@@ -330,7 +334,7 @@ export default function BBPSHistory() {
       ws['!cols'] = [
         { wch: 12 }, { wch: 10 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, 
         { wch: 25 }, { wch: 18 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, 
-        { wch: 15 }, { wch: 12 }
+        { wch: 15 }, { wch: 15 }, { wch: 12 }
       ];
 
       const wb = XLSX.utils.book_new();
@@ -359,6 +363,7 @@ export default function BBPSHistory() {
         item.status.toUpperCase(),
         Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
         Number(item.charges).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+        '1.95',
         (Number(item.amount) + Number(item.charges)).toLocaleString('en-IN', { minimumFractionDigits: 2 })
       ]);
 
@@ -367,12 +372,13 @@ export default function BBPSHistory() {
           'TOTAL', '', '', '', '', '', '',
           stats.totalBase.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
           stats.totalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
+          stats.totalBbpsCommission.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
           stats.totalDebited.toLocaleString('en-IN', { minimumFractionDigits: 2 })
         ]
       ];
 
       autoTable(doc, {
-        head: [['Date / Time', 'Firm Name', 'Category', 'Operator / Biller', 'Consumer No', 'Transaction UTR', 'Status', 'Base Amount', 'Charge', 'Debited']],
+        head: [['Date / Time', 'Firm Name', 'Category', 'Operator / Biller', 'Consumer No', 'Transaction UTR', 'Status', 'Base Amount', 'Charge', 'BBPS Comm', 'Debited']],
         body: tableData,
         foot: footer,
         theme: 'grid',
@@ -472,7 +478,7 @@ export default function BBPSHistory() {
       </div>
 
       {/* Stats Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
           <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
             <Receipt size={24} />
@@ -500,6 +506,16 @@ export default function BBPSHistory() {
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Commission</p>
             <p className="text-2xl font-black text-slate-950 leading-none">₹{stats.totalCharges.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
+          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+            <IndianRupee size={24} />
+          </div>
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">BBPS Commission</p>
+            <p className="text-2xl font-black text-slate-950 leading-none">₹{stats.totalBbpsCommission.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
 
@@ -611,6 +627,7 @@ export default function BBPSHistory() {
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaction UTR</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base Amt</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-rose-500">Charges</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-indigo-500">BBPS Comm</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Receipt</th>
@@ -701,6 +718,10 @@ export default function BBPSHistory() {
                     
                     <td className="px-6 py-4 text-center">
                       <p className="text-xs font-bold text-rose-600">₹{Number(item.charges || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                    </td>
+
+                    <td className="px-6 py-4 text-center">
+                      <p className="text-xs font-bold text-indigo-600">₹1.95</p>
                     </td>
 
                     <td className="px-6 py-4 text-center">
