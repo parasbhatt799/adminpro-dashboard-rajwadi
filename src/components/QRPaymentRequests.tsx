@@ -251,6 +251,16 @@ export default function QRPaymentRequests() {
     if (!silent) setLoading(true);
     else setFetchingHistory(true);
     try {
+      // Pre-resolve matching user IDs if search query is active to prevent PGRST100 logic tree errors on joins
+      let userIds: string[] = [];
+      if (searchQuery) {
+        const { data: matchedUsers } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .or(`name.ilike.%${searchQuery}%,firm_name.ilike.%${searchQuery}%`);
+        userIds = (matchedUsers || []).map(u => u.id);
+      }
+
       let query = supabase
         .from('payment_submissions')
         .select('*, users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)', { count: 'exact' });
@@ -261,7 +271,11 @@ export default function QRPaymentRequests() {
       }
 
       if (searchQuery) {
-        query = query.or(`utr_id.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%,users_profiles.name.ilike.%${searchQuery}%`);
+        if (userIds.length > 0) {
+          query = query.or(`utr_id.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+        } else {
+          query = query.or(`utr_id.ilike.%${searchQuery}%`);
+        }
       }
 
       if (amountFilter) {
@@ -302,7 +316,11 @@ export default function QRPaymentRequests() {
         .eq('status', 'approved');
 
       if (searchQuery) {
-        sumQuery = sumQuery.or(`utr_id.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%,users_profiles.name.ilike.%${searchQuery}%`);
+        if (userIds.length > 0) {
+          sumQuery = sumQuery.or(`utr_id.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+        } else {
+          sumQuery = sumQuery.or(`utr_id.ilike.%${searchQuery}%`);
+        }
       }
       if (amountFilter) {
         sumQuery = sumQuery.eq('amount', parseFloat(amountFilter));
