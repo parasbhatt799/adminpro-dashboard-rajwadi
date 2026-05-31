@@ -303,60 +303,44 @@ export default function AddUser({
 
         if (insertError) throw insertError;
 
-        // Send actual email via backend
-        try {
-          const emailResponse = await fetch('/api/send-email', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              to: formData.email,
-              subject: 'Welcome to UsePay - Your Account Details',
-              text: `Welcome to UsePay, ${fullName}!\n\nYour account has been created by the administrator. You can now log in using the credentials below:\n\nUser ID (Mobile): ${formData.mobile_number}\nPassword: ${generatedPassword}\nLogin URL: ${window.location.origin}\n\nImportant: You will be required to change your password upon your first login.\n\nAfter changing your password, you will need to complete your KYC verification to activate your dashboard.\n\nThis is an automated message from UsePay. Please do not reply to this email.`,
-              html: `
-                <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
-                  <h2 style="color: #4f46e5; margin-bottom: 24px;">Welcome to UsePay, ${fullName}!</h2>
-                  <p style="font-size: 16px; line-height: 1.6;">Your account has been created by the administrator. You can now log in using the credentials below:</p>
-                  
-                  <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #f1f5f9;">
-                    <p style="margin: 0 0 12px 0; font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">Login Credentials</p>
-                    <p style="margin: 8px 0; font-size: 18px;"><strong>User ID (Mobile):</strong> <span style="color: #0f172a;">${formData.mobile_number}</span></p>
-                    <p style="margin: 8px 0; font-size: 18px;"><strong>Password:</strong> <span style="color: #0f172a;">${generatedPassword}</span></p>
-                  </div>
-                  
-                  <p style="font-size: 14px; color: #ef4444; font-weight: bold;">Important: You will be required to change your password upon your first login.</p>
-                  
-                  <p style="font-size: 16px; line-height: 1.6; margin-top: 24px;">After changing your password, you will need to complete your KYC verification to activate your dashboard.</p>
-                  
-                  <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
-                  
-                  <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated message from UsePay. Please do not reply to this email.</p>
+        // Show credentials modal immediately
+        setCredentials({ id: formData.mobile_number, password: generatedPassword });
+        setShowCredentialsModal(true);
+
+        // Send actual email via backend in the background without blocking UI
+        fetch('/api/send-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: formData.email,
+            subject: 'Welcome to UsePay - Your Account Details',
+            text: `Welcome to UsePay, ${fullName}!\n\nYour account has been created by the administrator. You can now log in using the credentials below:\n\nUser ID (Mobile): ${formData.mobile_number}\nPassword: ${generatedPassword}\nLogin URL: ${window.location.origin}\n\nImportant: You will be required to change your password upon your first login.\n\nAfter changing your password, you will need to complete your KYC verification to activate your dashboard.\n\nThis is an automated message from UsePay. Please do not reply to this email.`,
+            html: `
+              <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
+                <h2 style="color: #4f46e5; margin-bottom: 24px;">Welcome to UsePay, ${fullName}!</h2>
+                <p style="font-size: 16px; line-height: 1.6;">Your account has been created by the administrator. You can now log in using the credentials below:</p>
+                
+                <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #f1f5f9;">
+                  <p style="margin: 0 0 12px 0; font-size: 14px; color: #64748b; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;">Login Credentials</p>
+                  <p style="margin: 8px 0; font-size: 18px;"><strong>User ID (Mobile):</strong> <span style="color: #0f172a;">${formData.mobile_number}</span></p>
+                  <p style="margin: 8px 0; font-size: 18px;"><strong>Password:</strong> <span style="color: #0f172a;">${generatedPassword}</span></p>
                 </div>
-              `
-            }),
-          });
-
-          // Safely parse JSON or handle as text
-          const responseText = await emailResponse.text();
-          let result;
-          try {
-            result = JSON.parse(responseText);
-          } catch (e) {
-            result = { error: responseText || `Status: ${emailResponse.status}` };
-          }
-
-          if (!emailResponse.ok) {
-            throw new Error(result.error || 'Server error');
-          }
-
-          setCredentials({ id: formData.mobile_number, password: generatedPassword });
-          setShowCredentialsModal(true);
-        } catch (emailErr) {
-          console.error('Error calling email API:', emailErr);
-          setCredentials({ id: formData.mobile_number, password: generatedPassword });
-          setShowCredentialsModal(true);
-        }
+                
+                <p style="font-size: 14px; color: #ef4444; font-weight: bold;">Important: You will be required to change your password upon your first login.</p>
+                
+                <p style="font-size: 16px; line-height: 1.6; margin-top: 24px;">After changing your password, you will need to complete your KYC verification to activate your dashboard.</p>
+                
+                <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
+                
+                <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated message from UsePay. Please do not reply to this email.</p>
+              </div>
+            `
+          }),
+        }).catch(emailErr => {
+          console.error('Error calling email API in background:', emailErr);
+        });
       }
     } catch (err: any) {
       console.error('Error saving user:', err);
