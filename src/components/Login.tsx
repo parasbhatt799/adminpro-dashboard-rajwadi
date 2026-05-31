@@ -9,84 +9,6 @@ interface LoginProps {
   isAdminMode?: boolean;
 }
 
-// Live Simulated Transaction Feed Component for Default Banner
-function TransactionFeed() {
-  const [items, setItems] = useState([
-    { id: 1, type: 'IN', amount: '₹5,420', desc: 'UPI Collection Successful', time: 'Just now', dot: 'bg-emerald-500' },
-    { id: 2, type: 'OUT', amount: '₹12,000', desc: 'Payout Node B Settlement', time: '1s ago', dot: 'bg-indigo-500' },
-    { id: 3, type: 'BBPS', amount: '₹1,250', desc: 'BBPS Utility Bill Paid', time: '3s ago', dot: 'bg-cyan-500' }
-  ]);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setItems(prev => {
-        const next = [...prev];
-        const last = next.pop()!;
-        
-        // Randomize amount slightly for live feel
-        const randAmount = Math.floor(Math.random() * 8000) + 500;
-        const newTypes = [
-          { type: 'IN', desc: 'UPI Collection Successful', dot: 'bg-emerald-500' },
-          { type: 'OUT', desc: 'Payout Node B Settlement', dot: 'bg-indigo-500' },
-          { type: 'BBPS', desc: 'BBPS Utility Bill Paid', dot: 'bg-cyan-500' }
-        ];
-        const randomType = newTypes[Math.floor(Math.random() * newTypes.length)];
-        
-        const updatedItem = {
-          id: Date.now(),
-          type: randomType.type,
-          amount: `₹${randAmount.toLocaleString('en-IN')}`,
-          desc: randomType.desc,
-          time: 'Just now',
-          dot: randomType.dot
-        };
-        
-        // Update older item times
-        const shifted = next.map(item => ({
-          ...item,
-          time: item.time === 'Just now' ? '2s ago' : item.time === '2s ago' ? '4s ago' : '5s ago'
-        }));
-
-        return [updatedItem, ...shifted];
-      });
-    }, 3000);
-
-    return () => clearInterval(timer);
-  }, []);
-
-  return (
-    <div className="space-y-2.5">
-      <AnimatePresence initial={false}>
-        {items.slice(0, 3).map((item) => (
-          <motion.div
-            key={item.id}
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.4 }}
-            className="flex items-center justify-between p-4 bg-white/5 border border-white/5 rounded-2xl backdrop-blur-md hover:bg-white/10 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              {/* Type Badge Dot */}
-              <div className="relative flex h-2 w-2">
-                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${item.dot} opacity-75`}></span>
-                <span className={`relative inline-flex rounded-full h-2 w-2 ${item.dot}`}></span>
-              </div>
-              <div className="text-left">
-                <p className="text-xs font-bold text-white">{item.desc}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{item.time}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <span className="text-xs font-black text-white">{item.amount}</span>
-            </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
-  );
-}
-
 export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
   const navigate = useNavigate();
   const [id, setId] = useState('');
@@ -513,84 +435,114 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
             </div>
           </a>
         ) : (
-          <div className="w-full h-full relative flex flex-col items-center justify-center p-12 overflow-hidden bg-slate-900 select-none">
-            {/* Ambient background gradients */}
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(99,102,241,0.15),rgba(255,255,255,0))]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_400px,rgba(15,23,42,0.4),#0f172a)]" />
+          <div className="w-full h-full relative flex items-center justify-center p-12 overflow-hidden bg-slate-900">
+            {/* Background image grid & dots */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(79,70,229,0.12),rgba(255,255,255,0))]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_800px_at_50%_400px,rgba(15,23,42,0.3),#0f172a)]" />
+            <div className="absolute inset-0 bg-cover bg-center opacity-[0.18] mix-blend-overlay" style={{ backgroundImage: "url('/default_login_banner.png')" }} />
             
-            {/* Spinning decorative tech circles */}
-            <div className="absolute w-[600px] h-[600px] rounded-full border border-indigo-500/5 flex items-center justify-center animate-[spin_80s_linear_infinite]" />
-            <div className="absolute w-[450px] h-[450px] rounded-full border border-dashed border-emerald-500/5 flex items-center justify-center animate-[spin_40s_linear_infinite_reverse]" />
+            {/* Ambient glowing shapes */}
+            <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" />
+            <div className="absolute bottom-[20%] right-[20%] w-96 h-96 bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
 
-            {/* Glowing floating ambient orbs */}
-            <div className="absolute top-[10%] left-[10%] w-64 h-64 bg-indigo-500/10 rounded-full blur-[100px] animate-pulse" />
-            <div className="absolute bottom-[10%] right-[10%] w-80 h-80 bg-emerald-500/5 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }} />
+            {/* Glowing Ring graphic behind the floating cards */}
+            <div className="absolute w-[500px] h-[500px] rounded-full border border-indigo-500/10 flex items-center justify-center animate-[spin_60s_linear_infinite]">
+              <div className="w-[400px] h-[400px] rounded-full border border-dashed border-indigo-500/5" />
+              <div className="w-[200px] h-[200px] rounded-full border border-emerald-500/5" />
+            </div>
 
-            <div className="relative z-10 flex flex-col items-center gap-12 w-full max-w-lg">
-              
-              {/* Header Title */}
-              <div className="text-center space-y-2">
-                <span className="px-3 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-[10px] font-bold uppercase tracking-widest">
-                  Secure FinTech Infrastructure
-                </span>
-                <h3 className="text-2xl font-black text-white tracking-tight mt-2">Next-Gen Payment Network</h3>
-                <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  Providing unified API systems for payouts, digital collections, and utility services.
-                </p>
-              </div>
+            {/* Content Wrapper */}
+            <div className="relative z-10 w-full max-w-2xl flex flex-col items-center justify-center">
+              {/* Floating Cards Container */}
+              <div className="relative w-full h-[400px] flex items-center justify-center">
+                {/* 3D-like Central Pulsing Ring */}
+                <motion.div 
+                  animate={{ scale: [0.95, 1.05, 0.95] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                  className="w-48 h-48 rounded-full bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center shadow-[0_0_50px_rgba(79,70,229,0.1)] relative"
+                >
+                  <ShieldCheck className="text-indigo-400" size={64} />
+                  <div className="absolute -inset-4 rounded-full border border-indigo-500/10 animate-ping" style={{ animationDuration: '3s' }} />
+                </motion.div>
 
-              {/* 3D Tilted Credit Card Container */}
-              <motion.div
-                whileHover={{ rotateY: 15, rotateX: -10, scale: 1.03 }}
-                transition={{ type: "spring", stiffness: 150, damping: 15 }}
-                style={{ transformStyle: "preserve-3d", perspective: 1000 }}
-                className="w-full max-w-[360px] h-[220px] rounded-3xl bg-gradient-to-br from-white/10 via-white/5 to-white/0 backdrop-blur-xl border border-white/15 p-6 shadow-2xl flex flex-col justify-between relative overflow-hidden group cursor-pointer"
-              >
-                {/* Holographic reflection highlight on hover */}
-                <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                
-                {/* Top Bar: Brand & Chip */}
-                <div className="flex justify-between items-center" style={{ transform: "translateZ(30px)" }}>
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-600/30">
-                      <ShieldCheck size={18} />
+                {/* Floating Card 1: Profit (Left-Top) */}
+                <motion.div 
+                  initial={{ y: 0 }}
+                  animate={{ y: [-10, 10, -10] }}
+                  transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
+                  className="absolute left-4 top-8 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl w-60 text-left"
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Transaction Volume</p>
+                      <p className="text-2xl font-bold text-white mt-1">$624k</p>
                     </div>
-                    <span className="text-sm font-black text-white tracking-widest">UsePay</span>
+                    <span className="px-2 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-[10px] font-bold">
+                      +8.24%
+                    </span>
                   </div>
-                  {/* Metallic gold chip */}
-                  <div className="w-10 h-8 rounded-md bg-gradient-to-br from-yellow-300 via-amber-400 to-yellow-500 border border-yellow-200/50 shadow-inner flex flex-col p-1 gap-1">
-                    <div className="h-full border-r border-yellow-600/20" />
-                  </div>
-                </div>
+                  
+                  {/* Mini Line Chart SVG */}
+                  <svg className="w-full h-12 mt-4 text-emerald-500 overflow-visible" viewBox="0 0 100 30">
+                    <defs>
+                      <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="currentColor" stopOpacity="0.2"/>
+                        <stop offset="100%" stopColor="currentColor" stopOpacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M0,25 Q15,10 30,20 T60,5 T90,15 L100,8"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      strokeLinecap="round"
+                    />
+                    <path
+                      d="M0,25 Q15,10 30,20 T60,5 T90,15 L100,8 L100,30 L0,30 Z"
+                      fill="url(#lineGrad)"
+                    />
+                  </svg>
+                </motion.div>
 
-                {/* Card Number */}
-                <div className="text-lg font-mono text-white tracking-[0.25em] my-4 text-center" style={{ transform: "translateZ(40px)" }}>
-                  ••••  ••••  ••••  8824
-                </div>
-
-                {/* Bottom Bar: Owner & EXP */}
-                <div className="flex justify-between items-end" style={{ transform: "translateZ(30px)" }}>
-                  <div>
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Authorized Merchant</p>
-                    <p className="text-xs font-bold text-white tracking-wider mt-0.5">USEPAY PARTNER NODE</p>
+                {/* Floating Card 2: Successful Payments (Right-Bottom) */}
+                <motion.div 
+                  initial={{ y: 0 }}
+                  animate={{ y: [10, -10, 10] }}
+                  transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut', delay: 1 }}
+                  className="absolute right-4 bottom-8 bg-slate-900/80 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-2xl w-56 text-left"
+                >
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Orders / Success</p>
+                      <p className="text-xl font-bold text-white mt-1">124k</p>
+                    </div>
+                    <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-full text-[10px] font-bold">
+                      +12.6%
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">EXP END</p>
-                    <p className="text-xs font-mono text-white mt-0.5">12/30</p>
+                  
+                  {/* Mini Bar Chart */}
+                  <div className="flex items-end justify-between h-10 gap-1.5 px-2">
+                    {[35, 60, 45, 80, 55, 95, 70].map((h, i) => (
+                      <motion.div
+                        key={i}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${h}%` }}
+                        transition={{ duration: 1, delay: i * 0.1 }}
+                        className="flex-1 bg-indigo-500/60 rounded-t-sm"
+                      />
+                    ))}
                   </div>
-                </div>
-              </motion.div>
-
-              {/* Live Live Transaction Feed Component */}
-              <div className="w-full max-w-[360px] space-y-3">
-                <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest text-left px-1">
-                  Live Network Stream
-                </p>
-                <div className="space-y-2.5">
-                  <TransactionFeed />
-                </div>
+                </motion.div>
               </div>
 
+              {/* Dynamic Welcome / Status message at bottom */}
+              <div className="text-center mt-6">
+                <h3 className="text-lg font-bold text-white tracking-wide">UsePay Secure Gateway</h3>
+                <p className="text-xs text-slate-400 mt-1.5 max-w-sm mx-auto">
+                  Next-generation digital payment processing and merchant network management.
+                </p>
+              </div>
             </div>
           </div>
         )}
