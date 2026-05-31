@@ -120,6 +120,16 @@ export default function BillPaymentRequests() {
     if (!silent) setLoading(true);
     else setFetchingHistory(true);
     try {
+      // Pre-resolve matching user IDs if search query is active to prevent PGRST100 logic tree errors on joins
+      let userIds: string[] = [];
+      if (searchQuery) {
+        const { data: matchedUsers } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .or(`name.ilike.%${searchQuery}%,firm_name.ilike.%${searchQuery}%`);
+        userIds = (matchedUsers || []).map(u => u.id);
+      }
+
       let query = supabase
         .from('bill_submissions')
         .select('*, users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name, profile_photo_url)', { count: 'exact' });
@@ -130,7 +140,11 @@ export default function BillPaymentRequests() {
       }
 
       if (searchQuery) {
-        query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%`);
+        if (userIds.length > 0) {
+          query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+        } else {
+          query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%`);
+        }
       }
 
       if (startDate) {
@@ -167,7 +181,11 @@ export default function BillPaymentRequests() {
         .eq('status', 'approved');
 
       if (searchQuery) {
-        sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,users_profiles.firm_name.ilike.%${searchQuery}%`);
+        if (userIds.length > 0) {
+          sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+        } else {
+          sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%`);
+        }
       }
       if (startDate) {
         sumQuery = sumQuery.gte('created_at', new Date(`${startDate}T00:00:00`).toISOString());
