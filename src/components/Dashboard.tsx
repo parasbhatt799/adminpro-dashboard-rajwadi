@@ -637,7 +637,7 @@ export default function Dashboard() {
                             </div>
                             <div>
                               <p className="text-sm font-bold text-slate-900">
-                                {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id.slice(0, 8)}`}
+                                {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id?.slice(0, 8) || 'N/A'}`}
                               </p>
                               <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                                 {new Date(req.created_at).toLocaleDateString()} {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -658,7 +658,7 @@ export default function Dashboard() {
                           <div className="space-y-0.5">
                             <p className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
                               <CreditCard size={10} className="text-slate-400" />
-                              {req.card_number.slice(-4)}
+                              {(req.card_number || '').slice(-4)}
                             </p>
                             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">{req.card_bank}</p>
                           </div>

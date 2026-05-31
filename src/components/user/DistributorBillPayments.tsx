@@ -354,7 +354,7 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
                           ) : (
                             <CreditCard size={12} className="text-slate-400" />
                           )}
-                          {req.is_bbps ? req.card_number : req.card_number.slice(-4)}
+                          {req.is_bbps ? (req.card_number || 'N/A') : (req.card_number || '').slice(-4)}
                         </p>
                         <p className="text-[10px] text-slate-500 font-medium truncate max-w-[120px] mx-auto">{req.card_owner_name}</p>
                       </td>

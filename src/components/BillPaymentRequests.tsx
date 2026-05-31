@@ -628,7 +628,7 @@ export default function BillPaymentRequests() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap group-hover:text-indigo-600 transition-colors">
-                              {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id.slice(0, 8)}`}
+                              {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id?.slice(0, 8) || 'N/A'}`}
                             </p>
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                               {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}

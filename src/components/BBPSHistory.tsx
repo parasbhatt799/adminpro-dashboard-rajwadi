@@ -636,7 +636,7 @@ export default function BBPSHistory() {
                         </div>
                         <div>
                           <p className="text-xs font-bold text-slate-900 leading-none">
-                            {item.users_profiles?.firm_name || item.users_profiles?.name || `User #${item.user_id.slice(0, 8)}`}
+                            {item.users_profiles?.firm_name || item.users_profiles?.name || `User #${item.user_id?.slice(0, 8) || 'N/A'}`}
                           </p>
                           <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 leading-none">
                             {format(parseISO(item.created_at), 'dd MMM yyyy')} • {format(parseISO(item.created_at), 'hh:mm a')}
