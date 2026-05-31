@@ -370,7 +370,11 @@ export default function UserTPIN({ userId }: UserTPINProps) {
             <button
               type="submit"
               disabled={loading}
-              className={`py-5 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-2xl active:scale-[0.98] disabled:opacity-50 cursor-pointer ${hasTpin && !isForgotMode ? 'flex-1 bg-slate-900 hover:bg-black shadow-slate-900/20' : 'w-full bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
+              className={`py-5 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-2xl active:scale-[0.98] disabled:opacity-50 cursor-pointer ${
+                hasTpin 
+                  ? (isForgotMode ? 'flex-1 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20' : 'flex-1 bg-slate-900 hover:bg-black shadow-slate-900/20')
+                  : 'w-full bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+              }`}
             >
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
