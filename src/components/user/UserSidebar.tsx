@@ -12,7 +12,8 @@ import {
   KeyRound,
   Wallet,
   Receipt,
-  FileBarChart
+  FileBarChart,
+  ShieldCheck
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink, Link } from 'react-router-dom';
@@ -31,6 +32,7 @@ const menuItems = [
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
+  { id: 'tpin', label: 'Create TPIN', icon: ShieldCheck, path: '/user/tpin' },
   { id: 'change-password', label: 'Security', icon: KeyRound, path: '/user/change-password' },
 ];
 

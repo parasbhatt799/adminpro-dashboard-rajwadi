@@ -46,6 +46,7 @@ const UserPolicies = lazy(() => import('./components/user/UserPolicies'));
 const UserStatementReport = lazy(() => import('./components/user/UserStatementReport'));
 const UserDashboard = lazy(() => import('./components/user/UserDashboard'));
 const UserChangePassword = lazy(() => import('./components/user/UserChangePassword'));
+const UserTPIN = lazy(() => import('./components/user/UserTPIN'));
 const DistributorUsers = lazy(() => import('./components/user/DistributorUsers'));
 const DistributorQRRequests = lazy(() => import('./components/user/DistributorQRRequests'));
 const DistributorWithdrawal = lazy(() => import('./components/user/DistributorWithdrawal'));
@@ -1138,6 +1139,7 @@ export default function App() {
           <Route path="dist-withdrawals" element={<SuperDistributorWithdrawals userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
           <Route path="policies" element={<UserPolicies userId={userId} />} />
+          <Route path="tpin" element={<UserTPIN userId={userId} />} />
           <Route path="change-password" element={<UserChangePassword userId={userId} onLogout={handleLogout} />} />
 
         </Route>
