@@ -503,7 +503,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         const rawAmount = Number(responseData.billAmount) || 0;
         const amountInRupees = rawAmount > 5000 ? rawAmount / 100 : rawAmount; // Auto-scaling safety
 
-        setManualAmount(amountInRupees.toFixed(2));
+        setManualAmount('');
 
         const additionalInfoList = data.data?.additionalInfo?.info || [];
 
