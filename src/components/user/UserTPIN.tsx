@@ -35,6 +35,7 @@ export default function UserTPIN({ userId }: UserTPINProps) {
 
   // Recovery state
   const [forgotLoading, setForgotLoading] = useState(false);
+  const [isForgotMode, setIsForgotMode] = useState(false);
 
   const fetchTpinStatus = async () => {
     setFetching(true);
@@ -95,7 +96,7 @@ export default function UserTPIN({ userId }: UserTPINProps) {
         throw new Error('Account password is incorrect.');
       }
 
-      if (hasTpin) {
+      if (hasTpin && !isForgotMode) {
         if (!currentTpin || currentTpin.length !== 4) {
           throw new Error('Please enter your current 4-digit TPIN.');
         }
@@ -115,8 +116,9 @@ export default function UserTPIN({ userId }: UserTPINProps) {
 
       if (updateError) throw updateError;
 
-      setSuccessMsg(hasTpin ? 'TPIN changed successfully!' : 'TPIN created successfully!');
-      toast.success(hasTpin ? 'TPIN Changed' : 'TPIN Created');
+      setSuccessMsg(isForgotMode ? 'TPIN reset successfully!' : (hasTpin ? 'TPIN changed successfully!' : 'TPIN created successfully!'));
+      toast.success(isForgotMode ? 'TPIN Reset' : (hasTpin ? 'TPIN Changed' : 'TPIN Created'));
+      setIsForgotMode(false);
 
       // Clear input fields
       setCurrentTpin('');
@@ -213,10 +215,10 @@ export default function UserTPIN({ userId }: UserTPINProps) {
           <ShieldAlert size={40} />
         </div>
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">
-          {hasTpin ? 'TPIN Security' : 'Create TPIN'}
+          {isForgotMode ? 'Reset TPIN' : (hasTpin ? 'TPIN Security' : 'Create TPIN')}
         </h2>
         <p className="text-slate-500 mt-2 font-medium">
-          {hasTpin ? 'Change or recover your 4-digit Transaction PIN (TPIN).' : 'Set up a secure 4-digit Transaction PIN to authorize future payments.'}
+          {isForgotMode ? 'Reset your Transaction PIN (TPIN) using your account password.' : (hasTpin ? 'Change or recover your 4-digit Transaction PIN (TPIN).' : 'Set up a secure 4-digit Transaction PIN to authorize future payments.')}
         </p>
       </div>
 
@@ -229,7 +231,7 @@ export default function UserTPIN({ userId }: UserTPINProps) {
           <div className="space-y-6">
             
             {/* If changing TPIN, ask for Current TPIN */}
-            {hasTpin && (
+            {hasTpin && !isForgotMode && (
               <div className="group">
                 <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-3 ml-1 transition-colors group-focus-within:text-indigo-500">
                   Current 4-Digit TPIN
@@ -353,29 +355,29 @@ export default function UserTPIN({ userId }: UserTPINProps) {
             {hasTpin && (
               <button
                 type="button"
-                onClick={handleForgotTpin}
-                disabled={forgotLoading || loading}
+                onClick={() => {
+                  setError(null);
+                  setSuccessMsg(null);
+                  setIsForgotMode(!isForgotMode);
+                }}
+                disabled={loading}
                 className="flex-1 py-5 bg-slate-50 hover:bg-slate-100 text-slate-700 rounded-2xl font-bold text-sm uppercase tracking-wider flex items-center justify-center gap-2 border border-slate-200 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
               >
-                {forgotLoading ? (
-                  <Loader2 className="animate-spin" size={18} />
-                ) : (
-                  'Forgot TPIN?'
-                )}
+                {isForgotMode ? 'Back to Change' : 'Forgot TPIN?'}
               </button>
             )}
 
             <button
               type="submit"
-              disabled={loading || forgotLoading}
-              className={`py-5 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-2xl active:scale-[0.98] disabled:opacity-50 cursor-pointer ${hasTpin ? 'flex-1 bg-slate-900 hover:bg-black shadow-slate-900/20' : 'w-full bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
+              disabled={loading}
+              className={`py-5 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all shadow-2xl active:scale-[0.98] disabled:opacity-50 cursor-pointer ${hasTpin && !isForgotMode ? 'flex-1 bg-slate-900 hover:bg-black shadow-slate-900/20' : 'w-full bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}
             >
               {loading ? (
                 <Loader2 className="animate-spin" size={20} />
               ) : (
                 <>
                   <ShieldCheck size={20} />
-                  {hasTpin ? 'Change TPIN' : 'Create TPIN'}
+                  {isForgotMode ? 'Reset TPIN' : (hasTpin ? 'Change TPIN' : 'Create TPIN')}
                 </>
               )}
             </button>
