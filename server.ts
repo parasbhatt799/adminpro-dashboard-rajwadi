@@ -256,12 +256,14 @@ async function startServer() {
       // 1. Server-side discovery of Admin IDs if targeted
       if (target === 'admins') {
         const { data: admins, error } = await supabaseAdmin
-          .from('users_profiles')
-          .select('id')
-          .eq('role', 'admin');
+          .from('admin_profiles')
+          .select('mobile_number, onesignal_id');
 
         if (!error && admins) {
-          const discoveredExternalIds = admins.map(a => a.id).filter(Boolean);
+          const freshPlayerIds = admins.map(a => a.onesignal_id).filter(Boolean);
+          targetPlayerIds = [...new Set([...targetPlayerIds, ...freshPlayerIds])];
+
+          const discoveredExternalIds = admins.map(a => a.mobile_number).filter(Boolean);
           externalUserIds = [...new Set([...externalUserIds, ...discoveredExternalIds])];
         }
       }
@@ -269,13 +271,27 @@ async function startServer() {
       // 2. Resolve current onesignal_ids from DB for all externalUserIds
       // This ensures we always target the device currently associated with the user
       if (externalUserIds.length > 0) {
-        const { data: profiles } = await supabaseAdmin
+        // Query users_profiles for regular users
+        const { data: userProfiles } = await supabaseAdmin
           .from('users_profiles')
           .select('onesignal_id')
           .in('id', externalUserIds.map((id: any) => String(id)));
 
-        if (profiles) {
-          const freshPlayerIds = profiles.map(p => p.onesignal_id).filter(Boolean);
+        // Query admin_profiles for admins (using mobile_number)
+        const { data: adminProfiles } = await supabaseAdmin
+          .from('admin_profiles')
+          .select('onesignal_id')
+          .in('mobile_number', externalUserIds.map((id: any) => String(id)));
+
+        const freshPlayerIds: string[] = [];
+        if (userProfiles) {
+          freshPlayerIds.push(...userProfiles.map(p => p.onesignal_id).filter(Boolean));
+        }
+        if (adminProfiles) {
+          freshPlayerIds.push(...adminProfiles.map(p => p.onesignal_id).filter(Boolean));
+        }
+
+        if (freshPlayerIds.length > 0) {
           targetPlayerIds = [...new Set([...targetPlayerIds, ...freshPlayerIds])];
         }
       }

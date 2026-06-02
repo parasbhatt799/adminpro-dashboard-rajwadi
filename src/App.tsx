@@ -108,24 +108,26 @@ const setupOneSignal = async (currentUserId: string) => {
         OneSignal.login(currentUserId);
 
         if (pushId) {
-          // 1. Clear this pushId from any other users to ensure uniqueness
+          // 1. Clear this pushId from any other users/admins to ensure uniqueness
           // This prevents notification leaks if multiple users share a device
           await supabase
             .from('users_profiles')
             .update({ onesignal_id: null })
             .eq('onesignal_id', pushId);
 
+          await supabase
+            .from('admin_profiles')
+            .update({ onesignal_id: null })
+            .eq('onesignal_id', pushId);
+
           const userType = localStorage.getItem('userType');
 
           if (userType === 'admin') {
-            // Admins: Sync to users_profiles with 'admin' role so backend can find them
+            // Admins: Sync to admin_profiles table using mobile_number
             await supabase
-              .from('users_profiles')
-              .upsert({
-                id: currentUserId,
-                onesignal_id: pushId,
-                role: 'admin'
-              }, { onConflict: 'id' });
+              .from('admin_profiles')
+              .update({ onesignal_id: pushId })
+              .eq('mobile_number', currentUserId);
             console.log('OneSignal Admin Sync Success:', pushId);
           } else {
             // Regular Users: Sync to their existing profile and ensure role is 'user'
@@ -143,6 +145,11 @@ const setupOneSignal = async (currentUserId: string) => {
         // Logged out: Aggressively clear this device from any user profiles in our DB
         await supabase
           .from('users_profiles')
+          .update({ onesignal_id: null })
+          .eq('onesignal_id', pushId);
+
+        await supabase
+          .from('admin_profiles')
           .update({ onesignal_id: null })
           .eq('onesignal_id', pushId);
 
@@ -942,10 +949,18 @@ export default function App() {
     // 1. Clear OneSignal association in DB (best-effort, don't block logout)
     if (userId) {
       try {
-        await supabase
-          .from('users_profiles')
-          .update({ onesignal_id: null })
-          .eq('id', userId);
+        const userType = localStorage.getItem('userType');
+        if (userType === 'admin') {
+          await supabase
+            .from('admin_profiles')
+            .update({ onesignal_id: null })
+            .eq('mobile_number', userId);
+        } else {
+          await supabase
+            .from('users_profiles')
+            .update({ onesignal_id: null })
+            .eq('id', userId);
+        }
       } catch (err) {
         console.warn('OneSignal DB clear failed (non-blocking):', err);
       }

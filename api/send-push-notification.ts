@@ -6,7 +6,7 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  const { title, message, player_ids, target, link, credentials } = req.body;
+  const { title, message, player_ids, target, link, credentials, external_user_ids } = req.body;
 
   // Log incoming request data for debugging
   console.log(`[Push API] Request - Title: ${title}, Target: ${target}, Link: ${link}`);
@@ -18,26 +18,55 @@ export default async function handler(req: any, res: any) {
   try {
     const { app_id, rest_api_key } = credentials;
     let targetPlayerIds = player_ids || [];
+    let externalUserIds = external_user_ids || [];
+
+    const supabaseAdmin = createClient(
+      process.env.VITE_SUPABASE_URL || "",
+      process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+    );
 
     // --- Server-side discovery of Admin Player IDs ---
     if (target === 'admins') {
-      const supabaseAdmin = createClient(
-        process.env.VITE_SUPABASE_URL || "",
-        process.env.SUPABASE_SERVICE_ROLE_KEY || ""
-      );
-
       const { data: admins, error } = await supabaseAdmin
-        .from('users_profiles')
-        .select('onesignal_id')
-        .eq('role', 'admin') 
-        .not('onesignal_id', 'is', null);
+        .from('admin_profiles')
+        .select('mobile_number, onesignal_id');
 
       if (!error && admins) {
         const discoveredIds = admins.map(a => a.onesignal_id).filter(Boolean);
         targetPlayerIds = [...new Set([...targetPlayerIds, ...discoveredIds])];
+
+        const discoveredExternalIds = admins.map(a => a.mobile_number).filter(Boolean);
+        externalUserIds = [...new Set([...externalUserIds, ...discoveredExternalIds])];
       }
       
       console.log(`[Push API] Target mode: admins. Found ${targetPlayerIds.length} device IDs.`);
+    }
+
+    // --- Resolve onesignal_ids from DB for all externalUserIds ---
+    if (externalUserIds.length > 0) {
+      // Query users_profiles for regular users
+      const { data: userProfiles } = await supabaseAdmin
+        .from('users_profiles')
+        .select('onesignal_id')
+        .in('id', externalUserIds.map((id: any) => String(id)));
+
+      // Query admin_profiles for admins (using mobile_number)
+      const { data: adminProfiles } = await supabaseAdmin
+        .from('admin_profiles')
+        .select('onesignal_id')
+        .in('mobile_number', externalUserIds.map((id: any) => String(id)));
+
+      const freshPlayerIds: string[] = [];
+      if (userProfiles) {
+        freshPlayerIds.push(...userProfiles.map(p => p.onesignal_id).filter(Boolean));
+      }
+      if (adminProfiles) {
+        freshPlayerIds.push(...adminProfiles.map(p => p.onesignal_id).filter(Boolean));
+      }
+
+      if (freshPlayerIds.length > 0) {
+        targetPlayerIds = [...new Set([...targetPlayerIds, ...freshPlayerIds])];
+      }
     }
 
     const data: any = {
@@ -49,11 +78,25 @@ export default async function handler(req: any, res: any) {
       web_url: link ? `https://www.usepay.in/${link.replace(/^\//, '')}` : "https://www.usepay.in/dashboard",
     };
 
-    // Target specific players if provided, otherwise fallback to segments
-    if (targetPlayerIds && targetPlayerIds.length > 0) {
-      data.include_player_ids = targetPlayerIds;
-    } else {
+    // Target specific players if provided, otherwise fallback to segments or fail
+    const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
+    const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
+
+    const hasValidTarget = cleanPlayerIds.length > 0 || cleanExternalIds.length > 0;
+
+    if (hasValidTarget) {
+      if (cleanPlayerIds.length > 0) {
+        data.include_player_ids = cleanPlayerIds;
+        data.include_subscription_ids = cleanPlayerIds;
+      }
+      if (cleanExternalIds.length > 0) {
+        data.include_external_user_ids = cleanExternalIds.map((id: any) => String(id));
+      }
+    } else if (target === 'all' || target === 'broadcast') {
       data.included_segments = ["Subscribed Users", "All"];
+    } else {
+      console.warn('[Push] Target resolution failed for:', title);
+      return res.status(400).json({ error: "No valid target found. Notification blocked for privacy." });
     }
 
     const bodyData = JSON.stringify(data);
