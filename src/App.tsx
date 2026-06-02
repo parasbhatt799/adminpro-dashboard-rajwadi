@@ -130,12 +130,11 @@ const setupOneSignal = async (currentUserId: string) => {
               .eq('mobile_number', currentUserId);
             console.log('OneSignal Admin Sync Success:', pushId);
           } else {
-            // Regular Users: Sync to their existing profile and ensure role is 'user'
+            // Regular Users: Sync to their existing profile
             await supabase
               .from('users_profiles')
               .update({
-                onesignal_id: pushId,
-                role: 'user'
+                onesignal_id: pushId
               })
               .eq('id', currentUserId);
             console.log('OneSignal User Sync Success:', pushId);
