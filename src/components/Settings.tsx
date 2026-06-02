@@ -498,6 +498,7 @@ export default function Settings() {
         body: JSON.stringify({
           title: 'Test Notification 🔔',
           message: 'If you see this, your Push Notifications are working correctly!',
+          target: 'admins',
           credentials: {
             app_id: oneSignalSettings.app_id,
             rest_api_key: oneSignalSettings.rest_api_key
