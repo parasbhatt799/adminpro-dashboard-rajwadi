@@ -568,15 +568,22 @@ async function startServer() {
         customerParams["Mobile"] ||
         "9999999999";
 
+      // Auto-detect if this is a Credit Card payment to pass UPI payment mode
+      const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
+                           (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
+                           (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
+      const mode = isCreditCard ? "UPI" : "Cash";
+      const infoValue = mode === "UPI" ? "UPI Payment" : "Cash Payment";
+
       const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
         biller_id,
         amount: amountInPaisa.toString(),
         quickPay,
-        payment_mode: "Cash",
+        payment_mode: mode,
         paymentInfo: {
           info: [
-            { "infoName": "Cash Payment", "infoValue": "Cash Payment" }
+            { "infoName": infoValue, "infoValue": infoValue }
           ]
         },
         mobile: userMobile,
@@ -648,7 +655,8 @@ async function startServer() {
             metadata: {
               billerName: provider || biller_id,
               date: new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
-              consumerDetails: customerParams
+              consumerDetails: customerParams,
+              paymentMode: mode
             }
           });
 
