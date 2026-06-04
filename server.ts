@@ -573,7 +573,9 @@ async function startServer() {
                            (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
                            (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
       const mode = isCreditCard ? "UPI" : "Cash";
-      const infoValue = mode === "UPI" ? "UPI Payment" : "Cash Payment";
+      const paymentInfoList = mode === "UPI"
+        ? [ { "infoName": "VPA", "infoValue": `${userMobile}@upi` } ]
+        : [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
 
       const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
@@ -582,9 +584,7 @@ async function startServer() {
         quickPay,
         payment_mode: mode,
         paymentInfo: {
-          info: [
-            { "infoName": infoValue, "infoValue": infoValue }
-          ]
+          info: paymentInfoList
         },
         mobile: userMobile,
         billerAdhoc,
