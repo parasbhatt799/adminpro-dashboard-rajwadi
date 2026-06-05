@@ -3,22 +3,25 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Load Credentials from .env
-const ACCESS_CODE = process.env.BILLAVENUE_ACCESS_CODE || 'AVVA15FZ56VG89FFEB';
-const WORKING_KEY = process.env.BILLAVENUE_WORKING_KEY || '57259B1F76AEAB4E809A959D5E69322A';
-const INSTITUTE_ID = process.env.BILLAVENUE_INSTITUTE_ID || 'UF01';
-const AGENT_ID = process.env.BILLAVENUE_AGENT_ID || 'CC01CC01513515340681';
+// Load Credentials from .env and clean potential quotes/whitespace
+const ACCESS_CODE = (process.env.BILLAVENUE_ACCESS_CODE || 'AVVA15FZ56VG89FFEB').replace(/['"]/g, '').trim();
+const WORKING_KEY = (process.env.BILLAVENUE_WORKING_KEY || '57259B1F76AEAB4E809A959D5E69322A').replace(/['"]/g, '').trim();
+const INSTITUTE_ID = (process.env.BILLAVENUE_INSTITUTE_ID || 'UF01').replace(/['"]/g, '').trim();
+const AGENT_ID = (process.env.BILLAVENUE_AGENT_ID || 'CC01CC01513515340681').replace(/['"]/g, '').trim();
 
-// API Endpoints
+// API Endpoints (Dynamic based on Environment: 'production' or 'staging')
+const IS_PROD = process.env.BILLAVENUE_ENV === 'production';
+const BASE_URL = IS_PROD ? 'https://api.billavenue.com' : 'https://stgapi.billavenue.com';
+
 const ENDPOINTS = {
-  billers: 'https://stgapi.billavenue.com/billpay/extMdmCntrl/mdmRequestNew/xml',
-  fetch: 'https://stgapi.billavenue.com/billpay/extBillCntrl/billFetchRequest/xml',
-  pay: 'https://stgapi.billavenue.com/billpay/extBillPayCntrl/billPayRequest/xml',
-  status: 'https://stgapi.billavenue.com/billpay/transactionStatus/fetchInfo/xml',
-  registerComplaint: 'https://stgapi.billavenue.com/billpay/extComplaints/register/xml',
-  trackComplaint: 'https://stgapi.billavenue.com/billpay/extComplaints/track/xml',
-  validate: 'https://stgapi.billavenue.com/billpay/extBillValCntrl/billValidationRequest/xml',
-  plans: 'https://stgapi.billavenue.com/billpay/extPlanMDM/planMdmRequest/xml'
+  billers: `${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/xml`,
+  fetch: `${BASE_URL}/billpay/extBillCntrl/billFetchRequest/xml`,
+  pay: `${BASE_URL}/billpay/extBillPayCntrl/billPayRequest/xml`,
+  status: `${BASE_URL}/billpay/transactionStatus/fetchInfo/xml`,
+  registerComplaint: `${BASE_URL}/billpay/extComplaints/register/xml`,
+  trackComplaint: `${BASE_URL}/billpay/extComplaints/track/xml`,
+  validate: `${BASE_URL}/billpay/extBillValCntrl/billValidationRequest/xml`,
+  plans: `${BASE_URL}/billpay/extPlanMDM/planMdmRequest/xml`
 };
 
 // Fixed IV for CCAvenue/BillAvenue AES-128-CBC
