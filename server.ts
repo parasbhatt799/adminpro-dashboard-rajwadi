@@ -10,6 +10,7 @@ import archiver from "archiver";
 import fs from "fs-extra";
 import os from "os";
 import ws from "ws";
+import * as billAvenue from "./services/billavenue";
 
 dotenv.config();
 
@@ -705,6 +706,394 @@ async function startServer() {
     }
   });
 
+  // ==========================================
+  // BILLAVENUE BBPS API ROUTES
+  // ==========================================
+
+  app.get("/api/bbps/billers", async (req, res) => {
+    try {
+      const { billerId } = req.query;
+      let response;
+      try {
+        response = await billAvenue.getBillers(billerId as string);
+      } catch (apiErr: any) {
+        console.warn("[BillAvenue Server] API Fetch Failed, trying local database fallback:", apiErr.message);
+      }
+
+      if (response && response.json?.billerInfoResponse?.biller) {
+        // Cache billers dynamically to supabase if we fetched all
+        if (!billerId) {
+          const billerList = Array.isArray(response.json.billerInfoResponse.biller)
+            ? response.json.billerInfoResponse.biller
+            : [response.json.billerInfoResponse.biller];
+            
+          const mapped = billerList.map((b: any) => ({
+            biller_id: b.billerId,
+            biller_name: b.billerName,
+            category: b.category,
+            metadata: b
+          }));
+
+          // Upsert into Supabase in batches of 100 to avoid request overload
+          for (let i = 0; i < mapped.length; i += 100) {
+            const chunk = mapped.slice(i, i + 100);
+            await supabaseAdmin.from('billavenue_billers').upsert(chunk);
+          }
+        }
+        return res.json(response.json);
+      }
+
+      // Fallback to Supabase database
+      console.log("[BillAvenue Server] Loading from database fallback...");
+      if (billerId) {
+        const { data: dbBiller, error: dbError } = await supabaseAdmin
+          .from('billavenue_billers')
+          .select('*')
+          .eq('biller_id', billerId)
+          .maybeSingle();
+
+        if (dbError) throw dbError;
+        if (!dbBiller) {
+          return res.status(404).json({ status: "ERROR", message: "Biller not found in API or database." });
+        }
+        return res.json({
+          billerInfoResponse: {
+            responseCode: '0000',
+            biller: dbBiller.metadata
+          }
+        });
+      } else {
+        const { data: dbBillers, error: dbError } = await supabaseAdmin
+          .from('billavenue_billers')
+          .select('*');
+
+        if (dbError) throw dbError;
+        return res.json({
+          billerInfoResponse: {
+            responseCode: '0000',
+            biller: dbBillers ? dbBillers.map((b: any) => b.metadata) : []
+          }
+        });
+      }
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Fetch Billers Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/fetch", async (req, res) => {
+    try {
+      const { billerId, customerParams, customerMobile } = req.body;
+      if (!billerId || !customerParams || !customerMobile) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+      const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile);
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Fetch Bill Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/validate", async (req, res) => {
+    try {
+      const { billerId, customerParams, customerMobile } = req.body;
+      if (!billerId || !customerParams || !customerMobile) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+      const response = await billAvenue.validateBill(billerId, customerParams, customerMobile);
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Validate Bill Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/pay", async (req, res) => {
+    try {
+      const { userId, billerId, customerParams, customerMobile, amount, paymentMode, quickPay } = req.body;
+
+      if (!userId || !billerId || !customerMobile || !amount) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+
+      const paymentAmount = Number(amount);
+      if (isNaN(paymentAmount) || paymentAmount <= 0) {
+        return res.status(400).json({ status: "ERROR", message: "Invalid amount specified." });
+      }
+
+      // 1. Fetch user's current wallet balance and service charge settings
+      const { data: user, error: userError } = await supabaseAdmin
+        .from("users_profiles")
+        .select("wallet_balance, service_charge_enabled, custom_service_charge")
+        .eq("id", userId)
+        .single();
+
+      if (userError || !user) {
+        return res.status(400).json({ status: "ERROR", message: "User profile not found." });
+      }
+
+      const currentBalance = Number(user.wallet_balance) || 0;
+
+      // 1.5 Fetch active service charge slabs to compute commission fee
+      const { data: slabs, error: slabsError } = await supabaseAdmin
+        .from("service_charge_slabs")
+        .select("*")
+        .eq("is_active", true)
+        .order("min_amount", { ascending: true });
+
+      if (slabsError) {
+        console.error("[BillAvenue Proxy] Error fetching slabs:", slabsError);
+      }
+
+      let serviceCharge = 0;
+      if (user.service_charge_enabled) {
+        serviceCharge = Number(user.custom_service_charge) || 0;
+      } else if (slabs && slabs.length > 0) {
+        const slab = slabs.find(s => paymentAmount >= Number(s.min_amount) && paymentAmount <= Number(s.max_amount));
+        if (slab) {
+          if (slab.is_percentage) {
+            serviceCharge = (paymentAmount * Number(slab.charge_amount)) / 100;
+          } else {
+            serviceCharge = Number(slab.charge_amount);
+          }
+        }
+      }
+
+      const totalDeduction = paymentAmount + serviceCharge;
+
+      // 2. Enforce minimum ₹250 wallet balance rule taking calculated charges into account
+      if (currentBalance - totalDeduction < 250) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: `Insufficient balance. You must maintain at least ₹250 in your wallet after payment (Bill Amount: ₹${paymentAmount} + Charges: ₹${serviceCharge}).`
+        });
+      }
+
+      // 3. Call BillAvenue pay API
+      const apiResponse = await billAvenue.payBill(
+        billerId,
+        customerParams,
+        customerMobile,
+        paymentAmount,
+        paymentMode || 'UPI',
+        quickPay || 'N'
+      );
+
+      const responseJson = apiResponse.json;
+      const payResponse = responseJson?.billPayResponse;
+      const responseCode = payResponse?.responseCode;
+      const txnRefId = payResponse?.txnRefId;
+      
+      const isSuccess = responseCode === '0000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
+
+      if (isSuccess || responseCode === '0000') {
+        const newBalance = currentBalance - totalDeduction;
+
+        // 4. Deduct wallet balance in Supabase
+        const { error: updateError } = await supabaseAdmin
+          .from("users_profiles")
+          .update({ wallet_balance: newBalance })
+          .eq("id", userId);
+
+        if (updateError) {
+          console.error("[CRITICAL] Wallet deduction failed for completed BillAvenue transaction:", updateError);
+        }
+
+        // 5. Log transaction into billavenue_transactions
+        await supabaseAdmin
+          .from("billavenue_transactions")
+          .insert({
+            request_id: apiResponse.requestId,
+            txn_ref_id: txnRefId || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
+            customer_mobile: customerMobile,
+            amount: paymentAmount,
+            status: "success",
+            response: responseJson
+          });
+
+        // 6. Also log into bbps_submissions for unified reporting / analytics
+        await supabaseAdmin
+          .from("bbps_submissions")
+          .insert({
+            user_id: userId,
+            service_type: "BillAvenue BBPS",
+            provider: billerId,
+            consumer_number: customerParams[Object.keys(customerParams)[0]] || "BA Account",
+            amount: paymentAmount,
+            charges: serviceCharge,
+            status: "approved",
+            rejection_reason: txnRefId || apiResponse.requestId,
+            metadata: {
+              gateway: "BillAvenue",
+              requestId: apiResponse.requestId,
+              customerParams,
+              paymentMode: paymentMode || 'UPI'
+            }
+          });
+
+        return res.json({
+          status: "SUCCESS",
+          message: "Transaction SUCCESS",
+          new_balance: newBalance,
+          charges: serviceCharge,
+          data: payResponse
+        });
+      } else {
+        // Log failed transaction
+        await supabaseAdmin
+          .from("billavenue_transactions")
+          .insert({
+            request_id: apiResponse.requestId,
+            txn_ref_id: txnRefId || 'N/A',
+            customer_mobile: customerMobile,
+            amount: paymentAmount,
+            status: "failed",
+            response: responseJson
+          });
+
+        return res.json({
+          status: "FAILED",
+          message: payResponse?.responseReason || "Transaction failed at BillAvenue Gateway.",
+          data: payResponse
+        });
+      }
+
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Pay Bill Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.get("/api/bbps/status", async (req, res) => {
+    try {
+      const { requestId, trackType } = req.query;
+      if (!requestId) {
+        return res.status(400).json({ status: "ERROR", message: "requestId parameter is required." });
+      }
+      const response = await billAvenue.getTransactionStatus(requestId as string, trackType as string);
+      
+      const statusResponse = response.json?.transactionStatusResponse;
+      if (statusResponse) {
+        const txnStatus = statusResponse.status?.toLowerCase();
+        let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
+        if (txnStatus === 'success' || txnStatus === 'approved') mappedStatus = 'success';
+        else if (txnStatus === 'failed' || txnStatus === 'rejected') mappedStatus = 'failed';
+
+        await supabaseAdmin
+          .from("billavenue_transactions")
+          .update({
+            txn_ref_id: statusResponse.txnRefId,
+            status: mappedStatus,
+            response: response.json
+          })
+          .eq("request_id", requestId);
+      }
+
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Check Status Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.get("/api/bbps/plans", async (req, res) => {
+    try {
+      const { billerId } = req.query;
+      if (!billerId) {
+        return res.status(400).json({ status: "ERROR", message: "billerId parameter is required." });
+      }
+      const response = await billAvenue.getPlans(billerId as string);
+
+      const plansResponse = response.json?.planMdmResponse;
+      if (plansResponse?.planList?.plan) {
+        const planList = Array.isArray(plansResponse.planList.plan)
+          ? plansResponse.planList.plan
+          : [plansResponse.planList.plan];
+
+        const mapped = planList.map((p: any) => ({
+          biller_id: billerId as string,
+          plan_name: p.planName || p.talktime || 'Recharge Plan',
+          amount: Number(p.amount) || 0,
+          validity: p.validity,
+          description: p.description,
+          metadata: p
+        }));
+
+        await supabaseAdmin.from('billavenue_plans').delete().eq('biller_id', billerId);
+        for (let i = 0; i < mapped.length; i += 100) {
+          const chunk = mapped.slice(i, i + 100);
+          await supabaseAdmin.from('billavenue_plans').insert(chunk);
+        }
+      }
+
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Fetch Plans Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/complaint/register", async (req, res) => {
+    try {
+      const { complaintType, txnRefId, complaintDesc, mobile } = req.body;
+      if (!txnRefId || !complaintDesc || !mobile) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+
+      const response = await billAvenue.registerComplaint(complaintType, txnRefId, complaintDesc, mobile);
+      const registerResponse = response.json?.complaintResponse;
+
+      if (registerResponse?.complaintId) {
+        await supabaseAdmin
+          .from("billavenue_complaints")
+          .insert({
+            complaint_id: registerResponse.complaintId,
+            request_id: response.requestId,
+            customer_mobile: mobile,
+            status: "pending",
+            response: response.json
+          });
+      }
+
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Register Complaint Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/bbps/complaint/track", async (req, res) => {
+    try {
+      const { complaintId, mobile } = req.body;
+      if (!complaintId || !mobile) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+      const response = await billAvenue.trackComplaint(complaintId, mobile);
+      
+      const trackResponse = response.json?.complaintTrackResponse;
+      if (trackResponse) {
+        const cStatus = trackResponse.status?.toLowerCase();
+        let mappedStatus: 'pending' | 'resolved' | 'failed' = 'pending';
+        if (cStatus === 'resolved' || cStatus === 'success') mappedStatus = 'resolved';
+        else if (cStatus === 'failed' || cStatus === 'rejected') mappedStatus = 'failed';
+
+        await supabaseAdmin
+          .from("billavenue_complaints")
+          .update({
+            status: mappedStatus,
+            response: response.json
+          })
+          .eq("complaint_id", complaintId);
+      }
+
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Track Complaint Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
 
   app.all("/api/bbps-proxy", async (req, res) => {
     try {
@@ -955,7 +1344,7 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV === "development") {
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",

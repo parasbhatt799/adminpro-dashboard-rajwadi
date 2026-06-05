@@ -40,6 +40,7 @@ const DeveloperLogs = lazy(() => import('./components/DeveloperLogs'));
 const UserPanel = lazy(() => import('./components/user/UserPanel'));
 const UserPayment = lazy(() => import('./components/user/UserPayment'));
 const UserBillPayment = lazy(() => import('./components/user/UserBillPayment'));
+const UserBillAvenuePayment = lazy(() => import('./components/user/UserBillAvenuePayment'));
 const UserBillHistory = lazy(() => import('./components/user/UserBillHistory'));
 const UserReports = lazy(() => import('./components/user/UserReports'));
 const UserComplaints = lazy(() => import('./components/user/UserComplaints'));
@@ -1142,6 +1143,7 @@ export default function App() {
           <Route path="dashboard" element={<UserDashboard userId={userId} />} />
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />
+          <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} />} />
           <Route path="bill-history" element={<UserBillHistory userId={userId} />} />
           <Route path="reports" element={<UserReports userId={userId} />} />
           <Route path="statement" element={<UserStatementReport userId={userId} />} />

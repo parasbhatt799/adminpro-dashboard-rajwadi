@@ -28,6 +28,7 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
+  { id: 'billavenue-payment', label: 'BBPS Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
@@ -93,15 +94,19 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
   ] : [];
 
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
+  const [isBillAvenueEnabled, setIsBillAvenueEnabled] = useState(true);
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
     ...distributorItems,
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'bill-history')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'bill-history')) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment') {
+        return false;
+      }
+      if (!isBillAvenueEnabled && item.id === 'billavenue-payment') {
         return false;
       }
       return true;
@@ -110,7 +115,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
 
   useEffect(() => {
     const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled').eq('id', 1).single();
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
@@ -118,6 +123,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
           fav: data.favicon_url || '/fav.png'
         });
         setIsBbpsEnabled(data.is_bbps_enabled ?? true);
+        setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
       }
     };
     fetchBranding();
@@ -132,6 +138,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
           });
           if ('is_bbps_enabled' in payload.new) {
             setIsBbpsEnabled(payload.new.is_bbps_enabled ?? true);
+          }
+          if ('is_billavenue_enabled' in payload.new) {
+            setIsBillAvenueEnabled(payload.new.is_billavenue_enabled ?? true);
           }
         }
       })
@@ -185,7 +194,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
               >
                 {({ isActive }) => (
                   <>
-                    {item.id === 'bill-payment' || item.id === 'users-bill-payments' ? (
+                    {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' ? (
                       <img 
                         src="/bbps_logo.png" 
                         alt="" 

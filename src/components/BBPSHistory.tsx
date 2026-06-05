@@ -56,6 +56,7 @@ const getTodayStr = () => {
 export default function BBPSHistory() {
   const [transactions, setTransactions] = useState<BBPSTransaction[]>([]);
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
+  const [isBillAvenueEnabled, setIsBillAvenueEnabled] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [fetchingHistory, setFetchingHistory] = useState(false);
@@ -224,11 +225,12 @@ export default function BBPSHistory() {
     try {
       const { data, error } = await supabase
         .from('qr_settings')
-        .select('is_bbps_enabled')
+        .select('is_bbps_enabled, is_billavenue_enabled')
         .eq('id', 1)
         .single();
       if (!error && data) {
         setIsBbpsEnabled(data.is_bbps_enabled ?? true);
+        setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
       }
     } catch (err) {
       console.error('Error fetching BBPS setting:', err);
@@ -264,6 +266,40 @@ export default function BBPSHistory() {
     } catch (err) {
       console.error('Error updating BBPS setting:', err);
       setIsBbpsEnabled(!newValue);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleToggleBillAvenue = async () => {
+    const newValue = !isBillAvenueEnabled;
+    setIsBillAvenueEnabled(newValue);
+    setSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_billavenue_enabled: newValue })
+        .eq('id', 1);
+      if (error) throw error;
+
+      try {
+        const { data } = await supabase.from('qr_settings').select('is_service_on_sound_enabled, is_service_off_sound_enabled, service_on_sound_url, service_off_sound_url').eq('id', 1).single();
+        if (data) {
+          const isSoundEnabled = newValue ? data.is_service_on_sound_enabled : data.is_service_off_sound_enabled;
+          if (isSoundEnabled) {
+            const soundUrl = newValue
+              ? (data.service_on_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
+              : (data.service_off_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+            const audio = new Audio(soundUrl);
+            audio.play().catch(() => { });
+          }
+        }
+      } catch (soundErr) {
+        console.error('Sound error:', soundErr);
+      }
+    } catch (err) {
+      console.error('Error updating BillAvenue setting:', err);
+      setIsBillAvenueEnabled(!newValue);
     } finally {
       setSavingSettings(false);
     }
@@ -457,6 +493,21 @@ export default function BBPSHistory() {
               className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 cursor-pointer ${isBbpsEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
             >
               <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isBbpsEnabled ? 'translate-x-4.5' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {/* BillAvenue Toggle Switch */}
+          <div className="flex items-center gap-2.5 bg-slate-100/80 px-4 py-2 rounded-xl border border-slate-200/50 shadow-sm h-[42px] select-none">
+            <span className={`text-[10px] font-black uppercase tracking-widest ${isBillAvenueEnabled ? 'text-indigo-600' : 'text-slate-500'}`}>
+              BillAvenue {isBillAvenueEnabled ? 'ON' : 'OFF'}
+            </span>
+            <button
+              type="button"
+              onClick={handleToggleBillAvenue}
+              disabled={savingSettings}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 cursor-pointer ${isBillAvenueEnabled ? 'bg-indigo-600' : 'bg-slate-300'}`}
+            >
+              <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${isBillAvenueEnabled ? 'translate-x-4.5' : 'translate-x-1'}`} />
             </button>
           </div>
 
