@@ -782,6 +782,78 @@ async function startServer() {
     }
   });
 
+  app.get("/api/bbps/test-connection", async (req, res) => {
+    const results: any = {
+      timestamp: new Date().toISOString(),
+      testStaging: null,
+      testProduction: null
+    };
+
+    // Staging test
+    try {
+      const xmlPayload = `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest></billerInfoRequest>`;
+      const requestId = billAvenue.generateRequestId();
+      const encRequest = billAvenue.encryptRequest(xmlPayload);
+      const postParams = new URLSearchParams();
+      const accessCode = (process.env.BILLAVENUE_ACCESS_CODE || 'AVVA15FZ56VG89FFEB').replace(/['"]/g, '').trim();
+      const instituteId = (process.env.BILLAVENUE_INSTITUTE_ID || 'UF01').replace(/['"]/g, '').trim();
+      postParams.append('accessCode', accessCode);
+      postParams.append('requestId', requestId);
+      postParams.append('encRequest', encRequest);
+      postParams.append('ver', '1.0');
+      postParams.append('instituteId', instituteId);
+
+      const stgResponse = await fetch('https://stgapi.billavenue.com/billpay/extMdmCntrl/mdmRequestNew/xml', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: postParams.toString()
+      });
+
+      const stgText = await stgResponse.text();
+      results.testStaging = {
+        status: stgResponse.status,
+        contentType: stgResponse.headers.get('content-type'),
+        isHtmlAccessDenied: stgText.includes('Unauthorized Access Detected') || stgText.includes('Access Denied'),
+        snippet: stgText.substring(0, 500)
+      };
+    } catch (err: any) {
+      results.testStaging = { error: err.message };
+    }
+
+    // Production test
+    try {
+      const xmlPayload = `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest></billerInfoRequest>`;
+      const requestId = billAvenue.generateRequestId();
+      const encRequest = billAvenue.encryptRequest(xmlPayload);
+      const postParams = new URLSearchParams();
+      const accessCode = (process.env.BILLAVENUE_ACCESS_CODE || 'AVVA15FZ56VG89FFEB').replace(/['"]/g, '').trim();
+      const instituteId = (process.env.BILLAVENUE_INSTITUTE_ID || 'UF01').replace(/['"]/g, '').trim();
+      postParams.append('accessCode', accessCode);
+      postParams.append('requestId', requestId);
+      postParams.append('encRequest', encRequest);
+      postParams.append('ver', '1.0');
+      postParams.append('instituteId', instituteId);
+
+      const prodResponse = await fetch('https://api.billavenue.com/billpay/extMdmCntrl/mdmRequestNew/xml', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: postParams.toString()
+      });
+
+      const prodText = await prodResponse.text();
+      results.testProduction = {
+        status: prodResponse.status,
+        contentType: prodResponse.headers.get('content-type'),
+        isHtmlAccessDenied: prodText.includes('Unauthorized Access Detected') || prodText.includes('Access Denied'),
+        snippet: prodText.substring(0, 500)
+      };
+    } catch (err: any) {
+      results.testProduction = { error: err.message };
+    }
+
+    res.json(results);
+  });
+
   app.post("/api/bbps/fetch", async (req, res) => {
     try {
       const { billerId, customerParams, customerMobile } = req.body;
