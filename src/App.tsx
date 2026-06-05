@@ -64,6 +64,8 @@ const AdminStatementReport = lazy(() => import('./components/AdminStatementRepor
 const QRMasterManagement = lazy(() => import('./components/QRMasterManagement'));
 const HomePage = lazy(() => import('./components/HomePage'));
 const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
+const RechargeDashboard = lazy(() => import('./components/RechargeDashboard'));
+const UserRecharge = lazy(() => import('./components/user/UserRecharge'));
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -1089,6 +1091,7 @@ export default function App() {
             adminPermissions.includes('kyc-verification-requests') ? <Navigate to="/kyc-verification-requests" replace /> :
             adminPermissions.includes('qr-gallery') ? <Navigate to="/qr-gallery" replace /> :
             adminPermissions.includes('bbps-history') ? <Navigate to="/bbps-history" replace /> :
+            adminPermissions.includes('recharge-dashboard') ? <Navigate to="/admin/recharge-dashboard" replace /> :
             <Navigate to="/change-password" replace />
           } />
           <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
@@ -1115,6 +1118,7 @@ export default function App() {
           <Route path="kyc-verification-requests" element={(adminRole === 'full' || adminPermissions.includes('kyc-verification-requests')) ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
           <Route path="bbps-history" element={(adminRole === 'full' || adminPermissions.includes('bbps-history')) ? <BBPSHistory /> : <Navigate to="/dashboard" replace />} />
+          <Route path="admin/recharge-dashboard" element={(adminRole === 'full' || adminPermissions.includes('recharge-dashboard')) ? <RechargeDashboard /> : <Navigate to="/dashboard" replace />} />
           
           <Route path="reports">
             <Route path="qr-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
@@ -1144,6 +1148,7 @@ export default function App() {
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />
           <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} />} />
+          <Route path="recharge" element={<UserRecharge userId={userId} />} />
           <Route path="bill-history" element={<UserBillHistory userId={userId} />} />
           <Route path="reports" element={<UserReports userId={userId} />} />
           <Route path="statement" element={<UserStatementReport userId={userId} />} />

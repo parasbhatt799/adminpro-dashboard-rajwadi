@@ -13,7 +13,8 @@ import {
   Wallet,
   Receipt,
   FileBarChart,
-  ShieldCheck
+  ShieldCheck,
+  Smartphone
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink, Link } from 'react-router-dom';
@@ -29,6 +30,7 @@ const menuItems = [
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
   { id: 'billavenue-payment', label: 'BBPS Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
+  { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
@@ -100,7 +102,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
     ...menuItems.slice(0, 1),
     ...distributorItems,
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'bill-history')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'mobile-recharge' || item.id === 'bill-history')) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment') {

@@ -11,6 +11,7 @@ import fs from "fs-extra";
 import os from "os";
 import ws from "ws";
 import * as billAvenue from "./services/billavenue.js";
+import * as recharge from "./services/recharge.js";
 
 dotenv.config();
 
@@ -1090,6 +1091,316 @@ async function startServer() {
       res.json(response.json);
     } catch (error: any) {
       console.error("[BillAvenue Server] Track Complaint Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  // ==========================================
+  // BILLAVENUE PREPAID RECHARGE API ROUTES
+  // ==========================================
+
+  app.get("/api/recharge/operators", async (req, res) => {
+    try {
+      const response = await recharge.getRechargeOperators();
+      res.json(response);
+    } catch (error: any) {
+      console.error("[Recharge API] Get Operators Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/recharge/mnp", async (req, res) => {
+    try {
+      const { mobile } = req.body;
+      if (!mobile) {
+        return res.status(400).json({ status: "ERROR", message: "Mobile number is required." });
+      }
+      const response = await recharge.detectOperatorMNP(mobile);
+      res.json(response);
+    } catch (error: any) {
+      console.error("[Recharge API] MNP Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.get("/api/recharge/plans", async (req, res) => {
+    try {
+      const { billerId, operator, circle } = req.query;
+      if (!billerId) {
+        return res.status(400).json({ status: "ERROR", message: "billerId is required." });
+      }
+
+      let response;
+      try {
+        response = await recharge.getRechargePlans(billerId as string);
+      } catch (apiErr: any) {
+        console.warn("[Recharge API] Plan Fetch Failed, trying local database fallback:", apiErr.message);
+      }
+
+      if (response && response.json?.planMdmResponse?.planList?.plan) {
+        const planList = Array.isArray(response.json.planMdmResponse.planList.plan)
+          ? response.json.planMdmResponse.planList.plan
+          : [response.json.planMdmResponse.planList.plan];
+
+        const mapped = planList.map((p: any) => ({
+          operator: (operator as string) || billerId as string,
+          circle: (circle as string) || 'All Circles',
+          plan_name: p.planName || p.talktime || 'Recharge Plan',
+          amount: Number(p.amount) || 0,
+          validity: p.validity,
+          description: p.description
+        }));
+
+        // Seed to recharge_plans table in database
+        if (operator && circle) {
+          await supabaseAdmin
+            .from('recharge_plans')
+            .delete()
+            .eq('operator', operator)
+            .eq('circle', circle);
+        }
+        for (let i = 0; i < mapped.length; i += 100) {
+          const chunk = mapped.slice(i, i + 100);
+          await supabaseAdmin.from('recharge_plans').insert(chunk);
+        }
+        return res.json(response.json);
+      }
+
+      // Database fallback
+      console.log("[Recharge API] Loading from database fallback...");
+      const { data: dbPlans, error: dbError } = await supabaseAdmin
+        .from('recharge_plans')
+        .select('*')
+        .eq('operator', operator || '')
+        .eq('circle', circle || '');
+
+      if (dbError) throw dbError;
+      return res.json({
+        planMdmResponse: {
+          responseCode: '0000',
+          planList: {
+            plan: dbPlans ? dbPlans.map((p: any) => ({
+              planName: p.plan_name,
+              amount: p.amount,
+              validity: p.validity,
+              description: p.description
+            })) : []
+          }
+        }
+      });
+    } catch (error: any) {
+      console.error("[Recharge API] Fetch Plans Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/recharge/validate", async (req, res) => {
+    try {
+      const { mobile, billerId, amount } = req.body;
+      if (!mobile || !billerId || !amount) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+      const response = await recharge.validateRecharge(mobile, billerId, Number(amount));
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[Recharge API] Validate Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/recharge/pay", async (req, res) => {
+    try {
+      const { userId, mobile, billerId, amount, planId, operator, circle } = req.body;
+
+      if (!userId || !mobile || !billerId || !amount) {
+        return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
+      }
+
+      const rechargeAmount = Number(amount);
+      if (isNaN(rechargeAmount) || rechargeAmount <= 0) {
+        return res.status(400).json({ status: "ERROR", message: "Invalid amount specified." });
+      }
+
+      // 1. Fetch user's current wallet balance and service charge settings
+      const { data: user, error: userError } = await supabaseAdmin
+        .from("users_profiles")
+        .select("wallet_balance, service_charge_enabled, custom_service_charge")
+        .eq("id", userId)
+        .single();
+
+      if (userError || !user) {
+        return res.status(400).json({ status: "ERROR", message: "User profile not found." });
+      }
+
+      const currentBalance = Number(user.wallet_balance) || 0;
+
+      // 2. Fetch active service charge slabs to compute commission fee
+      const { data: slabs, error: slabsError } = await supabaseAdmin
+        .from("service_charge_slabs")
+        .select("*")
+        .eq("is_active", true)
+        .order("min_amount", { ascending: true });
+
+      if (slabsError) {
+        console.error("[Recharge API] Error fetching slabs:", slabsError);
+      }
+
+      let serviceCharge = 0;
+      if (user.service_charge_enabled) {
+        serviceCharge = Number(user.custom_service_charge) || 0;
+      } else if (slabs && slabs.length > 0) {
+        const slab = slabs.find(s => rechargeAmount >= Number(s.min_amount) && rechargeAmount <= Number(s.max_amount));
+        if (slab) {
+          if (slab.is_percentage) {
+            serviceCharge = (rechargeAmount * Number(slab.charge_amount)) / 100;
+          } else {
+            serviceCharge = Number(slab.charge_amount);
+          }
+        }
+      }
+
+      const totalDeduction = rechargeAmount + serviceCharge;
+
+      // 3. Enforce minimum ₹250 wallet balance rule
+      if (currentBalance - totalDeduction < 250) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: `Insufficient balance. You must maintain at least ₹250 in your wallet after payment (Recharge Amount: ₹${rechargeAmount} + Charges: ₹${serviceCharge}).`
+        });
+      }
+
+      // 4. Call BillAvenue recharge payment API
+      const apiResponse = await recharge.rechargeMobile(mobile, billerId, rechargeAmount, planId);
+      const responseJson = apiResponse.json;
+      const payResponse = responseJson?.billPayResponse;
+      const responseCode = payResponse?.responseCode;
+      const txnRefId = payResponse?.txnRefId;
+
+      const isSuccess = responseCode === '0000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
+
+      if (isSuccess || responseCode === '0000') {
+        const newBalance = currentBalance - totalDeduction;
+
+        // 5. Deduct wallet balance in Supabase
+        const { error: updateError } = await supabaseAdmin
+          .from("users_profiles")
+          .update({ wallet_balance: newBalance })
+          .eq("id", userId);
+
+        if (updateError) {
+          console.error("[CRITICAL] Wallet deduction failed for completed Recharge transaction:", updateError);
+        }
+
+        // 6. Log transaction into recharge_transactions
+        await supabaseAdmin
+          .from("recharge_transactions")
+          .insert({
+            user_id: userId,
+            mobile,
+            operator: operator || billerId,
+            circle: circle || 'All Circles',
+            amount: rechargeAmount,
+            plan_id: planId || 'Manual',
+            txn_ref_id: txnRefId || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
+            request_id: apiResponse.requestId,
+            status: "success",
+            response: responseJson
+          });
+
+        // 7. Also log into bbps_submissions for unified reporting
+        await supabaseAdmin
+          .from("bbps_submissions")
+          .insert({
+            user_id: userId,
+            service_type: "Mobile Recharge",
+            provider: operator || billerId,
+            consumer_number: mobile,
+            amount: rechargeAmount,
+            charges: serviceCharge,
+            status: "approved",
+            rejection_reason: txnRefId || apiResponse.requestId,
+            metadata: {
+              gateway: "BillAvenue",
+              requestId: apiResponse.requestId,
+              planId,
+              circle
+            }
+          });
+
+        return res.json({
+          status: "SUCCESS",
+          message: "Recharge SUCCESS",
+          new_balance: newBalance,
+          charges: serviceCharge,
+          data: payResponse
+        });
+      } else {
+        // Log failed transaction
+        await supabaseAdmin
+          .from("recharge_transactions")
+          .insert({
+            user_id: userId,
+            mobile,
+            operator: operator || billerId,
+            circle: circle || 'All Circles',
+            amount: rechargeAmount,
+            plan_id: planId || 'Manual',
+            txn_ref_id: txnRefId || 'N/A',
+            request_id: apiResponse.requestId,
+            status: "failed",
+            response: responseJson
+          });
+
+        return res.json({
+          status: "FAILED",
+          message: payResponse?.responseReason || "Recharge failed at BillAvenue Gateway.",
+          data: payResponse
+        });
+      }
+    } catch (error: any) {
+      console.error("[Recharge API] Pay Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.get("/api/recharge/status", async (req, res) => {
+    try {
+      const { requestId } = req.query;
+      if (!requestId) {
+        return res.status(400).json({ status: "ERROR", message: "requestId parameter is required." });
+      }
+      const response = await recharge.getRechargeStatus(requestId as string);
+      const statusResponse = response.json?.transactionStatusResponse;
+
+      if (statusResponse) {
+        const txnStatus = statusResponse.status?.toLowerCase();
+        let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
+        if (txnStatus === 'success' || txnStatus === 'approved') mappedStatus = 'success';
+        else if (txnStatus === 'failed' || txnStatus === 'rejected') mappedStatus = 'failed';
+
+        await supabaseAdmin
+          .from("recharge_transactions")
+          .update({
+            txn_ref_id: statusResponse.txnRefId,
+            status: mappedStatus,
+            response: response.json
+          })
+          .eq("request_id", requestId);
+      }
+
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[Recharge API] Status Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.get("/api/recharge/deposit", async (req, res) => {
+    try {
+      const response = await recharge.getDepositBalance();
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[Recharge API] Deposit Enquiry Error:", error);
       res.status(500).json({ status: "ERROR", message: error.message });
     }
   });
