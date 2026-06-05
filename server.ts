@@ -869,35 +869,14 @@ async function startServer() {
 
   app.get("/api/bbps/test-billers", async (req, res) => {
     try {
-      const xmlPayload = `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest></billerInfoRequest>`;
-      const requestId = billAvenue.generateRequestId();
-      const encRequest = billAvenue.encryptRequest(xmlPayload);
-      const postParams = new URLSearchParams();
-      const accessCode = (process.env.BILLAVENUE_ACCESS_CODE || 'AVVA15FZ56VG89FFEB').replace(/['"]/g, '').trim();
-      const instituteId = (process.env.BILLAVENUE_INSTITUTE_ID || 'UF01').replace(/['"]/g, '').trim();
-      postParams.append('accessCode', accessCode);
-      postParams.append('requestId', requestId);
-      postParams.append('encRequest', encRequest);
-      postParams.append('ver', '1.0');
-      postParams.append('instituteId', instituteId);
+      const response = await billAvenue.getBillers();
+      const rawXml = response.rawXml;
+      const json = response.json;
 
-      const response = await fetch('https://stgapi.billavenue.com/billpay/extMdmCntrl/mdmRequestNew/xml', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: postParams.toString()
-      });
-
-      const responseText = await response.text();
-      let ciphertext = responseText;
-      if (responseText.includes('<encResponse>')) {
-        ciphertext = billAvenue.parseXmlValue(responseText, 'encResponse');
-      }
-
-      const decryptedXml = billAvenue.decryptResponse(ciphertext);
       const billerRegex = /<biller>([\s\S]*?)<\/biller>/g;
       const billersList: any[] = [];
       let match;
-      while ((match = billerRegex.exec(decryptedXml)) !== null) {
+      while ((match = billerRegex.exec(rawXml)) !== null) {
         const content = match[1];
         const billerId = billAvenue.parseXmlValue(content, 'billerId');
         const billerName = billAvenue.parseXmlValue(content, 'billerName');
@@ -910,7 +889,8 @@ async function startServer() {
 
       res.json({
         totalBillers: billersList.length,
-        rawXml: decryptedXml,
+        rawXml,
+        json,
         torrents,
         sampleElectricity: sampleElec,
         sampleBillers: billersList.slice(0, 20)
