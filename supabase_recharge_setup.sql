@@ -30,5 +30,8 @@ CREATE TABLE IF NOT EXISTS public.recharge_plans (
 ALTER TABLE public.recharge_transactions DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recharge_plans DISABLE ROW LEVEL SECURITY;
 
+-- Add is_recharge_enabled column to public.qr_settings table
+ALTER TABLE public.qr_settings ADD COLUMN IF NOT EXISTS is_recharge_enabled BOOLEAN DEFAULT TRUE;
+
 -- Reload Schema cache
 NOTIFY pgrst, 'reload schema';
