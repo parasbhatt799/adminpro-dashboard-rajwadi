@@ -78,10 +78,50 @@ export default function RechargeDashboard() {
   const [selectedTxn, setSelectedTxn] = useState<RechargeTransaction | null>(null);
   const [recheckingId, setRecheckingId] = useState<string | null>(null);
 
+  // Toggle Service
+  const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   useEffect(() => {
     fetchRecharges();
     fetchDepositBalance();
+    fetchRechargeSetting();
   }, []);
+
+  const fetchRechargeSetting = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('qr_settings')
+        .select('is_recharge_enabled')
+        .eq('id', 1)
+        .single();
+      if (!error && data) {
+        setIsRechargeEnabled(data.is_recharge_enabled ?? true);
+      }
+    } catch (err) {
+      console.error('Error fetching recharge setting:', err);
+    }
+  };
+
+  const handleToggleRecharge = async () => {
+    const newValue = !isRechargeEnabled;
+    setIsRechargeEnabled(newValue);
+    setSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_recharge_enabled: newValue })
+        .eq('id', 1);
+      if (error) throw error;
+      toast.success(`Mobile Recharge service has been ${newValue ? 'ENABLED' : 'DISABLED'}.`);
+    } catch (err: any) {
+      console.error('Error updating recharge setting:', err);
+      toast.error('Failed to update service status.');
+      setIsRechargeEnabled(!newValue);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   const fetchDepositBalance = async () => {
     setBalanceLoading(true);
@@ -302,6 +342,17 @@ export default function RechargeDashboard() {
           <p className="text-slate-500 mt-1">Manage, audit, and trace mobile prepaid recharge transactions.</p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Toggle Service Status */}
+          <div className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-2.5 shadow-sm">
+            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Recharge Status</span>
+            <button
+              onClick={handleToggleRecharge}
+              disabled={savingSettings}
+              className={`relative w-12 h-6.5 rounded-full transition-all duration-300 cursor-pointer ${isRechargeEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
+            >
+              <div className={`absolute top-0.5 w-5.5 h-5.5 rounded-full bg-white shadow-md transition-all duration-300 ${isRechargeEnabled ? 'left-6' : 'left-0.5'}`} />
+            </button>
+          </div>
           <button
             onClick={() => {
               fetchRecharges();

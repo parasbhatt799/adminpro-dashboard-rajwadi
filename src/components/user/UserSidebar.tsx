@@ -97,6 +97,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
 
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const [isBillAvenueEnabled, setIsBillAvenueEnabled] = useState(true);
+  const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
@@ -111,13 +112,16 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       if (!isBillAvenueEnabled && item.id === 'billavenue-payment') {
         return false;
       }
+      if (!isRechargeEnabled && item.id === 'mobile-recharge') {
+        return false;
+      }
       return true;
     })
   ];
 
   useEffect(() => {
     const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_recharge_enabled').eq('id', 1).single();
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
@@ -126,6 +130,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         });
         setIsBbpsEnabled(data.is_bbps_enabled ?? true);
         setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
+        setIsRechargeEnabled(data.is_recharge_enabled ?? true);
       }
     };
     fetchBranding();
@@ -143,6 +148,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
           }
           if ('is_billavenue_enabled' in payload.new) {
             setIsBillAvenueEnabled(payload.new.is_billavenue_enabled ?? true);
+          }
+          if ('is_recharge_enabled' in payload.new) {
+            setIsRechargeEnabled(payload.new.is_recharge_enabled ?? true);
           }
         }
       })

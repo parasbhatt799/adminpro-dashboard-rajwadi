@@ -81,6 +81,9 @@ export default function UserRecharge({ userId }: { userId: string }) {
   // Receipt Output
   const [receipt, setReceipt] = useState<any | null>(null);
 
+  // Service Status
+  const [isRechargeEnabled, setIsRechargeEnabled] = useState<boolean>(true);
+
   useEffect(() => {
     fetchProfileData();
     loadOperators();
@@ -129,6 +132,16 @@ export default function UserRecharge({ userId }: { userId: string }) {
 
   const fetchProfileData = async () => {
     try {
+      // Fetch toggle setting
+      const { data: settingsData } = await supabase
+        .from('qr_settings')
+        .select('is_recharge_enabled')
+        .eq('id', 1)
+        .single();
+      if (settingsData) {
+        setIsRechargeEnabled(settingsData.is_recharge_enabled ?? true);
+      }
+
       const { data, error } = await supabase
         .from('users_profiles')
         .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until, mobile_number')
@@ -360,6 +373,20 @@ export default function UserRecharge({ userId }: { userId: string }) {
       setLoading(false);
     }
   };
+
+  if (!isRechargeEnabled) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-center p-8 bg-white rounded-[32px] border border-slate-200 shadow-sm max-w-lg mx-auto mt-12 space-y-4">
+        <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 shadow-inner">
+          <Smartphone size={32} />
+        </div>
+        <h3 className="text-xl font-black text-slate-800 tracking-tight">Service Unavailable</h3>
+        <p className="text-sm text-slate-400 max-w-xs leading-relaxed">
+          The Mobile Recharge service has been temporarily disabled by the administrator. Please try again later.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto p-4">
