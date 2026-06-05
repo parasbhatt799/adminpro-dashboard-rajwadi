@@ -10,7 +10,7 @@ import archiver from "archiver";
 import fs from "fs-extra";
 import os from "os";
 import ws from "ws";
-import * as billAvenue from "./services/billavenue";
+import * as billAvenue from "./services/billavenue.ts";
 
 dotenv.config();
 
