@@ -164,6 +164,9 @@ export async function callBillAvenueApi(url: string, xmlPayload: string): Promis
     let ciphertext = responseText;
     if (responseText.includes('<encResponse>')) {
       ciphertext = parseXmlValue(responseText, 'encResponse');
+    } else if (responseText.trim().startsWith('<')) {
+      console.warn('[BillAvenue Service] Received plain XML/HTML error response (IP might not be whitelisted):', responseText);
+      throw new Error(`BillAvenue returned plain text/XML error (IP might not be whitelisted): ${responseText}`);
     }
 
     const decryptedXml = decryptResponse(ciphertext);
