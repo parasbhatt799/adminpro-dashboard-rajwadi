@@ -1,7 +1,7 @@
 -- Create RechargeTransactions Table
 CREATE TABLE IF NOT EXISTS public.recharge_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES public.users_profiles(id) ON DELETE CASCADE,
+    user_id TEXT REFERENCES public.users_profiles(id) ON DELETE CASCADE,
     mobile TEXT NOT NULL,
     operator TEXT NOT NULL,
     circle TEXT NOT NULL,
