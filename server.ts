@@ -910,6 +910,7 @@ async function startServer() {
 
       res.json({
         totalBillers: billersList.length,
+        rawXml: decryptedXml,
         torrents,
         sampleElectricity: sampleElec,
         sampleBillers: billersList.slice(0, 20)
