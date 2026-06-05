@@ -854,6 +854,19 @@ async function startServer() {
     res.json(results);
   });
 
+  app.get("/api/bbps/test-fetch", async (req, res) => {
+    try {
+      const response = await billAvenue.fetchBill("TORR00000ELE", { "Service Number": "100000001" }, "9998120909");
+      res.json({
+        rawXml: response.rawXml,
+        json: response.json
+      });
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Test Fetch Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.post("/api/bbps/fetch", async (req, res) => {
     try {
       const { billerId, customerParams, customerMobile } = req.body;
