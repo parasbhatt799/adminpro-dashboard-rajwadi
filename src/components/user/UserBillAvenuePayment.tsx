@@ -44,15 +44,94 @@ interface BillerInfo {
   categoryName: string;
 }
 
-const CATEGORY_MAP = [
-  { name: 'Mobile Prepaid', icon: Smartphone, gradient: 'from-emerald-400 to-teal-600', desc: 'Recharge any prepaid connection' },
-  { name: 'Credit Card', icon: CreditCard, gradient: 'from-pink-400 to-rose-600', desc: 'Pay credit card bills instantly' },
-  { name: 'Electricity', icon: Lightbulb, gradient: 'from-amber-400 to-orange-500', desc: 'Pay state power bills' },
-  { name: 'Gas', icon: Flame, gradient: 'from-red-400 to-rose-600', desc: 'Piped gas & cylinder booking' },
-  { name: 'Water', icon: Droplets, gradient: 'from-cyan-400 to-blue-600', desc: 'Pay municipal water bills' },
-  { name: 'Broadband', icon: Wifi, gradient: 'from-purple-400 to-pink-600', desc: 'High-speed internet recharges' },
-  { name: 'Loan Repayment', icon: Receipt, gradient: 'from-violet-400 to-fuchsia-600', desc: 'Repay active bank loans & EMIs' }
-];
+function getCategoryDetails(name: string) {
+  const normName = name.toLowerCase();
+  
+  if (normName.includes('mobile prepaid') || normName.includes('prepaid mobile')) {
+    return {
+      icon: Smartphone,
+      gradient: 'from-emerald-400 to-teal-600',
+      desc: 'Recharge any prepaid connection'
+    };
+  }
+  if (normName.includes('mobile postpaid') || normName.includes('postpaid mobile')) {
+    return {
+      icon: Smartphone,
+      gradient: 'from-blue-400 to-indigo-600',
+      desc: 'Pay postpaid mobile bills'
+    };
+  }
+  if (normName.includes('credit card')) {
+    return {
+      icon: CreditCard,
+      gradient: 'from-pink-400 to-rose-600',
+      desc: 'Pay credit card bills instantly'
+    };
+  }
+  if (normName.includes('electricity')) {
+    return {
+      icon: Lightbulb,
+      gradient: 'from-amber-400 to-orange-500',
+      desc: 'Pay state power bills'
+    };
+  }
+  if (normName.includes('gas') || normName.includes('lpg')) {
+    return {
+      icon: Flame,
+      gradient: 'from-red-400 to-rose-600',
+      desc: 'Piped gas & cylinder booking'
+    };
+  }
+  if (normName.includes('water')) {
+    return {
+      icon: Droplets,
+      gradient: 'from-cyan-400 to-blue-600',
+      desc: 'Pay municipal water bills'
+    };
+  }
+  if (normName.includes('broadband') || normName.includes('landline')) {
+    return {
+      icon: Wifi,
+      gradient: 'from-purple-400 to-pink-600',
+      desc: 'High-speed internet or landline bills'
+    };
+  }
+  if (normName.includes('dth') || normName.includes('cable')) {
+    return {
+      icon: Tv,
+      gradient: 'from-sky-400 to-blue-500',
+      desc: 'Recharge your DTH or cable TV subscription'
+    };
+  }
+  if (normName.includes('loan') || normName.includes('emi')) {
+    return {
+      icon: Receipt,
+      gradient: 'from-violet-400 to-fuchsia-600',
+      desc: 'Repay active bank loans & EMIs'
+    };
+  }
+  if (normName.includes('insurance')) {
+    return {
+      icon: ShieldCheck,
+      gradient: 'from-teal-400 to-emerald-600',
+      desc: 'Pay life, health or vehicle insurance premiums'
+    };
+  }
+  if (normName.includes('fastag')) {
+    return {
+      icon: Tag,
+      gradient: 'from-amber-500 to-yellow-600',
+      desc: 'Recharge your FASTag toll account'
+    };
+  }
+
+  // Fallback
+  return {
+    icon: Receipt,
+    gradient: 'from-slate-400 to-slate-600',
+    desc: `Pay your ${name} bills online`
+  };
+}
 
 export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const toast = useToast();
@@ -77,6 +156,9 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const [step, setStep] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [allBillers, setAllBillers] = useState<BillerInfo[]>([]);
+  const [categories, setCategories] = useState<{ name: string; icon: any; gradient: string; desc: string }[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState<boolean>(true);
   const [billers, setBillers] = useState<BillerInfo[]>([]);
   const [filteredBillers, setFilteredBillers] = useState<BillerInfo[]>([]);
   const [searchBillerQuery, setSearchBillerQuery] = useState<string>('');
@@ -113,6 +195,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
 
   useEffect(() => {
     fetchProfileData();
+    fetchBillersAndCategories();
   }, []);
 
   useEffect(() => {
@@ -180,6 +263,45 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     }
   };
 
+  const fetchBillersAndCategories = async () => {
+    setCategoriesLoading(true);
+    try {
+      const res = await fetch(`/api/bbps/billers`);
+      const data = await res.json();
+      const list = data?.billerInfoResponse?.biller || [];
+      const billersArray = Array.isArray(list) ? list : [list];
+
+      const mappedBillers: BillerInfo[] = billersArray.map((b: any) => ({
+        billerId: b.billerId,
+        billerName: b.billerName,
+        categoryName: b.category || 'Other'
+      }));
+
+      setAllBillers(mappedBillers);
+
+      // Extract unique categories
+      const uniqueCategoryNames = Array.from(
+        new Set(mappedBillers.map(b => b.categoryName))
+      ).filter(Boolean).sort();
+
+      // Map categories to details (icon, gradient, description)
+      const mappedCats = uniqueCategoryNames.map(name => {
+        const details = getCategoryDetails(name);
+        return {
+          name,
+          ...details
+        };
+      });
+
+      setCategories(mappedCats);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+      toast.error('Failed to load billers and categories.');
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
   const calculateServiceCharge = (amount: number) => {
     if (!userProfile) return 0;
     if (userProfile.service_charge_enabled) {
@@ -192,39 +314,23 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     return 0;
   };
 
-  // Fetch billers for category
-  const selectCategory = async (catName: string) => {
+  // Filter cached billers for selected category in-memory
+  const selectCategory = (catName: string) => {
     setSelectedCategory(catName);
     setStep(2);
-    setLoading(true);
     setSearchBillerQuery('');
-    try {
-      const res = await fetch(`/api/bbps/billers`);
-      const data = await res.json();
-      const list = data?.billerInfoResponse?.biller || [];
-      const billersArray = Array.isArray(list) ? list : [list];
 
-      // Filter billers that match Category Name loosely
-      const filtered = billersArray.map((b: any) => ({
-        billerId: b.billerId,
-        billerName: b.billerName,
-        categoryName: b.category
-      })).filter((b: any) => {
-        const catLower = b.categoryName.toLowerCase();
-        const searchLower = catName.toLowerCase();
-        if (searchLower === 'mobile prepaid') {
-          return catLower.includes('mobile prepaid') || catLower.includes('recharge');
-        }
-        return catLower.includes(searchLower);
-      });
+    const filtered = allBillers.filter((b: any) => {
+      const catLower = b.categoryName.toLowerCase();
+      const searchLower = catName.toLowerCase();
+      if (searchLower === 'mobile prepaid') {
+        return catLower.includes('mobile prepaid') || catLower.includes('recharge');
+      }
+      return catLower === searchLower || catLower.includes(searchLower);
+    });
 
-      setBillers(filtered);
-      setFilteredBillers(filtered);
-    } catch (err) {
-      toast.error('Failed to load billers.');
-    } finally {
-      setLoading(false);
-    }
+    setBillers(filtered);
+    setFilteredBillers(filtered);
   };
 
   // Select Biller and determine input parameters
@@ -611,28 +717,41 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           {step === 1 && (
             <div className="space-y-6">
               <h3 className="text-lg font-black text-slate-800 tracking-tight">Select a category to begin</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {CATEGORY_MAP.map((cat, idx) => {
-                  const Icon = cat.icon;
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => selectCategory(cat.name)}
-                      className="group flex flex-col items-start p-6 rounded-3xl border border-slate-100 hover:border-indigo-100 bg-slate-50/50 hover:bg-indigo-50/20 transition-all text-left shadow-sm hover:shadow-md cursor-pointer relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-bl-full pointer-events-none group-hover:scale-105 transition-transform"></div>
-                      <div className={`w-12 h-12 bg-gradient-to-r ${cat.gradient} text-white rounded-2xl flex items-center justify-center mb-4 shadow-lg`}>
-                        <Icon size={22} />
-                      </div>
-                      <h4 className="font-black text-slate-800 text-sm flex items-center gap-1">
-                        {cat.name}
-                        <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 translate-x-[-4px] group-hover:translate-x-0 transition-all" />
-                      </h4>
-                      <p className="text-xs text-slate-500 mt-1.5">{cat.desc}</p>
-                    </button>
-                  );
-                })}
-              </div>
+              {categoriesLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading categories...</p>
+                </div>
+              ) : categories.length === 0 ? (
+                <div className="text-center py-16 text-slate-400 space-y-2">
+                  <Info size={32} className="mx-auto text-slate-300" />
+                  <p className="text-xs font-black text-slate-600">No Categories Found</p>
+                  <p className="text-[11px]">Could not fetch categories from BillAvenue API.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {categories.map((cat, idx) => {
+                    const Icon = cat.icon;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => selectCategory(cat.name)}
+                        className="group flex flex-col items-start p-6 rounded-3xl border border-slate-100 hover:border-indigo-100 bg-slate-50/50 hover:bg-indigo-50/20 transition-all text-left shadow-sm hover:shadow-md cursor-pointer relative overflow-hidden"
+                      >
+                        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-bl-full pointer-events-none group-hover:scale-105 transition-transform"></div>
+                        <div className={`w-12 h-12 bg-gradient-to-r ${cat.gradient} text-white rounded-2xl flex items-center justify-center mb-4 shadow-lg`}>
+                          <Icon size={22} />
+                        </div>
+                        <h4 className="font-black text-slate-800 text-sm flex items-center gap-1">
+                          {cat.name}
+                          <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 translate-x-[-4px] group-hover:translate-x-0 transition-all" />
+                        </h4>
+                        <p className="text-xs text-slate-500 mt-1.5">{cat.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
