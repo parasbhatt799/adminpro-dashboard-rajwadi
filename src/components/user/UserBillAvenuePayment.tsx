@@ -201,6 +201,9 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     billAmount: number;
     dueDate?: string;
     billNumber?: string;
+    billDate?: string;
+    billPeriod?: string;
+    additionalInfo?: { infoName: string; infoValue: string }[];
     fetchSupported: boolean;
   } | null>(null);
 
