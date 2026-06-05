@@ -867,6 +867,37 @@ async function startServer() {
     }
   });
 
+  app.get("/api/bbps/test-multiple-fetches", async (req, res) => {
+    const billersToTest = [
+      { id: 'TORR00000ELE', params: { 'Service Number': '100000001' }, mobile: '9998120909' },
+      { id: 'ADAN00000GAS', params: { 'Customer ID': '100000001' }, mobile: '9998120909' },
+      { id: 'AMCW00000WAT', params: { 'Tenement Number': '100000001' }, mobile: '9998120909' },
+      { id: 'AIRT00000PRE', params: { 'Mobile Number': '9998120909' }, mobile: '9998120909' },
+      { id: 'SBIC000000CC', params: { 'Card Number': '1234567890123456', 'Mobile Number': '9998120909' }, mobile: '9998120909' }
+    ];
+
+    const results: any[] = [];
+
+    for (const b of billersToTest) {
+      try {
+        const response = await billAvenue.fetchBill(b.id, b.params, b.mobile);
+        results.push({
+          billerId: b.id,
+          responseCode: response.json?.billFetchResponse?.responseCode || billAvenue.parseXmlValue(response.rawXml, 'responseCode'),
+          reason: response.json?.billFetchResponse?.errorInfo?.error?.errorMessage || billAvenue.parseXmlValue(response.rawXml, 'errorMessage') || 'Biller Valid / Success',
+          json: response.json
+        });
+      } catch (err: any) {
+        results.push({
+          billerId: b.id,
+          error: err.message
+        });
+      }
+    }
+
+    res.json(results);
+  });
+
   app.get("/api/bbps/test-billers", async (req, res) => {
     try {
       const response = await billAvenue.getBillers();
