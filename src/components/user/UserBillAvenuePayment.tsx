@@ -133,6 +133,26 @@ function getCategoryDetails(name: string) {
   };
 }
 
+const STANDARD_CATEGORIES = [
+  { name: 'Mobile Prepaid', icon: Smartphone, gradient: 'from-emerald-400 to-teal-600', desc: 'Recharge any prepaid connection' },
+  { name: 'Mobile Postpaid', icon: Smartphone, gradient: 'from-blue-400 to-indigo-600', desc: 'Pay postpaid mobile bills' },
+  { name: 'Credit Card', icon: CreditCard, gradient: 'from-pink-400 to-rose-600', desc: 'Pay credit card bills instantly' },
+  { name: 'Electricity', icon: Lightbulb, gradient: 'from-amber-400 to-orange-500', desc: 'Pay state power bills' },
+  { name: 'Gas', icon: Flame, gradient: 'from-red-400 to-rose-600', desc: 'Piped gas & cylinder booking' },
+  { name: 'Water', icon: Droplets, gradient: 'from-cyan-400 to-blue-600', desc: 'Pay municipal water bills' },
+  { name: 'Broadband', icon: Wifi, gradient: 'from-purple-400 to-pink-600', desc: 'High-speed internet recharges' },
+  { name: 'DTH', icon: Tv, gradient: 'from-sky-400 to-blue-500', desc: 'Recharge DTH connection' },
+  { name: 'Cable TV', icon: Tv, gradient: 'from-teal-400 to-cyan-500', desc: 'Pay Cable TV operator bills' },
+  { name: 'Loan Repayment', icon: Receipt, gradient: 'from-violet-400 to-fuchsia-600', desc: 'Repay active bank loans & EMIs' },
+  { name: 'Insurance', icon: ShieldCheck, gradient: 'from-teal-400 to-emerald-600', desc: 'Pay life, health or vehicle insurance' },
+  { name: 'FASTag', icon: Tag, gradient: 'from-amber-500 to-yellow-600', desc: 'Recharge FASTag toll account' },
+  { name: 'Education Fees', icon: HelpCircle, gradient: 'from-violet-500 to-purple-600', desc: 'Pay school, college or coaching fees' },
+  { name: 'Municipal Taxes', icon: Receipt, gradient: 'from-slate-500 to-slate-700', desc: 'Pay municipal property tax' },
+  { name: 'Housing Society', icon: HelpCircle, gradient: 'from-rose-400 to-pink-500', desc: 'Pay maintenance or society charges' },
+  { name: 'Subscription', icon: Sparkles, gradient: 'from-yellow-400 to-amber-500', desc: 'Pay platform subscription fees' },
+  { name: 'Hospital', icon: HelpCircle, gradient: 'from-red-500 to-rose-600', desc: 'Pay hospital & clinic bills' }
+];
+
 export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const toast = useToast();
 
@@ -279,21 +299,30 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
 
       setAllBillers(mappedBillers);
 
-      // Extract unique categories
-      const uniqueCategoryNames = Array.from(
+      // Extract unique categories from the API
+      const apiCategoryNames = Array.from(
         new Set(mappedBillers.map(b => b.categoryName))
-      ).filter(Boolean).sort();
+      ).filter(Boolean);
 
-      // Map categories to details (icon, gradient, description)
-      const mappedCats = uniqueCategoryNames.map(name => {
-        const details = getCategoryDetails(name);
-        return {
-          name,
-          ...details
-        };
+      // Start with our comprehensive standard categories list
+      const mergedCats = [...STANDARD_CATEGORIES];
+
+      // Add any additional category returned by the API that isn't already present
+      apiCategoryNames.forEach(apiCatName => {
+        const exists = mergedCats.some(c => c.name.toLowerCase() === apiCatName.toLowerCase());
+        if (!exists) {
+          const details = getCategoryDetails(apiCatName);
+          mergedCats.push({
+            name: apiCatName,
+            ...details
+          });
+        }
       });
 
-      setCategories(mappedCats);
+      // Sort categories alphabetically
+      mergedCats.sort((a, b) => a.name.localeCompare(b.name));
+
+      setCategories(mergedCats);
     } catch (err) {
       console.error('Error fetching categories:', err);
       toast.error('Failed to load billers and categories.');
