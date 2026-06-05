@@ -321,7 +321,7 @@ export default function BillPaymentRequests() {
           user_id: targetRequest.user_id,
           target_role: 'user',
           title: 'Bill Payment Status Updated',
-          message: `Your bill payment of ₹${targetRequest.amount.toLocaleString()} is now under Refund Policy review.`,
+          message: `Your bill payment of ₹${targetRequest.amount.toLocaleString()} is now under Bank Panding review.`,
           link: '/user/reports'
         }]);
 
@@ -559,7 +559,7 @@ export default function BillPaymentRequests() {
               <option value="pending">Pending</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
-              <option value="refunded">Refund Policy</option>
+              <option value="refunded">Bank Panding</option>
             </select>
           </div>
         </div>
@@ -691,7 +691,7 @@ export default function BillPaymentRequests() {
                             {req.status === 'approved' && <CheckCircle2 size={8} />}
                             {req.status === 'rejected' && <XCircle size={8} />}
                             {req.status === 'refunded' && <RotateCcw size={8} />}
-                            {req.status === 'refunded' ? 'Refund Policy' : req.status}
+                            {req.status === 'refunded' ? 'Bank Panding' : req.status}
                           </span>
                           {req.status === 'rejected' && (req as any).rejection_reason && (
                             <div className="flex flex-col gap-1">
@@ -735,7 +735,7 @@ export default function BillPaymentRequests() {
                               onClick={() => handleRefund(req.id)}
                               disabled={processingId === req.id}
                               className="p-2 text-indigo-500 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50"
-                              title="Move to Refund Policy"
+                              title="Move to Bank Panding"
                             >
                               <RotateCcw size={20} />
                             </button>

@@ -602,8 +602,8 @@ export default function Dashboard() {
                 <RotateCcw size={20} />
               </div>
               <div>
-                <h3 className="text-lg font-bold text-slate-900">Refund Policy Review</h3>
-                <p className="text-xs text-slate-500 font-medium">Recently moved to refund state from approvals.</p>
+                <h3 className="text-lg font-bold text-slate-900">Bank Panding Review</h3>
+                <p className="text-xs text-slate-500 font-medium">Recently moved to Bank Panding state from approvals.</p>
               </div>
             </div>
             <span className="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold border border-indigo-100 animate-pulse">
@@ -681,7 +681,7 @@ export default function Dashboard() {
                         <td className="px-6 py-4 text-center">
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-wider border border-indigo-100/50 shadow-sm">
                             <RotateCcw size={10} className="animate-spin-slow" />
-                            Refund Policy
+                            Bank Panding
                           </span>
                         </td>
                         <td className="px-6 py-4">

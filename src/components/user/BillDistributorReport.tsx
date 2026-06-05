@@ -644,7 +644,7 @@ export default function BillDistributorReport({ userId }: BillDistributorReportP
                         {req.status === 'approved' && <CheckCircle2 size={10} />}
                         {req.status === 'rejected' && <XCircle size={10} />}
                         {req.status === 'refunded' && <RotateCcw size={10} />}
-                        {req.status === 'refunded' ? 'Refund Policy' : req.status}
+                        {req.status === 'refunded' ? 'Bank Panding' : req.status}
                       </span>
                     </td>
                   </tr>

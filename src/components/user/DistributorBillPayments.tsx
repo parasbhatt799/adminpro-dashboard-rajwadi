@@ -282,7 +282,7 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
             <option value="rejected">Rejected</option>
-            <option value="refunded">Refund Policy</option>
+            <option value="refunded">Bank Panding</option>
           </select>
         </div>
 
@@ -382,7 +382,7 @@ export default function DistributorBillPayments({ userId }: { userId: string }) 
                             {req.status === 'approved' && <CheckCircle2 size={10} />}
                             {req.status === 'rejected' && <XCircle size={10} />}
                             {req.status === 'refunded' && <RotateCcw size={10} />}
-                            {req.status === 'refunded' ? 'Refund Policy' : req.status}
+                            {req.status === 'refunded' ? 'Bank Panding' : req.status}
                           </span>
                           {req.status === 'rejected' && (
                             <button 

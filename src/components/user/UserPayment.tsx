@@ -1877,7 +1877,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
                         <option value="rejected">Rejected</option>
-                        <option value="refunded">Refund Policy</option>
+                        <option value="refunded">Bank Panding</option>
                       </select>
                       <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -1988,7 +1988,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                       req.status === 'refunded' ? 'bg-indigo-50 text-indigo-600' :
                                         'bg-amber-50 text-amber-600'
                                     }`}>
-                                    {req.status === 'refunded' ? 'Refund Policy' : req.status}
+                                    {req.status === 'refunded' ? 'Bank Panding' : req.status}
                                   </span>
                                   {req.status === 'rejected' && (
                                     <button
