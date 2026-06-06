@@ -51,6 +51,9 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [limitsSuccess, setLimitsSuccess] = useState<string | null>(null);
   const [limitsError, setLimitsError] = useState<string | null>(null);
 
+  const [isFundTransferEnabled, setIsFundTransferEnabled] = useState<boolean>(true);
+  const [togglingFundTransfer, setTogglingFundTransfer] = useState(false);
+
   const [formData, setFormData] = useState({
     min_amount: '',
     max_amount: '',
@@ -84,7 +87,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       try {
         const { data } = await supabase
           .from('qr_settings')
-          .select('qr_min_limit, qr_max_limit, bbps_max_limit, daily_live_bbps_limit, daily_normal_bill_limit')
+          .select('qr_min_limit, qr_max_limit, bbps_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled')
           .eq('id', 1)
           .single();
         if (data) {
@@ -93,6 +96,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           setBbpsMaxLimit(Number(data.bbps_max_limit) || 50000);
           setDailyLiveBbpsLimit(Number(data.daily_live_bbps_limit) || 500000);
           setDailyNormalBillLimit(Number(data.daily_normal_bill_limit) || 500000);
+          setIsFundTransferEnabled(data.is_fund_transfer_enabled !== false);
         }
       } catch (err) {
         console.error('Error fetching QR settings limits:', err);
@@ -100,6 +104,26 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
     };
     fetchQRSettings();
   }, []);
+
+  const handleToggleFundTransfer = async () => {
+    if (!isFullAdmin) return;
+    setTogglingFundTransfer(true);
+    const newValue = !isFundTransferEnabled;
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_fund_transfer_enabled: newValue })
+        .eq('id', 1);
+
+      if (error) throw error;
+      setIsFundTransferEnabled(newValue);
+    } catch (err: any) {
+      console.error('Error toggling fund transfer status:', err);
+      alert('Failed to update fund transfer status');
+    } finally {
+      setTogglingFundTransfer(false);
+    }
+  };
 
   const handleSaveLimits = async () => {
     setLimitsSaving(true);
@@ -227,25 +251,49 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           <h2 className="text-2xl font-bold text-slate-900">Service Charge Slabs</h2>
           <p className="text-slate-500 mt-1">Configure service charge amounts based on transaction value ranges.</p>
         </div>
-        {isFullAdmin && (
-          <button 
-            onClick={() => {
-              setIsAdding(true);
-              setEditingSlab(null);
-              setFormData({
-                min_amount: '',
-                max_amount: '',
-                charge_amount: '',
-                is_percentage: false,
-              });
-              setError(null);
-            }}
-            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 active:scale-95"
-          >
-            <Plus size={20} />
-            <span>Add New Slab</span>
-          </button>
-        )}
+        <div className="flex items-center flex-wrap gap-4">
+          {isFullAdmin && (
+            <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-2xl px-4 py-2.5">
+              <span className="text-sm font-extrabold text-slate-600">Fund Transfer:</span>
+              <button
+                type="button"
+                onClick={handleToggleFundTransfer}
+                disabled={togglingFundTransfer}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isFundTransferEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                } ${togglingFundTransfer ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isFundTransferEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className={`text-xs font-black uppercase tracking-wider ${isFundTransferEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>
+                {isFundTransferEnabled ? 'On' : 'Off'}
+              </span>
+            </div>
+          )}
+          {isFullAdmin && (
+            <button 
+              onClick={() => {
+                setIsAdding(true);
+                setEditingSlab(null);
+                setFormData({
+                  min_amount: '',
+                  max_amount: '',
+                  charge_amount: '',
+                  is_percentage: false,
+                });
+                setError(null);
+              }}
+              className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-bold transition-all shadow-lg shadow-indigo-200 active:scale-95"
+            >
+              <Plus size={20} />
+              <span>Add New Slab</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Payment Limits Card */}

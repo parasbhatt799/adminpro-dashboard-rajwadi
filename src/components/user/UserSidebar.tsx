@@ -28,6 +28,7 @@ interface UserSidebarProps {
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
+  { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
   { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
   { id: 'billavenue-payment', label: 'BBPS Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
@@ -98,12 +99,13 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const [isBillAvenueEnabled, setIsBillAvenueEnabled] = useState(true);
   const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
+  const [isFundTransferEnabled, setIsFundTransferEnabled] = useState(true);
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
     ...distributorItems,
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'mobile-recharge' || item.id === 'bill-history')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'mobile-recharge' || item.id === 'bill-history' || item.id === 'fund-transfer')) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment') {
@@ -115,13 +117,16 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       if (!isRechargeEnabled && item.id === 'mobile-recharge') {
         return false;
       }
+      if (!isFundTransferEnabled && item.id === 'fund-transfer') {
+        return false;
+      }
       return true;
     })
   ];
 
   useEffect(() => {
     const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_recharge_enabled').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_recharge_enabled, is_fund_transfer_enabled').eq('id', 1).single();
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
@@ -131,6 +136,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         setIsBbpsEnabled(data.is_bbps_enabled ?? true);
         setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
         setIsRechargeEnabled(data.is_recharge_enabled ?? true);
+        setIsFundTransferEnabled(data.is_fund_transfer_enabled ?? true);
       }
     };
     fetchBranding();
@@ -151,6 +157,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
           }
           if ('is_recharge_enabled' in payload.new) {
             setIsRechargeEnabled(payload.new.is_recharge_enabled ?? true);
+          }
+          if ('is_fund_transfer_enabled' in payload.new) {
+            setIsFundTransferEnabled(payload.new.is_fund_transfer_enabled ?? true);
           }
         }
       })

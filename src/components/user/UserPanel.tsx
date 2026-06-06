@@ -424,7 +424,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
@@ -432,6 +432,9 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             >
               <Menu size={20} />
             </button>
+            <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 select-all font-mono">
+              ID: {userId}
+            </span>
           </div>
 
           <div className="flex items-center gap-4">

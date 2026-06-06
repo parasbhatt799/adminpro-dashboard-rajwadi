@@ -17,7 +17,7 @@ interface UserStatementReportProps {
 
 interface UnifiedRecord {
   id: string;
-  type: 'QR' | 'BILL' | 'PAYOUT' | 'REFUND';
+  type: 'QR' | 'BILL' | 'PAYOUT' | 'REFUND' | 'TRANSFER_DEBIT' | 'TRANSFER_CREDIT';
   date: string;
   reference: string;
   amount: number;
@@ -51,11 +51,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       if (startDate) {
         const startDateTime = `${startDate}T00:00:00`;
         
-        const [qrPre, billPre, bbpsPre, payoutPre] = await Promise.all([
+        const [qrPre, billPre, bbpsPre, payoutPre, fundPre] = await Promise.all([
           supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', startDateTime),
           supabase.from('bill_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', startDateTime),
           supabase.from('bbps_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', startDateTime),
-          supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']).lt('created_at', startDateTime)
+          supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']).lt('created_at', startDateTime),
+          supabase.from('fund_transfers').select('amount, sender_id, receiver_id').or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).lt('created_at', startDateTime)
         ]);
 
         const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
@@ -84,7 +85,16 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           return acc; 
         }, 0);
 
-        openingBalance = qrTotal - billNet - payoutNet;
+        const fundTransferNet = (fundPre.data || []).reduce((acc, r) => {
+          if (r.receiver_id === userId) {
+            return acc + Number(r.amount);
+          } else if (r.sender_id === userId) {
+            return acc - Number(r.amount);
+          }
+          return acc;
+        }, 0);
+
+        openingBalance = qrTotal + fundTransferNet - billNet - payoutNet;
       }
 
       let qrMapped: any[] = [];
@@ -241,20 +251,48 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         });
       }
 
+      let ftMapped: any[] = [];
+      // 4. Fetch Fund Transfers for this user (All sender/receiver entries)
+      {
+        let ftQuery = supabase
+          .from('fund_transfers')
+          .select('*, sender:sender_id(name, firm_name), receiver:receiver_id(name, firm_name)')
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+        if (startDate) ftQuery = ftQuery.gte('created_at', `${startDate}T00:00:00`);
+        if (endDate) ftQuery = ftQuery.lte('created_at', `${endDate}T23:59:59`);
+
+        const { data, error } = await ftQuery;
+        if (error) throw error;
+        ftMapped = (data || []).map(r => {
+          const isSender = r.sender_id === userId;
+          return {
+            id: String(r.id || ''),
+            numericId: String(r.id || '').split('-')[0].toUpperCase(),
+            type: isSender ? 'TRANSFER_DEBIT' : 'TRANSFER_CREDIT',
+            date: r.created_at,
+            reference: isSender ? r.receiver_id : r.sender_id,
+            amount: Number(r.amount),
+            charges: 0,
+            final_total: Number(r.amount),
+            status: 'approved',
+            raw_data: r
+          };
+        });
+      }
+
       // Merge oldest first for running balance calculation
-      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) =>
+      const merged = [...qrMapped, ...billMapped, ...payoutMapped, ...ftMapped].sort((a, b) =>
         new Date(a.date).getTime() - new Date(b.date).getTime()
       );
 
       // Running Balance
       let currentBalance = openingBalance;
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
-        if (r.type === 'QR') {
-          currentBalance += r.final_total;
-        } else if (r.type === 'REFUND') {
+        if (r.type === 'QR' || r.type === 'REFUND' || r.type === 'TRANSFER_CREDIT') {
           currentBalance += r.final_total;
         } else {
-          // BILL or PAYOUT: Wallet is deducted initially
+          // BILL, PAYOUT, or TRANSFER_DEBIT: Wallet is deducted initially
           currentBalance -= r.final_total;
         }
         return { ...r, balance: currentBalance };
@@ -284,11 +322,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         hour12: true
       }),
       'PaymentId': r.numericId,
-      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
-      'QR / Bank': r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : '-',
-      'Card / Account No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
-      'Credit Amount': r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
-      'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
+      'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'TRANSFER_DEBIT' ? 'FT DEBIT' : r.type === 'TRANSFER_CREDIT' ? 'FT CREDIT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT',
+      'QR / Bank': r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : (r.type === 'TRANSFER_DEBIT' ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name) : r.type === 'TRANSFER_CREDIT' ? (r.raw_data?.sender?.firm_name || r.raw_data?.sender?.name) : '-'),
+      'Card / Account No': r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT' ? r.reference : (r.raw_data?.card_number || '****')),
+      'Credit Amount': (r.type === 'QR' || r.type === 'REFUND' || r.type === 'TRANSFER_CREDIT') ? r.final_total.toFixed(2) : '0.00',
+      'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT' || r.type === 'TRANSFER_DEBIT') ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
     }));
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -311,11 +349,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           hour12: true
         }),
         r.numericId,
-        r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : 'PAYMENT',
-        r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : '-',
-        r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****'),
-        r.type === 'QR' ? r.final_total.toFixed(2) : '0.00',
-        (r.type === 'BILL' || r.type === 'PAYOUT') ? r.final_total.toFixed(2) : '0.00',
+        r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'TRANSFER_DEBIT' ? 'FT DEBIT' : r.type === 'TRANSFER_CREDIT' ? 'FT CREDIT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT',
+        r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : r.type === 'PAYOUT' ? r.raw_data?.bank_name : (r.type === 'TRANSFER_DEBIT' ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name) : r.type === 'TRANSFER_CREDIT' ? (r.raw_data?.sender?.firm_name || r.raw_data?.sender?.name) : '-'),
+        r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT' ? r.reference : (r.raw_data?.card_number || '****')),
+        (r.type === 'QR' || r.type === 'REFUND' || r.type === 'TRANSFER_CREDIT') ? r.final_total.toFixed(2) : '0.00',
+        (r.type === 'BILL' || r.type === 'PAYOUT' || r.type === 'TRANSFER_DEBIT') ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
       ]);
       autoTable(doc, {
@@ -440,17 +478,29 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                           ? 'PAYOUT'
                           : r.type === 'REFUND'
                             ? 'REFUND'
-                            : 'PAYMENT'}
+                            : r.type === 'TRANSFER_DEBIT'
+                              ? 'FT DEBIT'
+                              : r.type === 'TRANSFER_CREDIT'
+                                ? 'FT CREDIT'
+                                : 'PAYMENT'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600">
                       {r.type === 'QR'
                         ? (r.raw_data?.qr_name || 'N/A')
                         : r.type === 'PAYOUT'
                           ? r.raw_data?.bank_name
-                          : (r.raw_data?.is_bbps ? r.raw_data?.provider : r.raw_data?.card_bank) || '-'}
+                          : r.type === 'TRANSFER_DEBIT'
+                            ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name || 'N/A')
+                            : r.type === 'TRANSFER_CREDIT'
+                              ? (r.raw_data?.sender?.firm_name || r.raw_data?.sender?.name || 'N/A')
+                              : (r.raw_data?.is_bbps ? r.raw_data?.provider : r.raw_data?.card_bank) || '-'}
                     </td>
-                    <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">
-                      {r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number || '****')}
+                    <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center font-mono">
+                      {r.type === 'PAYOUT'
+                        ? r.raw_data?.account_number
+                        : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT')
+                          ? r.reference
+                          : (r.raw_data?.card_number || '****')}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
@@ -489,6 +539,22 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                           <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || 'Bill/Payout'} (#{r.numericId})</div>
                           <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.rejection_reason || 'Rejection'}</div>
                         </div>
+                      ) : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT') ? (
+                        r.type === 'TRANSFER_DEBIT' ? (
+                          <>
+                            <div className="font-bold text-slate-900">FUND SENT TO: {r.raw_data?.receiver?.name}</div>
+                            {r.raw_data?.receiver?.firm_name && <div className="text-[12px] text-slate-800">Firm: {r.raw_data?.receiver?.firm_name}</div>}
+                            <div className="text-amber-600 font-bold mt-1">ID: {r.reference}</div>
+                            {r.raw_data?.remarks && <div className="text-slate-500 mt-1">Remarks: {r.raw_data?.remarks}</div>}
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-bold text-slate-900">FUND RECEIVED FROM: {r.raw_data?.sender?.name}</div>
+                            {r.raw_data?.sender?.firm_name && <div className="text-[12px] text-slate-800">Firm: {r.raw_data?.sender?.firm_name}</div>}
+                            <div className="text-amber-600 font-bold mt-1">ID: {r.reference}</div>
+                            {r.raw_data?.remarks && <div className="text-slate-500 mt-1">Remarks: {r.raw_data?.remarks}</div>}
+                          </>
+                        )
                       ) : (
                         <>
                           <div className="break-all text-slate-600">PAYMENT <span className='text-amber-600  font-bold'>TxnId: {r.reference}</span></div>
@@ -497,12 +563,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                       )}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {r.type === 'QR' || r.type === 'REFUND'
+                      {r.type === 'QR' || r.type === 'REFUND' || r.type === 'TRANSFER_CREDIT'
                         ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] text-right font-medium">
-                      {(r.type === 'BILL' || r.type === 'PAYOUT')
+                      {(r.type === 'BILL' || r.type === 'PAYOUT' || r.type === 'TRANSFER_DEBIT')
                         ? r.final_total.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         : '0'}
                     </td>
