@@ -41,31 +41,50 @@ type TimeRange = 'today' | 'yesterday' | '7days' | '30days' | 'all' | 'custom';
 interface SparklineProps {
   data: number[];
   color?: string;
+  gradientId: string;
+  isPositive?: boolean;
+  isNeutral?: boolean;
 }
 
-const Sparkline: React.FC<SparklineProps> = ({ data, color = 'stroke-indigo-500' }) => {
+const Sparkline: React.FC<SparklineProps> = ({ data, color = 'stroke-indigo-500', gradientId, isPositive, isNeutral }) => {
   if (!data || data.length === 0) return null;
   const max = Math.max(...data, 1);
   const min = Math.min(...data, 0);
   const range = max - min || 1;
   
-  const width = 80;
-  const height = 30;
+  const width = 100;
+  const height = 36;
   const points = data.map((val, index) => {
     const x = (index / (data.length - 1)) * width;
-    const y = height - ((val - min) / range) * height;
-    return `${x},${y}`;
+    const y = height - 2 - ((val - min) / range) * (height - 4);
+    return { x, y };
   });
   
-  const pathData = `M ${points.join(' L ')}`;
+  const pathData = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`;
+  const fillPathData = `${pathData} L ${width},${height} L 0,${height} Z`;
   
+  let stopColor = 'rgb(99, 102, 241)'; // indigo-500
+  if (isPositive) stopColor = 'rgb(16, 185, 129)'; // emerald-500
+  if (!isPositive && !isNeutral) stopColor = 'rgb(244, 63, 94)'; // rose-500
+  if (isNeutral) stopColor = 'rgb(59, 130, 246)'; // blue-500
+
   return (
-    <svg className="w-20 h-8 shrink-0 overflow-visible" viewBox={`0 0 ${width} ${height}`}>
+    <svg className="w-full h-9 overflow-visible" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stopColor} stopOpacity="0.2" />
+          <stop offset="100%" stopColor={stopColor} stopOpacity="0.0" />
+        </linearGradient>
+      </defs>
+      <path
+        d={fillPathData}
+        fill={`url(#${gradientId})`}
+      />
       <path
         d={pathData}
         fill="none"
         className={color}
-        strokeWidth="2.5"
+        strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -134,6 +153,71 @@ export default function Dashboard() {
 
       if (rpcError) throw rpcError;
 
+      const {
+        admin_wallet_balance,
+        total_user_wallet_balance,
+        active_users_count,
+        pending_kyc_count,
+        pending_bill_count,
+        pending_qr_count,
+        pending_payout_count,
+        range_qr_amount,
+        range_bill_amount,
+        range_payout_amount,
+        admin_qr_charges,
+        admin_bill_charges,
+        range_payout_charges,
+        range_withdrawals,
+        total_distributor_share,
+        total_super_distributor_share
+      } = rpcStats;
+
+      const formatCurrency = (val: number) => {
+        if (isNaN(val) || val === null || val === undefined) return '₹0.00';
+        return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      };
+
+      const getComparison = (current: number, previous: number, isCount = false) => {
+        const diff = current - previous;
+        const sign = diff > 0 ? '+' : '';
+        
+        let diffFormatted = '';
+        if (isCount) {
+          diffFormatted = `${sign}${diff}`;
+        } else {
+          const absDiff = Math.abs(diff);
+          const formattedAbs = absDiff.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          diffFormatted = `${diff > 0 ? '+' : diff < 0 ? '-' : ''}₹${formattedAbs}`;
+        }
+
+        if (!previous || previous === 0) {
+          if (current > 0) {
+            return {
+              percent: '+100%',
+              diffFormatted: isCount ? `+${current}` : `+₹${current.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              isPositive: true,
+              isNeutral: false
+            };
+          }
+          return {
+            percent: '0%',
+            diffFormatted: isCount ? '0' : '₹0.00',
+            isPositive: false,
+            isNeutral: true
+          };
+        }
+
+        const pct = (diff / previous) * 100;
+        const pctSign = pct > 0 ? '+' : '';
+        
+        return {
+          percent: `${pctSign}${pct.toFixed(1)}%`,
+          diffFormatted: diffFormatted,
+          isPositive: pct > 0,
+          isNeutral: pct === 0
+        };
+      };
+
       let fetchedBalance = 0;
       let fetchedUsername = "";
       try {
@@ -201,75 +285,106 @@ export default function Dashboard() {
         }
       }
 
-      const getComparison = (current: number, previous: number) => {
-        if (!previous || previous === 0) {
-          if (current > 0) return { percent: '+100%', isPositive: true, isNeutral: false };
-          return { percent: '0%', isPositive: false, isNeutral: true };
+      // Fetch previous period BBPS stats manually
+      let prevBbpsAmount = 0;
+      let prevBbpsCharges = 0;
+      if (prevStartDate && prevEndDate) {
+        try {
+          const { data: prevBbpsData } = await supabase
+            .from('bbps_submissions')
+            .select('amount, charges')
+            .in('status', ['approved', 'pending'])
+            .gte('created_at', prevStartDate)
+            .lte('created_at', prevEndDate);
+          if (prevBbpsData) {
+            prevBbpsAmount = prevBbpsData.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+            prevBbpsCharges = prevBbpsData.reduce((acc, r) => acc + Number(r.charges || 0), 0);
+          }
+        } catch (e) {
+          console.error("Failed to fetch previous BBPS stats:", e);
         }
-        const diff = current - previous;
-        const pct = (diff / previous) * 100;
-        const sign = pct > 0 ? '+' : '';
-        return {
-          percent: `${sign}${pct.toFixed(1)}%`,
-          isPositive: pct > 0,
-          isNeutral: pct === 0
-        };
-      };
+      }
 
-      const fiveDaysAgo = subDays(new Date(), 5).toISOString();
+      // Fetch new user registrations for the periods to compute true active user comparison
+      let currentUsersCount = 0;
+      let prevUsersCount = 0;
+      try {
+        let currentUsersQuery = supabase
+          .from('users_profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('role', 'user');
+        if (startDate) currentUsersQuery = currentUsersQuery.gte('created_at', startDate);
+        if (endDate) currentUsersQuery = currentUsersQuery.lte('created_at', endDate);
+        const { count: curUserReg } = await currentUsersQuery;
+        currentUsersCount = curUserReg || 0;
 
-      // Fetch last 5 days approved submissions for sparklines (Real Database Data)
+        if (prevStartDate && prevEndDate) {
+          const { count: prevUserReg } = await supabase
+            .from('users_profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('role', 'user')
+            .gte('created_at', prevStartDate)
+            .lte('created_at', prevEndDate);
+          prevUsersCount = prevUserReg || 0;
+        }
+      } catch (e) {
+        console.error("Failed to fetch user registrations comparison:", e);
+      }
+
+      const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+
+      // Fetch last 7 days approved submissions for sparklines (Real Database Data)
       const { data: qrRecent } = await supabase
         .from('payment_submissions')
         .select('amount, admin_share, distributor_share, super_distributor_share, created_at')
         .eq('status', 'approved')
-        .gte('created_at', fiveDaysAgo);
+        .gte('created_at', sevenDaysAgo);
 
       const { data: billRecent } = await supabase
         .from('bill_submissions')
         .select('amount, admin_share, distributor_share, created_at')
         .eq('status', 'approved')
-        .gte('created_at', fiveDaysAgo);
+        .gte('created_at', sevenDaysAgo);
 
       const { data: bbpsRecent } = await supabase
         .from('bbps_submissions')
         .select('amount, charges, created_at')
         .in('status', ['approved', 'pending'])
-        .gte('created_at', fiveDaysAgo);
+        .gte('created_at', sevenDaysAgo);
 
       const { data: payoutRecent } = await supabase
         .from('payout_submissions')
         .select('charge_amount, created_at')
         .eq('status', 'approved')
-        .gte('created_at', fiveDaysAgo);
+        .gte('created_at', sevenDaysAgo);
 
       const { data: usersRecent } = await supabase
         .from('users_profiles')
         .select('created_at')
         .eq('role', 'user')
-        .gte('created_at', fiveDaysAgo);
+        .gte('created_at', sevenDaysAgo);
 
       const getSparklineData = (records: any[], key = 'amount') => {
-        const points = [0, 0, 0, 0, 0];
+        const points = [0, 0, 0, 0, 0, 0, 0];
         const now = new Date();
         records?.forEach(r => {
           const rDate = new Date(r.created_at);
           const dayDiff = Math.floor((now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (dayDiff >= 0 && dayDiff < 5) {
-            points[4 - dayDiff] += Number(r[key] || 0);
+          if (dayDiff >= 0 && dayDiff < 7) {
+            points[6 - dayDiff] += Number(r[key] || 0);
           }
         });
         return points;
       };
 
       const getActiveUsersSparkline = () => {
-        const points = [active_users_count, active_users_count, active_users_count, active_users_count, active_users_count];
+        const points = [active_users_count, active_users_count, active_users_count, active_users_count, active_users_count, active_users_count, active_users_count];
         const now = new Date();
         usersRecent?.forEach(u => {
           const uDate = new Date(u.created_at);
           const dayDiff = Math.floor((now.getTime() - uDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (dayDiff >= 0 && dayDiff < 5) {
-            for (let i = 0; i < 4 - dayDiff; i++) {
+          if (dayDiff >= 0 && dayDiff < 7) {
+            for (let i = 0; i < 6 - dayDiff; i++) {
               points[i] = Math.max(0, points[i] - 1);
             }
           }
@@ -286,40 +401,25 @@ export default function Dashboard() {
         return 'stroke-blue-500';
       };
 
-      const qrSpark = getSparklineData(qrRecent, 'amount');
-      const ccSpark = getSparklineData(billRecent, 'amount');
-      const bbpsSpark = getSparklineData(bbpsRecent, 'amount');
+      const qrSpark = getSparklineData(qrRecent || [], 'amount');
+      const ccSpark = getSparklineData(billRecent || [], 'amount');
+      const bbpsSpark = getSparklineData(bbpsRecent || [], 'amount');
       const userSpark = getActiveUsersSparkline();
-      const qrChargesSpark = getSparklineData(qrRecent, 'admin_share');
-      const billChargesSpark = getSparklineData(billRecent, 'admin_share');
-      const bbpsChargesSpark = getSparklineData(bbpsRecent, 'charges');
-      const payoutChargesSpark = getSparklineData(payoutRecent, 'charge_amount');
+      const qrChargesSpark = getSparklineData(qrRecent || [], 'admin_share');
+      const billChargesSpark = getSparklineData(billRecent || [], 'admin_share');
+      const bbpsChargesSpark = getSparklineData(bbpsRecent || [], 'charges');
+      const payoutChargesSpark = getSparklineData(payoutRecent || [], 'charge_amount');
       const serviceChargesSpark = qrChargesSpark.map((v, i) => v + billChargesSpark[i] + bbpsChargesSpark[i] + payoutChargesSpark[i]);
-      const qrAdminChargesSpark = getSparklineData(qrRecent, 'admin_share');
-      const billAdminChargesSpark = getSparklineData(billRecent, 'admin_share');
-      const bbpsAdminChargesSpark = getSparklineData(bbpsRecent, 'charges');
-      const distShareSpark = qrRecent && billRecent ? qrChargesSpark.map((_, i) => getSparklineData(qrRecent, 'distributor_share')[i] + getSparklineData(billRecent, 'distributor_share')[i]) : [0,0,0,0,0];
-      const superDistShareSpark = getSparklineData(qrRecent, 'super_distributor_share');
-      const payoutChargesSparkOnly = getSparklineData(payoutRecent, 'charge_amount');
+      const qrAdminChargesSpark = getSparklineData(qrRecent || [], 'admin_share');
+      const billAdminChargesSpark = getSparklineData(billRecent || [], 'admin_share');
+      const bbpsAdminChargesSpark = getSparklineData(bbpsRecent || [], 'charges');
+      
+      const qrDistShareSpark = getSparklineData(qrRecent || [], 'distributor_share');
+      const billDistShareSpark = getSparklineData(billRecent || [], 'distributor_share');
+      const distShareSpark = qrDistShareSpark.map((v, i) => v + billDistShareSpark[i]);
 
-      const {
-        admin_wallet_balance,
-        total_user_wallet_balance,
-        active_users_count,
-        pending_kyc_count,
-        pending_bill_count,
-        pending_qr_count,
-        pending_payout_count,
-        range_qr_amount,
-        range_bill_amount,
-        range_payout_amount,
-        admin_qr_charges,
-        admin_bill_charges,
-        range_payout_charges,
-        range_withdrawals,
-        total_distributor_share,
-        total_super_distributor_share
-      } = rpcStats;
+      const superDistShareSpark = getSparklineData(qrRecent || [], 'super_distributor_share');
+      const payoutChargesSparkOnly = getSparklineData(payoutRecent || [], 'charge_amount');
 
       const totalEarnings = (admin_bill_charges || 0) + (admin_qr_charges || 0) + (range_payout_charges || 0) + rangeBbpsCharges;
       const displayServiceCharge = totalEarnings + total_distributor_share + (total_super_distributor_share || 0);
@@ -327,11 +427,6 @@ export default function Dashboard() {
       const dateDisplay = startDate && endDate
         ? `${format(parseISO(startDate), 'dd MMM')} - ${format(parseISO(endDate), 'dd MMM')}`
         : 'Lifetime';
-
-      const formatCurrency = (val: number) => {
-        if (isNaN(val) || val === null || val === undefined) return '₹0.00';
-        return `₹${val.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-      };
 
       setStats([
         {
@@ -377,7 +472,7 @@ export default function Dashboard() {
           path: "/bbps-history",
           sparklineData: bbpsSpark,
           sparklineColor: getSparklineColor(bbpsSpark),
-          comparison: getComparison(rangeBbpsAmount, prevRpcStats?.range_bbps_amount || 0)
+          comparison: getComparison(rangeBbpsAmount, prevBbpsAmount)
         },
         {
           title: "Total User Wallet",
@@ -388,11 +483,11 @@ export default function Dashboard() {
           borderColor: "hover:border-amber-200",
           iconColor: "text-amber-500",
           iconBg: "bg-amber-50",
-          description: "Lifetime Total",
-          badge: `${active_users_count} Active Users`,
+          description: "New Users in Period",
+          badge: `${active_users_count} Active`,
           sparklineData: userSpark,
           sparklineColor: getSparklineColor(userSpark),
-          comparison: getComparison(active_users_count, prevRpcStats?.active_users_count || active_users_count)
+          comparison: getComparison(currentUsersCount, prevUsersCount, true)
         },
         {
           title: "Total Service Charge",
@@ -409,7 +504,7 @@ export default function Dashboard() {
           comparison: getComparison(
             displayServiceCharge, 
             prevRpcStats 
-              ? (Number(prevRpcStats.admin_bill_charges || 0) + Number(prevRpcStats.admin_qr_charges || 0) + Number(prevRpcStats.range_payout_charges || 0) + Number(prevRpcStats.range_bbps_charges || 0) + Number(prevRpcStats.total_distributor_share || 0) + Number(prevRpcStats.total_super_distributor_share || 0))
+              ? (Number(prevRpcStats.admin_bill_charges || 0) + Number(prevRpcStats.admin_qr_charges || 0) + Number(prevRpcStats.range_payout_charges || 0) + prevBbpsCharges + Number(prevRpcStats.total_distributor_share || 0) + Number(prevRpcStats.total_super_distributor_share || 0))
               : displayServiceCharge
           )
         },
@@ -453,7 +548,7 @@ export default function Dashboard() {
           description: `Range: ${dateDisplay}`,
           sparklineData: bbpsAdminChargesSpark,
           sparklineColor: getSparklineColor(bbpsAdminChargesSpark),
-          comparison: getComparison(rangeBbpsCharges, prevRpcStats?.rangeBbpsCharges || 0)
+          comparison: getComparison(rangeBbpsCharges, prevBbpsCharges)
         },
         {
           title: "Total Distributor Charge",
@@ -806,57 +901,96 @@ export default function Dashboard() {
                     navigate(stat.path);
                   }
                 }}
-                className={`bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all duration-300 group relative overflow-hidden flex flex-col justify-between ${
+                className={`bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all duration-300 group relative overflow-hidden flex justify-between items-stretch ${
                   isClickable ? 'cursor-pointer hover:shadow-md hover:border-slate-200 active:scale-[0.98]' : ''
                 } ${stat.borderColor || 'hover:border-indigo-100'}`}
               >
                 {/* Accent subtle background gradient matching the theme color */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgGradient || 'from-slate-50/50 to-transparent'} opacity-30 pointer-events-none`} />
 
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className={`p-2.5 rounded-xl ${stat.iconBg || 'bg-slate-50'} ${stat.iconColor || 'text-slate-600'} shadow-sm`}>
-                    <Icon size={20} />
-                  </div>
-                  {stat.badge && (
-                    <div className="bg-emerald-50 text-emerald-600 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-emerald-100 shadow-sm">
-                      {stat.badge}
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-4 relative z-10">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{stat.title}</p>
-                  
-                  {typeof stat.value === 'object' ? (
-                    <div className="mt-1">{stat.value}</div>
-                  ) : (
-                    <div className="flex items-center justify-between gap-3 mt-1.5">
-                      <h3 className="text-2xl font-black text-slate-800 font-mono tracking-tight group-hover:text-indigo-600 transition-colors truncate">
-                        {stat.value}
-                      </h3>
-                      {stat.sparklineData && (
-                        <Sparkline data={stat.sparklineData} color={stat.sparklineColor} />
+                {/* Left side: Information */}
+                <div className="relative z-10 flex flex-col justify-between flex-1 min-w-0 pr-3">
+                  <div>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                        {stat.title}
+                      </p>
+                      {stat.badge && (
+                        <div className="bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border border-emerald-100/50 shadow-sm leading-none shrink-0">
+                          {stat.badge}
+                        </div>
                       )}
                     </div>
-                  )}
+                    
+                    {typeof stat.value === 'object' ? (
+                      <div className="mt-2">{stat.value}</div>
+                    ) : (
+                      <h3 className="text-xl font-black text-slate-800 font-mono tracking-tight group-hover:text-indigo-600 transition-colors mt-2.5 truncate leading-none">
+                        {stat.value}
+                      </h3>
+                    )}
+                  </div>
 
-                  <div className="flex items-center gap-1.5 mt-3 text-[9px] font-extrabold uppercase tracking-wider">
+                  <div className="mt-4 flex flex-wrap items-center gap-1.5 text-[9px] font-extrabold uppercase tracking-wider leading-none">
                     {stat.comparison && (
-                      <span className={`px-1.5 py-0.5 rounded-md border ${
+                      <span className={`px-1.5 py-0.5 rounded-md border flex items-center gap-0.5 ${
                         stat.comparison.isNeutral 
                           ? 'bg-slate-50 text-slate-400 border-slate-100' 
                           : stat.comparison.isPositive 
                             ? 'bg-emerald-50 text-emerald-600 border-emerald-100/50' 
                             : 'bg-rose-50 text-rose-600 border-rose-100/50'
                       }`}>
-                        {stat.comparison.percent}
+                        {stat.comparison.isPositive ? (
+                          <TrendingUp size={8} className="shrink-0" />
+                        ) : stat.comparison.isNeutral ? null : (
+                          <TrendingDown size={8} className="shrink-0" />
+                        )}
+                        <span>{stat.comparison.percent}</span>
                       </span>
                     )}
-                    <span className="text-slate-400 truncate">{stat.description}</span>
+                    
+                    {stat.comparison && stat.comparison.diffFormatted && (
+                      <span className={`font-mono font-black ${
+                        stat.comparison.isNeutral 
+                          ? 'text-slate-400' 
+                          : stat.comparison.isPositive 
+                            ? 'text-emerald-600' 
+                            : 'text-rose-600'
+                      }`}>
+                        {stat.comparison.diffFormatted}
+                      </span>
+                    )}
+
+                    <span className="text-slate-400 truncate max-w-[80px]" title={stat.description}>
+                      {stat.description}
+                    </span>
                   </div>
                 </div>
 
-                <div className="absolute right-[-15px] bottom-[-15px] opacity-[0.02] group-hover:scale-110 transition-transform duration-500 text-slate-900 pointer-events-none">
+                {/* Right side: Icon & Sparkline */}
+                <div className="relative z-10 flex flex-col justify-between items-end shrink-0 w-24 ml-auto pl-1 border-l border-slate-100/40">
+                  <div className={`p-2 rounded-xl ${stat.iconBg || 'bg-slate-50'} ${stat.iconColor || 'text-slate-600'} shadow-sm group-hover:scale-110 transition-transform duration-300`}>
+                    <Icon size={16} />
+                  </div>
+
+                  {stat.sparklineData ? (
+                    <div className="w-full pt-4 group-hover:translate-y-[-2px] transition-transform duration-300">
+                      <Sparkline 
+                        data={stat.sparklineData} 
+                        color={stat.sparklineColor} 
+                        gradientId={`spark-grad-${stat.title.replace(/\s+/g, '').toLowerCase()}`}
+                        isPositive={stat.comparison?.isPositive}
+                        isNeutral={stat.comparison?.isNeutral}
+                      />
+                    </div>
+                  ) : (
+                    /* Decorative micro indicator if no sparkline */
+                    <div className="w-1.5 h-1.5 rounded-full bg-slate-200 group-hover:bg-indigo-400 transition-colors mr-1 mb-1" />
+                  )}
+                </div>
+
+                {/* Ambient huge icon background decoration */}
+                <div className="absolute right-[-15px] bottom-[-15px] opacity-[0.015] group-hover:scale-125 group-hover:rotate-12 transition-all duration-500 text-slate-900 pointer-events-none">
                   <Icon size={90} />
                 </div>
               </div>
