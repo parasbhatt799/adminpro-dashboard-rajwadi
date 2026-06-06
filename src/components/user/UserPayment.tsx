@@ -151,6 +151,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
   const [qrMinLimit, setQrMinLimit] = useState<number>(100);
   const [qrMaxLimit, setQrMaxLimit] = useState<number>(100000);
+  const [globalNormalBillLimit, setGlobalNormalBillLimit] = useState<number>(500000);
 
   const fetchQrHistory = async () => {
     setFetchingHistory(prev => ({ ...prev, qr: true }));
@@ -315,7 +316,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch User Profile
         const { data: userData, error: userError } = await supabase
           .from('users_profiles')
-          .select('wallet_balance, service_charge_enabled, custom_service_charge, firm_name')
+          .select('wallet_balance, service_charge_enabled, custom_service_charge, firm_name, custom_daily_normal_bill_limit')
           .eq('id', userId)
           .single();
 
@@ -398,12 +399,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch Global Settings (QR & Bill status)
         const { data: globalSettings } = await supabase
           .from('qr_settings')
-          .select('is_bill_enabled')
+          .select('is_bill_enabled, daily_normal_bill_limit')
           .eq('id', 1)
           .single();
 
         if (globalSettings) {
           setIsBillEnabled(globalSettings.is_bill_enabled ?? true);
+          setGlobalNormalBillLimit(Number(globalSettings.daily_normal_bill_limit) || 500000);
         }
 
         // Fetch Banks
@@ -586,6 +588,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         if (payload.new.qr_max_limit !== undefined) {
           setQrMaxLimit(Number(payload.new.qr_max_limit) || 100000);
         }
+        if (payload.new.daily_normal_bill_limit !== undefined) {
+          setGlobalNormalBillLimit(Number(payload.new.daily_normal_bill_limit) || 500000);
+        }
       })
       .subscribe();
 
@@ -668,6 +673,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         if (newData.qr_max_limit !== undefined) {
           setQrMaxLimit(Number(newData.qr_max_limit) || 100000);
         }
+        if (newData.daily_normal_bill_limit !== undefined) {
+          setGlobalNormalBillLimit(Number(newData.daily_normal_bill_limit) || 500000);
+        }
       })
       .subscribe();
 
@@ -740,6 +748,47 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setSubmittingBill(false);
       return;
     }
+    // Enforce daily normal bill limit
+    try {
+      const userLimit = Number(userProfile?.custom_daily_normal_bill_limit) > 0 
+        ? Number(userProfile.custom_daily_normal_bill_limit) 
+        : (Number(globalNormalBillLimit) || 500000);
+
+      // Find start of today in IST, converted to UTC timezone
+      const tzOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+      const now = new Date();
+      const istTime = new Date(now.getTime() + tzOffset);
+      const istTodayStart = new Date(Date.UTC(
+        istTime.getUTCFullYear(),
+        istTime.getUTCMonth(),
+        istTime.getUTCDate(),
+        0, 0, 0, 0
+      ));
+      const utcTodayStart = new Date(istTodayStart.getTime() - tzOffset);
+
+      const { data: todayBills, error: sumError } = await supabase
+        .from('bill_submissions')
+        .select('amount')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'approved'])
+        .gte('created_at', utcTodayStart.toISOString());
+
+      if (sumError) throw sumError;
+
+      const todaySum = (todayBills || []).reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+
+      if (todaySum + billAmountNum > userLimit) {
+        setError(`Daily normal bill limit exceeded. You have already used ₹${todaySum.toLocaleString()} of your ₹${userLimit.toLocaleString()} limit today. Remaining limit: ₹${Math.max(0, userLimit - todaySum).toLocaleString()}.`);
+        setSubmittingBill(false);
+        return;
+      }
+    } catch (err: any) {
+      console.error('Error checking daily bill limit:', err);
+      setError('Failed to verify daily limit. Please try again.');
+      setSubmittingBill(false);
+      return;
+    }
+
     const serviceCharge = calculateBillCharge(billAmountNum);
     const totalDeduction = billAmountNum + serviceCharge;
 

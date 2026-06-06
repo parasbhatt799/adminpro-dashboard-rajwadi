@@ -522,17 +522,41 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                     </div>
                   </div>
                   {!isDistributorView && (
-                    <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Service Charge On/Off</p>
-                      <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.service_charge_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
-                          {user.service_charge_enabled ? 'Enabled' : 'Disabled'}
-                        </span>
-                        {user.service_charge_enabled && (
-                          <p className="text-lg font-bold text-slate-900">₹{user.custom_service_charge}</p>
-                        )}
+                    <>
+                      <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Service Charge On/Off</p>
+                        <div className="flex items-center gap-3">
+                          <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${user.service_charge_enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-400'}`}>
+                            {user.service_charge_enabled ? 'Enabled' : 'Disabled'}
+                          </span>
+                          {user.service_charge_enabled && (
+                            <p className="text-lg font-bold text-slate-900">₹{user.custom_service_charge}</p>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                      <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Custom Live BBPS Limit</p>
+                        <div className="flex items-center gap-2 text-indigo-600">
+                          <IndianRupee size={18} />
+                          <p className="text-lg font-bold text-slate-900">
+                            {Number(user.custom_daily_live_bbps_limit) > 0 
+                              ? `₹${Number(user.custom_daily_live_bbps_limit).toLocaleString()}` 
+                              : 'Default (Global)'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Custom Normal Bill Limit</p>
+                        <div className="flex items-center gap-2 text-indigo-600">
+                          <IndianRupee size={18} />
+                          <p className="text-lg font-bold text-slate-900">
+                            {Number(user.custom_daily_normal_bill_limit) > 0 
+                              ? `₹${Number(user.custom_daily_normal_bill_limit).toLocaleString()}` 
+                              : 'Default (Global)'}
+                          </p>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
               ) : activeTab === 'kyc' ? (

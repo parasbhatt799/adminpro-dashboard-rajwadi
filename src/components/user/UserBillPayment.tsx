@@ -167,6 +167,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
   const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
+  const [globalLiveBbpsLimit, setGlobalLiveBbpsLimit] = useState<number>(500000);
 
   // TPIN & Lockout state
   const [dbTpinValue, setDbTpinValue] = useState<string | null>(null);
@@ -228,7 +229,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until')
+        .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until, custom_daily_live_bbps_limit')
         .eq('id', userId)
         .single();
       if (!error && data) {
@@ -261,11 +262,12 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       // Fetch BBPS max limit from qr_settings
       const { data: settingsData } = await supabase
         .from('qr_settings')
-        .select('bbps_max_limit')
+        .select('bbps_max_limit, daily_live_bbps_limit')
         .eq('id', 1)
         .single();
       if (settingsData) {
         setBbpsMaxLimit(Number(settingsData.bbps_max_limit) || 50000);
+        setGlobalLiveBbpsLimit(Number(settingsData.daily_live_bbps_limit) || 500000);
       }
     } catch (err) {
       console.error("Error loading profile / slabs:", err);
@@ -618,7 +620,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     }
   };
 
-  const handlePrePayCheck = () => {
+  const handlePrePayCheck = async () => {
     if (!dbTpinValue || dbTpinValue.trim().length !== 4) {
       toast.error("Please set your 4-digit TPIN in 'Create TPIN' section before paying bills.");
       return;
@@ -640,6 +642,45 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
     if (finalAmount > bbpsMaxLimit) {
       toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${finalAmount.toLocaleString()}.`);
+      return;
+    }
+
+    // Enforce daily Live BBPS limit
+    try {
+      const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0 
+        ? Number(userProfile.custom_daily_live_bbps_limit) 
+        : (Number(globalLiveBbpsLimit) || 500000);
+
+      // Find start of today in IST, converted to UTC timezone
+      const tzOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+      const now = new Date();
+      const istTime = new Date(now.getTime() + tzOffset);
+      const istTodayStart = new Date(Date.UTC(
+        istTime.getUTCFullYear(),
+        istTime.getUTCMonth(),
+        istTime.getUTCDate(),
+        0, 0, 0, 0
+      ));
+      const utcTodayStart = new Date(istTodayStart.getTime() - tzOffset);
+
+      const { data: todayBBPS, error: sumError } = await supabase
+        .from('bbps_submissions')
+        .select('amount')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'approved'])
+        .gte('created_at', utcTodayStart.toISOString());
+
+      if (sumError) throw sumError;
+
+      const todaySum = (todayBBPS || []).reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+
+      if (todaySum + finalAmount > userLimit) {
+        toast.error(`Daily Live BBPS limit exceeded. You have already used ₹${todaySum.toLocaleString()} of your ₹${userLimit.toLocaleString()} limit today. Remaining limit: ₹${Math.max(0, userLimit - todaySum).toLocaleString()}.`);
+        return;
+      }
+    } catch (err: any) {
+      console.error('Error checking daily Live BBPS limit:', err);
+      toast.error('Failed to verify daily limit. Please try again.');
       return;
     }
 
@@ -759,6 +800,45 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
     if (finalAmount > bbpsMaxLimit) {
       toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${finalAmount.toLocaleString()}.`);
+      return;
+    }
+
+    // Enforce daily Live BBPS limit
+    try {
+      const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0 
+        ? Number(userProfile.custom_daily_live_bbps_limit) 
+        : (Number(globalLiveBbpsLimit) || 500000);
+
+      // Find start of today in IST, converted to UTC timezone
+      const tzOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+      const now = new Date();
+      const istTime = new Date(now.getTime() + tzOffset);
+      const istTodayStart = new Date(Date.UTC(
+        istTime.getUTCFullYear(),
+        istTime.getUTCMonth(),
+        istTime.getUTCDate(),
+        0, 0, 0, 0
+      ));
+      const utcTodayStart = new Date(istTodayStart.getTime() - tzOffset);
+
+      const { data: todayBBPS, error: sumError } = await supabase
+        .from('bbps_submissions')
+        .select('amount')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'approved'])
+        .gte('created_at', utcTodayStart.toISOString());
+
+      if (sumError) throw sumError;
+
+      const todaySum = (todayBBPS || []).reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+
+      if (todaySum + finalAmount > userLimit) {
+        toast.error(`Daily Live BBPS limit exceeded. You have already used ₹${todaySum.toLocaleString()} of your ₹${userLimit.toLocaleString()} limit today. Remaining limit: ₹${Math.max(0, userLimit - todaySum).toLocaleString()}.`);
+        return;
+      }
+    } catch (err: any) {
+      console.error('Error checking daily Live BBPS limit:', err);
+      toast.error('Failed to verify daily limit. Please try again.');
       return;
     }
 

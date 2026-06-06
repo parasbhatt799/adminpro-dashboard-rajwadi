@@ -14,6 +14,7 @@ import {
   Copy,
   Check,
   ExternalLink,
+  Sliders,
   X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -71,6 +72,8 @@ export default function AddUser({
     charge_percentage: initialData?.charge_percentage?.toString() || '',
     service_charge_enabled: initialData?.service_charge_enabled ?? false,
     custom_service_charge: initialData?.custom_service_charge?.toString() || '',
+    custom_daily_live_bbps_limit: initialData?.custom_daily_live_bbps_limit?.toString() || '0',
+    custom_daily_normal_bill_limit: initialData?.custom_daily_normal_bill_limit?.toString() || '0',
     hold_balance: initialData?.hold_balance?.toString() || '0',
     is_hold_active: (initialData?.hold_balance || 0) > 0,
     hold_input: initialData?.hold_balance?.toString() || '0',
@@ -217,7 +220,9 @@ export default function AddUser({
           ? (initialData?.super_distributor_id || null) 
           : (finalRole === 'distributor' ? (formData.super_distributor_id || null) : null),
         service_charge_enabled: (isDistributorView || isSuperDistributorView) ? false : formData.service_charge_enabled,
-        custom_service_charge: (isDistributorView || isSuperDistributorView) ? 0 : (parseFloat(formData.custom_service_charge) || 0)
+        custom_service_charge: (isDistributorView || isSuperDistributorView) ? 0 : (parseFloat(formData.custom_service_charge) || 0),
+        custom_daily_live_bbps_limit: (!isDistributorView && !isSuperDistributorView) ? (parseFloat(formData.custom_daily_live_bbps_limit) || 0) : 0,
+        custom_daily_normal_bill_limit: (!isDistributorView && !isSuperDistributorView) ? (parseFloat(formData.custom_daily_normal_bill_limit) || 0) : 0
       };
 
       // Validation for Distributors adding Users
@@ -853,6 +858,53 @@ export default function AddUser({
                       <p className="text-[10px] text-amber-600 mt-2 font-medium">Money will be moved from Main Wallet to Hold Wallet.</p>
                     </motion.div>
                   )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Custom Daily Limits Section */}
+          {!isDistributorView && !isSuperDistributorView && (
+            <div className="bg-indigo-50/50 rounded-3xl border border-indigo-100 shadow-sm p-8">
+              <h3 className="font-bold text-indigo-900 mb-6 flex items-center gap-2">
+                <Sliders size={20} className="text-indigo-600" />
+                Custom Daily Payment Limits
+              </h3>
+              <p className="text-xs text-indigo-600/80 mb-6 -mt-4">
+                Set custom daily limit for this user. Enter 0 or leave blank to use the system default limits.
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                    Custom Daily Live BBPS Limit (₹)
+                  </label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="number"
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      placeholder="0 (Uses global limit)"
+                      value={formData.custom_daily_live_bbps_limit}
+                      onChange={(e) => setFormData({ ...formData, custom_daily_live_bbps_limit: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-1.5 ml-1">
+                    Custom Daily Normal Bill Limit (₹)
+                  </label>
+                  <div className="relative">
+                    <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      type="number"
+                      className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      placeholder="0 (Uses global limit)"
+                      value={formData.custom_daily_normal_bill_limit}
+                      onChange={(e) => setFormData({ ...formData, custom_daily_normal_bill_limit: e.target.value })}
+                    />
+                  </div>
                 </div>
               </div>
             </div>

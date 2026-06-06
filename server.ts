@@ -492,12 +492,46 @@ async function startServer() {
       // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
         .from("users_profiles")
-        .select("wallet_balance, service_charge_enabled, custom_service_charge")
+        .select("wallet_balance, service_charge_enabled, custom_service_charge, custom_daily_live_bbps_limit")
         .eq("id", userId)
         .single();
 
       if (userError || !user) {
         return res.status(400).json({ status: "ERROR", message: "User profile not found." });
+      }
+
+      // 1.1 Fetch global daily limit
+      const { data: globalSettings } = await supabaseAdmin
+        .from("qr_settings")
+        .select("daily_live_bbps_limit")
+        .eq("id", 1)
+        .single();
+
+      const liveLimit = Number(user.custom_daily_live_bbps_limit) > 0
+        ? Number(user.custom_daily_live_bbps_limit)
+        : (Number(globalSettings?.daily_live_bbps_limit) || 500000);
+
+      // 1.2 Calculate today's sum in IST (Indian Standard Time, UTC +5:30)
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const ist = new Date(utc + (3600000 * 5.5));
+      ist.setHours(0, 0, 0, 0);
+      const startOfToday = new Date(ist.getTime() - (3600000 * 5.5)).toISOString();
+
+      const { data: bbpsToday } = await supabaseAdmin
+        .from("bbps_submissions")
+        .select("amount")
+        .eq("user_id", userId)
+        .gte("created_at", startOfToday)
+        .in("status", ["pending", "approved"]);
+
+      const todaySum = (bbpsToday || []).reduce((sum, b) => sum + Number(b.amount), 0);
+
+      if (todaySum + paymentAmount > liveLimit) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: `Daily Live BBPS limit exceeded. You can only submit up to ₹${liveLimit.toLocaleString()} of Live BBPS payments daily. Remaining limit for today is ₹${Math.max(0, liveLimit - todaySum).toLocaleString()}.`
+        });
       }
 
       const currentBalance = Number(user.wallet_balance) || 0;

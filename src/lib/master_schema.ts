@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS public.users_profiles (
     status TEXT DEFAULT 'Active', home_address TEXT, firm_name TEXT,
     firm_address TEXT, profile_photo_url TEXT, charge_percentage NUMERIC DEFAULT 0,
     service_charge_enabled BOOLEAN DEFAULT FALSE, custom_service_charge NUMERIC DEFAULT 0,
+    custom_daily_live_bbps_limit NUMERIC DEFAULT 0, custom_daily_normal_bill_limit NUMERIC DEFAULT 0,
     wallet_balance NUMERIC DEFAULT 0, hold_balance NUMERIC DEFAULT 0,
     commission_balance NUMERIC DEFAULT 0, admin_base_qr_charge NUMERIC DEFAULT 0,
     kyc_status TEXT DEFAULT 'pending', kyc_rejection_reason TEXT,
@@ -87,7 +88,7 @@ CREATE TABLE IF NOT EXISTS public.kyc_submissions (
 
 -- settings & system
 CREATE TABLE IF NOT EXISTS public.system_status (id INTEGER PRIMARY KEY DEFAULT 1, is_enabled BOOLEAN DEFAULT TRUE, message TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
-CREATE TABLE IF NOT EXISTS public.qr_settings (id INTEGER PRIMARY KEY DEFAULT 1, upi_id TEXT, display_name TEXT, qr_image_url TEXT);
+CREATE TABLE IF NOT EXISTS public.qr_settings (id INTEGER PRIMARY KEY DEFAULT 1, upi_id TEXT, display_name TEXT, qr_image_url TEXT, daily_live_bbps_limit NUMERIC DEFAULT 500000, daily_normal_bill_limit NUMERIC DEFAULT 500000);
 CREATE TABLE IF NOT EXISTS public.payout_settings (id INTEGER PRIMARY KEY DEFAULT 1, is_enabled BOOLEAN DEFAULT TRUE, min_amount NUMERIC DEFAULT 100);
 CREATE TABLE IF NOT EXISTS public.whatsapp_api_settings (id INTEGER PRIMARY KEY DEFAULT 1, is_active BOOLEAN DEFAULT FALSE, access_token TEXT, phone_number_id TEXT, sender_number TEXT, provider TEXT, aisensy_api_key TEXT, updated_at TIMESTAMPTZ DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS public.onesignal_settings (id INTEGER PRIMARY KEY DEFAULT 1, app_id TEXT, rest_api_key TEXT);
