@@ -111,6 +111,22 @@ export default function Dashboard() {
   const [payprimeBalance, setPayprimeBalance] = useState<number | null>(null);
   const [payprimeUsername, setPayprimeUsername] = useState<string>('');
 
+  const fetchPayprimeBalance = useCallback(async () => {
+    try {
+      const balanceRes = await fetch("/api/payprime-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const balanceData = await balanceRes.json();
+      if (balanceData && typeof balanceData.balance === 'number') {
+        setPayprimeBalance(balanceData.balance);
+        setPayprimeUsername(balanceData.username || "");
+      }
+    } catch (e) {
+      console.error("Failed to fetch PayPrime balance:", e);
+    }
+  }, []);
+
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -146,12 +162,116 @@ export default function Dashboard() {
           endDate = null;
       }
 
-      const { data: rpcStats, error: rpcError } = await supabase.rpc('get_dashboard_stats', {
-        p_start_date: startDate,
-        p_end_date: endDate
-      });
+      // Calculate previous period dates for comparison
+      let prevStartDate: string | null = null;
+      let prevEndDate: string | null = null;
+      if (startDate && endDate) {
+        const diff = new Date(endDate).getTime() - new Date(startDate).getTime();
+        prevStartDate = new Date(new Date(startDate).getTime() - diff - 1000).toISOString();
+        prevEndDate = new Date(new Date(startDate).getTime() - 1000).toISOString();
+      }
 
-      if (rpcError) throw rpcError;
+      const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+
+      // Prepare queries
+      let bbpsStatsQuery = supabase
+        .from('bbps_submissions')
+        .select('amount, charges')
+        .in('status', ['approved', 'pending']);
+      
+      if (startDate) {
+        bbpsStatsQuery = bbpsStatsQuery.gte('created_at', startDate);
+      }
+      if (endDate) {
+        bbpsStatsQuery = bbpsStatsQuery.lte('created_at', endDate);
+      }
+
+      let currentUsersQuery = supabase
+        .from('users_profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('role', 'user');
+      if (startDate) currentUsersQuery = currentUsersQuery.gte('created_at', startDate);
+      if (endDate) currentUsersQuery = currentUsersQuery.lte('created_at', endDate);
+
+      // Execute in parallel
+      const [
+        rpcStatsRes,
+        bbpsDataRes,
+        pendingBbpsCountRes,
+        prevRpcStatsRes,
+        prevBbpsDataRes,
+        currentUsersCountRes,
+        prevUsersCountRes,
+        qrRecentRes,
+        billRecentRes,
+        bbpsRecentRes,
+        payoutRecentRes,
+        usersRecentRes
+      ] = await Promise.all([
+        supabase.rpc('get_dashboard_stats', {
+          p_start_date: startDate,
+          p_end_date: endDate
+        }),
+        bbpsStatsQuery,
+        supabase
+          .from('bbps_submissions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+        prevStartDate && prevEndDate
+          ? supabase.rpc('get_dashboard_stats', {
+              p_start_date: prevStartDate,
+              p_end_date: prevEndDate
+            })
+          : Promise.resolve({ data: null, error: null } as any),
+        prevStartDate && prevEndDate
+          ? supabase
+              .from('bbps_submissions')
+              .select('amount, charges')
+              .in('status', ['approved', 'pending'])
+              .gte('created_at', prevStartDate)
+              .lte('created_at', prevEndDate)
+          : Promise.resolve({ data: null, error: null } as any),
+        currentUsersQuery,
+        prevStartDate && prevEndDate
+          ? supabase
+              .from('users_profiles')
+              .select('*', { count: 'exact', head: true })
+              .eq('role', 'user')
+              .gte('created_at', prevStartDate)
+              .lte('created_at', prevEndDate)
+          : Promise.resolve({ data: null, error: null } as any),
+        supabase
+          .from('payment_submissions')
+          .select('amount, admin_share, distributor_share, super_distributor_share, created_at')
+          .eq('status', 'approved')
+          .gte('created_at', sevenDaysAgo),
+        supabase
+          .from('bill_submissions')
+          .select('amount, admin_share, distributor_share, created_at')
+          .eq('status', 'approved')
+          .gte('created_at', sevenDaysAgo),
+        supabase
+          .from('bbps_submissions')
+          .select('amount, charges, created_at')
+          .in('status', ['approved', 'pending'])
+          .gte('created_at', sevenDaysAgo),
+        supabase
+          .from('payout_submissions')
+          .select('charge_amount, created_at')
+          .eq('status', 'approved')
+          .gte('created_at', sevenDaysAgo),
+        supabase
+          .from('users_profiles')
+          .select('created_at')
+          .eq('role', 'user')
+          .gte('created_at', sevenDaysAgo)
+      ]);
+
+      if (rpcStatsRes.error) throw rpcStatsRes.error;
+      const rpcStats = rpcStatsRes.data;
+
+      if (bbpsDataRes.error) throw bbpsDataRes.error;
+      const bbpsData = bbpsDataRes.data;
 
       const {
         admin_wallet_balance,
@@ -170,7 +290,7 @@ export default function Dashboard() {
         range_withdrawals,
         total_distributor_share,
         total_super_distributor_share
-      } = rpcStats;
+      } = rpcStats || {};
 
       const formatCurrency = (val: number) => {
         if (isNaN(val) || val === null || val === undefined) return '₹0.00';
@@ -218,151 +338,29 @@ export default function Dashboard() {
         };
       };
 
-      let fetchedBalance = 0;
-      let fetchedUsername = "";
-      try {
-        const balanceRes = await fetch("/api/payprime-balance", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        });
-        const balanceData = await balanceRes.json();
-        if (balanceData && typeof balanceData.balance === 'number') {
-          fetchedBalance = balanceData.balance;
-          fetchedUsername = balanceData.username || "";
-        }
-      } catch (e) {
-        console.error("Failed to fetch PayPrime balance:", e);
-      }
-      setPayprimeBalance(fetchedBalance);
-      setPayprimeUsername(fetchedUsername);
-
-      // Fetch BBPS stats within range
-      let bbpsStatsQuery = supabase
-        .from('bbps_submissions')
-        .select('amount, charges')
-        .in('status', ['approved', 'pending']);
-      
-      if (startDate) {
-        bbpsStatsQuery = bbpsStatsQuery.gte('created_at', startDate);
-      }
-      if (endDate) {
-        bbpsStatsQuery = bbpsStatsQuery.lte('created_at', endDate);
-      }
-
-      const { data: bbpsData, error: bbpsError } = await bbpsStatsQuery;
-      if (bbpsError) throw bbpsError;
-
       const rangeBbpsAmount = (bbpsData || []).reduce((acc, r) => acc + Number(r.amount || 0), 0);
       const rangeBbpsCharges = (bbpsData || []).reduce((acc, r) => acc + Number(r.charges || 0), 0);
+      const pendingBbps = pendingBbpsCountRes.error ? 0 : (pendingBbpsCountRes.count || 0);
 
-      // Get pending BBPS count
-      const { count: pendingBbpsCount, error: pendingBbpsErr } = await supabase
-        .from('bbps_submissions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
-      
-      const pendingBbps = pendingBbpsErr ? 0 : (pendingBbpsCount || 0);
-
-      // Calculate previous period dates for comparison
-      let prevStartDate: string | null = null;
-      let prevEndDate: string | null = null;
-      if (startDate && endDate) {
-        const diff = new Date(endDate).getTime() - new Date(startDate).getTime();
-        prevStartDate = new Date(new Date(startDate).getTime() - diff - 1000).toISOString();
-        prevEndDate = new Date(new Date(startDate).getTime() - 1000).toISOString();
-      }
-
-      let prevRpcStats: any = null;
-      if (prevStartDate && prevEndDate) {
-        try {
-          const { data: pStats } = await supabase.rpc('get_dashboard_stats', {
-            p_start_date: prevStartDate,
-            p_end_date: prevEndDate
-          });
-          if (pStats) prevRpcStats = pStats;
-        } catch (e) {
-          console.error("Failed to fetch previous stats:", e);
-        }
-      }
+      const prevRpcStats = prevRpcStatsRes.data;
+      const prevBbpsData = prevBbpsDataRes.data;
 
       // Fetch previous period BBPS stats manually
       let prevBbpsAmount = 0;
       let prevBbpsCharges = 0;
-      if (prevStartDate && prevEndDate) {
-        try {
-          const { data: prevBbpsData } = await supabase
-            .from('bbps_submissions')
-            .select('amount, charges')
-            .in('status', ['approved', 'pending'])
-            .gte('created_at', prevStartDate)
-            .lte('created_at', prevEndDate);
-          if (prevBbpsData) {
-            prevBbpsAmount = prevBbpsData.reduce((acc, r) => acc + Number(r.amount || 0), 0);
-            prevBbpsCharges = prevBbpsData.reduce((acc, r) => acc + Number(r.charges || 0), 0);
-          }
-        } catch (e) {
-          console.error("Failed to fetch previous BBPS stats:", e);
-        }
+      if (prevBbpsData) {
+        prevBbpsAmount = prevBbpsData.reduce((acc, r) => acc + Number(r.amount || 0), 0);
+        prevBbpsCharges = prevBbpsData.reduce((acc, r) => acc + Number(r.charges || 0), 0);
       }
 
-      // Fetch new user registrations for the periods to compute true active user comparison
-      let currentUsersCount = 0;
-      let prevUsersCount = 0;
-      try {
-        let currentUsersQuery = supabase
-          .from('users_profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('role', 'user');
-        if (startDate) currentUsersQuery = currentUsersQuery.gte('created_at', startDate);
-        if (endDate) currentUsersQuery = currentUsersQuery.lte('created_at', endDate);
-        const { count: curUserReg } = await currentUsersQuery;
-        currentUsersCount = curUserReg || 0;
+      const currentUsersCount = currentUsersCountRes.count || 0;
+      const prevUsersCount = prevUsersCountRes.count || 0;
 
-        if (prevStartDate && prevEndDate) {
-          const { count: prevUserReg } = await supabase
-            .from('users_profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('role', 'user')
-            .gte('created_at', prevStartDate)
-            .lte('created_at', prevEndDate);
-          prevUsersCount = prevUserReg || 0;
-        }
-      } catch (e) {
-        console.error("Failed to fetch user registrations comparison:", e);
-      }
-
-      const sevenDaysAgo = subDays(new Date(), 7).toISOString();
-
-      // Fetch last 7 days approved submissions for sparklines (Real Database Data)
-      const { data: qrRecent } = await supabase
-        .from('payment_submissions')
-        .select('amount, admin_share, distributor_share, super_distributor_share, created_at')
-        .eq('status', 'approved')
-        .gte('created_at', sevenDaysAgo);
-
-      const { data: billRecent } = await supabase
-        .from('bill_submissions')
-        .select('amount, admin_share, distributor_share, created_at')
-        .eq('status', 'approved')
-        .gte('created_at', sevenDaysAgo);
-
-      const { data: bbpsRecent } = await supabase
-        .from('bbps_submissions')
-        .select('amount, charges, created_at')
-        .in('status', ['approved', 'pending'])
-        .gte('created_at', sevenDaysAgo);
-
-      const { data: payoutRecent } = await supabase
-        .from('payout_submissions')
-        .select('charge_amount, created_at')
-        .eq('status', 'approved')
-        .gte('created_at', sevenDaysAgo);
-
-      const { data: usersRecent } = await supabase
-        .from('users_profiles')
-        .select('created_at')
-        .eq('role', 'user')
-        .gte('created_at', sevenDaysAgo);
+      const qrRecent = qrRecentRes.data;
+      const billRecent = billRecentRes.data;
+      const bbpsRecent = bbpsRecentRes.data;
+      const payoutRecent = payoutRecentRes.data;
+      const usersRecent = usersRecentRes.data;
 
       const getSparklineData = (records: any[], key = 'amount') => {
         const points = [0, 0, 0, 0, 0, 0, 0];
@@ -748,6 +746,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchStats();
+    fetchPayprimeBalance();
     fetchRefundedRequests();
     fetchReasons();
 
@@ -765,7 +764,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(statsChannel);
     };
-  }, [fetchStats, fetchRefundedRequests, fetchReasons]);
+  }, [fetchStats, fetchPayprimeBalance, fetchRefundedRequests, fetchReasons]);
 
   const rangeLabels: Record<TimeRange, string> = {
     today: 'Today',
