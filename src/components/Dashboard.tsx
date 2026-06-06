@@ -181,6 +181,10 @@ export default function Dashboard() {
           value: formatCurrency(range_qr_amount),
           icon: QrCode,
           color: "bg-blue-500",
+          bgGradient: "from-blue-500/5 to-transparent",
+          borderColor: "hover:border-blue-200",
+          iconColor: "text-blue-500",
+          iconBg: "bg-blue-50",
           description: `Range: ${dateDisplay}`,
           path: "/qr-payment-requests"
         },
@@ -189,6 +193,10 @@ export default function Dashboard() {
           value: formatCurrency(range_bill_amount),
           icon: CreditCard,
           color: "bg-purple-500",
+          bgGradient: "from-purple-500/5 to-transparent",
+          borderColor: "hover:border-purple-200",
+          iconColor: "text-purple-500",
+          iconBg: "bg-purple-50",
           description: `Range: ${dateDisplay}`,
           path: "/bill-payment-requests"
         },
@@ -197,6 +205,10 @@ export default function Dashboard() {
           value: formatCurrency(rangeBbpsAmount),
           icon: Zap,
           color: "bg-teal-500",
+          bgGradient: "from-teal-500/5 to-transparent",
+          borderColor: "hover:border-teal-200",
+          iconColor: "text-teal-500",
+          iconBg: "bg-teal-50",
           description: `Range: ${dateDisplay}`,
           path: "/bbps-history"
         },
@@ -205,6 +217,10 @@ export default function Dashboard() {
           value: formatCurrency(total_user_wallet_balance),
           icon: Wallet,
           color: "bg-amber-500",
+          bgGradient: "from-amber-500/5 to-transparent",
+          borderColor: "hover:border-amber-200",
+          iconColor: "text-amber-500",
+          iconBg: "bg-amber-50",
           description: "Lifetime Total",
           badge: `${active_users_count} Active Users`
         },
@@ -213,6 +229,10 @@ export default function Dashboard() {
           value: formatCurrency(displayServiceCharge),
           icon: TrendingUp,
           color: "bg-indigo-600",
+          bgGradient: "from-indigo-500/5 to-transparent",
+          borderColor: "hover:border-indigo-200",
+          iconColor: "text-indigo-600",
+          iconBg: "bg-indigo-50",
           description: `Total Earnings: ${dateDisplay}`
         },
         {
@@ -220,6 +240,10 @@ export default function Dashboard() {
           value: formatCurrency(admin_qr_charges),
           icon: QrCode,
           color: "bg-emerald-500",
+          bgGradient: "from-emerald-500/5 to-transparent",
+          borderColor: "hover:border-emerald-200",
+          iconColor: "text-emerald-500",
+          iconBg: "bg-emerald-50",
           description: `Range: ${dateDisplay}`
         },
         {
@@ -227,6 +251,10 @@ export default function Dashboard() {
           value: formatCurrency(admin_bill_charges),
           icon: CreditCard,
           color: "bg-indigo-500",
+          bgGradient: "from-indigo-500/5 to-transparent",
+          borderColor: "hover:border-indigo-200",
+          iconColor: "text-indigo-500",
+          iconBg: "bg-indigo-50",
           description: `Range: ${dateDisplay}`
         },
         {
@@ -234,6 +262,10 @@ export default function Dashboard() {
           value: formatCurrency(rangeBbpsCharges),
           icon: Zap,
           color: "bg-teal-600",
+          bgGradient: "from-teal-600/5 to-transparent",
+          borderColor: "hover:border-teal-300",
+          iconColor: "text-teal-600",
+          iconBg: "bg-teal-50",
           description: `Range: ${dateDisplay}`
         },
         {
@@ -241,6 +273,10 @@ export default function Dashboard() {
           value: formatCurrency(total_distributor_share),
           icon: User,
           color: "bg-orange-500",
+          bgGradient: "from-orange-500/5 to-transparent",
+          borderColor: "hover:border-orange-200",
+          iconColor: "text-orange-500",
+          iconBg: "bg-orange-50",
           description: `Distributor Profit: ${dateDisplay}`
         },
         {
@@ -248,6 +284,10 @@ export default function Dashboard() {
           value: formatCurrency(total_super_distributor_share || 0),
           icon: User,
           color: "bg-pink-600",
+          bgGradient: "from-pink-600/5 to-transparent",
+          borderColor: "hover:border-pink-200",
+          iconColor: "text-pink-600",
+          iconBg: "bg-pink-50",
           description: `Super Distributor Profit: ${dateDisplay}`
         },
         {
@@ -255,36 +295,44 @@ export default function Dashboard() {
           value: formatCurrency(range_payout_charges),
           icon: TrendingDown,
           color: "bg-amber-600",
+          bgGradient: "from-amber-600/5 to-transparent",
+          borderColor: "hover:border-amber-300",
+          iconColor: "text-amber-600",
+          iconBg: "bg-amber-50",
           description: `Range: ${dateDisplay}`
         },
         {
           title: "Pending Actions",
           value: (
-            <div className="flex flex-row items-center gap-1.5 mt-1">
-              <div className="flex flex-col items-center bg-emerald-50 px-2 py-1.5 rounded-xl border border-emerald-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-emerald-700 leading-none">{pending_qr_count}</span>
-                <span className="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">QR</span>
+            <div className="flex flex-row items-center gap-1 mt-1 flex-wrap">
+              <div className="flex flex-col items-center bg-emerald-50/80 px-2 py-1 rounded-xl border border-emerald-100/40 min-w-[36px]">
+                <span className="text-base font-black text-emerald-700 leading-none">{pending_qr_count}</span>
+                <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">QR</span>
               </div>
-              <div className="flex flex-col items-center bg-indigo-50 px-2 py-1.5 rounded-xl border border-indigo-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-indigo-700 leading-none">{pending_bill_count}</span>
-                <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-tighter">Bill</span>
+              <div className="flex flex-col items-center bg-indigo-50/80 px-2 py-1 rounded-xl border border-indigo-100/40 min-w-[36px]">
+                <span className="text-base font-black text-indigo-700 leading-none">{pending_bill_count}</span>
+                <span className="text-[8px] font-black text-indigo-500 uppercase tracking-tighter">Bill</span>
               </div>
-              <div className="flex flex-col items-center bg-teal-50 px-2 py-1.5 rounded-xl border border-teal-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-teal-700 leading-none">{pendingBbps}</span>
-                <span className="text-[10px] font-bold text-teal-500 uppercase tracking-tighter">BBPS</span>
+              <div className="flex flex-col items-center bg-teal-50/80 px-2 py-1 rounded-xl border border-teal-100/40 min-w-[36px]">
+                <span className="text-base font-black text-teal-700 leading-none">{pendingBbps}</span>
+                <span className="text-[8px] font-black text-teal-500 uppercase tracking-tighter">BBPS</span>
               </div>
-              <div className="flex flex-col items-center bg-amber-50 px-2 py-1.5 rounded-xl border border-amber-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-amber-700 leading-none">{pending_payout_count}</span>
-                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-tighter">Pay</span>
+              <div className="flex flex-col items-center bg-amber-50/80 px-2 py-1 rounded-xl border border-amber-100/40 min-w-[36px]">
+                <span className="text-base font-black text-amber-700 leading-none">{pending_payout_count}</span>
+                <span className="text-[8px] font-black text-amber-500 uppercase tracking-tighter">Pay</span>
               </div>
-              <div className="flex flex-col items-center bg-orange-50 px-2 py-1.5 rounded-xl border border-orange-100/50 min-w-[42px]">
-                <span className="text-lg font-black text-orange-700 leading-none">{pending_kyc_count}</span>
-                <span className="text-[10px] font-bold text-orange-500 uppercase tracking-tighter">KYC</span>
+              <div className="flex flex-col items-center bg-orange-50/80 px-2 py-1 rounded-xl border border-orange-100/40 min-w-[36px]">
+                <span className="text-base font-black text-orange-700 leading-none">{pending_kyc_count}</span>
+                <span className="text-[8px] font-black text-orange-500 uppercase tracking-tighter">KYC</span>
               </div>
             </div>
           ),
           icon: ShieldAlert,
           color: "bg-slate-700",
+          bgGradient: "from-slate-700/5 to-transparent",
+          borderColor: "hover:border-slate-300",
+          iconColor: "text-slate-700",
+          iconBg: "bg-slate-100",
           description: "All pending reviews"
         },
         {
@@ -292,14 +340,18 @@ export default function Dashboard() {
           value: (
             <button
               onClick={() => window.location.reload()}
-              className="mt-2 w-full py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 active:scale-95"
+              className="mt-1 w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md shadow-indigo-200 active:scale-95 cursor-pointer"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={12} />
               Reload Now
             </button>
           ),
           icon: RefreshCw,
           color: "bg-slate-800",
+          bgGradient: "from-slate-800/5 to-transparent",
+          borderColor: "hover:border-slate-400",
+          iconColor: "text-slate-800",
+          iconBg: "bg-slate-100",
           description: "Sync platform data"
         }
       ]);
@@ -546,7 +598,7 @@ export default function Dashboard() {
           <LogoLoader size="md" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             const isClickable = !!stat.path;
@@ -558,34 +610,45 @@ export default function Dashboard() {
                     navigate(stat.path);
                   }
                 }}
-                className={`bg-white p-6 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md transition-all group relative overflow-hidden ${
-                  isClickable ? 'cursor-pointer hover:border-indigo-200 active:scale-[0.98]' : ''
-                }`}
+                className={`bg-white p-5 rounded-2xl border border-slate-100 shadow-sm transition-all duration-300 group relative overflow-hidden flex flex-col justify-between ${
+                  isClickable ? 'cursor-pointer hover:shadow-md hover:border-slate-200 active:scale-[0.98]' : ''
+                } ${stat.borderColor || 'hover:border-indigo-100'}`}
               >
-                <div className="flex items-start justify-between relative z-10">
-                  <div className={`p-3 rounded-2xl ${stat.color} text-white shadow-lg`}>
-                    <Icon size={24} />
+                {/* Accent subtle background gradient matching the theme color */}
+                <div className={`absolute inset-0 bg-gradient-to-br ${stat.bgGradient || 'from-slate-50/50 to-transparent'} opacity-30 pointer-events-none`} />
+
+                <div className="relative z-10 flex items-center justify-between">
+                  <div className={`p-2.5 rounded-xl ${stat.iconBg || 'bg-slate-50'} ${stat.iconColor || 'text-slate-600'} shadow-sm`}>
+                    <Icon size={20} />
                   </div>
                   {stat.badge && (
-                    <div className="bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-emerald-100 shadow-sm animate-pulse">
+                    <div className="bg-emerald-50 text-emerald-600 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border border-emerald-100 shadow-sm">
                       {stat.badge}
                     </div>
                   )}
                 </div>
 
-                <div className="mt-6 relative z-10">
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{stat.title}</p>
-                  <h3 className="text-3xl font-bold text-slate-900 mt-2 font-mono tracking-tight group-hover:text-indigo-600 transition-colors">
-                    {stat.value}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider bg-slate-50 w-fit px-2 py-1 rounded-full">
-                    <Clock size={12} />
-                    {stat.description}
-                  </div>
+                <div className="mt-4 relative z-10">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">{stat.title}</p>
+                  
+                  {typeof stat.value === 'object' ? (
+                    <div className="mt-1">{stat.value}</div>
+                  ) : (
+                    <h3 className="text-2xl font-black text-slate-800 mt-2 font-mono tracking-tight group-hover:text-indigo-600 transition-colors truncate">
+                      {stat.value}
+                    </h3>
+                  )}
+
+                  {stat.description && (
+                    <div className="flex items-center gap-1 mt-3 text-[9px] text-slate-400 font-extrabold uppercase tracking-wider bg-slate-50/80 border border-slate-100/50 w-fit px-2 py-0.5 rounded-md">
+                      <Clock size={10} />
+                      <span className="truncate">{stat.description}</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="absolute right-[-20px] bottom-[-20px] opacity-[0.03] group-hover:scale-110 transition-transform duration-500">
-                  <Icon size={120} />
+                <div className="absolute right-[-15px] bottom-[-15px] opacity-[0.02] group-hover:scale-110 transition-transform duration-500 text-slate-900 pointer-events-none">
+                  <Icon size={90} />
                 </div>
               </div>
             );
