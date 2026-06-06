@@ -171,107 +171,19 @@ export default function Dashboard() {
         prevEndDate = new Date(new Date(startDate).getTime() - 1000).toISOString();
       }
 
-      const sevenDaysAgo = subDays(new Date(), 7).toISOString();
+      // Fetch unified dashboard statistics via a single optimized database RPC
+      const { data, error: rpcErr } = await supabase.rpc('get_optimized_dashboard_data', {
+        p_start_date: startDate,
+        p_end_date: endDate
+      });
 
-      // Prepare queries
-      let bbpsStatsQuery = supabase
-        .from('bbps_submissions')
-        .select('amount, charges')
-        .in('status', ['approved', 'pending']);
-      
-      if (startDate) {
-        bbpsStatsQuery = bbpsStatsQuery.gte('created_at', startDate);
-      }
-      if (endDate) {
-        bbpsStatsQuery = bbpsStatsQuery.lte('created_at', endDate);
-      }
+      if (rpcErr) throw rpcErr;
+      if (!data) throw new Error("No dashboard data returned from database");
 
-      let currentUsersQuery = supabase
-        .from('users_profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('role', 'user');
-      if (startDate) currentUsersQuery = currentUsersQuery.gte('created_at', startDate);
-      if (endDate) currentUsersQuery = currentUsersQuery.lte('created_at', endDate);
-
-      // Execute in parallel
-      const [
-        rpcStatsRes,
-        bbpsDataRes,
-        pendingBbpsCountRes,
-        prevRpcStatsRes,
-        prevBbpsDataRes,
-        currentUsersCountRes,
-        prevUsersCountRes,
-        qrRecentRes,
-        billRecentRes,
-        bbpsRecentRes,
-        payoutRecentRes,
-        usersRecentRes
-      ] = await Promise.all([
-        supabase.rpc('get_dashboard_stats', {
-          p_start_date: startDate,
-          p_end_date: endDate
-        }),
-        bbpsStatsQuery,
-        supabase
-          .from('bbps_submissions')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', 'pending'),
-        prevStartDate && prevEndDate
-          ? supabase.rpc('get_dashboard_stats', {
-              p_start_date: prevStartDate,
-              p_end_date: prevEndDate
-            })
-          : Promise.resolve({ data: null, error: null } as any),
-        prevStartDate && prevEndDate
-          ? supabase
-              .from('bbps_submissions')
-              .select('amount, charges')
-              .in('status', ['approved', 'pending'])
-              .gte('created_at', prevStartDate)
-              .lte('created_at', prevEndDate)
-          : Promise.resolve({ data: null, error: null } as any),
-        currentUsersQuery,
-        prevStartDate && prevEndDate
-          ? supabase
-              .from('users_profiles')
-              .select('*', { count: 'exact', head: true })
-              .eq('role', 'user')
-              .gte('created_at', prevStartDate)
-              .lte('created_at', prevEndDate)
-          : Promise.resolve({ data: null, error: null } as any),
-        supabase
-          .from('payment_submissions')
-          .select('amount, admin_share, distributor_share, super_distributor_share, created_at')
-          .eq('status', 'approved')
-          .gte('created_at', sevenDaysAgo),
-        supabase
-          .from('bill_submissions')
-          .select('amount, admin_share, distributor_share, created_at')
-          .eq('status', 'approved')
-          .gte('created_at', sevenDaysAgo),
-        supabase
-          .from('bbps_submissions')
-          .select('amount, charges, created_at')
-          .in('status', ['approved', 'pending'])
-          .gte('created_at', sevenDaysAgo),
-        supabase
-          .from('payout_submissions')
-          .select('charge_amount, created_at')
-          .eq('status', 'approved')
-          .gte('created_at', sevenDaysAgo),
-        supabase
-          .from('users_profiles')
-          .select('created_at')
-          .eq('role', 'user')
-          .gte('created_at', sevenDaysAgo)
-      ]);
-
-      if (rpcStatsRes.error) throw rpcStatsRes.error;
-      const rpcStats = rpcStatsRes.data;
-
-      if (bbpsDataRes.error) throw bbpsDataRes.error;
-      const bbpsData = bbpsDataRes.data;
+      const rpcStats = data.current_stats || {};
+      const prevRpcStats = data.prev_stats || {};
+      const bbpsCurrent = data.bbps_current || {};
+      const bbpsPrev = data.bbps_prev || {};
 
       const {
         admin_wallet_balance,
@@ -290,7 +202,7 @@ export default function Dashboard() {
         range_withdrawals,
         total_distributor_share,
         total_super_distributor_share
-      } = rpcStats || {};
+      } = rpcStats;
 
       const formatCurrency = (val: number) => {
         if (isNaN(val) || val === null || val === undefined) return '₹0.00';
@@ -338,86 +250,42 @@ export default function Dashboard() {
         };
       };
 
-      const rangeBbpsAmount = (bbpsData || []).reduce((acc, r) => acc + Number(r.amount || 0), 0);
-      const rangeBbpsCharges = (bbpsData || []).reduce((acc, r) => acc + Number(r.charges || 0), 0);
-      const pendingBbps = pendingBbpsCountRes.error ? 0 : (pendingBbpsCountRes.count || 0);
+      const rangeBbpsAmount = Number(bbpsCurrent.amount || 0);
+      const rangeBbpsCharges = Number(bbpsCurrent.charges || 0);
+      const pendingBbps = Number(bbpsCurrent.pending_count || 0);
 
-      const prevRpcStats = prevRpcStatsRes.data;
-      const prevBbpsData = prevBbpsDataRes.data;
+      const prevBbpsAmount = Number(bbpsPrev.amount || 0);
+      const prevBbpsCharges = Number(bbpsPrev.charges || 0);
 
-      // Fetch previous period BBPS stats manually
-      let prevBbpsAmount = 0;
-      let prevBbpsCharges = 0;
-      if (prevBbpsData) {
-        prevBbpsAmount = prevBbpsData.reduce((acc, r) => acc + Number(r.amount || 0), 0);
-        prevBbpsCharges = prevBbpsData.reduce((acc, r) => acc + Number(r.charges || 0), 0);
-      }
+      const currentUsersCount = Number(data.user_reg_current || 0);
+      const prevUsersCount = Number(data.user_reg_prev || 0);
 
-      const currentUsersCount = currentUsersCountRes.count || 0;
-      const prevUsersCount = prevUsersCountRes.count || 0;
-
-      const qrRecent = qrRecentRes.data;
-      const billRecent = billRecentRes.data;
-      const bbpsRecent = bbpsRecentRes.data;
-      const payoutRecent = payoutRecentRes.data;
-      const usersRecent = usersRecentRes.data;
-
-      const getSparklineData = (records: any[], key = 'amount') => {
-        const points = [0, 0, 0, 0, 0, 0, 0];
-        const now = new Date();
-        records?.forEach(r => {
-          const rDate = new Date(r.created_at);
-          const dayDiff = Math.floor((now.getTime() - rDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (dayDiff >= 0 && dayDiff < 7) {
-            points[6 - dayDiff] += Number(r[key] || 0);
-          }
-        });
-        return points;
-      };
-
-      const getActiveUsersSparkline = () => {
-        const points = [active_users_count, active_users_count, active_users_count, active_users_count, active_users_count, active_users_count, active_users_count];
-        const now = new Date();
-        usersRecent?.forEach(u => {
-          const uDate = new Date(u.created_at);
-          const dayDiff = Math.floor((now.getTime() - uDate.getTime()) / (1000 * 60 * 60 * 24));
-          if (dayDiff >= 0 && dayDiff < 7) {
-            for (let i = 0; i < 6 - dayDiff; i++) {
-              points[i] = Math.max(0, points[i] - 1);
-            }
-          }
-        });
-        return points;
-      };
-
-      const getSparklineColor = (data: number[]) => {
-        if (!data || data.length < 2) return 'stroke-blue-500';
-        const last = data[data.length - 1];
-        const prev = data[data.length - 2];
+      const getSparklineColor = (sparkData: number[]) => {
+        if (!sparkData || sparkData.length < 2) return 'stroke-blue-500';
+        const last = sparkData[sparkData.length - 1];
+        const prev = sparkData[sparkData.length - 2];
         if (last > prev) return 'stroke-emerald-500';
         if (last < prev) return 'stroke-rose-500';
         return 'stroke-blue-500';
       };
 
-      const qrSpark = getSparklineData(qrRecent || [], 'amount');
-      const ccSpark = getSparklineData(billRecent || [], 'amount');
-      const bbpsSpark = getSparklineData(bbpsRecent || [], 'amount');
-      const userSpark = getActiveUsersSparkline();
-      const qrChargesSpark = getSparklineData(qrRecent || [], 'admin_share');
-      const billChargesSpark = getSparklineData(billRecent || [], 'admin_share');
-      const bbpsChargesSpark = getSparklineData(bbpsRecent || [], 'charges');
-      const payoutChargesSpark = getSparklineData(payoutRecent || [], 'charge_amount');
-      const serviceChargesSpark = qrChargesSpark.map((v, i) => v + billChargesSpark[i] + bbpsChargesSpark[i] + payoutChargesSpark[i]);
-      const qrAdminChargesSpark = getSparklineData(qrRecent || [], 'admin_share');
-      const billAdminChargesSpark = getSparklineData(billRecent || [], 'admin_share');
-      const bbpsAdminChargesSpark = getSparklineData(bbpsRecent || [], 'charges');
+      const sparklines = data.sparklines || {};
+      const qrSpark = (sparklines.qrSpark || []).map(Number);
+      const ccSpark = (sparklines.ccSpark || []).map(Number);
+      const bbpsSpark = (sparklines.bbpsSpark || []).map(Number);
+      const userSpark = (sparklines.userSpark || []).map(Number);
+      const qrChargesSpark = (sparklines.qrChargesSpark || []).map(Number);
+      const billChargesSpark = (sparklines.billChargesSpark || []).map(Number);
+      const bbpsChargesSpark = (sparklines.bbpsChargesSpark || []).map(Number);
+      const payoutChargesSpark = (sparklines.payoutChargesSpark || []).map(Number);
+      const distShareSpark = (sparklines.distShareSpark || []).map(Number);
+      const superDistShareSpark = (sparklines.superDistShareSpark || []).map(Number);
+      const payoutChargesSparkOnly = (sparklines.payoutChargesSparkOnly || []).map(Number);
       
-      const qrDistShareSpark = getSparklineData(qrRecent || [], 'distributor_share');
-      const billDistShareSpark = getSparklineData(billRecent || [], 'distributor_share');
-      const distShareSpark = qrDistShareSpark.map((v, i) => v + billDistShareSpark[i]);
-
-      const superDistShareSpark = getSparklineData(qrRecent || [], 'super_distributor_share');
-      const payoutChargesSparkOnly = getSparklineData(payoutRecent || [], 'charge_amount');
+      const serviceChargesSpark = qrChargesSpark.map((v, i) => v + billChargesSpark[i] + bbpsChargesSpark[i] + payoutChargesSpark[i]);
+      const qrAdminChargesSpark = [...qrChargesSpark];
+      const billAdminChargesSpark = [...billChargesSpark];
+      const bbpsAdminChargesSpark = [...bbpsChargesSpark];
 
       const totalEarnings = (admin_bill_charges || 0) + (admin_qr_charges || 0) + (range_payout_charges || 0) + rangeBbpsCharges;
       const displayServiceCharge = totalEarnings + total_distributor_share + (total_super_distributor_share || 0);
