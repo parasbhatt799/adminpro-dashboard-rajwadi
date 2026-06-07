@@ -35,7 +35,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [tPlusOne, setTPlusOne] = useState(false);
-  const [tPlusOneLimit, setTPlusOneLimit] = useState(2000000);
+  const [tPlusOneLimit, setTPlusOneLimit] = useState(0);
   const [todayT1Amount, setTodayT1Amount] = useState(0);
 
   // Bill Form state
@@ -378,7 +378,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           }
           setQrMinLimit(Number(qrData.qr_min_limit) || 100);
           setQrMaxLimit(Number(qrData.qr_max_limit) || 100000);
-          setTPlusOneLimit(qrData.t_plus_one_limit !== undefined && qrData.t_plus_one_limit !== null ? Number(qrData.t_plus_one_limit) : 2000000);
+          setTPlusOneLimit(qrData.t_plus_one_limit !== undefined && qrData.t_plus_one_limit !== null ? Number(qrData.t_plus_one_limit) : 0);
         }
 
         await fetchTodayT1Sum();
@@ -627,7 +627,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setGlobalNormalBillLimit(Number(payload.new.daily_normal_bill_limit) || 500000);
         }
         if (payload.new.t_plus_one_limit !== undefined) {
-          setTPlusOneLimit(payload.new.t_plus_one_limit !== null ? Number(payload.new.t_plus_one_limit) : 2000000);
+          setTPlusOneLimit(payload.new.t_plus_one_limit !== null ? Number(payload.new.t_plus_one_limit) : 0);
         }
       })
       .subscribe();
@@ -715,7 +715,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setGlobalNormalBillLimit(Number(newData.daily_normal_bill_limit) || 500000);
         }
         if (newData.t_plus_one_limit !== undefined) {
-          setTPlusOneLimit(newData.t_plus_one_limit !== null ? Number(newData.t_plus_one_limit) : 2000000);
+          setTPlusOneLimit(newData.t_plus_one_limit !== null ? Number(newData.t_plus_one_limit) : 0);
         }
       })
       .subscribe();

@@ -11,7 +11,7 @@ ALTER TABLE public.payment_submissions
 ADD COLUMN IF NOT EXISTS t_plus_one BOOLEAN DEFAULT FALSE;
 
 ALTER TABLE public.qr_settings 
-ADD COLUMN IF NOT EXISTS t_plus_one_limit NUMERIC DEFAULT 2000000;
+ADD COLUMN IF NOT EXISTS t_plus_one_limit NUMERIC DEFAULT 0;
 
 -- 2. Update approve_qr_payment SQL Function
 CREATE OR REPLACE FUNCTION public.approve_qr_payment(p_payment_id UUID, p_admin_id TEXT)

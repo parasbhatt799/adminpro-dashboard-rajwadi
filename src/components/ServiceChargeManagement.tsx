@@ -47,7 +47,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
   const [dailyLiveBbpsLimit, setDailyLiveBbpsLimit] = useState<number>(500000);
   const [dailyNormalBillLimit, setDailyNormalBillLimit] = useState<number>(500000);
-  const [tPlusOneLimit, setTPlusOneLimit] = useState<number>(2000000);
+  const [tPlusOneLimit, setTPlusOneLimit] = useState<number>(0);
   const [limitsSaving, setLimitsSaving] = useState(false);
   const [limitsSuccess, setLimitsSuccess] = useState<string | null>(null);
   const [limitsError, setLimitsError] = useState<string | null>(null);
@@ -97,7 +97,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           setBbpsMaxLimit(Number(data.bbps_max_limit) || 50000);
           setDailyLiveBbpsLimit(Number(data.daily_live_bbps_limit) || 500000);
           setDailyNormalBillLimit(Number(data.daily_normal_bill_limit) || 500000);
-          setTPlusOneLimit(Number(data.t_plus_one_limit) || 2000000);
+          setTPlusOneLimit(data.t_plus_one_limit !== undefined && data.t_plus_one_limit !== null ? Number(data.t_plus_one_limit) : 0);
           setIsFundTransferEnabled(data.is_fund_transfer_enabled !== false);
         }
       } catch (err) {
