@@ -224,6 +224,7 @@ interface AdminLayoutProps {
   userId: string;
   adminRole: string;
   totalHoldBalance: number;
+  totalTPlusOneBalance: number;
   pendingCounts: { qr: number; bill: number; kyc: number; payout: number };
   isDeveloper: boolean;
   adminPermissions: string[];
@@ -263,6 +264,7 @@ const AdminLayout = ({
   userId,
   adminRole,
   totalHoldBalance,
+  totalTPlusOneBalance,
   pendingCounts,
   isDeveloper,
   adminPermissions
@@ -307,6 +309,17 @@ const AdminLayout = ({
               <div className="flex flex-col">
                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest leading-none mb-0.5">Total Hold</span>
                 <span className="text-sm font-bold text-slate-900 leading-none">₹{totalHoldBalance.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
+              </div>
+            </div>
+
+            {/* Total T+1 Balance Wallet */}
+            <div className="hidden lg:flex items-center gap-2 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-100 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="w-8 h-8 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 shadow-inner">
+                <Clock size={18} className="animate-pulse" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-0.5">Total T+1</span>
+                <span className="text-sm font-bold text-slate-900 leading-none">₹{totalTPlusOneBalance.toLocaleString('en-IN', { minimumFractionDigits: 0 })}</span>
               </div>
             </div>
 
@@ -581,6 +594,7 @@ export default function App() {
   const [unreadAdminCount, setUnreadAdminCount] = useState(0);
   const [showAdminNotifications, setShowAdminNotifications] = useState(false);
   const [totalHoldBalance, setTotalHoldBalance] = useState(0);
+  const [totalTPlusOneBalance, setTotalTPlusOneBalance] = useState(0);
   const [pendingCounts, setPendingCounts] = useState({ qr: 0, bill: 0, kyc: 0, payout: 0 });
 
   const fetchPendingCounts = async () => {
@@ -607,14 +621,16 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select('hold_balance');
+        .select('hold_balance, t_plus_one_balance');
 
       if (error) throw error;
 
-      const total = (data || []).reduce((sum, u) => sum + (Number(u.hold_balance) || 0), 0);
-      setTotalHoldBalance(total);
+      const totalHold = (data || []).reduce((sum, u) => sum + (Number(u.hold_balance) || 0), 0);
+      const totalT1 = (data || []).reduce((sum, u) => sum + (Number(u.t_plus_one_balance) || 0), 0);
+      setTotalHoldBalance(totalHold);
+      setTotalTPlusOneBalance(totalT1);
     } catch (err) {
-      console.error('Error fetching total hold balance:', err);
+      console.error('Error fetching total hold and T+1 balance:', err);
     }
   };
 
@@ -1063,6 +1079,7 @@ export default function App() {
                 userId={userId}
                 adminRole={adminRole}
                 totalHoldBalance={totalHoldBalance}
+                totalTPlusOneBalance={totalTPlusOneBalance}
                 pendingCounts={pendingCounts}
                 isDeveloper={isDeveloper}
                 adminPermissions={adminPermissions}

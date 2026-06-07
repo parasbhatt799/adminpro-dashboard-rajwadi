@@ -119,7 +119,7 @@ BEGIN
         v_total_distributor_share,
         v_total_super_distributor_share
     FROM public.payment_submissions
-    WHERE status = 'approved' AND created_at >= v_start AND created_at <= v_end;
+    WHERE status IN ('approved', 'T+1 Approved') AND created_at >= v_start AND created_at <= v_end;
 
     -- Current period aggregates (Credit Card Bill Payments)
     SELECT 
@@ -162,7 +162,7 @@ BEGIN
         v_prev_total_distributor_share,
         v_prev_total_super_distributor_share
     FROM public.payment_submissions
-    WHERE status = 'approved' AND created_at >= v_prev_start AND created_at <= v_prev_end;
+    WHERE status IN ('approved', 'T+1 Approved') AND created_at >= v_prev_start AND created_at <= v_prev_end;
 
     -- Previous period aggregates (Credit Card Bill Payments)
     SELECT 
@@ -221,7 +221,7 @@ BEGIN
     SELECT ARRAY(
         SELECT COALESCE(SUM(amount), 0)
         FROM generate_series(now() - interval '6 days', now(), interval '1 day') AS g(day)
-        LEFT JOIN public.payment_submissions ON status = 'approved' AND created_at >= g.day AND created_at < g.day + interval '1 day'
+        LEFT JOIN public.payment_submissions ON status IN ('approved', 'T+1 Approved') AND created_at >= g.day AND created_at < g.day + interval '1 day'
         GROUP BY g.day
         ORDER BY g.day
     ) INTO v_qr_spark;
@@ -257,7 +257,7 @@ BEGIN
     SELECT ARRAY(
         SELECT COALESCE(SUM(admin_share), 0)
         FROM generate_series(now() - interval '6 days', now(), interval '1 day') AS g(day)
-        LEFT JOIN public.payment_submissions ON status = 'approved' AND created_at >= g.day AND created_at < g.day + interval '1 day'
+        LEFT JOIN public.payment_submissions ON status IN ('approved', 'T+1 Approved') AND created_at >= g.day AND created_at < g.day + interval '1 day'
         GROUP BY g.day
         ORDER BY g.day
     ) INTO v_qr_charges_spark;
@@ -293,7 +293,7 @@ BEGIN
     SELECT ARRAY(
         SELECT COALESCE(SUM(ps.distributor_share), 0) + COALESCE(SUM(bs.distributor_share), 0)
         FROM generate_series(now() - interval '6 days', now(), interval '1 day') AS g(day)
-        LEFT JOIN public.payment_submissions ps ON ps.status = 'approved' AND ps.created_at >= g.day AND ps.created_at < g.day + interval '1 day'
+        LEFT JOIN public.payment_submissions ps ON ps.status IN ('approved', 'T+1 Approved') AND ps.created_at >= g.day AND ps.created_at < g.day + interval '1 day'
         LEFT JOIN public.bill_submissions bs ON bs.status = 'approved' AND bs.created_at >= g.day AND bs.created_at < g.day + interval '1 day'
         GROUP BY g.day
         ORDER BY g.day
@@ -303,7 +303,7 @@ BEGIN
     SELECT ARRAY(
         SELECT COALESCE(SUM(super_distributor_share), 0)
         FROM generate_series(now() - interval '6 days', now(), interval '1 day') AS g(day)
-        LEFT JOIN public.payment_submissions ON status = 'approved' AND created_at >= g.day AND created_at < g.day + interval '1 day'
+        LEFT JOIN public.payment_submissions ON status IN ('approved', 'T+1 Approved') AND created_at >= g.day AND created_at < g.day + interval '1 day'
         GROUP BY g.day
         ORDER BY g.day
     ) INTO v_super_dist_share_spark;
