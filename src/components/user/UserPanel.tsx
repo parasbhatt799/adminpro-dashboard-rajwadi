@@ -445,9 +445,15 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                 <span className="text-sm font-bold text-indigo-700">₹{(Number(userProfile?.commission_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             ) : (
-              <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl">
-                <Wallet className="text-emerald-600" size={18} />
-                <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              <div className="flex items-center gap-3">
+                <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl" title="Main Wallet Balance">
+                  <Wallet className="text-emerald-600" size={18} />
+                  <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl" title="T+1 Wallet Balance (Settles tomorrow at 11:30 AM)">
+                  <Clock className="text-amber-600" size={18} />
+                  <span className="text-sm font-bold text-amber-700">₹{(Number(userProfile?.t_plus_one_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
               </div>
             )}
 

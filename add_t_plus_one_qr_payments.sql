@@ -4,7 +4,8 @@
 
 -- 1. Alter tables to add new fields
 ALTER TABLE public.users_profiles 
-ADD COLUMN IF NOT EXISTS t_plus_one_charge NUMERIC DEFAULT 0;
+ADD COLUMN IF NOT EXISTS t_plus_one_charge NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS t_plus_one_balance NUMERIC DEFAULT 0;
 
 ALTER TABLE public.payment_submissions 
 ADD COLUMN IF NOT EXISTS t_plus_one BOOLEAN DEFAULT FALSE;
@@ -124,8 +125,12 @@ BEGIN
     SET admin_balance = COALESCE(admin_balance, 0) + v_admin_share 
     WHERE id = 1;
 
-    -- 6. Update User Wallet (ONLY if standard non-T+1 QR payment)
-    IF NOT v_payment.t_plus_one THEN
+    -- 6. Update User Wallet (wallet_balance if normal, t_plus_one_balance if T+1)
+    IF v_payment.t_plus_one THEN
+        UPDATE public.users_profiles 
+        SET t_plus_one_balance = COALESCE(t_plus_one_balance, 0) + (v_payment.amount - v_total_charges) 
+        WHERE id = v_payment.user_id;
+    ELSE
         UPDATE public.users_profiles 
         SET wallet_balance = COALESCE(wallet_balance, 0) + (v_payment.amount - v_total_charges) 
         WHERE id = v_payment.user_id;
@@ -245,8 +250,12 @@ BEGIN
         SET admin_balance = COALESCE(admin_balance, 0) - COALESCE(v_payment.admin_share, 0)
         WHERE id = 1;
 
-        -- Reverse User Wallet (Deduct: Amount - Charges) ONLY if it was actually credited (i.e. 'approved')
-        IF v_payment.status = 'approved' THEN
+        -- Reverse User Wallet (Deduct: Amount - Charges) from appropriate balance
+        IF v_payment.status = 'T+1 Approved' THEN
+            UPDATE public.users_profiles 
+            SET t_plus_one_balance = COALESCE(t_plus_one_balance, 0) - (v_payment.amount - COALESCE(v_payment.charges, 0)) 
+            WHERE id = v_payment.user_id;
+        ELSIF v_payment.status = 'approved' THEN
             UPDATE public.users_profiles 
             SET wallet_balance = COALESCE(wallet_balance, 0) - (v_payment.amount - COALESCE(v_payment.charges, 0)) 
             WHERE id = v_payment.user_id;
@@ -324,9 +333,11 @@ BEGIN
           AND (actioned_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date < v_today_ist
         FOR UPDATE
     LOOP
-        -- Credit User Wallet (Credit Amount - Total Charges)
+        -- Credit User Wallet (Credit Amount - Total Charges) and deduct from T+1 Wallet
         UPDATE public.users_profiles 
-        SET wallet_balance = COALESCE(wallet_balance, 0) + (r.amount - COALESCE(r.charges, 0)) 
+        SET 
+            wallet_balance = COALESCE(wallet_balance, 0) + (r.amount - COALESCE(r.charges, 0)),
+            t_plus_one_balance = GREATEST(0, COALESCE(t_plus_one_balance, 0) - (r.amount - COALESCE(r.charges, 0)))
         WHERE id = r.user_id;
 
         -- Update payment status to approved
