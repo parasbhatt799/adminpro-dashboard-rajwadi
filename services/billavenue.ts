@@ -221,7 +221,7 @@ export async function fetchBill(
     </inputParams>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
+        <initChannel>INT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <customerInfo>
@@ -257,7 +257,7 @@ export async function validateBill(
     </inputParams>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
+        <initChannel>INT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <customerInfo>
@@ -311,7 +311,7 @@ export async function payBill(
     </paymentMethod>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
+        <initChannel>INT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <billerAdhoc>false</billerAdhoc>

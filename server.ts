@@ -465,7 +465,9 @@ async function startServer() {
         body: JSON.stringify({
           token: PAYPRIME_TOKEN,
           biller_id,
-          param: paramArray
+          param: paramArray,
+          init_channel: "INT",
+          initChannel: "INT"
         })
       });
       const data = await response.json();
@@ -626,7 +628,9 @@ async function startServer() {
         billerAdhoc,
         inputParams: {
           input: paramArray
-        }
+        },
+        init_channel: "INT",
+        initChannel: "INT"
       };
 
       // Always pass request_id, billerResponse, and additionalInfo if a fetch was performed first,
