@@ -442,17 +442,26 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             {userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor' ? (
               <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="Commission Wallet">
                 <Wallet className="text-indigo-600" size={18} />
-                <span className="text-sm font-bold text-indigo-700">₹{(Number(userProfile?.commission_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wider leading-none mb-0.5">Commission Wallet</span>
+                  <span className="text-sm font-bold text-indigo-700 leading-none">₹{(Number(userProfile?.commission_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-3">
                 <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-emerald-50 border border-emerald-100 rounded-xl" title="Main Wallet Balance">
                   <Wallet className="text-emerald-600" size={18} />
-                  <span className="text-sm font-bold text-emerald-700">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-wider leading-none mb-0.5">Main Wallet</span>
+                    <span className="text-sm font-bold text-emerald-700 leading-none">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="T+1 Wallet Balance (Settles tomorrow at 11:30 AM)">
                   <Clock className="text-indigo-600" size={18} />
-                  <span className="text-sm font-bold text-indigo-700">₹{(Number(userProfile?.t_plus_one_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wider leading-none mb-0.5">T+1 Wallet</span>
+                    <span className="text-sm font-bold text-indigo-700 leading-none">₹{(Number(userProfile?.t_plus_one_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -460,7 +469,10 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             {Number(userProfile?.hold_balance || 0) > 0 && (
               <div className="flex items-center gap-2 px-4 py-2 bg-amber-50 border border-amber-100 rounded-xl" title="Hold Balance (Locked)">
                 <Lock className="text-amber-600" size={14} />
-                <span className="text-sm font-bold text-amber-700">₹{(Number(userProfile?.hold_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-amber-500 uppercase tracking-wider leading-none mb-0.5">Hold Wallet</span>
+                  <span className="text-sm font-bold text-amber-700 leading-none">₹{(Number(userProfile?.hold_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
               </div>
             )}
             <div className="relative">
