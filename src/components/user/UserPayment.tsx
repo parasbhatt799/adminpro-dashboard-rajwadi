@@ -378,7 +378,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           }
           setQrMinLimit(Number(qrData.qr_min_limit) || 100);
           setQrMaxLimit(Number(qrData.qr_max_limit) || 100000);
-          setTPlusOneLimit(Number(qrData.t_plus_one_limit) || 2000000);
+          setTPlusOneLimit(qrData.t_plus_one_limit !== undefined && qrData.t_plus_one_limit !== null ? Number(qrData.t_plus_one_limit) : 2000000);
         }
 
         await fetchTodayT1Sum();
@@ -627,7 +627,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setGlobalNormalBillLimit(Number(payload.new.daily_normal_bill_limit) || 500000);
         }
         if (payload.new.t_plus_one_limit !== undefined) {
-          setTPlusOneLimit(Number(payload.new.t_plus_one_limit) || 2000000);
+          setTPlusOneLimit(payload.new.t_plus_one_limit !== null ? Number(payload.new.t_plus_one_limit) : 2000000);
         }
       })
       .subscribe();
@@ -715,7 +715,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setGlobalNormalBillLimit(Number(newData.daily_normal_bill_limit) || 500000);
         }
         if (newData.t_plus_one_limit !== undefined) {
-          setTPlusOneLimit(Number(newData.t_plus_one_limit) || 2000000);
+          setTPlusOneLimit(newData.t_plus_one_limit !== null ? Number(newData.t_plus_one_limit) : 2000000);
         }
       })
       .subscribe();
@@ -1346,7 +1346,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         </div>
 
                         {/* T+1 Settlement Checkbox */}
-                        {todayT1Amount < tPlusOneLimit && (
+                        {tPlusOneLimit > 0 && todayT1Amount < tPlusOneLimit && (
                           <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 space-y-2 shadow-sm">
                             <label className="flex items-center gap-3 cursor-pointer group">
                               <div className="relative flex items-center">
