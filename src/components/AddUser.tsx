@@ -70,6 +70,7 @@ export default function AddUser({
     firm_name: initialData?.firm_name || '',
     firm_address: initialData?.firm_address || '',
     charge_percentage: initialData?.charge_percentage?.toString() || '',
+    t_plus_one_charge: initialData?.t_plus_one_charge?.toString() || '0',
     service_charge_enabled: initialData?.service_charge_enabled ?? false,
     custom_service_charge: initialData?.custom_service_charge?.toString() || '',
     custom_daily_live_bbps_limit: initialData?.custom_daily_live_bbps_limit?.toString() || '0',
@@ -207,6 +208,7 @@ export default function AddUser({
         firm_name: formData.firm_name,
         firm_address: formData.firm_address,
         charge_percentage: Number(formData.charge_percentage) || 0,
+        t_plus_one_charge: Number(formData.t_plus_one_charge) || 0,
         profile_photo_url,
         status: initialData?.status || 'Active',
         role: finalRole,
@@ -760,6 +762,26 @@ export default function AddUser({
                   </p>
                 )}
               </div>
+
+              {!isDistributorView && !isSuperDistributorView && (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                    T+1 QR Service Charge (%) <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                    <input
+                      required
+                      type="number"
+                      step="0.01"
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                      placeholder="0.00"
+                      value={formData.t_plus_one_charge}
+                      onChange={(e) => setFormData({ ...formData, t_plus_one_charge: e.target.value })}
+                    />
+                  </div>
+                </div>
+              )}
 
               {!isDistributorView && (
                 <>

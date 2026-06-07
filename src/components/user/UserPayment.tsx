@@ -34,6 +34,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
   const [amount, setAmount] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [tPlusOne, setTPlusOne] = useState(false);
+  const [tPlusOneLimit, setTPlusOneLimit] = useState(2000000);
+  const [todayT1Amount, setTodayT1Amount] = useState(0);
 
   // Bill Form state
   const [billForm, setBillForm] = useState({
@@ -85,7 +88,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
   // QR Filters & Pagination
   const [qrSearch, setQrSearch] = useState('');
-  const [qrStatus, setQrStatus] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [qrStatus, setQrStatus] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'T+1 Approved'>('all');
   const [qrStartDate, setQrStartDate] = useState('');
   const [qrEndDate, setQrEndDate] = useState('');
   const [qrAmountSearch, setQrAmountSearch] = useState('');
@@ -310,13 +313,41 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
   };
 
+  const fetchTodayT1Sum = async () => {
+    try {
+      const tzOffset = 5.5 * 60 * 60 * 1000;
+      const now = new Date();
+      const istTime = new Date(now.getTime() + tzOffset);
+      const istTodayStart = new Date(Date.UTC(
+        istTime.getUTCFullYear(),
+        istTime.getUTCMonth(),
+        istTime.getUTCDate(),
+        0, 0, 0, 0
+      ));
+      const utcTodayStart = new Date(istTodayStart.getTime() - tzOffset);
+
+      const { data, error } = await supabase
+        .from('payment_submissions')
+        .select('amount')
+        .eq('t_plus_one', true)
+        .neq('status', 'rejected')
+        .gte('created_at', utcTodayStart.toISOString());
+
+      if (error) throw error;
+      const sum = (data || []).reduce((acc, curr) => acc + Number(curr.amount), 0);
+      setTodayT1Amount(sum);
+    } catch (err) {
+      console.error('Error fetching today T+1 sum:', err);
+    }
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
         // Fetch User Profile
         const { data: userData, error: userError } = await supabase
           .from('users_profiles')
-          .select('wallet_balance, service_charge_enabled, custom_service_charge, firm_name, custom_daily_normal_bill_limit')
+          .select('wallet_balance, service_charge_enabled, custom_service_charge, firm_name, custom_daily_normal_bill_limit, t_plus_one_charge')
           .eq('id', userId)
           .single();
 
@@ -336,7 +367,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch QR
         const { data: qrData, error: qrError } = await supabase
           .from('qr_settings')
-          .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit')
+          .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit')
           .eq('id', 1)
           .single();
 
@@ -347,7 +378,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           }
           setQrMinLimit(Number(qrData.qr_min_limit) || 100);
           setQrMaxLimit(Number(qrData.qr_max_limit) || 100000);
+          setTPlusOneLimit(Number(qrData.t_plus_one_limit) || 2000000);
         }
+
+        await fetchTodayT1Sum();
 
         const offlineUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site_assets/offline_qr.png`;
         setOfflineQrUrl(`${offlineUrl}?t=${Date.now()}`);
@@ -464,6 +498,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         schema: 'public',
         table: 'payment_submissions'
       }, async (payload: any) => {
+        fetchTodayT1Sum();
         if (payload.new && payload.new.user_id === userId) {
           if (payload.eventType === 'INSERT') {
             // Re-fetch everything for QR to ensure correct pagination and counts
@@ -591,6 +626,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         if (payload.new.daily_normal_bill_limit !== undefined) {
           setGlobalNormalBillLimit(Number(payload.new.daily_normal_bill_limit) || 500000);
         }
+        if (payload.new.t_plus_one_limit !== undefined) {
+          setTPlusOneLimit(Number(payload.new.t_plus_one_limit) || 2000000);
+        }
       })
       .subscribe();
 
@@ -675,6 +713,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         }
         if (newData.daily_normal_bill_limit !== undefined) {
           setGlobalNormalBillLimit(Number(newData.daily_normal_bill_limit) || 500000);
+        }
+        if (newData.t_plus_one_limit !== undefined) {
+          setTPlusOneLimit(Number(newData.t_plus_one_limit) || 2000000);
         }
       })
       .subscribe();
@@ -1023,7 +1064,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           card_number: qrCardNumber,
           amount: parseFloat(amount),
           proof_url: publicUrl,
-          status: 'pending'
+          status: 'pending',
+          t_plus_one: tPlusOne
         }])
         .select()
         .single();
@@ -1041,6 +1083,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setFile(null);
       setUseOldQr(false);
       setSelectedOldQrId('');
+      setTPlusOne(false);
+      fetchTodayT1Sum();
 
       // 4. Notify Admin about the new QR Payment
       const { error: nError } = await supabase
@@ -1301,6 +1345,30 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           </label>
                         </div>
 
+                        {/* T+1 Settlement Checkbox */}
+                        {todayT1Amount < tPlusOneLimit && (
+                          <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 space-y-2 shadow-sm">
+                            <label className="flex items-center gap-3 cursor-pointer group">
+                              <div className="relative flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={tPlusOne}
+                                  onChange={(e) => setTPlusOne(e.target.checked)}
+                                  className="w-5 h-5 rounded-md border-2 border-amber-300 text-amber-600 focus:ring-amber-500/20 transition-all cursor-pointer"
+                                />
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-bold text-amber-700 group-hover:text-amber-800 transition-colors">
+                                  T+1 Settlement (Next Day 11:30 AM)
+                                </span>
+                                <span className="text-[10px] text-amber-600 font-medium mt-0.5">
+                                  Settlement charge of {userProfile?.t_plus_one_charge ?? 0}% will apply. Balance will credit tomorrow at 11:30 AM.
+                                </span>
+                              </div>
+                            </label>
+                          </div>
+                        )}
+
                         {/* Old QR Selector */}
                         {inactiveQrs.length > 0 && (
                           <div className="bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100 space-y-3 shadow-sm">
@@ -1500,6 +1568,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         <option value="all">All Status</option>
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
+                        <option value="T+1 Approved">T+1 Approved</option>
                         <option value="rejected">Rejected</option>
                       </select>
                       <div className="relative">
@@ -1602,9 +1671,24 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                   ) : <p className="text-[11px] font-medium text-slate-500">-</p>}
                                 </div>
                                 <div className="flex justify-center">
-                                  <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-500' : req.status === 'rejected' ? 'bg-rose-50 text-rose-500' : 'bg-amber-50 text-amber-600'}`}>
-                                    {req.status}
-                                  </span>
+                                  <div className="flex flex-col gap-1 items-center justify-center">
+                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
+                                      req.status === 'approved' 
+                                        ? 'bg-emerald-50 text-emerald-500' 
+                                        : req.status === 'T+1 Approved'
+                                          ? 'bg-indigo-50 text-indigo-500'
+                                          : req.status === 'rejected' 
+                                            ? 'bg-rose-50 text-rose-500' 
+                                            : 'bg-amber-50 text-amber-600'
+                                    }`}>
+                                      {req.status}
+                                    </span>
+                                    {req.t_plus_one && (
+                                      <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-wider">
+                                        T+1
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
                                 <div className="flex justify-center">
                                   {req.proof_url && (
@@ -1643,18 +1727,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                               <span className="text-[10px] font-black text-emerald-800 uppercase tracking-[0.2em]">Page Summary</span>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs font-black text-slate-900">₹{qrRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + Number(r.amount), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                              <p className="text-xs font-black text-slate-900">₹{qrRequests.filter(r => r.status === 'approved' || r.status === 'T+1 Approved').reduce((sum, r) => sum + Number(r.amount), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs font-black text-emerald-700">₹{qrRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + Number(r.charges || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                              <p className="text-xs font-black text-emerald-700">₹{qrRequests.filter(r => r.status === 'approved' || r.status === 'T+1 Approved').reduce((sum, r) => sum + Number(r.charges || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs font-black text-indigo-700">₹{qrRequests.filter(r => r.status === 'approved').reduce((sum, r) => sum + (Number(r.amount) - Number(r.charges || 0)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                              <p className="text-xs font-black text-indigo-700">₹{qrRequests.filter(r => r.status === 'approved' || r.status === 'T+1 Approved').reduce((sum, r) => sum + (Number(r.amount) - Number(r.charges || 0)), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                             </div>
                             <div className="md:col-span-3"></div>
                           </div>
 
-                          {/* Pagination */}
                           {totalPages > 1 && (
                             <div className="flex items-center justify-between px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm mt-4">
                               <p className="text-xs text-slate-500 font-medium">

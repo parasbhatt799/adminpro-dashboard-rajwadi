@@ -298,6 +298,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
+            <option value="T+1 Approved">T+1 Approved</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
@@ -348,7 +349,14 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                 paginatedRequests.map((req) => (
                   <tr key={req.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4">
-                      <p className="text-sm font-bold text-slate-900">{req.users_profiles?.firm_name || req.users_profiles?.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-bold text-slate-900">{req.users_profiles?.firm_name || req.users_profiles?.name}</p>
+                        {req.t_plus_one && (
+                          <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200 tracking-wider">
+                            T+1
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-400">{new Date(req.created_at).toLocaleDateString()}</p>
                     </td>
                     <td className="px-6 py-4">
@@ -372,12 +380,17 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex flex-col items-center gap-1">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                              'bg-amber-50 text-amber-600'
-                          }`}>
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          req.status === 'approved' 
+                            ? 'bg-emerald-50 text-emerald-600' 
+                            : req.status === 'T+1 Approved'
+                              ? 'bg-indigo-50 text-indigo-600'
+                              : req.status === 'rejected' 
+                                ? 'bg-rose-50 text-rose-600' 
+                                : 'bg-amber-50 text-amber-600'
+                        }`}>
                           {req.status === 'pending' && <Clock size={10} />}
-                          {req.status === 'approved' && <CheckCircle2 size={10} />}
+                          {(req.status === 'approved' || req.status === 'T+1 Approved') && <CheckCircle2 size={10} />}
                           {req.status === 'rejected' && <XCircle size={10} />}
                           {req.status}
                         </span>

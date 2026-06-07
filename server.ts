@@ -1868,6 +1868,33 @@ async function startServer() {
     res.status(500).json({ error: "Internal Server Error", message: err.message });
   });
 
+  // Daily T+1 settlement checker
+  let lastSettleDate: string = "";
+  setInterval(async () => {
+    try {
+      const tzOffset = 5.5 * 60 * 60 * 1000;
+      const istTime = new Date(Date.now() + tzOffset);
+      const hours = istTime.getUTCHours();
+      const minutes = istTime.getUTCMinutes();
+      const todayStr = istTime.toISOString().split("T")[0]; // YYYY-MM-DD
+
+      if (hours === 11 && minutes === 30) {
+        if (lastSettleDate !== todayStr) {
+          console.log(`[T+1 Settlement] Starting automated next-day settlement for ${todayStr}...`);
+          const { data, error } = await supabaseAdmin.rpc("settle_t_plus_one_payments");
+          if (error) {
+            console.error("[T+1 Settlement] RPC error:", error);
+          } else {
+            console.log("[T+1 Settlement] RPC response:", data);
+            lastSettleDate = todayStr;
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[T+1 Settlement] Scheduler error:", err);
+    }
+  }, 30000); // Check every 30 seconds
+
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

@@ -36,7 +36,8 @@ interface QRPaymentRequest {
   distributor_share?: number;
   super_distributor_share?: number;
   proof_url: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'T+1 Approved';
+  t_plus_one?: boolean;
   created_at: string;
   users_profiles?: {
     name: string;
@@ -72,7 +73,7 @@ export default function QRPaymentRequests() {
   const toast = useToast();
   const [requests, setRequests] = useState<QRPaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'T+1 Approved'>('all');
   const [dateFilter, setDateFilter] = useState('today');
   const [searchQuery, setSearchQuery] = useState('');
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -313,7 +314,7 @@ export default function QRPaymentRequests() {
       let sumQuery = supabase
         .from('payment_submissions')
         .select('amount, users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name)')
-        .eq('status', 'approved');
+        .in('status', ['approved', 'T+1 Approved']);
 
       if (searchQuery) {
         if (userIds.length > 0) {
@@ -679,6 +680,7 @@ export default function QRPaymentRequests() {
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
             <option value="approved">Approved</option>
+            <option value="T+1 Approved">T+1 Approved</option>
             <option value="rejected">Rejected</option>
           </select>
         </div>
@@ -734,7 +736,7 @@ export default function QRPaymentRequests() {
                           setRejectionRowId(rejectionRowId === req.id ? null : req.id);
                         }
                       }}
-                      className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedRowId === req.id ? 'bg-emerald-50/50' : rejectionRowId === req.id || reversalId === req.id ? 'bg-indigo-50/30' : req.status === 'approved' ? 'bg-emerald-50/30' : ''}`}
+                      className={`hover:bg-slate-50/50 transition-colors cursor-pointer ${selectedRowId === req.id ? 'bg-emerald-50/50' : rejectionRowId === req.id || reversalId === req.id ? 'bg-indigo-50/30' : req.status === 'approved' ? 'bg-emerald-50/30' : req.status === 'T+1 Approved' ? 'bg-indigo-50/10' : ''}`}
                     >
                       <td className="px-3 py-4">
                         <Link
@@ -749,8 +751,13 @@ export default function QRPaymentRequests() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap group-hover:text-indigo-600 transition-colors">
-                              {req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id?.slice(0, 8) || 'N/A'}`}
+                            <p className="text-[11px] font-bold text-slate-900 whitespace-nowrap group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                              <span>{req.users_profiles?.firm_name || req.users_profiles?.name || `User #${req.user_id?.slice(0, 8) || 'N/A'}`}</span>
+                              {req.t_plus_one && (
+                                <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-amber-100 text-amber-800 border border-amber-200 tracking-wider">
+                                  T+1
+                                </span>
+                              )}
                             </p>
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
                               {new Date(req.created_at).toLocaleDateString()} • {new Date(req.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true })}
@@ -759,7 +766,7 @@ export default function QRPaymentRequests() {
                               <div className="mt-1 flex items-center gap-1 px-1.5 py-0.5 bg-slate-50 border border-slate-100 rounded-md w-fit">
                                 <Shield size={8} className="text-slate-400" />
                                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-tight">
-                                  {req.status === 'approved' ? 'Approved' : 'Rejected'} by: <span className="text-indigo-600">{adminMap[req.actioned_by] || req.actioned_by}</span>
+                                  {req.status === 'approved' || req.status === 'T+1 Approved' ? 'Approved' : 'Rejected'} by: <span className="text-indigo-600">{adminMap[req.actioned_by] || req.actioned_by}</span>
                                 </p>
                               </div>
                             )}
@@ -927,12 +934,9 @@ export default function QRPaymentRequests() {
                       </td>
                       <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
-                            req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
-                              'bg-amber-50 text-amber-600'
-                            }`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : req.status === 'T+1 Approved' ? 'bg-indigo-50 text-indigo-600' : req.status === 'rejected' ? 'bg-rose-50 text-rose-600' : 'bg-amber-50 text-amber-600'}`}>
                             {req.status === 'pending' && <Clock size={8} />}
-                            {req.status === 'approved' && <CheckCircle2 size={8} />}
+                            {(req.status === 'approved' || req.status === 'T+1 Approved') && <CheckCircle2 size={8} />}
                             {req.status === 'rejected' && <XCircle size={8} />}
                             {req.status}
                           </span>
@@ -962,12 +966,12 @@ export default function QRPaymentRequests() {
                             </button>
                           </div>
                         )}
-                        {(req.status === 'approved' || req.status === 'rejected') && isDeveloper && (
+                        {(req.status === 'approved' || req.status === 'T+1 Approved' || req.status === 'rejected') && isDeveloper && (
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => {
                                 setReversalId(reversalId === req.id ? null : req.id);
-                                setReversalTarget(req.status === 'approved' ? 'pending' : 'pending');
+                                setReversalTarget((req.status === 'approved' || req.status === 'T+1 Approved') ? 'pending' : 'pending');
                               }}
                               disabled={processingId === req.id}
                               className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${reversalId === req.id ? 'bg-indigo-100 text-indigo-600' : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
@@ -996,7 +1000,7 @@ export default function QRPaymentRequests() {
                                   className="flex-1 px-4 py-2.5 bg-white border border-indigo-100 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                                 >
                                   <option value="pending">Move to Pending</option>
-                                  {req.status === 'approved' && <option value="rejected">Move to Rejected</option>}
+                                  {(req.status === 'approved' || req.status === 'T+1 Approved') && <option value="rejected">Move to Rejected</option>}
                                 </select>
                               </div>
                             </div>

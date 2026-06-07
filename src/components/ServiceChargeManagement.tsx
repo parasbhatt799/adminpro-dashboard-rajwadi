@@ -47,6 +47,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
   const [dailyLiveBbpsLimit, setDailyLiveBbpsLimit] = useState<number>(500000);
   const [dailyNormalBillLimit, setDailyNormalBillLimit] = useState<number>(500000);
+  const [tPlusOneLimit, setTPlusOneLimit] = useState<number>(2000000);
   const [limitsSaving, setLimitsSaving] = useState(false);
   const [limitsSuccess, setLimitsSuccess] = useState<string | null>(null);
   const [limitsError, setLimitsError] = useState<string | null>(null);
@@ -87,7 +88,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       try {
         const { data } = await supabase
           .from('qr_settings')
-          .select('qr_min_limit, qr_max_limit, bbps_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled')
+          .select('qr_min_limit, qr_max_limit, bbps_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled, t_plus_one_limit')
           .eq('id', 1)
           .single();
         if (data) {
@@ -96,6 +97,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           setBbpsMaxLimit(Number(data.bbps_max_limit) || 50000);
           setDailyLiveBbpsLimit(Number(data.daily_live_bbps_limit) || 500000);
           setDailyNormalBillLimit(Number(data.daily_normal_bill_limit) || 500000);
+          setTPlusOneLimit(Number(data.t_plus_one_limit) || 2000000);
           setIsFundTransferEnabled(data.is_fund_transfer_enabled !== false);
         }
       } catch (err) {
@@ -137,7 +139,8 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           qr_max_limit: qrMaxLimit,
           bbps_max_limit: bbpsMaxLimit,
           daily_live_bbps_limit: dailyLiveBbpsLimit,
-          daily_normal_bill_limit: dailyNormalBillLimit
+          daily_normal_bill_limit: dailyNormalBillLimit,
+          t_plus_one_limit: tPlusOneLimit
         })
         .eq('id', 1);
 
@@ -309,7 +312,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
             <div className="space-y-1.5 w-full">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Min QR Limit (₹)</label>
               <input
@@ -357,6 +360,16 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
                 placeholder="e.g. 500000"
                 value={dailyNormalBillLimit || ''}
                 onChange={(e) => setDailyNormalBillLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Daily T+1 Limit (₹)</label>
+              <input
+                type="number"
+                placeholder="e.g. 2000000"
+                value={tPlusOneLimit || ''}
+                onChange={(e) => setTPlusOneLimit(Number(e.target.value))}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
               />
             </div>

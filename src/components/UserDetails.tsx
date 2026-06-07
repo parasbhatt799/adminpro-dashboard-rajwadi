@@ -521,6 +521,13 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                       <p className="text-2xl font-bold">{user.charge_percentage}</p>
                     </div>
                   </div>
+                  <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">T+1 QR Charge (%)</p>
+                    <div className="flex items-center gap-2 text-indigo-600">
+                      <Percent size={20} />
+                      <p className="text-2xl font-bold">{user.t_plus_one_charge ?? 0}</p>
+                    </div>
+                  </div>
                   {!isDistributorView && (
                     <>
                       <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
