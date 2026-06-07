@@ -1012,6 +1012,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     if (tPlusOne) {
+      if (Number(userProfile?.t_plus_one_charge) <= 0) {
+        setError('T+1 settlement is not enabled for your account.');
+        setSubmitting(false);
+        return;
+      }
       if (tPlusOneLimit <= 0) {
         setError('T+1 settlement is currently disabled.');
         setSubmitting(false);
@@ -1365,7 +1370,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         </div>
 
                         {/* T+1 Settlement Checkbox */}
-                        {tPlusOneLimit > 0 && todayT1Amount < tPlusOneLimit && (
+                        {tPlusOneLimit > 0 && todayT1Amount < tPlusOneLimit && Number(userProfile?.t_plus_one_charge) > 0 && (
                           <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 space-y-2 shadow-sm">
                             <label className={`flex items-center gap-3 group ${parseFloat(amount) > (tPlusOneLimit - todayT1Amount) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                               <div className="relative flex items-center">
