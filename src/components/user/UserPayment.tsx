@@ -1011,6 +1011,20 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       return;
     }
 
+    if (tPlusOne) {
+      if (tPlusOneLimit <= 0) {
+        setError('T+1 settlement is currently disabled.');
+        setSubmitting(false);
+        return;
+      }
+      const remainingLimit = tPlusOneLimit - todayT1Amount;
+      if (amountNum > remainingLimit) {
+        setError(`Amount ₹${amountNum.toLocaleString()} exceeds the remaining daily T+1 limit of ₹${Math.max(0, remainingLimit).toLocaleString()}.`);
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const finalQrId = useOldQr ? selectedOldQrId : activeQrId;
 
     if (!finalQrId) {
@@ -1304,6 +1318,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 const parts = val.split('.');
                                 if (parts.length > 2) return;
                                 setAmount(val);
+                                
+                                const amountNum = parseFloat(val);
+                                if (!isNaN(amountNum) && amountNum > (tPlusOneLimit - todayT1Amount)) {
+                                  setTPlusOne(false);
+                                }
                               }}
                               placeholder="0.00"
                               className={`w-full pl-12 pr-4 py-3 bg-slate-50 border rounded-xl focus:outline-none transition-all font-bold ${(parseFloat(amount) > 0 && parseFloat(amount) < qrMinLimit) || parseFloat(amount) > qrMaxLimit
@@ -1348,21 +1367,25 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         {/* T+1 Settlement Checkbox */}
                         {tPlusOneLimit > 0 && todayT1Amount < tPlusOneLimit && (
                           <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 space-y-2 shadow-sm">
-                            <label className="flex items-center gap-3 cursor-pointer group">
+                            <label className={`flex items-center gap-3 group ${parseFloat(amount) > (tPlusOneLimit - todayT1Amount) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
                               <div className="relative flex items-center">
                                 <input
                                   type="checkbox"
                                   checked={tPlusOne}
+                                  disabled={parseFloat(amount) > (tPlusOneLimit - todayT1Amount)}
                                   onChange={(e) => setTPlusOne(e.target.checked)}
-                                  className="w-5 h-5 rounded-md border-2 border-amber-300 text-amber-600 focus:ring-amber-500/20 transition-all cursor-pointer"
+                                  className="w-5 h-5 rounded-md border-2 border-amber-300 text-amber-600 focus:ring-amber-500/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                 />
                               </div>
                               <div className="flex flex-col">
-                                <span className="text-sm font-bold text-amber-700 group-hover:text-amber-800 transition-colors">
+                                <span className={`text-sm font-bold transition-colors ${parseFloat(amount) > (tPlusOneLimit - todayT1Amount) ? 'text-slate-400' : 'text-amber-700 group-hover:text-amber-800'}`}>
                                   T+1 Settlement (Next Day 11:30 AM)
                                 </span>
                                 <span className="text-[10px] text-amber-600 font-medium mt-0.5">
-                                  Settlement charge of {userProfile?.t_plus_one_charge ?? 0}% will apply. Balance will credit tomorrow at 11:30 AM.
+                                  {parseFloat(amount) > (tPlusOneLimit - todayT1Amount) 
+                                    ? `Disabled: Amount exceeds remaining T+1 daily limit of ₹${Math.max(0, tPlusOneLimit - todayT1Amount).toLocaleString()}`
+                                    : `Settlement charge of ${userProfile?.t_plus_one_charge ?? 0}% will apply. Balance will credit tomorrow at 11:30 AM.`
+                                  }
                                 </span>
                               </div>
                             </label>
