@@ -11,7 +11,8 @@ import {
   AlertCircle,
   Clock,
   BookOpen,
-  FileText
+  FileText,
+  Pencil
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -30,6 +31,7 @@ export default function PolicyManagement() {
   const [submitting, setSubmitting] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newContent, setNewContent] = useState('');
+  const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -59,19 +61,33 @@ export default function PolicyManagement() {
 
     setSubmitting(true);
     try {
-      const { error } = await supabase
-        .from('app_policies')
-        .insert([{ 
-          title: newTitle.trim(), 
-          content: newContent.trim(), 
-          is_active: true 
-        }]);
-      if (error) throw error;
+      if (editingPolicyId) {
+        // Update mode
+        const { error } = await supabase
+          .from('app_policies')
+          .update({ 
+            title: newTitle.trim(), 
+            content: newContent.trim() 
+          })
+          .eq('id', editingPolicyId);
+        if (error) throw error;
+        setEditingPolicyId(null);
+      } else {
+        // Add mode
+        const { error } = await supabase
+          .from('app_policies')
+          .insert([{ 
+            title: newTitle.trim(), 
+            content: newContent.trim(), 
+            is_active: true 
+          }]);
+        if (error) throw error;
+      }
       setNewTitle('');
       setNewContent('');
       fetchPolicies();
     } catch (err) {
-      console.error('Error adding policy:', err);
+      console.error('Error saving policy:', err);
     } finally {
       setSubmitting(false);
     }
@@ -117,6 +133,11 @@ export default function PolicyManagement() {
 
       {/* Add New Policy */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+        <div className="mb-4">
+          <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+            {editingPolicyId ? 'Edit Existing Policy' : 'Create New Policy'}
+          </h3>
+        </div>
         <form onSubmit={handleAddPolicy} className="space-y-4">
           <div className="grid grid-cols-1 gap-4">
             <div className="space-y-1.5">
@@ -140,14 +161,27 @@ export default function PolicyManagement() {
               />
             </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-3">
+            {editingPolicyId && (
+              <button 
+                type="button"
+                onClick={() => {
+                  setEditingPolicyId(null);
+                  setNewTitle('');
+                  setNewContent('');
+                }}
+                className="px-6 py-3 border border-slate-200 text-slate-500 hover:bg-slate-100 rounded-xl text-sm font-bold transition-all"
+              >
+                Cancel
+              </button>
+            )}
             <button 
               type="submit"
               disabled={submitting || !newTitle.trim() || !newContent.trim()}
               className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-8 py-3 rounded-xl text-sm font-bold shadow-lg shadow-indigo-100 transition-all flex items-center gap-2"
             >
-              {submitting ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-              Add Policy
+              {submitting ? <Loader2 size={18} className="animate-spin" /> : (editingPolicyId ? <CheckCircle2 size={18} /> : <Plus size={18} />)}
+              {editingPolicyId ? 'Update Policy' : 'Add Policy'}
             </button>
           </div>
         </form>
@@ -249,6 +283,22 @@ export default function PolicyManagement() {
                       title={policy.is_active ? 'Hide' : 'Show'}
                     >
                       {policy.is_active ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        setEditingPolicyId(policy.id);
+                        setNewTitle(policy.title);
+                        setNewContent(policy.content);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`p-2 rounded-lg transition-all ${
+                        editingPolicyId === policy.id 
+                          ? 'text-indigo-600 bg-indigo-50' 
+                          : 'text-slate-300 hover:text-indigo-600 hover:bg-indigo-50'
+                      }`}
+                      title="Edit"
+                    >
+                      <Pencil size={18} />
                     </button>
                     <button 
                       onClick={() => setShowDeleteConfirm(policy.id)}
