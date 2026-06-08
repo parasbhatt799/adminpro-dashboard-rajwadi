@@ -94,7 +94,7 @@ export const PrivacyPolicy = () => {
           We do not sell, rent, or trade your personal data. We share your information only with trusted third parties under strict confidentiality clauses:
         </p>
         <ul className="list-disc pl-6 space-y-2">
-          <li><strong>Payment Gateways and Partners:</strong> Our API providers (such as PayPrime and BillAvenue) to execute recharges and pay bills.</li>
+          <li><strong>Payment Gateways and Partners:</strong> Our API providers (such as PayPrime) to execute recharges and pay bills.</li>
           <li><strong>Banking Partners:</strong> Financial institutions to settle wallet balances and execute payouts.</li>
           <li><strong>Regulatory Authorities:</strong> Law enforcement agencies or government departments when required under statutory obligations.</li>
         </ul>
@@ -250,7 +250,7 @@ export const CancellationPolicy = () => {
           Since UsePay Fintech Solution Pvt Ltd provides digital utility recharges, live BBPS bills payments, and QR payment collection settlements, these services are processed in real-time instantly.
         </p>
         <p>
-          Therefore, **cancellation of a successfully submitted recharge or bill payment is not possible**. Once a transaction request is sent to our gateway partners (PayPrime or BillAvenue) and confirmed, it is finalized and cannot be stopped, cancelled, or altered.
+          Therefore, **cancellation of a successfully submitted recharge or bill payment is not possible**. Once a transaction request is sent to our gateway partners (PayPrime) and confirmed, it is finalized and cannot be stopped, cancelled, or altered.
         </p>
       </section>
 

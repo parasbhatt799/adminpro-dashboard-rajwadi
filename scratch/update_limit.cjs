@@ -9,14 +9,14 @@ async function main() {
   try {
     const { data, error } = await supabase
       .from('qr_settings')
-      .select('*')
+      .update({ t_plus_one_limit: 20000 })
       .eq('id', 1)
-      .single();
+      .select();
 
     if (error) {
-      console.log('qr_settings check failed:', error.message);
+      console.error('Update failed:', error.message);
     } else {
-      console.log('qr_settings row 1 data:', JSON.stringify(data, null, 2));
+      console.log('Update success! New data:', JSON.stringify(data, null, 2));
     }
   } catch(e) {
     console.error('Error:', e);

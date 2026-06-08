@@ -8,15 +8,14 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 async function main() {
   try {
     const { data, error } = await supabase
-      .from('qr_settings')
+      .from('fund_transfers')
       .select('*')
-      .eq('id', 1)
-      .single();
+      .limit(1);
 
     if (error) {
-      console.log('qr_settings check failed:', error.message);
+      console.log('fund_transfers check failed:', error.message, 'Code:', error.code);
     } else {
-      console.log('qr_settings row 1 data:', JSON.stringify(data, null, 2));
+      console.log('fund_transfers table exists!');
     }
   } catch(e) {
     console.error('Error:', e);
