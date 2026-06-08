@@ -466,23 +466,27 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
       </section>
 
       {/* --- FOOTER --- */}
-      <footer id="contact" className="bg-slate-900 py-12 px-6 animate-in fade-in duration-700">
+      <footer id="contact" className="bg-slate-900 py-12 px-6">
         <div className="max-w-7xl mx-auto text-center space-y-6">
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-bold uppercase tracking-widest text-slate-400">
-            <Link to="/policies?tab=terms" className="hover:text-indigo-400 transition-colors">Terms & Conditions</Link>
+          {/* Policy Links */}
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+            <Link to="/privacy-policy" className="hover:text-indigo-400 transition-colors">Privacy Policy</Link>
             <span className="text-slate-700 hidden sm:inline">•</span>
-            <Link to="/policies?tab=privacy" className="hover:text-indigo-400 transition-colors">Privacy Policy</Link>
+            <Link to="/terms-and-conditions" className="hover:text-indigo-400 transition-colors">Terms & Conditions</Link>
             <span className="text-slate-700 hidden sm:inline">•</span>
-            <Link to="/policies?tab=refund" className="hover:text-indigo-400 transition-colors">Refund Policy</Link>
+            <Link to="/refund-policy" className="hover:text-indigo-400 transition-colors">Refund Policy</Link>
             <span className="text-slate-700 hidden sm:inline">•</span>
-            <Link to="/policies?tab=cancellation" className="hover:text-indigo-400 transition-colors">Cancellation Policy</Link>
+            <Link to="/cancellation-policy" className="hover:text-indigo-400 transition-colors">Cancellation Policy</Link>
           </div>
-          <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
-            © {new Date().getFullYear()} UsePay Fintech Solution Pvt Ltd. All rights reserved.
-          </p>
-          <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">
-            Developed By <a href="https://codefixer.in" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-400 transition-colors">Codefixer</a>
-          </p>
+
+          <div className="space-y-4">
+            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+              © {new Date().getFullYear()} UsePay Fintech Solution Pvt Ltd. All rights reserved.
+            </p>
+            <p className="text-slate-600 text-[10px] font-black uppercase tracking-[0.2em]">
+              Developed By <a href="https://codefixer.in" target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-400 transition-colors">Codefixer</a>
+            </p>
+          </div>
         </div>
       </footer>
     </div>

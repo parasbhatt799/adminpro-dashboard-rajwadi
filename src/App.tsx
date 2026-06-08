@@ -64,7 +64,6 @@ const SuperDistributorsList = lazy(() => import('./components/SuperDistributorsL
 const AdminStatementReport = lazy(() => import('./components/AdminStatementReport.tsx'));
 const QRMasterManagement = lazy(() => import('./components/QRMasterManagement'));
 const HomePage = lazy(() => import('./components/HomePage'));
-const PublicPolicies = lazy(() => import('./components/PublicPolicies'));
 const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
 const RechargeDashboard = lazy(() => import('./components/RechargeDashboard'));
 const UserRecharge = lazy(() => import('./components/user/UserRecharge'));
@@ -74,6 +73,7 @@ import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
 import { AlertTriangle, Cog, RefreshCw } from 'lucide-react';
 import { useToast } from './context/ToastContext';
+import { PrivacyPolicy, TermsAndConditions, RefundPolicy, CancellationPolicy } from './components/public/Policies';
 
 const DEVELOPER_MOBILE = '9999099999';
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
@@ -1063,7 +1063,10 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage isAdmin={isAdmin} isUser={isUser} onLogout={handleLogout} />} />
-        <Route path="/policies" element={<PublicPolicies />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
+        <Route path="/refund-policy" element={<RefundPolicy />} />
+        <Route path="/cancellation-policy" element={<CancellationPolicy />} />
         <Route
           element={
             !isAdmin ? <Navigate to="/admin-login" replace /> :
