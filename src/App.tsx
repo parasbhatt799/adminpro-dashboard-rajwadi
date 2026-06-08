@@ -64,6 +64,7 @@ const SuperDistributorsList = lazy(() => import('./components/SuperDistributorsL
 const AdminStatementReport = lazy(() => import('./components/AdminStatementReport.tsx'));
 const QRMasterManagement = lazy(() => import('./components/QRMasterManagement'));
 const HomePage = lazy(() => import('./components/HomePage'));
+const PublicPolicies = lazy(() => import('./components/PublicPolicies'));
 const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
 const RechargeDashboard = lazy(() => import('./components/RechargeDashboard'));
 const UserRecharge = lazy(() => import('./components/user/UserRecharge'));
@@ -1062,6 +1063,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage isAdmin={isAdmin} isUser={isUser} onLogout={handleLogout} />} />
+        <Route path="/policies" element={<PublicPolicies />} />
         <Route
           element={
             !isAdmin ? <Navigate to="/admin-login" replace /> :

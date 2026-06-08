@@ -466,8 +466,17 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
       </section>
 
       {/* --- FOOTER --- */}
-      <footer id="contact" className="bg-slate-900 py-12 px-6">
-        <div className="max-w-7xl mx-auto text-center space-y-4">
+      <footer id="contact" className="bg-slate-900 py-12 px-6 animate-in fade-in duration-700">
+        <div className="max-w-7xl mx-auto text-center space-y-6">
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+            <Link to="/policies?tab=terms" className="hover:text-indigo-400 transition-colors">Terms & Conditions</Link>
+            <span className="text-slate-700 hidden sm:inline">•</span>
+            <Link to="/policies?tab=privacy" className="hover:text-indigo-400 transition-colors">Privacy Policy</Link>
+            <span className="text-slate-700 hidden sm:inline">•</span>
+            <Link to="/policies?tab=refund" className="hover:text-indigo-400 transition-colors">Refund Policy</Link>
+            <span className="text-slate-700 hidden sm:inline">•</span>
+            <Link to="/policies?tab=cancellation" className="hover:text-indigo-400 transition-colors">Cancellation Policy</Link>
+          </div>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
             © {new Date().getFullYear()} UsePay Fintech Solution Pvt Ltd. All rights reserved.
           </p>
