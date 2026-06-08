@@ -232,6 +232,10 @@ export default function AddUser({
         if (userData.charge_percentage < distributorBaseCharge) {
           throw new Error(`Charge percentage must be greater than or equal to your base charge of ${distributorBaseCharge}%.`);
         }
+        const t1Charge = Number(userData.t_plus_one_charge) || 0;
+        if (t1Charge > 0 && t1Charge < 0.80) {
+          throw new Error("T+1 QR Service Charge must be at least 0.80% (or 0 to disable).");
+        }
       }
 
       // Validation for Super Distributors adding Distributors
@@ -763,10 +767,10 @@ export default function AddUser({
                 )}
               </div>
 
-              {!isDistributorView && !isSuperDistributorView && (
+              {!isSuperDistributorView && (
                 <div>
                   <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                    T+1 QR Service Charge (%) <span className="text-rose-500">*</span>
+                    T+1 QR Service Charge (%) {isDistributorView && "(Min 0.80% or 0)"} <span className="text-rose-500">*</span>
                   </label>
                   <div className="relative">
                     <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -774,12 +778,18 @@ export default function AddUser({
                       required
                       type="number"
                       step="0.01"
+                      min="0"
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                       placeholder="0.00"
                       value={formData.t_plus_one_charge}
                       onChange={(e) => setFormData({ ...formData, t_plus_one_charge: e.target.value })}
                     />
                   </div>
+                  {isDistributorView && (
+                    <p className="text-[10px] text-amber-600 mt-2 font-bold uppercase tracking-widest">
+                      Must be 0 to disable, or at least 0.80% to enable.
+                    </p>
+                  )}
                 </div>
               )}
 
