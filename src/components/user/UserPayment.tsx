@@ -659,6 +659,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         if (payload.new && payload.new.is_active) {
           setActiveQrId(payload.new.id);
           setQrUrl(payload.new.qr_url);
+          setQrName(payload.new.qr_name);
         }
       })
       .subscribe();

@@ -21,6 +21,7 @@ import {
   format 
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
+import UserChatWidget from './UserChatWidget';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
 
@@ -381,6 +382,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
           })}
         </div>
       </div>
+      <UserChatWidget userId={userId} />
     </div>
   );
 }

@@ -26,6 +26,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { LogoLoader } from './shared/LoadingSpinner';
+import AdminChatWidget from './AdminChatWidget';
 import {
   startOfDay,
   endOfDay,
@@ -1027,6 +1028,7 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      <AdminChatWidget />
     </div>
   );
 }

@@ -51,6 +51,12 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       path: '/user/my-users' 
     },
     { 
+      id: 'partner-fund-transfer', 
+      label: 'Fund Transfer', 
+      icon: Wallet, 
+      path: '/user/partner-fund-transfer' 
+    },
+    { 
       id: 'users-qr-requests', 
       label: role === 'super_distributor' ? 'Distributors QR Requests' : 'Users QR Requests', 
       icon: FileText, 
@@ -103,7 +109,12 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
-    ...distributorItems,
+    ...distributorItems.filter(item => {
+      if (item.id === 'partner-fund-transfer' && !isFundTransferEnabled) {
+        return false;
+      }
+      return true;
+    }),
     ...menuItems.slice(1).filter(item => {
       if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'mobile-recharge' || item.id === 'bill-history' || item.id === 'fund-transfer')) {
         return false;

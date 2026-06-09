@@ -58,9 +58,12 @@ export const PrivacyPolicy = () => {
       <p className="text-slate-400 italic">Last updated: June 08, 2026</p>
 
       <section className="space-y-3 pt-4">
-        <h2 className="text-lg font-bold text-white">1. Introduction</h2>
+        <h2 className="text-lg font-bold text-white">1. Introduction & DPDPA Compliance</h2>
         <p>
           Welcome to UsePay Fintech Solution Pvt Ltd ("UsePay", "we", "us", or "our"). We respect your privacy and are committed to protecting your personal data. This Privacy Policy outlines how we collect, process, store, use, and protect your information when you visit our website (usepay.in) or use our fintech dashboard services.
+        </p>
+        <p>
+          This Privacy Policy is designed to comply with the **Digital Personal Data Protection Act (DPDPA), 2023** of India. It explains your rights as a Data Principal and how you can exercise them.
         </p>
       </section>
 
@@ -89,7 +92,20 @@ export const PrivacyPolicy = () => {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">4. Data Sharing and Disclosures</h2>
+        <h2 className="text-lg font-bold text-white">4. Consent Management & Data Principal Rights</h2>
+        <p>
+          Under the DPDPA 2023, you are a "Data Principal" and have specific rights regarding your personal data:
+        </p>
+        <ul className="list-disc pl-6 space-y-2">
+          <li><strong>Right to Confirmation and Access:</strong> You can request summary details of the personal data being processed and the processing activities we undertake.</li>
+          <li><strong>Right to Correction and Erasure:</strong> You can request correction of inaccurate or misleading data, completion of incomplete data, or erasure of personal data that is no longer necessary for the purpose of processing (subject to statutory data retention requirements for financial audits).</li>
+          <li><strong>Right to Grievance Redressal:</strong> You have the right to register a grievance with our Grievance Officer regarding any processing of personal data.</li>
+          <li><strong>Right to Withdraw Consent:</strong> You have the right to withdraw your consent for data processing at any time. To withdraw your consent, you can adjust your account settings or contact our support team. Please note that withdrawing consent may limit our ability to provide fintech services to you.</li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-white">5. Data Sharing and Disclosures</h2>
         <p>
           We do not sell, rent, or trade your personal data. We share your information only with trusted third parties under strict confidentiality clauses:
         </p>
@@ -101,25 +117,65 @@ export const PrivacyPolicy = () => {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">5. Data Security</h2>
+        <h2 className="text-lg font-bold text-white">6. Data Security</h2>
         <p>
-          We have implemented appropriate security measures (such as SSL encryption, firewalls, and token-based access controls) to prevent your personal data from being accidentally lost, used, accessed, altered, or disclosed in an unauthorized way. We limit access to your data only to employees and partners who have a business need to know.
+          We have implemented appropriate technical and organizational security measures (such as SSL/TLS encryption, secure databases, firewalls, and token-based access controls) to prevent your personal data from being accidentally lost, used, accessed, altered, or disclosed in an unauthorized way. We limit access to your data only to employees and partners who have a business need to know.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">6. Data Retention</h2>
+        <h2 className="text-lg font-bold text-white">7. Data Retention</h2>
         <p>
-          We will only retain your personal data for as long as necessary to fulfill the purposes we collected it for, including for the purposes of satisfying any legal, accounting, audit, or reporting requirements under the guidelines of financial regulators.
+          We will only retain your personal data for as long as necessary to fulfill the purposes we collected it for, including for the purposes of satisfying any legal, accounting, audit, or reporting requirements.
+        </p>
+        <p>
+          Under the Prevention of Money Laundering Act (PMLA) and guidelines from the Reserve Bank of India (RBI), we are legally obligated to retain records of transactions, customer identity, and verification data for a minimum period of **5 years** from the date of cessation of the transaction/relationship.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">7. Contact Details</h2>
+        <h2 className="text-lg font-bold text-white">8. Cookie Policy</h2>
         <p>
-          For any questions regarding this Privacy Policy or our privacy practices, you can contact us at:
+          We use cookies and similar tracking technologies to track user activity on our dashboard, store session states, and improve your browsing experience. 
         </p>
-        <p className="text-indigo-400 font-bold">Email: usepay.in@gmail.com</p>
+        <ul className="list-disc pl-6 space-y-2">
+          <li><strong>Essential Cookies:</strong> Required for authentication, security, and dashboard navigation. These cannot be disabled.</li>
+          <li><strong>Performance & Analytics Cookies:</strong> Help us understand how users interact with our platform to improve overall performance.</li>
+        </ul>
+        <p>
+          You can choose to disable non-essential cookies via your browser settings; however, doing so might degrade your experience on the dashboard.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-white">9. Grievance Redressal Mechanism & Contact Details</h2>
+        <p>
+          If you have any questions, feedback, or complaints regarding this Privacy Policy or our privacy practices, you can escalate through our grievance redressal matrix:
+        </p>
+        
+        <div className="bg-slate-900/60 p-5 rounded-2xl border border-slate-800 space-y-4 my-4">
+          <div>
+            <h3 className="font-bold text-indigo-400 text-sm uppercase tracking-wider">Level 1: Customer Support</h3>
+            <p className="text-slate-300 text-sm">For primary complaints and general queries:</p>
+            <p className="text-white text-sm font-semibold">Email: usepay.in@gmail.com</p>
+            <p className="text-slate-500 text-xs mt-1">Expected Response Time: 24 - 48 Hours</p>
+          </div>
+          
+          <div className="border-t border-slate-800/80 pt-3">
+            <h3 className="font-bold text-indigo-400 text-sm uppercase tracking-wider">Level 2: Grievance Officer</h3>
+            <p className="text-slate-300 text-sm">If your concern is not resolved to your satisfaction within 7 days, you can contact our Grievance Officer:</p>
+            <p className="text-white text-sm font-semibold">Grievance Officer: Mr. Amit Sharma</p>
+            <p className="text-white text-sm font-semibold">Email: grievance@usepay.in</p>
+            <p className="text-slate-300 text-sm mt-1">Address: UsePay Fintech Solution Pvt Ltd, Registered Office, India.</p>
+            <p className="text-slate-500 text-xs mt-1">Expected Response Time: Up to 15 Days (as per DPDPA guidelines)</p>
+          </div>
+
+          <div className="border-t border-slate-800/80 pt-3">
+            <h3 className="font-bold text-indigo-400 text-sm uppercase tracking-wider">Level 3: Nodal Officer</h3>
+            <p className="text-slate-300 text-sm">For further escalation or regulatory compliance matters:</p>
+            <p className="text-white text-sm font-semibold">Email: nodal@usepay.in</p>
+          </div>
+        </div>
       </section>
     </PolicyLayout>
   );
@@ -169,21 +225,34 @@ export const TermsAndConditions = () => {
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">5. Limitations of Liability</h2>
+        <h2 className="text-lg font-bold text-white">5. Anti-Money Laundering (AML) & Fraud Prevention</h2>
+        <p>
+          UsePay enforces a zero-tolerance policy towards fraudulent activities, money laundering, and financing of terrorism.
+        </p>
+        <ul className="list-disc pl-6 space-y-2">
+          <li><strong>Compliance:</strong> All users are required to undergo a full and valid Know Your Customer (KYC) verification procedure, including submission of Aadhaar, PAN, and bank details, before initiating any payment transactions.</li>
+          <li><strong>Monitoring:</strong> We constantly monitor transactions for suspicious velocity, duplicate values, and potential fraud. Any transaction flagged as suspicious will be held for review.</li>
+          <li><strong>Account Suspension & Freezing:</strong> We reserve the absolute right to freeze wallet balances, suspend services, or terminate the account of any user/merchant instantly if we receive a fraud alert from our banking partners, cyber police, or regulatory authorities.</li>
+          <li><strong>Reporting:</strong> Suspicious activities will be reported to the Financial Intelligence Unit - India (FIU-IND) and other relevant law enforcement agencies without prior notification to the user.</li>
+        </ul>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-white">6. Limitations of Liability</h2>
         <p>
           In no event will UsePay Fintech Solution Pvt Ltd or our directors, employees, or agents be liable to you or any third party for any direct, indirect, consequential, exemplary, incidental, special, or punitive damages, including lost profit, lost revenue, loss of data, or other damages arising from your use of the site or services.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">6. Termination and Account Suspension</h2>
+        <h2 className="text-lg font-bold text-white">7. Termination and Account Suspension</h2>
         <p>
           We reserve the right, in our sole discretion and without notice or liability, to deny access to and use of the website and services, including blocking or suspending accounts, to any person for any reason, including without limitation for breach of any representation, warranty, or covenant contained in these Terms.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">7. Governing Law</h2>
+        <h2 className="text-lg font-bold text-white">8. Governing Law</h2>
         <p>
           These Terms and Conditions and your use of the website and services are governed by and construed in accordance with the laws of India, and any disputes will be subject to the exclusive jurisdiction of the courts of India.
         </p>
@@ -198,19 +267,19 @@ export const RefundPolicy = () => {
       <p className="text-slate-400 italic">Last updated: June 08, 2026</p>
 
       <section className="space-y-3 pt-4">
-        <h2 className="text-lg font-bold text-white">1. Nature of Services</h2>
+        <h2 className="text-lg font-bold text-white">1. Nature of Services & Regulatory Compliance</h2>
         <p>
-          UsePay Fintech Solution Pvt Ltd provides digital recharges, utility bill payments (BBPS), and QR-based collection settlements. Due to the digital nature of these services, transactions are processed instantly in real-time through external banking networks and payment gateways.
+          UsePay Fintech Solution Pvt Ltd provides digital recharges, utility bill payments (BBPS), and QR-based collection settlements. Due to the digital nature of these services, transactions are processed instantly in real-time through external banking networks and payment gateways. All refund and chargeback operations comply with the rules set by the Reserve Bank of India (RBI) and card networks.
         </p>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">2. Failed Transactions</h2>
+        <h2 className="text-lg font-bold text-white">2. Failed Transactions & Auto-Refunds</h2>
         <p>
-          A transaction is considered failed if the payment amount was successfully debited from the merchant or user's account/wallet, but the corresponding recharge, utility bill payment, or settlement was not successfully credited by the external gateway or biller.
+          A transaction is considered failed if the payment amount was successfully debited from the merchant or user's account/wallet, but the corresponding recharge, utility bill payment, or settlement was not successfully completed by the external gateway or biller.
         </p>
         <p>
-          In case of failed transactions, the debited amount will be auto-refunded to the user's wallet balance within 3 to 5 business days after receiving verification from our service partner.
+          In case of failed transactions, the debited amount will be auto-refunded back to the user's wallet balance within **3 to 5 business days** after receiving verification and reconciliation files from our payment gateway or banking partners.
         </p>
       </section>
 
@@ -220,20 +289,33 @@ export const RefundPolicy = () => {
           Once a recharge, bill payment, or QR collection settlement has been successfully executed, reported, and updated with a successful status in our database:
         </p>
         <ul className="list-disc pl-6 space-y-2">
-          <li>The transaction is final and irrevocable.</li>
+          <li>The transaction is final, irreversible, and non-refundable.</li>
           <li>No refunds, returns, or reversals will be allowed under any circumstances.</li>
-          <li>It is the sole responsibility of the user to enter the correct mobile number, biller details, and transaction amount. UsePay will not refund transactions processed using incorrect user-supplied details.</li>
+          <li>It is the sole responsibility of the user to enter the correct mobile number, consumer ID, biller details, and transaction amount. UsePay will not refund transactions processed using incorrect user-supplied details.</li>
         </ul>
       </section>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-bold text-white">4. Chargeback and Dispute Policies</h2>
+        <h2 className="text-lg font-bold text-white">4. Dispute Resolution Process</h2>
         <p>
-          If you believe a transaction was unauthorized or processed incorrectly, you must report the issue to our customer support at usepay.in@gmail.com within 24 hours of the transaction time. UsePay reserves the right to hold, review, or reverse transactions in case of suspected fraud, network abuse, or duplicate UTR IDs.
+          If you believe a transaction was processed incorrectly or unauthorized, you must raise a formal dispute through our support portal or email us at **usepay.in@gmail.com** within **24 hours** of the transaction timestamp. 
         </p>
         <p>
-          Any merchant or distributor raising fraudulent chargebacks or payment disputes with their banks without first coordinating with UsePay support will face immediate account termination and forfeiture of wallet balances.
+          Disputes must include the transaction reference number (Txn ID), Unique Transaction Reference (UTR), date, amount, and clear screenshots of the transaction status. UsePay will investigate the dispute with our banking partners and notify you of the outcome within 7 business days.
         </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-bold text-white">5. Chargeback Timelines & Merchant Liabilities</h2>
+        <p>
+          Chargebacks arise when a cardholder or account holder disputes a transaction directly with their issuing bank.
+        </p>
+        <ul className="list-disc pl-6 space-y-2">
+          <li><strong>Notification Timeline:</strong> When a chargeback is received, UsePay will notify the merchant via email or dashboard notification. The merchant must submit valid proof of service delivery or invoice within **5 working days** of receiving the notification to dispute the chargeback.</li>
+          <li><strong>Merchant Liability:</strong> The merchant is fully and solely liable for all chargebacks, refunds, customer claims, and any associated bank investigation fees, network penalties, or chargeback fees.</li>
+          <li><strong>Wallet Settlement Adjustment:</strong> UsePay reserves the right to debit the chargeback amount and any associated penalties directly from the merchant's wallet balance or hold settlements until the dispute is resolved.</li>
+          <li><strong>Account Termination:</strong> Any merchant or distributor raising fraudulent chargebacks or payment disputes without coordinating with UsePay support will face immediate account termination and forfeiture of wallet balances.</li>
+        </ul>
       </section>
     </PolicyLayout>
   );

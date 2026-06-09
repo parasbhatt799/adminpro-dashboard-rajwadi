@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react';
 import {
   Wallet, Send, User, Search, Lock, CheckCircle2, AlertCircle,
   Loader2, Building2, History, Eye, EyeOff, RotateCcw, ArrowRightLeft,
-  ArrowRight, KeyRound
+  ChevronDown
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { LogoLoader } from '../shared/LoadingSpinner';
 
-interface UserFundTransferProps {
+interface PartnerFundTransferProps {
   userId: string;
 }
 
-export default function UserFundTransfer({ userId }: UserFundTransferProps) {
+export default function PartnerFundTransfer({ userId }: PartnerFundTransferProps) {
   const toast = useToast();
 
   // Loading and profile states
@@ -24,16 +24,18 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
   const [loadingSettings, setLoadingSettings] = useState(true);
 
   // Form states
-  const [targetUserId, setTargetUserId] = useState('usepay_');
+  const [targetUserId, setTargetUserId] = useState('');
   const [amount, setAmount] = useState('');
   const [remarks, setRemarks] = useState('');
   const [tpin, setTpin] = useState('');
   const [showTpin, setShowTpin] = useState(false);
 
-  // Recipient search state
-  const [recipient, setRecipient] = useState<any>(null);
-  const [searchingRecipient, setSearchingRecipient] = useState(false);
-  const [recipientError, setRecipientError] = useState<string | null>(null);
+  // Recipient search & selection state
+  const [partners, setPartners] = useState<any[]>([]);
+  const [loadingPartners, setLoadingPartners] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [selectedPartner, setSelectedPartner] = useState<any>(null);
 
   // Transaction execution states
   const [submitting, setSubmitting] = useState(false);
@@ -62,37 +64,49 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
     }
   }, [success]);
 
-  // Force 'usepay_' prefix helper
-  const handleTargetUserIdChange = (val: string) => {
-    const clean = val.toLowerCase();
-    if (!clean.startsWith('usepay_')) {
-      if (clean.length < 7) {
-        setTargetUserId('usepay_');
-      } else {
-        setTargetUserId('usepay_' + clean.replace(/usepay_/g, ''));
-      }
-    } else {
-      setTargetUserId(clean);
-    }
-  };
-
-  // Fetch logged in user details
+  // Fetch logged in user details (using commission_balance)
   const fetchProfile = async () => {
     try {
       const { data, error: profileError } = await supabase
         .from('users_profiles')
-        .select('wallet_balance, tpin, name, firm_name')
+        .select('commission_balance, tpin, name, firm_name, role')
         .eq('id', userId)
         .single();
 
       if (!profileError && data) {
         setUserProfile(data);
-        setUserBalance(Number(data.wallet_balance) || 0);
+        setUserBalance(Number(data.commission_balance) || 0);
       }
     } catch (err) {
-      console.error('Error fetching user profile:', err);
+      console.error('Error fetching partner profile:', err);
     } finally {
       setLoadingProfile(false);
+    }
+  };
+
+  // Fetch managed partners (Distributors for SD, Users for Dist)
+  const fetchPartners = async (role: string) => {
+    setLoadingPartners(true);
+    try {
+      let query = supabase
+        .from('users_profiles')
+        .select('id, name, firm_name, mobile_number, role')
+        .eq('status', 'Active');
+
+      if (role === 'super_distributor') {
+        query = query.eq('super_distributor_id', userId);
+      } else {
+        query = query.eq('distributor_id', userId);
+      }
+
+      const { data, error: fetchErr } = await query;
+      if (!fetchErr && data) {
+        setPartners(data);
+      }
+    } catch (err) {
+      console.error('Error fetching partners:', err);
+    } finally {
+      setLoadingPartners(false);
     }
   };
 
@@ -100,16 +114,15 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
   const fetchTransferHistory = async () => {
     setLoadingHistory(true);
     try {
-      let query = supabase
-        .from('fund_transfers')
-        .select('*, sender:sender_id(name, firm_name, mobile_number), receiver:receiver_id(name, firm_name, mobile_number)', { count: 'exact' })
-        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
-        .order('created_at', { ascending: false });
-
       const from = (historyPage - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
 
-      const { data, count, error: histError } = await query.range(from, to);
+      const { data, count, error: histError } = await supabase
+        .from('fund_transfers')
+        .select('*, sender:sender_id(name, firm_name, mobile_number), receiver:receiver_id(name, firm_name, mobile_number)', { count: 'exact' })
+        .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (!histError) {
         setHistory(data || []);
@@ -124,12 +137,35 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
     }
   };
 
-  // Fetch profile, history, and service status on load
+  // Initial load logic
   useEffect(() => {
     if (userId) {
-      fetchProfile();
+      const initialize = async () => {
+        // Fetch Profile first to get the role
+        try {
+          const { data } = await supabase
+            .from('users_profiles')
+            .select('commission_balance, tpin, name, firm_name, role')
+            .eq('id', userId)
+            .single();
+
+          if (data) {
+            setUserProfile(data);
+            setUserBalance(Number(data.commission_balance) || 0);
+            // Fetch partners once we know the role
+            await fetchPartners(data.role);
+          }
+        } catch (err) {
+          console.error('Error initializing:', err);
+        } finally {
+          setLoadingProfile(false);
+        }
+      };
+
+      initialize();
       fetchTransferHistory();
 
+      // Check service enablement
       const fetchServiceStatus = async () => {
         try {
           const { data } = await supabase
@@ -150,7 +186,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
 
       // Subscribe to real-time wallet balance changes
       const profileChannel = supabase
-        .channel(`profile_realtime_transfer_${userId}`)
+        .channel(`partner_profile_realtime_${userId}`)
         .on('postgres_changes', {
           event: 'UPDATE',
           schema: 'public',
@@ -159,14 +195,14 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
         }, (payload) => {
           if (payload.new) {
             setUserProfile(payload.new);
-            setUserBalance(Number(payload.new.wallet_balance) || 0);
+            setUserBalance(Number(payload.new.commission_balance) || 0);
           }
         })
         .subscribe();
 
-      // Subscribe to real-time fund transfer additions
+      // Subscribe to real-time transfers
       const transferChannel = supabase
-        .channel(`transfers_realtime_${userId}`)
+        .channel(`partner_transfers_realtime_${userId}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -179,78 +215,28 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
         })
         .subscribe();
 
-      // Subscribe to real-time settings changes
-      const settingsChannel = supabase
-        .channel(`settings_realtime_transfer_${userId}`)
-        .on('postgres_changes', {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'qr_settings',
-          filter: 'id=eq.1'
-        }, (payload) => {
-          if (payload.new && 'is_fund_transfer_enabled' in payload.new) {
-            setIsServiceEnabled(payload.new.is_fund_transfer_enabled !== false);
-          }
-        })
-        .subscribe();
-
       return () => {
         supabase.removeChannel(profileChannel);
         supabase.removeChannel(transferChannel);
-        supabase.removeChannel(settingsChannel);
       };
     }
   }, [userId, historyPage]);
 
-  // Recipient details auto-fetch with debounce/effect on targetUserId input
-  useEffect(() => {
-    if (!targetUserId.trim() || targetUserId.trim() === 'usepay_') {
-      setRecipient(null);
-      setRecipientError(null);
-      return;
-    }
+  // Handle selection of partner from dropdown
+  const handleSelectPartner = (partner: any) => {
+    setSelectedPartner(partner);
+    setTargetUserId(partner.id);
+    setSearchQuery(`${partner.name} (${partner.id})`);
+    setShowDropdown(false);
+  };
 
-    if (targetUserId.trim() === userId) {
-      setRecipient(null);
-      setRecipientError('Cannot transfer funds to yourself.');
-      return;
-    }
-
-    const searchRecipient = async () => {
-      setSearchingRecipient(true);
-      setRecipientError(null);
-      try {
-        const { data, error: fetchErr } = await supabase
-          .from('users_profiles')
-          .select('id, name, firm_name, status, mobile_number')
-          .eq('id', targetUserId.trim())
-          .single();
-
-        if (fetchErr || !data) {
-          setRecipient(null);
-          setRecipientError('Recipient not found. Please verify the User ID.');
-        } else if (data.status !== 'Active') {
-          setRecipient(null);
-          setRecipientError('Recipient account is not active.');
-        } else {
-          setRecipient(data);
-          setRecipientError(null);
-        }
-      } catch (err) {
-        console.error('Error searching recipient:', err);
-        setRecipient(null);
-        setRecipientError('Recipient lookup failed.');
-      } finally {
-        setSearchingRecipient(false);
-      }
-    };
-
-    const delayDebounce = setTimeout(() => {
-      searchRecipient();
-    }, 300); // 300ms debounce
-
-    return () => clearTimeout(delayDebounce);
-  }, [targetUserId, userId]);
+  // Filter partners based on search query
+  const filteredPartners = partners.filter(p => 
+    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.mobile_number.includes(searchQuery) ||
+    (p.firm_name && p.firm_name.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
 
   // Handle transaction submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -260,19 +246,8 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
 
     const amountNum = parseFloat(amount);
 
-    // Initial front-end validation
-    if (!targetUserId.trim() || targetUserId.trim() === 'usepay_') {
-      setError('Please enter a recipient User ID.');
-      return;
-    }
-
-    if (targetUserId.trim() === userId) {
-      setError('Cannot transfer funds to yourself.');
-      return;
-    }
-
-    if (!recipient) {
-      setError('Please enter a valid active recipient.');
+    if (!targetUserId) {
+      setError('Please select a recipient.');
       return;
     }
 
@@ -281,9 +256,8 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
       return;
     }
 
-    // Balance check: Sender must retain at least ₹250 after transaction
-    if (userBalance - amountNum < 250) {
-      setError('Insufficient balance. You must retain at least ₹250 in your wallet after transfer.');
+    if (userBalance < amountNum) {
+      setError('Insufficient commission balance.');
       return;
     }
 
@@ -292,7 +266,6 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
       return;
     }
 
-    // Verify if sender has set TPIN
     if (!userProfile?.tpin) {
       setError('Please set your TPIN first under Profile > TPIN.');
       return;
@@ -301,10 +274,10 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
     setSubmitting(true);
 
     try {
-      // Execute atomic fund transfer RPC
-      const { data, error: rpcError } = await supabase.rpc('transfer_funds_atomic', {
+      // Execute partner atomic fund transfer RPC
+      const { data, error: rpcError } = await supabase.rpc('partner_transfer_funds_atomic', {
         p_sender_id: userId,
-        p_receiver_id: recipient.id,
+        p_receiver_id: targetUserId,
         p_amount: amountNum,
         p_tpin: tpin
       });
@@ -318,25 +291,26 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
       // Add push notification for recipient
       try {
         await supabase.from('notifications').insert([{
-          user_id: recipient.id,
-          target_role: 'user',
+          user_id: targetUserId,
+          target_role: selectedPartner.role === 'distributor' ? 'distributor' : 'user',
           title: 'Fund Received',
           message: `You have received ₹${amountNum.toLocaleString()} from ${userProfile.firm_name || userProfile.name} (${userId}).`,
-          link: '/user/statement'
+          link: selectedPartner.role === 'distributor' ? '/user/users-statement' : '/user/statement'
         }]);
       } catch (notifyErr) {
         console.error('Failed to notify recipient:', notifyErr);
       }
 
-      setSuccess(`Successfully transferred ₹${amountNum.toLocaleString()} to ${recipient.name || recipient.id}!`);
+      setSuccess(`Successfully transferred ₹${amountNum.toLocaleString()} to ${selectedPartner.name}!`);
       toast.success('Funds Transferred Successfully');
 
       // Reset fields
-      setTargetUserId('usepay_');
       setAmount('');
       setTpin('');
       setRemarks('');
-      setRecipient(null);
+      setSelectedPartner(null);
+      setTargetUserId('');
+      setSearchQuery('');
 
       // Reload profile and history
       fetchProfile();
@@ -351,6 +325,20 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
   };
 
   const totalPages = Math.ceil(totalHistoryCount / itemsPerPage);
+
+  if (userProfile && userProfile.role !== 'distributor' && userProfile.role !== 'super_distributor') {
+    return (
+      <div className="max-w-md mx-auto py-16 px-6 text-center bg-white rounded-3xl border border-slate-100 shadow-xl mt-10">
+        <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6 text-rose-500 shadow-inner">
+          <AlertCircle size={40} />
+        </div>
+        <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2">Access Denied</h3>
+        <p className="text-slate-500 text-sm font-semibold leading-relaxed mb-8">
+          This page is only accessible for Distributors and Super Distributors.
+        </p>
+      </div>
+    );
+  }
 
   if (loadingProfile || loadingSettings) {
     return (
@@ -368,7 +356,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
         </div>
         <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-2">Service Temporarily Disabled</h3>
         <p className="text-slate-500 text-sm font-semibold leading-relaxed mb-8">
-          User-to-User Fund Transfer service is currently deactivated by the administrator. Please contact our support team if you require assistance.
+          Fund Transfer service is currently deactivated by the administrator. Please contact our support team if you require assistance.
         </p>
         <button
           onClick={() => window.history.back()}
@@ -380,21 +368,27 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
     );
   }
 
+  const roleLabel = userProfile?.role === 'super_distributor' ? 'Distributor' : 'User';
+
   return (
     <div className="space-y-8 max-w-5xl mx-auto py-4 px-4">
       {/* Top Welcome & Summary Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">User to User Fund Transfer</h2>
-          <p className="text-slate-500 mt-1 font-medium">Transfer wallet funds to another user instantly and securely.</p>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Partner Fund Transfer</h2>
+          <p className="text-slate-500 mt-1 font-medium">
+            {userProfile?.role === 'super_distributor' 
+              ? 'Transfer funds instantly from your Commission Wallet to your managed Distributors.' 
+              : 'Transfer funds instantly from your Commission Wallet to your managed Users.'}
+          </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-emerald-50 px-5 py-3 rounded-2xl border border-emerald-100 shadow-sm">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
+        <div className="flex items-center gap-3 bg-indigo-50 px-5 py-3 rounded-2xl border border-indigo-100 shadow-sm">
+          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
             <Wallet size={20} />
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1">Available Balance</span>
+            <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest leading-none mb-1">Commission Wallet</span>
             <span className="text-lg font-black text-slate-900 leading-none">₹{userBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
           </div>
         </div>
@@ -415,37 +409,74 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
                 </div>
                 <div>
                   <h3 className="font-bold text-slate-900">Send Funds</h3>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Instant peer transfer</p>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Instant Transfer to {roleLabel}</p>
                 </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Target User ID */}
-                <div className="group">
+                {/* Search Target Recipient */}
+                <div className="group relative">
                   <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-2.5 ml-1 transition-colors group-focus-within:text-indigo-500">
-                    Recipient User ID
+                    Select {roleLabel}
                   </label>
                   <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors" size={18} />
                     <input
-                      required
                       type="text"
-                      autoComplete="off"
-                      placeholder="e.g. usepay_123"
-                      value={targetUserId}
-                      onChange={(e) => handleTargetUserIdChange(e.target.value)}
+                      autoComplete="new-password"
+                      placeholder={`Search by name, ID or mobile...`}
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        setSelectedPartner(null);
+                        setTargetUserId('');
+                        setShowDropdown(true);
+                      }}
+                      onFocus={() => setShowDropdown(true)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-12 pr-10 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-semibold text-slate-800"
                     />
-                    {searchingRecipient && (
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                        <Loader2 className="animate-spin text-indigo-500" size={18} />
-                      </div>
-                    )}
+                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
                   </div>
 
-                  {/* Recipient Look-up info box */}
+                  {/* Dropdown container */}
+                  <AnimatePresence>
+                    {showDropdown && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowDropdown(false)}></div>
+                        <motion.div
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 5 }}
+                          className="absolute left-0 right-0 mt-2 max-h-60 bg-white border border-slate-100 shadow-xl rounded-2xl z-20 overflow-y-auto no-scrollbar py-2"
+                        >
+                          {loadingPartners ? (
+                            <div className="p-4 text-center text-slate-400 text-xs">Loading partners...</div>
+                          ) : filteredPartners.length === 0 ? (
+                            <div className="p-4 text-center text-slate-400 text-xs">No active {roleLabel.toLowerCase()}s found</div>
+                          ) : (
+                            filteredPartners.map((partner) => (
+                              <button
+                                key={partner.id}
+                                type="button"
+                                onClick={() => handleSelectPartner(partner)}
+                                className="w-full px-4 py-3 text-left hover:bg-slate-50 transition-colors border-b last:border-0 border-slate-50 flex flex-col"
+                              >
+                                <span className="text-sm font-bold text-slate-800">{partner.name}</span>
+                                {partner.firm_name && (
+                                  <span className="text-xs text-slate-500 font-medium">Firm: {partner.firm_name}</span>
+                                )}
+                                <span className="text-[10px] font-mono text-slate-400 mt-0.5">ID: {partner.id} | Mobile: {partner.mobile_number}</span>
+                              </button>
+                            ))
+                          )}
+                        </motion.div>
+                      </>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Selected Recipient Box */}
                   <AnimatePresence mode="wait">
-                    {recipient && (
+                    {selectedPartner && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -455,23 +486,12 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
                         <Building2 size={20} className="shrink-0 text-emerald-600 mt-0.5" />
                         <div>
                           <p className="text-xs font-black uppercase tracking-wider text-emerald-600 leading-none mb-1">Verify Recipient</p>
-                          <p className="text-sm font-bold leading-tight text-slate-900">{recipient.name}</p>
-                          {recipient.firm_name && (
-                            <p className="text-xs font-bold text-slate-500 mt-0.5">Firm: {recipient.firm_name}</p>
+                          <p className="text-sm font-bold leading-tight text-slate-900">{selectedPartner.name}</p>
+                          {selectedPartner.firm_name && (
+                            <p className="text-xs font-bold text-slate-500 mt-0.5">Firm: {selectedPartner.firm_name}</p>
                           )}
-                          <p className="text-xs font-mono font-medium text-slate-400 mt-1">Mobile: {recipient.mobile_number}</p>
+                          <p className="text-xs font-mono font-medium text-slate-400 mt-1">ID: {selectedPartner.id}</p>
                         </div>
-                      </motion.div>
-                    )}
-                    {recipientError && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mt-3 p-3.5 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-2.5 text-rose-600 overflow-hidden"
-                      >
-                        <AlertCircle size={18} className="shrink-0 text-rose-500" />
-                        <p className="text-xs font-bold leading-tight">{recipientError}</p>
                       </motion.div>
                     )}
                   </AnimatePresence>
@@ -517,7 +537,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
                     Transaction PIN (TPIN)
                   </label>
                   <div className="relative">
-                    <KeyRound className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={18} />
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={18} />
                     <input
                       required
                       type={showTpin ? 'text' : 'password'}
@@ -556,8 +576,8 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
                 {/* Transfer Button */}
                 <button
                   type="submit"
-                  disabled={submitting || !recipient}
-                  className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all bg-emerald-600 hover:bg-emerald-700 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100 disabled:bg-emerald-600 shadow-xl shadow-emerald-500/10 cursor-pointer"
+                  disabled={submitting || !selectedPartner}
+                  className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-widest flex items-center justify-center gap-2 transition-all bg-indigo-600 hover:bg-indigo-700 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-40 disabled:hover:scale-100 disabled:bg-indigo-600 shadow-xl shadow-indigo-500/10 cursor-pointer"
                 >
                   {submitting ? (
                     <Loader2 className="animate-spin" size={18} />
@@ -572,7 +592,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
             </div>
             
             <div className="mt-6 p-4 bg-amber-50/50 border border-amber-100 rounded-2xl text-[10px] text-amber-700 font-bold leading-normal uppercase">
-              ⚠️ Warning: Wallet transfer transactions are instant and irreversible. Double check the recipient details before sending. You must keep a minimum balance of ₹250.
+              ⚠️ Warning: Wallet transfer transactions are instant and irreversible. Double check the recipient details before sending.
             </div>
           </motion.div>
         </div>
@@ -587,7 +607,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
           >
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-150 rounded-xl flex items-center justify-center text-slate-700">
+                <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-750">
                   <History size={20} />
                 </div>
                 <div>
@@ -610,7 +630,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction</th>
+                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Transaction</th>
                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Details</th>
                     <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Amount</th>
                   </tr>
@@ -654,7 +674,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
                             </div>
                           </td>
                           <td className="px-5 py-3">
-                            <p className="text-xs font-semibold text-slate-500 line-clamp-1">{tx.remarks || 'Peer-to-Peer Transfer'}</p>
+                            <p className="text-xs font-semibold text-slate-500 line-clamp-1">{tx.remarks || 'Partner Transfer'}</p>
                             <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-1">
                               {new Date(tx.created_at).toLocaleDateString()} at {new Date(tx.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </p>

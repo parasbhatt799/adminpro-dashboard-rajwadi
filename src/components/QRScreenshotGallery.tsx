@@ -98,7 +98,7 @@ export default function QRScreenshotGallery() {
         const { data, error } = await supabase
           .from('payment_submissions')
           .select('qr_id, qr_history(qr_name)')
-          .eq('status', 'approved')
+          .in('status', ['approved', 'T+1 Approved'])
           .range(page * pageSize, (page + 1) * pageSize - 1);
 
         if (error) throw error;
@@ -144,7 +144,7 @@ export default function QRScreenshotGallery() {
       let query = supabase
         .from('payment_submissions')
         .select('id, proof_url, amount, created_at')
-        .eq('status', 'approved')
+        .in('status', ['approved', 'T+1 Approved'])
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (merchantName === 'Legacy QR') {
@@ -253,7 +253,7 @@ export default function QRScreenshotGallery() {
       const { data: submissions, error } = await supabase
         .from('payment_submissions')
         .select('*, qr_history!left(qr_name, whatsapp_number)')
-        .eq('status', 'approved')
+        .in('status', ['approved', 'T+1 Approved'])
         .gte('created_at', `${date}T00:00:00`)
         .lte('created_at', `${date}T23:59:59`)
         .order('created_at', { ascending: false });

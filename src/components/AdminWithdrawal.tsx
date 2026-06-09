@@ -126,8 +126,16 @@ export default function AdminWithdrawal() {
       // Calculate Super Distributor Share
       const totalSuperDistributorShare = (qrData || []).reduce((acc, curr: any) => acc + (Number(curr.super_distributor_share) || 0), 0);
 
-      const calculatedBalance = (totalQrCharges + totalBillCharges + totalBbpsCharges + totalPayoutCharges + totalDistributorShare + totalSuperDistributorShare) - totalWithdrawals;
-      setBalance(calculatedBalance);
+      // Fetch Admin Balance directly from qr_settings as the single source of truth
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('qr_settings')
+        .select('admin_balance')
+        .eq('id', 1)
+        .single();
+
+      if (settingsError) throw settingsError;
+
+      setBalance(Number(settingsData?.admin_balance) || 0);
       setTotalWithdrawalAmount(totalWithdrawals);
       setHistory(withdrawalData || []);
 

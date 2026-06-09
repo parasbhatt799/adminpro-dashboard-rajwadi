@@ -45,12 +45,12 @@ BEGIN
         COALESCE(q.profit_percentage, 0)::NUMERIC as profit_percentage,
         COUNT(p.id)::BIGINT as total_count,
         COUNT(CASE WHEN p.status = 'pending' THEN 1 END)::BIGINT as pending_count,
-        COUNT(CASE WHEN p.status = 'approved' THEN 1 END)::BIGINT as approved_count,
+        COUNT(CASE WHEN p.status IN ('approved', 'T+1 Approved') THEN 1 END)::BIGINT as approved_count,
         COUNT(CASE WHEN p.status = 'rejected' THEN 1 END)::BIGINT as rejected_count,
-        COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.amount ELSE 0 END), 0)::NUMERIC as total_amount,
-        COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.admin_share ELSE 0 END), 0)::NUMERIC as admin_share,
-        COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.super_distributor_share ELSE 0 END), 0)::NUMERIC as super_distributor_share,
-        COALESCE(SUM(CASE WHEN p.status = 'approved' THEN p.distributor_share ELSE 0 END), 0)::NUMERIC as distributor_share
+        COALESCE(SUM(CASE WHEN p.status IN ('approved', 'T+1 Approved') THEN p.amount ELSE 0 END), 0)::NUMERIC as total_amount,
+        COALESCE(SUM(CASE WHEN p.status IN ('approved', 'T+1 Approved') THEN p.admin_share ELSE 0 END), 0)::NUMERIC as admin_share,
+        COALESCE(SUM(CASE WHEN p.status IN ('approved', 'T+1 Approved') THEN p.super_distributor_share ELSE 0 END), 0)::NUMERIC as super_distributor_share,
+        COALESCE(SUM(CASE WHEN p.status IN ('approved', 'T+1 Approved') THEN p.distributor_share ELSE 0 END), 0)::NUMERIC as distributor_share
     FROM public.qr_history q
     LEFT JOIN public.payment_submissions p ON p.qr_id = q.id 
         AND (time_start IS NULL OR p.created_at >= time_start)
