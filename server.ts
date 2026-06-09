@@ -268,6 +268,21 @@ async function startServer() {
           const discoveredExternalIds = admins.map(a => a.mobile_number).filter(Boolean);
           externalUserIds = [...new Set([...externalUserIds, ...discoveredExternalIds])];
         }
+
+        // Insert database notification row (bypassing RLS since server-role key is used)
+        try {
+          await supabaseAdmin
+            .from('notifications')
+            .insert([{
+              target_role: 'admin',
+              title,
+              message,
+              link
+            }]);
+          console.log('[Push Server] In-app notification created for admins.');
+        } catch (dbErr) {
+          console.error('[Push Server] Database notification insert failed:', dbErr);
+        }
       }
 
       // 2. Resolve current onesignal_ids from DB for all externalUserIds
