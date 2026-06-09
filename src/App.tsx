@@ -80,7 +80,7 @@ const DEVELOPER_MOBILE = '9999099999';
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
 // OneSignal Initialization Helper
-const setupOneSignal = async (currentUserId: string) => {
+const initOneSignal = async () => {
   try {
     const OneSignalDeferred = (window as any).OneSignalDeferred;
     if (!OneSignalDeferred) return;
@@ -105,17 +105,63 @@ const setupOneSignal = async (currentUserId: string) => {
         serviceWorkerParam: { scope: '/' },
         serviceWorkerPath: 'OneSignalSDKWorker.js',
       });
+      console.log('OneSignal Web SDK Initialized successfully');
 
-      // 3. Sync ID or Cleanup if logged out
-      const pushId = OneSignal.User.PushSubscription?.id;
+      // Register subscription change listener once
+      if (OneSignal.User?.PushSubscription) {
+        OneSignal.User.PushSubscription.addEventListener("change", async (event: any) => {
+          const newPushId = event.current?.id;
+          const currentUserId = localStorage.getItem('userId');
+          if (currentUserId && newPushId) {
+            // Uniqueness check: clear this pushId from other records
+            await supabase
+              .from('users_profiles')
+              .update({ onesignal_id: null })
+              .eq('onesignal_id', newPushId);
+
+            await supabase
+              .from('admin_profiles')
+              .update({ onesignal_id: null })
+              .eq('onesignal_id', newPushId);
+
+            const userType = localStorage.getItem('userType');
+            if (userType === 'admin') {
+              await supabase
+                .from('admin_profiles')
+                .update({ onesignal_id: newPushId })
+                .eq('mobile_number', currentUserId);
+              console.log('OneSignal Event Admin Sync Success:', newPushId);
+            } else {
+              await supabase
+                .from('users_profiles')
+                .update({ onesignal_id: newPushId })
+                .eq('id', currentUserId);
+              console.log('OneSignal Event User Sync Success:', newPushId);
+            }
+          }
+        });
+      }
+    });
+
+  } catch (err) {
+    console.error('OneSignal Setup Error:', err);
+  }
+};
+
+const syncOneSignalUser = async (currentUserId: string) => {
+  try {
+    const OneSignalDeferred = (window as any).OneSignalDeferred;
+    if (!OneSignalDeferred) return;
+
+    OneSignalDeferred.push(async (OneSignal: any) => {
+      const pushId = OneSignal.User?.PushSubscription?.id;
 
       if (currentUserId) {
         // Always associate this device with the user's ID in OneSignal
         OneSignal.login(currentUserId);
 
         if (pushId) {
-          // 1. Clear this pushId from any other users/admins to ensure uniqueness
-          // This prevents notification leaks if multiple users share a device
+          // Clear this pushId from any other users/admins to ensure uniqueness
           await supabase
             .from('users_profiles')
             .update({ onesignal_id: null })
@@ -129,43 +175,38 @@ const setupOneSignal = async (currentUserId: string) => {
           const userType = localStorage.getItem('userType');
 
           if (userType === 'admin') {
-            // Admins: Sync to admin_profiles table using mobile_number
             await supabase
               .from('admin_profiles')
               .update({ onesignal_id: pushId })
               .eq('mobile_number', currentUserId);
-            console.log('OneSignal Admin Sync Success:', pushId);
+            console.log('OneSignal Admin Sync Success (User changed):', pushId);
           } else {
-            // Regular Users: Sync to their existing profile
             await supabase
               .from('users_profiles')
-              .update({
-                onesignal_id: pushId
-              })
+              .update({ onesignal_id: pushId })
               .eq('id', currentUserId);
-            console.log('OneSignal User Sync Success:', pushId);
+            console.log('OneSignal User Sync Success (User changed):', pushId);
           }
         }
-      } else if (pushId) {
-        // Logged out: Aggressively clear this device from any user profiles in our DB
-        await supabase
-          .from('users_profiles')
-          .update({ onesignal_id: null })
-          .eq('onesignal_id', pushId);
+      } else {
+        // Logged out
+        if (pushId) {
+          await supabase
+            .from('users_profiles')
+            .update({ onesignal_id: null })
+            .eq('onesignal_id', pushId);
 
-        await supabase
-          .from('admin_profiles')
-          .update({ onesignal_id: null })
-          .eq('onesignal_id', pushId);
-
-        // Also tell OneSignal to logout
+          await supabase
+            .from('admin_profiles')
+            .update({ onesignal_id: null })
+            .eq('onesignal_id', pushId);
+        }
         OneSignal.logout();
-        console.log('OneSignal Cleaned (Logged Out):', pushId);
+        console.log('OneSignal Cleaned (Logged Out)');
       }
     });
-
   } catch (err) {
-    console.error('OneSignal Setup Error:', err);
+    console.error('OneSignal Sync Error:', err);
   }
 };
 
@@ -507,9 +548,11 @@ export default function App() {
   const isDeveloper = userId === DEVELOPER_MOBILE;
 
   useEffect(() => {
-    if ((window as any).OneSignal) {
-      setupOneSignal(userId);
-    }
+    initOneSignal();
+  }, []);
+
+  useEffect(() => {
+    syncOneSignalUser(userId);
   }, [userId]);
 
   const fetchSystemStatus = async () => {
