@@ -154,42 +154,55 @@ const syncOneSignalUser = async (currentUserId: string) => {
     if (!OneSignalDeferred) return;
 
     OneSignalDeferred.push(async (OneSignal: any) => {
-      const pushId = OneSignal.User?.PushSubscription?.id;
-
       if (currentUserId) {
         // Always associate this device with the user's ID in OneSignal
         OneSignal.login(currentUserId);
 
-        if (pushId) {
-          // Clear this pushId from any other users/admins to ensure uniqueness
-          await supabase
-            .from('users_profiles')
-            .update({ onesignal_id: null })
-            .eq('onesignal_id', pushId);
+        let attempts = 0;
+        const maxAttempts = 6;
+        const intervalTime = 2000; // 2 seconds
 
-          await supabase
-            .from('admin_profiles')
-            .update({ onesignal_id: null })
-            .eq('onesignal_id', pushId);
-
-          const userType = localStorage.getItem('userType');
-
-          if (userType === 'admin') {
-            await supabase
-              .from('admin_profiles')
-              .update({ onesignal_id: pushId })
-              .eq('mobile_number', currentUserId);
-            console.log('OneSignal Admin Sync Success (User changed):', pushId);
-          } else {
+        const checkAndSync = async () => {
+          const pushId = OneSignal.User?.PushSubscription?.id;
+          if (pushId) {
+            // Clear this pushId from any other users/admins to ensure uniqueness
             await supabase
               .from('users_profiles')
-              .update({ onesignal_id: pushId })
-              .eq('id', currentUserId);
-            console.log('OneSignal User Sync Success (User changed):', pushId);
+              .update({ onesignal_id: null })
+              .eq('onesignal_id', pushId);
+
+            await supabase
+              .from('admin_profiles')
+              .update({ onesignal_id: null })
+              .eq('onesignal_id', pushId);
+
+            const userType = localStorage.getItem('userType');
+
+            if (userType === 'admin') {
+              await supabase
+                .from('admin_profiles')
+                .update({ onesignal_id: pushId })
+                .eq('mobile_number', currentUserId);
+              console.log('OneSignal Admin Sync Success (User changed):', pushId);
+            } else {
+              await supabase
+                .from('users_profiles')
+                .update({ onesignal_id: pushId })
+                .eq('id', currentUserId);
+              console.log('OneSignal User Sync Success (User changed):', pushId);
+            }
+          } else if (attempts < maxAttempts) {
+            attempts++;
+            setTimeout(checkAndSync, intervalTime);
+          } else {
+            console.log('OneSignal Sync: Push Subscription ID not resolved after attempts.');
           }
-        }
+        };
+
+        await checkAndSync();
       } else {
         // Logged out
+        const pushId = OneSignal.User?.PushSubscription?.id;
         if (pushId) {
           await supabase
             .from('users_profiles')
