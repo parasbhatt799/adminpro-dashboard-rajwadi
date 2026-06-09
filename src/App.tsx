@@ -841,7 +841,9 @@ export default function App() {
           filter: `mobile_number=eq.${userId}`
         }, (payload) => {
           const { status, role, password, permissions } = payload.new;
-          if (status === 'Blocked' || (role && role !== adminRole) || password) {
+          const oldPassword = payload.old?.password;
+          const passwordChanged = oldPassword && password !== oldPassword;
+          if (status === 'Blocked' || (role && role !== adminRole) || passwordChanged) {
             handleLogout();
           }
           if (permissions) {
