@@ -253,7 +253,7 @@ const syncOneSignalUser = async (currentUserId: string) => {
                 .update({ onesignal_id: null })
                 .eq('onesignal_id', pushId);
             }
-            if (typeof OneSignal.logout === 'function') {
+            if (OneSignal.User?.externalId && typeof OneSignal.logout === 'function') {
               await OneSignal.logout();
               console.log('OneSignal Cleaned (Logged Out)');
             }
