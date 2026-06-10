@@ -296,12 +296,27 @@ export default function UserKYC({ userId, onStatusChange }: UserKYCProps) {
 
       if (profileError) throw profileError;
 
-      // 4. Send Push Notification to Admin (Mobile)
-      sendAdminPushNotification(
-        'New KYC Request 👤',
-        `User ${userProfile?.firm_name || userProfile?.name || userId} has submitted documents for verification.`,
-        '/kyc-verification-requests'
-      );
+      // 4. Create Notification for the admin
+      const { error: nError } = await supabase
+        .from('notifications')
+        .insert([{
+          target_role: 'admin',
+          title: 'New KYC Request',
+          message: `User ${userProfile?.firm_name || userProfile?.name || userId} has submitted documents for verification.`,
+          link: '/kyc-verification-requests'
+        }]);
+
+      if (nError) {
+        console.error('KYC Notification Error (Admin):', nError);
+      } else {
+        console.log('KYC Notification sent to admin!');
+        // 5. Send Push Notification to Admin (Mobile)
+        sendAdminPushNotification(
+          'New KYC Request 👤',
+          `User ${userProfile?.firm_name || userProfile?.name || userId} has submitted documents for verification.`,
+          '/kyc-verification-requests'
+        );
+      }
 
       await fetchKYCStatus();
       onStatusChange();

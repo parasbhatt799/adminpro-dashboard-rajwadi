@@ -246,12 +246,35 @@ async function startServer() {
   app.post("/api/send-push-notification", async (req, res) => {
     const { title, message, player_ids, target, link, credentials } = req.body;
 
-    if (!title || !message || !credentials?.app_id || !credentials?.rest_api_key) {
+    let app_id = credentials?.app_id;
+    let rest_api_key = credentials?.rest_api_key;
+
+    if (!app_id || !rest_api_key) {
+      try {
+        const { data: settings } = await supabaseAdmin
+          .from('onesignal_settings')
+          .select('app_id, rest_api_key, is_enabled')
+          .eq('id', 1)
+          .single();
+
+        if (settings) {
+          if (!settings.is_enabled) {
+            console.log('[Push] Notification skipped: Push notifications disabled in settings.');
+            return res.json({ success: true, skipped: true, message: "Push notifications are disabled in settings." });
+          }
+          app_id = settings.app_id;
+          rest_api_key = settings.rest_api_key;
+        }
+      } catch (dbErr) {
+        console.error("[Push] Failed to fetch OneSignal settings from DB:", dbErr);
+      }
+    }
+
+    if (!title || !message || !app_id || !rest_api_key) {
       return res.status(400).json({ error: "Title, message, and OneSignal credentials are required." });
     }
 
     try {
-      const { app_id, rest_api_key } = credentials;
       let targetPlayerIds = player_ids || [];
       let externalUserIds = req.body.external_user_ids || [];
 
@@ -267,21 +290,6 @@ async function startServer() {
 
           const discoveredExternalIds = admins.map(a => a.mobile_number).filter(Boolean);
           externalUserIds = [...new Set([...externalUserIds, ...discoveredExternalIds])];
-        }
-
-        // Insert database notification row (bypassing RLS since server-role key is used)
-        try {
-          await supabaseAdmin
-            .from('notifications')
-            .insert([{
-              target_role: 'admin',
-              title,
-              message,
-              link
-            }]);
-          console.log('[Push Server] In-app notification created for admins.');
-        } catch (dbErr) {
-          console.error('[Push Server] Database notification insert failed:', dbErr);
         }
       }
 
