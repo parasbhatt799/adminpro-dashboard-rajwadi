@@ -808,14 +808,13 @@ export default function Settings() {
                 </div>
                 <button
                   onClick={handleSubscribe}
-                  disabled={isSubscribed}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 ${
                     isSubscribed 
-                      ? 'bg-emerald-50 text-emerald-600 cursor-default' 
-                      : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md active:scale-95'
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
                   }`}
                 >
-                  {isSubscribed ? 'Subscribed ✓' : 'Subscribe Now'}
+                  {isSubscribed ? 'Sync Device ID' : 'Subscribe Now'}
                 </button>
               </div>
 
