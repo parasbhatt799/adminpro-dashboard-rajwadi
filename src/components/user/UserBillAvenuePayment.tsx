@@ -161,6 +161,10 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
 
+  // CCF1 Convenience Fee Configuration
+  const [ccf1Config, setCcf1Config] = useState<{ flatFee: number; percentFee: number } | null>(null);
+  const [ccf1Fee, setCcf1Fee] = useState<number>(0); // in Rupees
+
   // TPIN & Lockout
   const [dbTpinValue, setDbTpinValue] = useState<string | null>(null);
   const [tpinAttempts, setTpinAttempts] = useState<number>(0);
@@ -252,6 +256,19 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       setFilteredBillers(billers.filter(b => b.billerName.toLowerCase().includes(q)));
     }
   }, [searchBillerQuery, billers]);
+
+  useEffect(() => {
+    const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
+    if (ccf1Config && amt > 0) {
+      const amtInPaisa = Math.round(amt * 100);
+      const baseCcf1 = (amtInPaisa * ccf1Config.percentFee / 100) + ccf1Config.flatFee;
+      const gst = baseCcf1 * 0.18;
+      const totalCcf1InPaisa = Math.floor(baseCcf1 + gst);
+      setCcf1Fee(totalCcf1InPaisa / 100);
+    } else {
+      setCcf1Fee(0);
+    }
+  }, [manualAmount, selectedPlan, ccf1Config]);
 
   const fetchProfileData = async () => {
     try {
@@ -375,12 +392,24 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     setBillDetails(null);
     setSelectedPlan(null);
     setPlans([]);
+    setCcf1Config(null);
+    setCcf1Fee(0);
 
     try {
       // Fetch details of specific biller to inspect parameters
       const res = await fetch(`/api/bbps/billers?billerId=${biller.billerId}`);
       const data = await res.json();
       const bDetail = data?.billerInfoResponse?.biller;
+
+      const ccf1FeeInfo = bDetail?.interchangeFeeCCF1;
+      if (ccf1FeeInfo) {
+        setCcf1Config({
+          flatFee: Number(ccf1FeeInfo.flatFee) || 0,
+          percentFee: Number(ccf1FeeInfo.percentFee) || 0
+        });
+      } else {
+        setCcf1Config(null);
+      }
 
       // Map parameters
       const paramsList: BillerInputParam[] = [];
@@ -493,7 +522,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   };
 
   const initiatePayment = () => {
-    const amt = selectedPlan ? selectedPlan.amount : Number(manualAmount);
+    const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
     if (!amt || isNaN(amt) || amt <= 0) {
       toast.error('Please enter a valid amount.');
       return;
@@ -510,10 +539,11 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     }
 
     const serviceCharge = calculateServiceCharge(amt);
-    const totalDeduction = amt + serviceCharge;
+    const totalDeduction = amt + serviceCharge + ccf1Fee;
 
     if (walletBalance - totalDeduction < 250) {
-      toast.error(`Insufficient balance. You must maintain at least ₹250 after transaction (Total deduction: ₹${totalDeduction.toFixed(2)})`);
+      const feeMsg = ccf1Fee > 0 ? ` + Convenience Fee: ₹${ccf1Fee.toFixed(2)}` : '';
+      toast.error(`Insufficient balance. You must maintain at least ₹250 after transaction (Bill Amount: ₹${amt} + Service Charge: ₹${serviceCharge}${feeMsg})`);
       return;
     }
 
@@ -588,7 +618,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     if (!selectedBiller) return;
     setLoading(true);
 
-    const amt = selectedPlan ? selectedPlan.amount : Number(manualAmount);
+    const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
 
     try {
       const res = await fetch('/api/bbps/pay', {
@@ -601,7 +631,8 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           customerMobile,
           amount: amt,
           paymentMode: 'UPI',
-          quickPay: billDetails?.fetchSupported ? 'N' : 'Y'
+          quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
+          ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined
         })
       });
 
@@ -613,6 +644,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           txnid: data.data?.txnRefId || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
           amount: amt,
           charges: data.charges || 0,
+          ccf1Fee: ccf1Fee,
           billerName: selectedBiller.billerName,
           date: new Date().toLocaleString(),
           consumerDetails: formInputs
@@ -1011,9 +1043,15 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                 <span>Transaction Charges</span>
                                 <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                               </div>
+                              {ccf1Fee > 0 && (
+                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                  <span>Convenience Fee (CCF1 + GST)</span>
+                                  <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              )}
                               <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
                                 <span>Total Debited</span>
-                                <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                               </div>
                             </div>
                           )}
@@ -1084,9 +1122,15 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                 <span>Transaction Charges</span>
                                 <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                               </div>
+                              {ccf1Fee > 0 && (
+                                <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                  <span>Convenience Fee (CCF1 + GST)</span>
+                                  <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              )}
                               <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
                                 <span>Total Debited</span>
-                                <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                               </div>
                             </div>
                           )}
@@ -1125,7 +1169,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                     <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">BBPS Receipt</span>
                   </div>
                   <div className="text-2xl font-black text-slate-800 mt-4">
-                    ₹{receipt.amount.toFixed(2)}
+                    ₹{(receipt.amount + (receipt.charges || 0) + (receipt.ccf1Fee || 0)).toFixed(2)}
                   </div>
                   <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
                 </div>
@@ -1141,7 +1185,25 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                       <span className="font-black text-slate-800 text-right">{String(val)}</span>
                     </div>
                   ))}
-                  <div className="flex justify-between">
+                  <div className="border-t border-slate-100 pt-3 space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Base Amount</span>
+                      <span className="font-black text-slate-850 text-right">₹{receipt.amount.toFixed(2)}</span>
+                    </div>
+                    {receipt.charges > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Charges</span>
+                        <span className="font-black text-slate-850 text-right">₹{receipt.charges.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {receipt.ccf1Fee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Convenience Fee</span>
+                        <span className="font-black text-slate-850 text-right">₹{receipt.ccf1Fee.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex justify-between border-t border-slate-100 pt-3">
                     <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Ref</span>
                     <span className="font-black text-slate-800 font-mono text-[10px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
                       {receipt.txnid}

@@ -276,7 +276,8 @@ export async function payBill(
   customerMobile: string,
   amount: number,
   paymentMode: string = 'UPI',
-  quickPay: string = 'N'
+  quickPay: string = 'N',
+  ccf1?: number // CCF1 + GST in paisa
 ): Promise<any> {
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
@@ -303,6 +304,7 @@ export async function payBill(
         <amount>${amountInPaise}</amount>
         <currency>INR</currency>
         <custConvFee>0</custConvFee>
+        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
     </amountInfo>
     <paymentMethod>
         <paymentMode>${paymentMode}</paymentMode>
