@@ -88,6 +88,7 @@ export default function Settings() {
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [permissionState, setPermissionState] = useState<string>('Detecting...');
   const [testLoading, setTestLoading] = useState(false);
   const [whatsappTestLoading, setWhatsappTestLoading] = useState(false);
   const [testWA, setTestWA] = useState('');
@@ -188,11 +189,15 @@ export default function Settings() {
             let hasPermission = false;
             let hasSubscription = false;
             let pushId = null;
+            let perm = 'default';
 
             // Check Notifications namespace
             if (OneSignal.Notifications) {
-              hasPermission = OneSignal.Notifications.permission === 'granted';
+              perm = OneSignal.Notifications.permission;
+              hasPermission = perm === 'granted';
             }
+            
+            setPermissionState(perm);
             
             // Check User namespace
             if (OneSignal.User?.PushSubscription) {
@@ -807,8 +812,13 @@ export default function Settings() {
                     <p className="text-xs text-slate-500">
                       {isSubscribed 
                         ? `Your Unique Player ID: ${playerId || 'Detecting...'}` 
-                        : 'Run this on your mobile to receive alerts.'}
+                        : `Permission Status: ${permissionState === 'default' ? 'Not Asked Yet' : permissionState === 'denied' ? 'Blocked/Denied' : permissionState}`}
                     </p>
+                    {permissionState === 'denied' && (
+                      <p className="text-[10px] text-rose-600 font-bold mt-1.5 bg-rose-50 px-2 py-1 rounded-lg border border-rose-100/50">
+                        ⚠️ iPhone Settings {'>'} Notifications {'>'} સફારી (Safari) માં જઈને પરમિશન "Allow" કરો.
+                      </p>
+                    )}
                   </div>
                 </div>
                 <button
