@@ -867,27 +867,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         billAmount: ''
       });
 
-      // 3. Notify Admin about the new Bill Payment
-      const { error: nError } = await supabase
-        .from('notifications')
-        .insert([{
-          target_role: 'admin',
-          title: 'New Bill Payment Request',
-          message: `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a bill payment of ₹${billAmountNum}.`,
-          link: '/bill-payment-requests'
-        }]);
-
-      if (nError) {
-        console.error('Bill Notification Error (Admin):', nError);
-      } else {
-        console.log('Bill Notification sent to admin!');
-        // 4. Send Push Notification to Admin (Mobile)
-        sendAdminPushNotification(
-          'New Bill Payment Request 💳',
-          `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a bill payment of ₹${billAmountNum}.`,
-          '/bill-payment-requests'
-        );
-      }
+      // 3. Send Push Notification to Admin (Mobile & In-App)
+      sendAdminPushNotification(
+        'New Bill Payment Request 💳',
+        `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a bill payment of ₹${billAmountNum}.`,
+        '/bill-payment-requests'
+      );
     } catch (err: any) {
       console.error('Error submitting bill:', err);
       setError(err.message || 'Failed to submit bill payment.');
@@ -1106,27 +1091,12 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setTPlusOne(false);
       fetchTodayT1Sum();
 
-      // 4. Notify Admin about the new QR Payment
-      const { error: nError } = await supabase
-        .from('notifications')
-        .insert([{
-          target_role: 'admin',
-          title: 'New QR Payment Request',
-          message: `User ${userProfile?.firm_name || userProfile?.name || userId} submitted a QR payment of ₹${amountNum}.`,
-          link: '/qr-payment-requests'
-        }]);
-
-      if (nError) {
-        console.error('QR Notification Error (Admin):', nError);
-      } else {
-        console.log('QR Notification sent to admin!');
-        // 5. Send Push Notification to Admin (Mobile)
-        sendAdminPushNotification(
-          'New QR Payment Request 🔔',
-          `User ${userProfile?.firm_name || userProfile?.name || userId} submitted ₹${amountNum}. Review now!`,
-          '/qr-payment-requests'
-        );
-      }
+      // 4. Send Push Notification to Admin (Mobile & In-App)
+      sendAdminPushNotification(
+        'New QR Payment Request 🔔',
+        `User ${userProfile?.firm_name || userProfile?.name || userId} submitted ₹${amountNum}. Review now!`,
+        '/qr-payment-requests'
+      );
     } catch (err: any) {
       console.error('Error submitting payment:', err);
       setError(err.message || 'Failed to submit payment. Please try again.');

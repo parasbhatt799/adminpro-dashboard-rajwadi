@@ -280,6 +280,20 @@ async function startServer() {
 
       // 1. Server-side discovery of Admin IDs if targeted
       if (target === 'admins') {
+        try {
+          await supabaseAdmin
+            .from('notifications')
+            .insert([{
+              target_role: 'admin',
+              title,
+              message,
+              link: link || null
+            }]);
+          console.log('[Push] Admin database notification inserted successfully.');
+        } catch (dbErr) {
+          console.error('[Push] Failed to insert admin database notification:', dbErr);
+        }
+
         const { data: admins, error } = await supabaseAdmin
           .from('admin_profiles')
           .select('mobile_number, onesignal_id');
