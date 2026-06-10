@@ -30,7 +30,8 @@ import {
   Eye,
   EyeOff,
   AlertCircle,
-  Loader2
+  Loader2,
+  Sparkles
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
@@ -96,66 +97,76 @@ const getBankLogoUrl = (bankName: string) => {
 };
 
 // Preset mapping for beautiful icons and gradients per category
-const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradient: string, shadow: string, border: string }> = {
+const CATEGORY_STYLE_MAP: Record<string, { icon: React.ComponentType<any>, gradient: string, shadow: string, border: string, desc: string }> = {
   "Electricity": {
     icon: Lightbulb,
     gradient: "from-amber-400 to-orange-500",
     shadow: "shadow-amber-500/10",
-    border: "border-amber-100"
+    border: "border-amber-100",
+    desc: "Pay state power bills"
   },
   "DTH": {
     icon: Tv,
     gradient: "from-blue-400 to-indigo-600",
     shadow: "shadow-blue-500/10",
-    border: "border-blue-100"
+    border: "border-blue-100",
+    desc: "Pay DTH / TV subscription"
   },
   "Mobile Postpaid": {
     icon: Smartphone,
     gradient: "from-emerald-400 to-teal-600",
     shadow: "shadow-emerald-500/10",
-    border: "border-emerald-100"
+    border: "border-emerald-100",
+    desc: "Pay postpaid mobile bills"
   },
   "Broadband": {
     icon: Wifi,
     gradient: "from-purple-400 to-pink-600",
     shadow: "shadow-purple-500/10",
-    border: "border-purple-100"
+    border: "border-purple-100",
+    desc: "High-speed internet bills"
   },
   "Gas": {
     icon: Flame,
     gradient: "from-red-400 to-rose-600",
     shadow: "shadow-red-500/10",
-    border: "border-red-100"
+    border: "border-red-100",
+    desc: "Piped gas & cylinder booking"
   },
   "Water": {
     icon: Droplets,
     gradient: "from-cyan-400 to-blue-600",
     shadow: "shadow-cyan-500/10",
-    border: "border-cyan-100"
+    border: "border-cyan-100",
+    desc: "Pay municipal water bills"
   },
   "Landline": {
     icon: PhoneCall,
     gradient: "from-violet-400 to-fuchsia-600",
     shadow: "shadow-violet-500/10",
-    border: "border-violet-100"
+    border: "border-violet-100",
+    desc: "Pay landline telephone bills"
   },
   "Fastag": {
     icon: Tag,
     gradient: "from-sky-400 to-indigo-600",
     shadow: "shadow-sky-500/10",
-    border: "border-sky-100"
+    border: "border-sky-100",
+    desc: "Recharge toll fastag tags"
   },
   "Credit Card": {
     icon: CreditCard,
     gradient: "from-pink-400 to-rose-600",
     shadow: "shadow-rose-500/10",
-    border: "border-rose-100"
+    border: "border-rose-100",
+    desc: "Pay credit card bills instantly"
   },
   "default": {
     icon: Layers,
     gradient: "from-slate-400 to-slate-600",
     shadow: "shadow-slate-500/10",
-    border: "border-slate-100"
+    border: "border-slate-100",
+    desc: "Pay other utility bills"
   }
 };
 
@@ -921,589 +932,586 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="space-y-8 select-none max-w-4xl mx-auto">
+    <div className="space-y-8 select-none max-w-6xl mx-auto p-4">
 
-      {/* Dynamic Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-slate-50 border border-slate-200 p-8 rounded-[32px] shadow-sm relative overflow-hidden">
+      {/* Dynamic Print Receipt Style */}
+      <AnimatePresence>
+        {step === 4 && receipt && (
+          <style dangerouslySetInnerHTML={{
+            __html: `
+            @media print {
+              body * { visibility: hidden !important; }
+              #receipt-print-area, #receipt-print-area * { visibility: visible !important; }
+              #receipt-print-area {
+                position: absolute !important;
+                left: 50% !important;
+                top: 0 !important;
+                transform: translateX(-50%) !important;
+                width: 100% !important;
+                max-width: 400px !important;
+                border: none !important;
+                padding: 0 !important;
+                background: white !important;
+              }
+            }
+          `}} />
+        )}
+      </AnimatePresence>
 
-        <div className="relative z-10 flex items-center gap-4">
-          <div className="w-14 h-14  rounded-2xl flex items-center justify-center  shadow-sm shrink-0">
-            <img src="/bbps_logo.png" className="w-10 h-10 object-contain" alt="BBPS Logo" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-800">BBPS Utility Payments</h2>
-            <p className="text-slate-500 text-sm mt-0.5">Pay electricity, gas, Credit Cards bills instantly.</p>
-          </div>
+      {/* Header card with current balance */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-8 rounded-[32px] border border-slate-700/50 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="relative z-10 space-y-2">
+          <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 w-fit">
+            <Sparkles size={12} className="animate-spin-slow" />
+            Live Gateway
+          </span>
+          <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+            <Receipt className="text-indigo-400" size={32} />
+            Live BBPS Payments
+          </h2>
+          <p className="text-slate-400 max-w-md text-sm leading-relaxed">
+            Pay electricity, gas, Credit Cards bills instantly with secure real-time verification.
+          </p>
         </div>
 
-        {/* Bharat Connect Logo */}
-        <img
-          src="/bharat_connect.png"
-          alt="Bharat Connect"
-          className="h-10 md:h-12 object-contain relative z-10 shrink-0 select-none pointer-events-none"
-        />
+        <div className="relative z-10 flex gap-4">
+          <div className="flex items-center gap-3.5 bg-white/5 backdrop-blur-md px-6 py-4 rounded-3xl border border-white/10 shadow-inner">
+            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400 shadow-md">
+              <Wallet size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Balance</p>
+              <p className="text-xl font-black text-white">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Main interaction screen */}
-      <div className="bg-white rounded-[32px] border border-slate-200 shadow-sm p-8 pb-16 relative overflow-hidden min-h-[50vh]">
-
-        <AnimatePresence mode="wait">
-
-          {/* STEP 1: CATEGORIES SELECTION */}
-          {step === 1 && (
-            <motion.div
-              key="categories"
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              className="space-y-8"
+      {/* Main Workflow container */}
+      <div className="bg-white rounded-[36px] border border-slate-200 shadow-md overflow-hidden min-h-[500px]">
+        {/* Step Header */}
+        <div className="bg-slate-50 border-b border-slate-100 px-8 py-4 flex items-center gap-3">
+          {step > 1 && (
+            <button
+              onClick={() => {
+                if (step === 2) {
+                  setStep(1);
+                  setSelectedCategory(null);
+                } else if (step === 3) {
+                  setStep(2);
+                  setBillDetails(null);
+                } else if (step === 4) {
+                  resetForm();
+                }
+              }}
+              className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-900 cursor-pointer"
             >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <h3 className="text-lg font-black text-slate-800">Select Bill Category</h3>
-              </div>
-
-              {apiError && (
-                <div className="bg-rose-50 border border-rose-100 text-rose-600 p-4 rounded-2xl flex items-start gap-3">
-                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                  <div className="text-xs font-bold leading-relaxed">{apiError}</div>
-                </div>
-              )}
-
-              {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading bill categories...</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-6">
-                  {categories.map((cat) => {
-                    const style = CATEGORY_STYLE_MAP[cat.cat_name] ||
-                      (cat.cat_name.toLowerCase().includes("gas") ? CATEGORY_STYLE_MAP["Gas"] : null) ||
-                      (cat.cat_name.toLowerCase().includes("broadband") ? CATEGORY_STYLE_MAP["Broadband"] : null) ||
-                      (cat.cat_name.toLowerCase().includes("fastag") || cat.cat_name.toLowerCase().includes("fast tag") ? CATEGORY_STYLE_MAP["Fastag"] : null) ||
-                      (cat.cat_name.toLowerCase().includes("credit card") ? CATEGORY_STYLE_MAP["Credit Card"] : null) ||
-                      CATEGORY_STYLE_MAP["default"];
-                    const Icon = style.icon;
-
-                    return (
-                      <motion.button
-                        key={cat.cat_id}
-                        whileHover={{ scale: 1.03, y: -2 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => handleSelectCategory(cat)}
-                        className={`bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 p-6 rounded-3xl text-center flex flex-col items-center transition-all ${style.shadow} relative group cursor-pointer`}
-                      >
-                        <div className={`w-14 h-14 bg-gradient-to-br ${style.gradient} rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg group-hover:scale-110 transition-transform`}>
-                          <Icon size={24} />
-                        </div>
-                        <span className="text-sm font-black text-slate-800 tracking-tight leading-snug line-clamp-1">{cat.cat_name}</span>
-                        <div className={`absolute bottom-3 right-3 text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all opacity-0 group-hover:opacity-100`}>
-                          <ChevronRight size={16} />
-                        </div>
-                      </motion.button>
-                    );
-                  })}
-                </div>
-              )}
-            </motion.div>
+              <ArrowLeft size={18} />
+            </button>
           )}
+          <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
+            Step {step} of 4: {
+              step === 1 ? 'Select Utility Service' :
+              step === 2 ? `Select ${selectedCategory?.cat_name || 'Utility'} Provider` :
+              step === 3 ? `Enter Account Details` :
+              'Receipt generated'
+            }
+          </span>
+        </div>
 
-          {/* STEP 2: BILLER SELECTION */}
-          {step === 2 && (
-            <motion.div
-              key="billers"
-              initial={{ opacity: 0, x: 15 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -15 }}
-              className="space-y-6"
-            >
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-4 flex-wrap sm:flex-nowrap">
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => setStep(1)}
-                    className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
-                  >
-                    <ArrowLeft size={20} />
-                  </button>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-800">Select Operator</h3>
-                    <p className="text-xs text-slate-400 mt-0.5">Category: {selectedCategory?.cat_name}</p>
+        {/* Step Contents */}
+        <div className="p-8">
+          <AnimatePresence mode="wait">
+
+            {/* STEP 1: CATEGORIES SELECTION */}
+            {step === 1 && (
+              <motion.div
+                key="categories"
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                className="space-y-6"
+              >
+                <h3 className="text-lg font-black text-slate-800 tracking-tight">Select a category to begin</h3>
+
+                {apiError && (
+                  <div className="bg-rose-50 border border-rose-100 text-rose-600 p-4 rounded-2xl flex items-start gap-3">
+                    <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                    <div className="text-xs font-bold leading-relaxed">{apiError}</div>
+                  </div>
+                )}
+
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-3">
+                    <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading categories...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {categories.map((cat) => {
+                      const style = CATEGORY_STYLE_MAP[cat.cat_name] ||
+                        (cat.cat_name.toLowerCase().includes("gas") ? CATEGORY_STYLE_MAP["Gas"] : null) ||
+                        (cat.cat_name.toLowerCase().includes("broadband") ? CATEGORY_STYLE_MAP["Broadband"] : null) ||
+                        (cat.cat_name.toLowerCase().includes("fastag") || cat.cat_name.toLowerCase().includes("fast tag") ? CATEGORY_STYLE_MAP["Fastag"] : null) ||
+                        (cat.cat_name.toLowerCase().includes("credit card") ? CATEGORY_STYLE_MAP["Credit Card"] : null) ||
+                        CATEGORY_STYLE_MAP["default"];
+                      const Icon = style.icon;
+
+                      return (
+                        <button
+                          key={cat.cat_id}
+                          onClick={() => handleSelectCategory(cat)}
+                          className="group flex flex-col items-start p-6 rounded-3xl border border-slate-100 hover:border-indigo-100 bg-slate-50/50 hover:bg-indigo-50/20 transition-all text-left shadow-sm hover:shadow-md cursor-pointer relative overflow-hidden"
+                        >
+                          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-bl-full pointer-events-none group-hover:scale-105 transition-transform"></div>
+                          <div className={`w-12 h-12 bg-gradient-to-r ${style.gradient} text-white rounded-2xl flex items-center justify-center mb-4 shadow-lg`}>
+                            <Icon size={22} />
+                          </div>
+                          <h4 className="font-black text-slate-800 text-sm flex items-center gap-1">
+                            {cat.cat_name}
+                            <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 translate-x-[-4px] group-hover:translate-x-0 transition-all" />
+                          </h4>
+                          <p className="text-xs text-slate-500 mt-1.5">{style.desc}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {/* STEP 2: BILLER SELECTION */}
+            {step === 2 && (
+              <motion.div
+                key="billers"
+                initial={{ opacity: 0, x: 15 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -15 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <h3 className="text-lg font-black text-slate-800 tracking-tight">
+                    {selectedCategory?.cat_name} Providers
+                  </h3>
+                  <div className="relative w-full max-w-sm">
+                    <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search providers..."
+                      value={searchBillerQuery}
+                      onChange={(e) => setSearchBillerQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all shadow-inner"
+                    />
                   </div>
                 </div>
 
-                {/* Biller Search Bar */}
-                <div className="relative w-full sm:w-72 shrink-0">
-                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search operator..."
-                    value={searchBillerQuery}
-                    onChange={(e) => setSearchBillerQuery(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 outline-none rounded-2xl pl-10 pr-4 py-2 text-xs font-bold text-slate-700 transition-colors"
-                  />
-                </div>
-              </div>
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-3">
+                    <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading operators...</p>
+                  </div>
+                ) : filteredBillers.length === 0 ? (
+                  <div className="text-center py-16 text-slate-400 space-y-2">
+                    <HelpCircle size={32} className="mx-auto text-slate-300" />
+                    <p className="text-xs font-black text-slate-600 font-bold">No operators found matching search query.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[450px] overflow-y-auto pr-2 no-scrollbar">
+                    {filteredBillers.map((biller) => (
+                      <button
+                        key={biller.biller_id}
+                        onClick={() => handleSelectBiller(biller)}
+                        className="p-5 rounded-2xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 text-left transition-all flex items-center justify-between group cursor-pointer shadow-sm"
+                      >
+                        <div className="flex items-center gap-3 max-w-[85%]">
+                          <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 overflow-hidden relative group-hover:bg-indigo-50 transition-colors shadow-sm">
+                            {getBankLogoUrl(biller.biller_name) ? (
+                              <img
+                                src={getBankLogoUrl(biller.biller_name) || ''}
+                                alt=""
+                                className="w-full h-full object-contain p-1.5"
+                                onError={(e) => {
+                                  (e.target as HTMLElement).style.display = 'none';
+                                  const fallbackEl = (e.target as HTMLElement).nextElementSibling;
+                                  if (fallbackEl) fallbackEl.classList.remove('hidden');
+                                }}
+                              />
+                            ) : null}
+                            <span className={`${getBankLogoUrl(biller.biller_name) ? 'hidden' : ''} text-indigo-500 font-black text-xs`}>
+                              {biller.biller_name.charAt(0)}
+                            </span>
+                          </div>
+                          <div className="space-y-0.5">
+                            <p className="text-xs font-black text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{biller.biller_name}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{biller.biller_id}</p>
+                          </div>
+                        </div>
+                        <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </motion.div>
+            )}
 
-              {loading ? (
-                <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Loading operators...</p>
-                </div>
-              ) : filteredBillers.length === 0 ? (
-                <div className="text-center py-16 text-slate-400 space-y-3">
-                  <HelpCircle size={40} className="mx-auto text-slate-300" />
-                  <p className="text-sm font-bold">No operators found matching search query.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[450px] overflow-y-auto pr-2 no-scrollbar">
-                  {filteredBillers.map((biller) => (
-                    <button
-                      key={biller.biller_id}
-                      onClick={() => handleSelectBiller(biller)}
-                      className="w-full text-left bg-white hover:bg-indigo-50/20 border border-slate-200 hover:border-indigo-100 p-4 rounded-2xl flex items-center justify-between group transition-all cursor-pointer"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 overflow-hidden relative group-hover:bg-indigo-50 transition-colors shadow-sm">
-                          {getBankLogoUrl(biller.biller_name) ? (
+            {/* STEP 3: DYNAMIC FORM / FETCH BILL */}
+            {step === 3 && selectedBiller && (
+              <motion.div
+                key="bill-form"
+                initial={{ opacity: 0, x: 15 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -15 }}
+                className="space-y-6"
+              >
+                {apiError && (
+                  <div className="bg-rose-50 border border-rose-100 text-rose-600 p-4 rounded-2xl flex items-start gap-3">
+                    <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+                    <div className="text-xs font-bold leading-relaxed">{apiError}</div>
+                  </div>
+                )}
+
+                {loading && !billDetails ? (
+                  <div className="flex flex-col items-center justify-center py-20 gap-3">
+                    <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Waking up secure channel...</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Left Column: Form Inputs */}
+                    <div className="lg:col-span-7 space-y-6">
+                      <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-slate-50 border border-slate-100 rounded-xl flex items-center justify-center text-indigo-500 font-black text-xs shrink-0 overflow-hidden relative shadow-sm">
+                          {getBankLogoUrl(selectedBiller.biller_name) ? (
                             <img
-                              src={getBankLogoUrl(biller.biller_name) || ''}
+                              src={getBankLogoUrl(selectedBiller.biller_name) || ''}
                               alt=""
                               className="w-full h-full object-contain p-1.5"
-                              onError={(e) => {
-                                (e.target as HTMLElement).style.display = 'none';
-                                const fallbackEl = (e.target as HTMLElement).nextElementSibling;
-                                if (fallbackEl) fallbackEl.classList.remove('hidden');
-                              }}
                             />
-                          ) : null}
-                          <span className={`${getBankLogoUrl(biller.biller_name) ? 'hidden' : ''} text-indigo-500 font-black text-xs`}>
-                            {biller.biller_name.charAt(0)}
-                          </span>
+                          ) : (
+                            <span className="text-indigo-500 font-black text-xs">
+                              {selectedBiller.biller_name.charAt(0)}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-sm font-bold text-slate-800 line-clamp-1">{biller.biller_name}</span>
+                        <div>
+                          <h4 className="text-xs font-black text-slate-800 leading-none">{selectedBiller.biller_name}</h4>
+                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-1">{selectedCategory?.cat_name}</p>
+                        </div>
                       </div>
-                      <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-500 group-hover:translate-x-0.5 transition-all" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
 
-          {/* STEP 3: DYNAMIC FORM / FETCH BILL */}
-          {step === 3 && (
-            <motion.div
-              key="bill-form"
-              initial={{ opacity: 0, x: 15 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -15 }}
-              className="space-y-6"
-            >
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                <button
-                  onClick={() => {
-                    setStep(2);
-                    setBillDetails(null);
-                  }}
-                  className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <ArrowLeft size={20} />
-                </button>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800">Enter Bill Details</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">{selectedBiller?.biller_name}</p>
-                </div>
-              </div>
-
-              {apiError && (
-                <div className="bg-rose-50 border border-rose-100 text-rose-600 p-4 rounded-2xl flex items-start gap-3">
-                  <AlertTriangle size={18} className="shrink-0 mt-0.5" />
-                  <div className="text-xs font-bold leading-relaxed">{apiError}</div>
-                </div>
-              )}
-
-              {loading && !billDetails ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-3">
-                  <div className="w-10 h-10 border-4 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin"></div>
-                  <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Waking up secure channel...</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-
-                  {/* Dynamic Fields Left Column */}
-                  <form onSubmit={handleFetchBill} className="space-y-5">
-                    <div className="space-y-4">
-                      {inputParams.map((param) => (
-                        <div key={param.paramName} className="space-y-2">
-                          <label className="text-xs font-black text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                            {param.paramName}
-                            {!param.optional && <span className="text-rose-500 font-bold">*</span>}
-                          </label>
-                          <input
-                            type={param.dataType === 'NUMERIC' ? 'number' : 'text'}
-                            required={!param.optional}
-                            value={formInputs[param.paramName] || ''}
-                            onChange={(e) => handleInputChange(param.paramName, e.target.value)}
-                            disabled={loading || billDetails !== null}
-                            placeholder={`Enter ${param.paramName.toLowerCase()}`}
-                            className="w-full bg-slate-50 border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-medium text-slate-800 disabled:opacity-50 transition-colors"
-                          />
-                        </div>
-                      ))}
-                    </div>
-
-                    {!billDetails && (
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                      >
-                        {loading ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                            Fetching Bill...
-                          </>
-                        ) : (
-                          "Fetch Bill Details"
-                        )}
-                      </button>
-                    )}
-                  </form>
-
-                  {/* Right Column: Bill Details Result or QuickPay fallback */}
-                  <div className="flex flex-col justify-center">
-                    {billDetails ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="bg-slate-50 border border-slate-200 rounded-[24px] p-6 space-y-6"
-                      >
-                        <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
-                          <div>
-                            <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase tracking-wider">Verified Info</span>
-                            <h4 className="text-sm font-black text-slate-800 mt-2">{billDetails.customerName}</h4>
+                      <form onSubmit={handleFetchBill} className="space-y-4">
+                        {inputParams.map((param, idx) => (
+                          <div key={idx} className="space-y-1.5">
+                            <label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
+                              {param.paramName}
+                              {!param.optional && <span className="text-rose-500">*</span>}
+                            </label>
+                            <input
+                              type={param.dataType === 'NUMERIC' ? 'number' : 'text'}
+                              required={!param.optional}
+                              value={formInputs[param.paramName] || ''}
+                              onChange={(e) => handleInputChange(param.paramName, e.target.value)}
+                              disabled={loading || billDetails !== null}
+                              className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all bg-white disabled:opacity-50"
+                              placeholder={`Enter ${param.paramName.toLowerCase()}`}
+                            />
                           </div>
+                        ))}
+
+                        {!billDetails && (
                           <button
-                            onClick={() => {
-                              setBillDetails(null);
-                              setManualAmount('');
-                            }}
-                            className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-all"
-                          >
-                            <X size={16} />
-                          </button>
-                        </div>
-
-                        {billDetails.fetchSupported ? (
-                          // Paid Amount display
-                          <div className="space-y-4">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
-                              <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                            </div>
-
-                            <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
-                              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                              <input
-                                type="number"
-                                required
-                                value={manualAmount}
-                                onChange={(e) => setManualAmount(e.target.value)}
-                                placeholder="Enter exact amount to pay"
-                                className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                              />
-                            </div>
-
-                            {/* Dynamic Premium Breakdown */}
-                            {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                              Number(manualAmount) > bbpsMaxLimit ? (
-                                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
-                                  <AlertTriangle size={16} className="shrink-0" />
-                                  <span>Amount exceeds maximum BBPS limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
-                                </div>
-                              ) : (
-                                <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                    <span>Bill Base Amount</span>
-                                    <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                    <span>Transaction Charges</span>
-                                    <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
-                                  <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                    <span>Total Debited</span>
-                                    <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
-                                </div>
-                              )
-                            )}
-
-                            {billDetails.dueDate && (
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
-                                <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
-                              </div>
-                            )}
-                            {billDetails.billNumber && billDetails.billNumber !== "NA" && (
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
-                                <span className="font-bold text-slate-600">{billDetails.billNumber}</span>
-                              </div>
-                            )}
-                            {billDetails.billDate && billDetails.billDate !== "NA" && (
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
-                                <span className="font-bold text-slate-600">{billDetails.billDate}</span>
-                              </div>
-                            )}
-                            {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
-                              <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
-                                <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
-                              </div>
-                            )}
-                            {billDetails.additionalInfo && billDetails.additionalInfo
-                              .filter((info) => info.infoName.toLowerCase() !== "maximum permissible amount")
-                              .map((info) => (
-                                <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
-                                  <span className="text-slate-400 font-bold uppercase tracking-wider">{info.infoName}</span>
-                                  <span className="font-bold text-slate-600">
-                                    {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
-                                      ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                      : info.infoValue}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        ) : (
-                          // Manual entry (QuickPay)
-                          <div className="space-y-4">
-                            <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
-                              <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                              <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
-                            </div>
-                            <div className="space-y-2">
-                              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                              <input
-                                type="number"
-                                required
-                                value={manualAmount}
-                                onChange={(e) => setManualAmount(e.target.value)}
-                                placeholder="Enter exact amount to pay"
-                                className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                              />
-                            </div>
-
-                            {/* Dynamic Premium Breakdown */}
-                            {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                              Number(manualAmount) > bbpsMaxLimit ? (
-                                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
-                                  <AlertTriangle size={16} className="shrink-0" />
-                                  <span>Amount exceeds maximum BBPS limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
-                                </div>
-                              ) : (
-                                <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                    <span>Bill Base Amount</span>
-                                    <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
-                                  <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                    <span>Transaction Charges</span>
-                                    <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
-                                  <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                    <span>Total Debited</span>
-                                    <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
-                                </div>
-                              )
-                            )}
-                          </div>
-                        )}
-
-                        {/* Payment Button */}
-                        <div className="pt-2">
-                          <button
-                            type="button"
-                            onClick={handlePrePayCheck}
-                            disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
-                            className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
-                              lockoutSeconds > 0
-                                ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
-                                : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
-                            }`}
+                            type="submit"
+                            disabled={loading}
+                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 flex items-center justify-center gap-2 cursor-pointer"
                           >
                             {loading ? (
                               <>
                                 <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
-                                Paying Bill...
+                                Fetching details...
                               </>
-                            ) : lockoutSeconds > 0 ? (
-                              `Locked (${Math.floor(lockoutSeconds / 60)}m ${lockoutSeconds % 60}s)`
                             ) : (
-                              "Pay Now"
+                              'Fetch Bill Details'
                             )}
                           </button>
-                        </div>
-
-                      </motion.div>
-                    ) : (
-                      // Waiting placeholder state
-                      <div className="border border-dashed border-slate-200 rounded-[24px] p-8 text-center text-slate-400 space-y-4">
-                        <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
-                          <HelpCircle size={20} />
-                        </div>
-                        <div>
-                          <h4 className="text-sm font-black text-slate-700">Billing details lookup</h4>
-                          <p className="text-xs text-slate-400 leading-relaxed mt-1.5 max-w-[240px] mx-auto">
-                            Fill out the operator parameters and click "Fetch Bill Details" to check consumer details.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* STEP 4: SUCCESS RECEIPT SCREEN */}
-          {step === 4 && receipt && (
-            <motion.div
-              key="success-receipt"
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="space-y-8 flex flex-col items-center justify-center py-6"
-            >
-              {/* Inject pristine print-only styles */}
-              <style dangerouslySetInnerHTML={{
-                __html: `
-                @media print {
-                  body * {
-                    visibility: hidden !important;
-                  }
-                  #bbps-receipt, #bbps-receipt * {
-                    visibility: visible !important;
-                  }
-                  #bbps-receipt {
-                    position: absolute !important;
-                    left: 50% !important;
-                    top: 20px !important;
-                    transform: translateX(-50%) !important;
-                    width: 100% !important;
-                    max-width: 450px !important;
-                    border: none !important;
-                    box-shadow: none !important;
-                    padding: 0 !important;
-                    margin: 0 !important;
-                    background: white !important;
-                  }
-                  html, body {
-                    background: white !important;
-                    margin: 0 !important;
-                    padding: 0 !important;
-                  }
-                }
-              `}} />
-              <div className="text-center space-y-3">
-                <div className="w-20 h-20 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center text-emerald-600 mx-auto shadow-inner animate-bounce">
-                  <CheckCircle2 size={44} />
-                </div>
-                <div>
-                  <h3 className="text-2xl font-black text-slate-900">Utility Bill Paid!</h3>
-                  <p className="text-slate-500 text-sm mt-0.5">Your utility bill transaction was successfully executed.</p>
-                </div>
-              </div>
-
-              {/* Slate Detailed Receipt Card */}
-              <div id="bbps-receipt" className="w-full max-w-md bg-white border border-slate-200 rounded-[32px] p-8 shadow-xl shadow-slate-100/50 space-y-6 relative print:border-0 print:shadow-none">
-
-                {/* Print/Design Watermarks */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full flex items-center justify-center pointer-events-none">
-                  <ShieldCheck size={18} className="text-emerald-500/20 translate-x-3 -translate-y-3" />
-                </div>
-
-                <div className="text-center border-b border-dashed border-slate-200 pb-6">
-                  <div className="flex flex-col items-center justify-center gap-3">
-                    <img src="/logo_receipt.png" alt="UsePay" className="h-10 w-auto object-contain" />
-                    <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">BBPS E-Receipt</span>
-                  </div>
-                  <div className="text-3xl font-black text-slate-800 mt-4">₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
-                  <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
-                </div>
-
-                <div className="space-y-4 text-xs font-medium text-slate-600">
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Operator</span>
-                    <span className="font-black text-slate-800 text-right">{receipt.billerName}</span>
-                  </div>
-
-                  {Object.entries(receipt.consumerDetails).map(([key, val]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="text-slate-400 font-bold uppercase tracking-wider">{key}</span>
-                      <span className="font-black text-slate-800">{val}</span>
+                        )}
+                      </form>
                     </div>
-                  ))}
 
-                  <div className="flex justify-between border-t border-slate-100 pt-3">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Base Bill Amount</span>
-                    <span className="font-black text-slate-800">₹{receipt.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    {/* Right Column: Bill Details and Payment summary */}
+                    <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-8 pt-8 lg:pt-0">
+                      <div className="space-y-6">
+                        <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Bill Summary</h3>
+
+                        {!billDetails && (
+                          <div className="p-8 border border-dashed border-slate-200 rounded-3xl text-center text-slate-400 space-y-2">
+                            <HelpCircle size={24} className="mx-auto text-slate-300" />
+                            <p className="text-xs font-black text-slate-600">No Details Fetched</p>
+                            <p className="text-[10px]">Enter account parameters and click Fetch Bill Details.</p>
+                          </div>
+                        )}
+
+                        {billDetails && (
+                          <div className="bg-slate-50 border border-slate-200 rounded-[24px] p-6 space-y-6">
+                            <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
+                              <div>
+                                <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase tracking-wider">Verified Info</span>
+                                <h4 className="text-sm font-black text-slate-800 mt-2">{billDetails.customerName}</h4>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  setBillDetails(null);
+                                  setManualAmount('');
+                                }}
+                                className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-all"
+                              >
+                                <X size={16} />
+                              </button>
+                            </div>
+
+                            {billDetails.fetchSupported ? (
+                              <div className="space-y-4">
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
+                                  <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                </div>
+
+                                <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
+                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                  <input
+                                    type="number"
+                                    required
+                                    value={manualAmount}
+                                    onChange={(e) => setManualAmount(e.target.value)}
+                                    placeholder="Enter exact amount to pay"
+                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
+                                  />
+                                </div>
+
+                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                  Number(manualAmount) > bbpsMaxLimit ? (
+                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                      <AlertTriangle size={16} className="shrink-0" />
+                                      <span>Amount exceeds limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Bill Base Amount</span>
+                                        <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Transaction Charges</span>
+                                        <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                        <span>Total Debited</span>
+                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                    </div>
+                                  )
+                                )}
+
+                                {billDetails.dueDate && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
+                                    <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
+                                  </div>
+                                )}
+                                {billDetails.billNumber && billDetails.billNumber !== "NA" && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
+                                    <span className="font-bold text-slate-600">{billDetails.billNumber}</span>
+                                  </div>
+                                )}
+                                {billDetails.billDate && billDetails.billDate !== "NA" && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
+                                    <span className="font-bold text-slate-600">{billDetails.billDate}</span>
+                                  </div>
+                                )}
+                                {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
+                                    <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
+                                  </div>
+                                )}
+                                {billDetails.additionalInfo && billDetails.additionalInfo
+                                  .filter((info) => info.infoName.toLowerCase() !== "maximum permissible amount")
+                                  .map((info) => (
+                                    <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
+                                      <span className="text-slate-400 font-bold uppercase tracking-wider">{info.infoName}</span>
+                                      <span className="font-bold text-slate-600">
+                                        {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
+                                          ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                          : info.infoValue}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            ) : (
+                              <div className="space-y-4">
+                                <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
+                                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                                  <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                  <input
+                                    type="number"
+                                    required
+                                    value={manualAmount}
+                                    onChange={(e) => setManualAmount(e.target.value)}
+                                    placeholder="Enter exact amount to pay"
+                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
+                                  />
+                                </div>
+
+                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                  Number(manualAmount) > bbpsMaxLimit ? (
+                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                      <AlertTriangle size={16} className="shrink-0" />
+                                      <span>Amount exceeds limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Bill Base Amount</span>
+                                        <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Transaction Charges</span>
+                                        <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                        <span>Total Debited</span>
+                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
+
+                            <div className="pt-2">
+                              <button
+                                type="button"
+                                onClick={handlePrePayCheck}
+                                disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
+                                className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
+                                  lockoutSeconds > 0
+                                    ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
+                                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
+                                }`}
+                              >
+                                {loading ? (
+                                  <>
+                                    <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>
+                                    Paying Bill...
+                                  </>
+                                ) : lockoutSeconds > 0 ? (
+                                  `Locked (${Math.floor(lockoutSeconds / 60)}m ${lockoutSeconds % 60}s)`
+                                ) : (
+                                  "Pay Now"
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {step === 4 && receipt && (
+              <motion.div
+                key="success-receipt"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="flex flex-col items-center justify-center py-8"
+              >
+                <div className="w-full max-w-sm bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6 relative" id="receipt-print-area">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-bl-full flex items-center justify-center pointer-events-none">
+                    <ShieldCheck size={16} className="text-emerald-500/10 translate-x-2 -translate-y-2" />
                   </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Transaction Charges</span>
-                    <span className="font-black text-slate-800">₹{(receipt.charges || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <div className="text-center border-b border-dashed border-slate-100 pb-5">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <CheckCircle2 className="text-emerald-500" size={40} />
+                      <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">BBPS Receipt</span>
+                    </div>
+                    <div className="text-2xl font-black text-slate-800 mt-4">
+                      ₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
                   </div>
 
-                  <div className="flex justify-between border-t border-slate-100 pt-3">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider font-black">Total Debited</span>
-                    <span className="font-black text-emerald-600 text-sm">₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  <div className="space-y-4 text-xs font-semibold text-slate-600">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Provider</span>
+                      <span className="font-black text-slate-800 text-right">{receipt.billerName}</span>
+                    </div>
+                    {Object.entries(receipt.consumerDetails).map(([key, val]) => (
+                      <div key={key} className="flex justify-between">
+                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">{key}</span>
+                        <span className="font-black text-slate-800 text-right">{String(val)}</span>
+                      </div>
+                    ))}
+                    <div className="flex justify-between border-t border-slate-100 pt-3">
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Base Bill Amount</span>
+                      <span className="font-black text-slate-800">₹{receipt.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Charges</span>
+                      <span className="font-black text-slate-800">₹{(receipt.charges || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-100 pt-3">
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px] font-black">Total Debited</span>
+                      <span className="font-black text-emerald-600 text-sm">₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-slate-100 pt-3">
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction ID</span>
+                      <span className="font-black text-slate-800 font-mono text-[10px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
+                        {receipt.txnid}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Date & Time</span>
+                      <span className="font-black text-slate-800 text-right">{receipt.date}</span>
+                    </div>
                   </div>
 
-                  <div className="flex justify-between border-t border-slate-100 pt-3">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Transaction ID</span>
-                    <span className="font-black text-slate-800 font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">{receipt.txnid}</span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">Date & Time</span>
-                    <span className="font-black text-slate-800">{receipt.date}</span>
+                  <div className="border-t border-slate-100 pt-5 flex items-center justify-between text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none">
+                    <div className="flex items-center gap-1">
+                      <ShieldCheck size={11} className="text-emerald-500" />
+                      Secure BBPS Gateway
+                    </div>
+                    <span>Reference ID: {receipt.txnid.substring(0, 8)}</span>
                   </div>
                 </div>
 
-                <div className="border-t border-slate-100 pt-6 flex items-center justify-between text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none">
-                  <div className="flex items-center gap-1">
-                    <ShieldCheck size={12} className="text-emerald-500" />
-                    Secure BBPS Gateway
-                  </div>
-                  <span>Reference ID: {receipt.txnid.substring(0, 8)}</span>
+                <div className="mt-8 flex gap-4 w-full max-w-sm">
+                  <button
+                    onClick={() => window.print()}
+                    className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200/50"
+                  >
+                    <Printer size={14} />
+                    Print
+                  </button>
+                  <button
+                    onClick={resetForm}
+                    className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-100"
+                  >
+                    Done
+                  </button>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-4 w-full max-w-md print:hidden">
-                <button
-                  onClick={resetForm}
-                  className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-slate-100 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  Pay Another Bill
-                </button>
-                <button
-                  onClick={handlePrint}
-                  className="p-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold transition-all flex items-center justify-center shrink-0 border border-slate-200 cursor-pointer"
-                  title="Print Receipt"
-                >
-                  <Printer size={20} />
-                </button>
-              </div>
-
-            </motion.div>
-          )}
-
-        </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
         {/* 100% Secured Payment Badge */}
         <div className="absolute bottom-6 left-8 flex items-center gap-1.5 text-slate-400 font-extrabold uppercase tracking-widest text-[9px] select-none pointer-events-none print:hidden z-0">
@@ -1516,65 +1524,53 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       {/* TPIN Verification Modal */}
       <AnimatePresence>
         {showTpinModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative max-w-md w-full bg-white rounded-[32px] p-8 shadow-2xl border border-slate-100 flex flex-col gap-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowTpinModal(false)}
+              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 15 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-[32px] p-6 shadow-2xl space-y-6 border border-slate-100"
             >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-                    <Lock size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-black text-slate-800">TPIN Verification</h3>
-                    <p className="text-xs text-slate-400 mt-0.5 font-medium">Enter Transaction PIN to authorize</p>
-                  </div>
+              <div className="text-center space-y-2">
+                <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center mx-auto text-indigo-600 shadow-inner">
+                  <Lock size={20} />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowTpinModal(false)}
-                  className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  <X size={20} />
-                </button>
+                <h3 className="text-base font-black text-slate-800 uppercase tracking-tight">Security Check</h3>
+                <p className="text-slate-400 text-xs">Enter your 4-digit security TPIN to approve this payment request.</p>
               </div>
 
-              <form onSubmit={handleTpinSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="block text-xs font-black text-slate-400 uppercase tracking-[0.2em] mb-1 text-center">
-                    Enter 4-Digit TPIN
-                  </label>
-                  <div className="relative">
-                    <input
-                      type={showTpinDigits ? 'text' : 'password'}
-                      value={tpinInput}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                        setTpinInput(val);
-                      }}
-                      placeholder="••••"
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-4 text-center text-xl focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-mono tracking-[1em]"
-                      maxLength={4}
-                      disabled={tpinLoading}
-                      autoFocus
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowTpinDigits(!showTpinDigits)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                      {showTpinDigits ? <EyeOff size={20} /> : <Eye size={20} />}
-                    </button>
-                  </div>
+              <form onSubmit={handleTpinSubmit} className="space-y-4">
+                <div className="relative">
+                  <input
+                    type={showTpinDigits ? 'text' : 'password'}
+                    maxLength={4}
+                    autoFocus
+                    required
+                    value={tpinInput}
+                    onChange={(e) => setTpinInput(e.target.value.replace(/\D/g, ''))}
+                    className="w-full text-center tracking-[1.5em] text-lg font-black py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-inner text-slate-700"
+                    placeholder="••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowTpinDigits(!showTpinDigits)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showTpinDigits ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
                 </div>
 
                 {tpinError && (
-                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600">
-                    <AlertCircle size={20} className="shrink-0" />
-                    <p className="text-xs font-bold leading-tight">{tpinError}</p>
+                  <div className="p-3 bg-rose-50 rounded-xl border border-rose-100 flex items-center gap-2 text-[10px] text-rose-500 font-bold uppercase">
+                    <AlertTriangle size={14} className="shrink-0" />
+                    {tpinError}
                   </div>
                 )}
 
@@ -1595,14 +1591,14 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                     type="button"
                     onClick={() => setShowTpinModal(false)}
                     disabled={tpinLoading}
-                    className="flex-1 py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold text-sm uppercase tracking-wider transition-colors cursor-pointer"
+                    className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200/50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={tpinLoading || tpinInput.length !== 4}
-                    className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg shadow-emerald-100 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                    className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-100 disabled:opacity-50"
                   >
                     {tpinLoading ? (
                       <Loader2 className="animate-spin" size={18} />
