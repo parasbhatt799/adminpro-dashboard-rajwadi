@@ -347,17 +347,11 @@ async function startServer() {
       // 3. Target specific players if provided
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string' && uuidRegex.test(id.trim()));
-      const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
 
-      const hasValidTarget = cleanPlayerIds.length > 0 || cleanExternalIds.length > 0;
+      const hasValidTarget = cleanPlayerIds.length > 0;
 
       if (hasValidTarget) {
-        if (cleanPlayerIds.length > 0) {
-          data.include_subscription_ids = cleanPlayerIds;
-        }
-        if (cleanExternalIds.length > 0) {
-          data.include_external_user_ids = cleanExternalIds.map((id: any) => String(id));
-        }
+        data.include_subscription_ids = cleanPlayerIds;
       } else if (target === 'all' || target === 'broadcast') {
         // Only broadcast if explicitly requested via 'target' parameter
         data.included_segments = ["Subscribed Users", "All"];
