@@ -23,8 +23,10 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
 
 export default function Settings() {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,18 +185,24 @@ export default function Settings() {
       OneSignalDeferred.push(async (OneSignal: any) => {
         try {
           if (typeof OneSignal.init === 'function') {
+            let hasPermission = false;
+            let hasSubscription = false;
+            let pushId = null;
+
             // Check Notifications namespace
             if (OneSignal.Notifications) {
-              const pushEnabled = OneSignal.Notifications.permission;
-              setIsSubscribed(pushEnabled === 'granted');
+              hasPermission = OneSignal.Notifications.permission === 'granted';
             }
             
             // Check User namespace
-            if (OneSignal.User) {
-              const pushId = OneSignal.User.PushSubscription?.id;
-              if (pushId) {
-                setPlayerId(pushId);
-              }
+            if (OneSignal.User?.PushSubscription) {
+              pushId = OneSignal.User.PushSubscription.id;
+              hasSubscription = !!pushId && OneSignal.User.PushSubscription.optedIn;
+            }
+
+            setIsSubscribed(hasPermission && hasSubscription);
+            if (pushId) {
+              setPlayerId(pushId);
             }
           }
         } catch (err) {
@@ -414,12 +422,49 @@ export default function Settings() {
 
     OneSignalDeferred.push(async (OneSignal: any) => {
       try {
-        // v16 API uses .Notifications, but we should check if it's initialized
         if (OneSignal.Notifications) {
-          console.log('Opening subscription prompt (v16)...');
-          await OneSignal.Notifications.requestPermission();
+          const perm = OneSignal.Notifications.permission;
+          if (perm === 'granted') {
+            if (OneSignal.User?.PushSubscription) {
+              await OneSignal.User.PushSubscription.optIn();
+              console.log('Successfully opted-in to push subscription');
+              
+              // Direct sync to database
+              const pushId = OneSignal.User.PushSubscription.id;
+              const currentUserId = localStorage.getItem('userId');
+              if (currentUserId && pushId) {
+                // Remove duplicates
+                await supabase
+                  .from('users_profiles')
+                  .update({ onesignal_id: null })
+                  .eq('onesignal_id', pushId);
+
+                await supabase
+                  .from('admin_profiles')
+                  .update({ onesignal_id: null })
+                  .eq('onesignal_id', pushId);
+
+                const userType = localStorage.getItem('userType');
+                if (userType === 'admin') {
+                  await supabase
+                    .from('admin_profiles')
+                    .update({ onesignal_id: pushId })
+                    .eq('mobile_number', currentUserId);
+                } else {
+                  await supabase
+                    .from('users_profiles')
+                    .update({ onesignal_id: pushId })
+                    .eq('id', currentUserId);
+                }
+                console.log('Database synced manually with push ID:', pushId);
+                toast.success('Successfully subscribed to notifications!');
+              }
+            }
+          } else {
+            console.log('Opening subscription prompt (v16)...');
+            await OneSignal.Notifications.requestPermission();
+          }
         } else if (typeof OneSignal.showNativePrompt === 'function') {
-          // Fallback for older versions or transitional states
           console.log('Opening subscription prompt (Legacy)...');
           await OneSignal.showNativePrompt();
         } else {

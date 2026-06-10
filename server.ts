@@ -331,7 +331,8 @@ async function startServer() {
       };
 
       // 3. Target specific players if provided
-      const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string');
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const cleanPlayerIds = targetPlayerIds.filter((id: any) => id && typeof id === 'string' && uuidRegex.test(id.trim()));
       const cleanExternalIds = externalUserIds.filter((id: any) => id && (typeof id === 'string' || typeof id === 'number'));
 
       const hasValidTarget = cleanPlayerIds.length > 0 || cleanExternalIds.length > 0;

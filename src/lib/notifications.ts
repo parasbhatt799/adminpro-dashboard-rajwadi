@@ -6,7 +6,7 @@ export async function sendAdminPushNotification(title: string, message: string, 
   try {
     // Call our backend API directly with target: 'admins' (credentials fetched server-side)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
     const response = await fetch('/api/send-push-notification', {
       method: 'POST',
       headers: {

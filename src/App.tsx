@@ -96,50 +96,83 @@ const initOneSignal = async () => {
 
     // 2. Initialize via Deferred Queue
     OneSignalDeferred.push(async (OneSignal: any) => {
-      if (OneSignal.initialized) return;
+      try {
+        if (!OneSignal.initialized) {
+          await OneSignal.init({
+            appId: settings.app_id,
+            allowLocalhostAsSecureOrigin: true,
+            notifyButton: { enable: false },
+            serviceWorkerParam: { scope: '/' },
+            serviceWorkerPath: 'OneSignalSDKWorker.js',
+          });
+          console.log('OneSignal Web SDK Initialized successfully');
+        }
 
-      await OneSignal.init({
-        appId: settings.app_id,
-        allowLocalhostAsSecureOrigin: true,
-        notifyButton: { enable: false },
-        serviceWorkerParam: { scope: '/' },
-        serviceWorkerPath: 'OneSignalSDKWorker.js',
-      });
-      console.log('OneSignal Web SDK Initialized successfully');
-
-      // Register subscription change listener once
-      if (OneSignal.User?.PushSubscription) {
-        OneSignal.User.PushSubscription.addEventListener("change", async (event: any) => {
-          const newPushId = event.current?.id;
-          const currentUserId = localStorage.getItem('userId');
-          if (currentUserId && newPushId) {
-            // Uniqueness check: clear this pushId from other records
-            await supabase
-              .from('users_profiles')
-              .update({ onesignal_id: null })
-              .eq('onesignal_id', newPushId);
-
-            await supabase
-              .from('admin_profiles')
-              .update({ onesignal_id: null })
-              .eq('onesignal_id', newPushId);
-
-            const userType = localStorage.getItem('userType');
-            if (userType === 'admin') {
-              await supabase
-                .from('admin_profiles')
-                .update({ onesignal_id: newPushId })
-                .eq('mobile_number', currentUserId);
-              console.log('OneSignal Event Admin Sync Success:', newPushId);
-            } else {
-              await supabase
-                .from('users_profiles')
-                .update({ onesignal_id: newPushId })
-                .eq('id', currentUserId);
-              console.log('OneSignal Event User Sync Success:', newPushId);
+        const registerListener = () => {
+          if (OneSignal.User?.PushSubscription) {
+            // Prevent multiple registrations of the same sync listener
+            if ((OneSignal.User.PushSubscription as any)._hasSyncListener) {
+              return true;
             }
+
+            OneSignal.User.PushSubscription.addEventListener("change", async (event: any) => {
+              try {
+                const newPushId = event.current?.id;
+                const currentUserId = localStorage.getItem('userId');
+                console.log('OneSignal subscription change event. New ID:', newPushId);
+
+                if (currentUserId && newPushId) {
+                  // Uniqueness check: clear this pushId from other records
+                  await supabase
+                    .from('users_profiles')
+                    .update({ onesignal_id: null })
+                    .eq('onesignal_id', newPushId);
+
+                  await supabase
+                    .from('admin_profiles')
+                    .update({ onesignal_id: null })
+                    .eq('onesignal_id', newPushId);
+
+                  const userType = localStorage.getItem('userType');
+                  if (userType === 'admin') {
+                    await supabase
+                      .from('admin_profiles')
+                      .update({ onesignal_id: newPushId })
+                      .eq('mobile_number', currentUserId);
+                    console.log('OneSignal Event Admin Sync Success:', newPushId);
+                  } else {
+                    await supabase
+                      .from('users_profiles')
+                      .update({ onesignal_id: newPushId })
+                      .eq('id', currentUserId);
+                    console.log('OneSignal Event User Sync Success:', newPushId);
+                  }
+                }
+              } catch (eventErr) {
+                console.error('Error handling subscription change event:', eventErr);
+              }
+            });
+
+            (OneSignal.User.PushSubscription as any)._hasSyncListener = true;
+            console.log('OneSignal subscription change listener registered successfully');
+            return true;
           }
-        });
+          return false;
+        };
+
+        // Attempt immediate listener registration. If modules aren't ready, retry for a few seconds.
+        if (!registerListener()) {
+          let retries = 0;
+          const maxRetries = 10;
+          const interval = setInterval(() => {
+            retries++;
+            if (registerListener() || retries >= maxRetries) {
+              clearInterval(interval);
+            }
+          }, 1000);
+        }
+      } catch (innerErr) {
+        console.error('Error inside OneSignalDeferred initialization queue:', innerErr);
       }
     });
 
@@ -154,68 +187,82 @@ const syncOneSignalUser = async (currentUserId: string) => {
     if (!OneSignalDeferred) return;
 
     OneSignalDeferred.push(async (OneSignal: any) => {
-      if (currentUserId) {
-        // Always associate this device with the user's ID in OneSignal
-        OneSignal.login(currentUserId);
+      try {
+        if (currentUserId) {
+          // Always associate this device with the user's ID in OneSignal
+          OneSignal.login(currentUserId);
 
-        let attempts = 0;
-        const maxAttempts = 6;
-        const intervalTime = 2000; // 2 seconds
+          let attempts = 0;
+          const maxAttempts = 10; // Increased retry threshold
+          const intervalTime = 2000; // 2 seconds
 
-        const checkAndSync = async () => {
-          const pushId = OneSignal.User?.PushSubscription?.id;
-          if (pushId) {
-            // Clear this pushId from any other users/admins to ensure uniqueness
-            await supabase
-              .from('users_profiles')
-              .update({ onesignal_id: null })
-              .eq('onesignal_id', pushId);
+          const checkAndSync = async () => {
+            try {
+              const pushId = OneSignal.User?.PushSubscription?.id;
+              if (pushId) {
+                // Clear this pushId from any other users/admins to ensure uniqueness
+                await supabase
+                  .from('users_profiles')
+                  .update({ onesignal_id: null })
+                  .eq('onesignal_id', pushId);
 
-            await supabase
-              .from('admin_profiles')
-              .update({ onesignal_id: null })
-              .eq('onesignal_id', pushId);
+                await supabase
+                  .from('admin_profiles')
+                  .update({ onesignal_id: null })
+                  .eq('onesignal_id', pushId);
 
-            const userType = localStorage.getItem('userType');
+                const userType = localStorage.getItem('userType');
 
-            if (userType === 'admin') {
-              await supabase
-                .from('admin_profiles')
-                .update({ onesignal_id: pushId })
-                .eq('mobile_number', currentUserId);
-              console.log('OneSignal Admin Sync Success (User changed):', pushId);
-            } else {
+                if (userType === 'admin') {
+                  await supabase
+                    .from('admin_profiles')
+                    .update({ onesignal_id: pushId })
+                    .eq('mobile_number', currentUserId);
+                  console.log('OneSignal Admin Sync Success (User changed):', pushId);
+                } else {
+                  await supabase
+                    .from('users_profiles')
+                    .update({ onesignal_id: pushId })
+                    .eq('id', currentUserId);
+                  console.log('OneSignal User Sync Success (User changed):', pushId);
+                }
+              } else if (attempts < maxAttempts) {
+                attempts++;
+                setTimeout(checkAndSync, intervalTime);
+              } else {
+                console.log('OneSignal Sync: Push Subscription ID not resolved after attempts.');
+              }
+            } catch (syncErr) {
+              console.error('OneSignal checkAndSync error:', syncErr);
+            }
+          };
+
+          await checkAndSync();
+        } else {
+          // Logged out
+          try {
+            const pushId = OneSignal.User?.PushSubscription?.id;
+            if (pushId) {
               await supabase
                 .from('users_profiles')
-                .update({ onesignal_id: pushId })
-                .eq('id', currentUserId);
-              console.log('OneSignal User Sync Success (User changed):', pushId);
+                .update({ onesignal_id: null })
+                .eq('onesignal_id', pushId);
+
+              await supabase
+                .from('admin_profiles')
+                .update({ onesignal_id: null })
+                .eq('onesignal_id', pushId);
             }
-          } else if (attempts < maxAttempts) {
-            attempts++;
-            setTimeout(checkAndSync, intervalTime);
-          } else {
-            console.log('OneSignal Sync: Push Subscription ID not resolved after attempts.');
+            if (typeof OneSignal.logout === 'function') {
+              await OneSignal.logout();
+              console.log('OneSignal Cleaned (Logged Out)');
+            }
+          } catch (logoutErr) {
+            console.warn('OneSignal logout skipped/failed (likely already logged out or uninitialized):', logoutErr);
           }
-        };
-
-        await checkAndSync();
-      } else {
-        // Logged out
-        const pushId = OneSignal.User?.PushSubscription?.id;
-        if (pushId) {
-          await supabase
-            .from('users_profiles')
-            .update({ onesignal_id: null })
-            .eq('onesignal_id', pushId);
-
-          await supabase
-            .from('admin_profiles')
-            .update({ onesignal_id: null })
-            .eq('onesignal_id', pushId);
         }
-        OneSignal.logout();
-        console.log('OneSignal Cleaned (Logged Out)');
+      } catch (innerSyncErr) {
+        console.error('Error inside OneSignalDeferred sync queue:', innerSyncErr);
       }
     });
   } catch (err) {
