@@ -299,7 +299,10 @@ async function startServer() {
           .select('mobile_number, onesignal_id');
 
         if (!error && admins) {
-          const freshPlayerIds = admins.map(a => a.onesignal_id).filter(Boolean);
+          const freshPlayerIds = admins
+            .flatMap(a => (a.onesignal_id ? a.onesignal_id.split(',') : []))
+            .map(id => id.trim())
+            .filter(Boolean);
           targetPlayerIds = [...new Set([...targetPlayerIds, ...freshPlayerIds])];
 
           const discoveredExternalIds = admins.map(a => a.mobile_number).filter(Boolean);
@@ -324,10 +327,18 @@ async function startServer() {
 
         const freshPlayerIds: string[] = [];
         if (userProfiles) {
-          freshPlayerIds.push(...userProfiles.map(p => p.onesignal_id).filter(Boolean));
+          const ids = userProfiles
+            .flatMap(p => (p.onesignal_id ? p.onesignal_id.split(',') : []))
+            .map(id => id.trim())
+            .filter(Boolean);
+          freshPlayerIds.push(...ids);
         }
         if (adminProfiles) {
-          freshPlayerIds.push(...adminProfiles.map(p => p.onesignal_id).filter(Boolean));
+          const ids = adminProfiles
+            .flatMap(p => (p.onesignal_id ? p.onesignal_id.split(',') : []))
+            .map(id => id.trim())
+            .filter(Boolean);
+          freshPlayerIds.push(...ids);
         }
 
         if (freshPlayerIds.length > 0) {

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { supabase, addDevicePushId } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 
 export default function Settings() {
@@ -433,29 +433,8 @@ export default function Settings() {
               const pushId = OneSignal.User.PushSubscription.id;
               const currentUserId = localStorage.getItem('userId');
               if (currentUserId && pushId) {
-                // Remove duplicates
-                await supabase
-                  .from('users_profiles')
-                  .update({ onesignal_id: null })
-                  .eq('onesignal_id', pushId);
-
-                await supabase
-                  .from('admin_profiles')
-                  .update({ onesignal_id: null })
-                  .eq('onesignal_id', pushId);
-
-                const userType = localStorage.getItem('userType');
-                if (userType === 'admin') {
-                  await supabase
-                    .from('admin_profiles')
-                    .update({ onesignal_id: pushId })
-                    .eq('mobile_number', currentUserId);
-                } else {
-                  await supabase
-                    .from('users_profiles')
-                    .update({ onesignal_id: pushId })
-                    .eq('id', currentUserId);
-                }
+                const userType = localStorage.getItem('userType') as 'admin' | 'user';
+                await addDevicePushId(currentUserId, userType, pushId);
                 console.log('Database synced manually with push ID:', pushId);
                 toast.success('Successfully subscribed to notifications!');
               }
