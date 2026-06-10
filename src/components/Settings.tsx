@@ -414,23 +414,49 @@ export default function Settings() {
   };
 
   const handleSubscribe = async () => {
+    const OneSignal = (window as any).OneSignal;
+    
+    // Attempt direct synchronous call to satisfy Safari user-gesture policy
+    if (OneSignal && OneSignal.Notifications) {
+      try {
+        const perm = OneSignal.Notifications.permission;
+        if (perm === 'granted') {
+          if (OneSignal.User?.PushSubscription) {
+            await OneSignal.User.PushSubscription.optIn();
+            const pushId = OneSignal.User.PushSubscription.id;
+            const currentUserId = localStorage.getItem('userId');
+            if (currentUserId && pushId) {
+              const userType = localStorage.getItem('userType') as 'admin' | 'user';
+              await addDevicePushId(currentUserId, userType, pushId);
+              toast.success('Successfully subscribed to notifications!');
+            }
+          }
+        } else {
+          console.log('Requesting permission synchronously via global OneSignal...');
+          await OneSignal.Notifications.requestPermission();
+        }
+        return;
+      } catch (err: any) {
+        console.error('Direct subscription permission request error:', err);
+      }
+    }
+
     const OneSignalDeferred = (window as any).OneSignalDeferred;
     if (!OneSignalDeferred) {
       setError('OneSignal SDK not loaded. Please check your internet and refresh.');
       return;
     }
 
-    OneSignalDeferred.push(async (OneSignal: any) => {
+    OneSignalDeferred.push(async (OS: any) => {
       try {
-        if (OneSignal.Notifications) {
-          const perm = OneSignal.Notifications.permission;
+        if (OS.Notifications) {
+          const perm = OS.Notifications.permission;
           if (perm === 'granted') {
-            if (OneSignal.User?.PushSubscription) {
-              await OneSignal.User.PushSubscription.optIn();
+            if (OS.User?.PushSubscription) {
+              await OS.User.PushSubscription.optIn();
               console.log('Successfully opted-in to push subscription');
               
-              // Direct sync to database
-              const pushId = OneSignal.User.PushSubscription.id;
+              const pushId = OS.User.PushSubscription.id;
               const currentUserId = localStorage.getItem('userId');
               if (currentUserId && pushId) {
                 const userType = localStorage.getItem('userType') as 'admin' | 'user';
@@ -441,14 +467,14 @@ export default function Settings() {
             }
           } else {
             console.log('Opening subscription prompt (v16)...');
-            await OneSignal.Notifications.requestPermission();
+            await OS.Notifications.requestPermission();
           }
-        } else if (typeof OneSignal.showNativePrompt === 'function') {
+        } else if (typeof OS.showNativePrompt === 'function') {
           console.log('Opening subscription prompt (Legacy)...');
-          await OneSignal.showNativePrompt();
+          await OS.showNativePrompt();
         } else {
           setError('OneSignal is still initializing. Please wait a moment and try again.');
-          console.warn('OneSignal Notifications namespace not found yet:', OneSignal);
+          console.warn('OneSignal Notifications namespace not found yet:', OS);
         }
       } catch (err: any) {
         console.error('Subscription error:', err);
