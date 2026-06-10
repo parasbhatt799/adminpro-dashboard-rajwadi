@@ -113,9 +113,12 @@ const initOneSignal = async () => {
           if (!(OneSignal.Notifications as any)._hasForegroundListener) {
             OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
               try {
-                if (event.notification && typeof event.notification.display === 'function') {
-                  event.notification.display();
-                  console.log('Forced foreground notification display');
+                if (event.notification) {
+                  event.preventDefault(); // Stop default display behavior to prevent double notifications
+                  if (typeof event.notification.display === 'function') {
+                    event.notification.display();
+                    console.log('Forced foreground notification display');
+                  }
                 }
               } catch (fgErr) {
                 console.error('Error displaying foreground notification:', fgErr);
