@@ -108,6 +108,24 @@ const initOneSignal = async () => {
           console.log('OneSignal Web SDK Initialized successfully');
         }
 
+        // Force foreground notifications to display (show popups even if the tab is focused)
+        if (OneSignal.Notifications) {
+          if (!(OneSignal.Notifications as any)._hasForegroundListener) {
+            OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
+              try {
+                if (event.notification && typeof event.notification.display === 'function') {
+                  event.notification.display();
+                  console.log('Forced foreground notification display');
+                }
+              } catch (fgErr) {
+                console.error('Error displaying foreground notification:', fgErr);
+              }
+            });
+            (OneSignal.Notifications as any)._hasForegroundListener = true;
+            console.log('OneSignal foreground notification listener registered');
+          }
+        }
+
         const registerListener = () => {
           if (OneSignal.User?.PushSubscription) {
             // Prevent multiple registrations of the same sync listener
