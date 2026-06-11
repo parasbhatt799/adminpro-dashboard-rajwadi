@@ -180,6 +180,14 @@ export default function Settings() {
 
     const isPushSupported = () => {
       if (typeof window === 'undefined') return false;
+      
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || false;
+      
+      if (isIOS && !isStandalone) {
+        return false;
+      }
+      
       return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
     };
 
@@ -431,6 +439,14 @@ export default function Settings() {
   const handleSubscribe = async () => {
     const isPushSupported = () => {
       if (typeof window === 'undefined') return false;
+      
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || false;
+      
+      if (isIOS && !isStandalone) {
+        return false;
+      }
+      
       return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
     };
 

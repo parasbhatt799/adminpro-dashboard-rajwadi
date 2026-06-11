@@ -91,6 +91,17 @@ const logInit = (msg: string) => {
 
 export const isPushSupported = () => {
   if (typeof window === 'undefined') return false;
+  
+  // Detect iOS (iPhone/iPad)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  // Detect if running as standalone PWA
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || false;
+  
+  if (isIOS && !isStandalone) {
+    // iOS Safari outside of PWA does not support push notifications
+    return false;
+  }
+  
   return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
 };
 
