@@ -381,6 +381,9 @@ const AdminLayout = ({
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showOneSignalPopover, setShowOneSignalPopover] = useState(false);
   const [isTestingDevice, setIsTestingDevice] = useState(false);
+  const [oneSignalDebug, setOneSignalDebug] = useState<string>('Diagnostic logs initialized...');
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || false;
 
   const handleTestDeviceNotification = async () => {
     if (!playerId) {
@@ -388,6 +391,7 @@ const AdminLayout = ({
       return;
     }
     setIsTestingDevice(true);
+    setOneSignalDebug(prev => prev + '\nSending test push request for: ' + playerId);
     try {
       const response = await fetch('/api/send-push-notification', {
         method: 'POST',
@@ -402,9 +406,11 @@ const AdminLayout = ({
       const resData = await response.json();
       if (!response.ok) throw new Error(resData.error || 'Failed to send test');
       toast.success('Test alert sent! Check your phone.');
+      setOneSignalDebug(prev => prev + '\nTest push response: Success ' + JSON.stringify(resData));
     } catch (err: any) {
       console.error('Test Device Alert Error:', err);
       toast.error('Test failed: ' + err.message);
+      setOneSignalDebug(prev => prev + '\nTest push error: ' + err.message);
     } finally {
       setIsTestingDevice(false);
     }
@@ -413,7 +419,13 @@ const AdminLayout = ({
   useEffect(() => {
     const checkStatus = async () => {
       const OneSignalDeferred = (window as any).OneSignalDeferred;
-      if (!OneSignalDeferred) return;
+      if (!OneSignalDeferred) {
+        setOneSignalDebug(prev => {
+          if (!prev.includes('OneSignalDeferred missing')) return prev + '\nOneSignalDeferred missing on window';
+          return prev;
+        });
+        return;
+      }
 
       OneSignalDeferred.push(async (OneSignal: any) => {
         try {
@@ -422,6 +434,12 @@ const AdminLayout = ({
             let hasSubscription = false;
             let pushId = null;
             let perm = 'default';
+
+            setOneSignalDebug(prev => {
+              const str = `\nSDK version: ${OneSignal.sdk || 'unknown'}, initialized: ${OneSignal.initialized || 'false'}`;
+              if (!prev.includes(str)) return prev + str;
+              return prev;
+            });
 
             if (OneSignal.Notifications) {
               perm = OneSignal.Notifications.permission;
@@ -433,6 +451,11 @@ const AdminLayout = ({
             if (OneSignal.User?.PushSubscription) {
               pushId = OneSignal.User.PushSubscription.id;
               hasSubscription = !!pushId && OneSignal.User.PushSubscription.optedIn;
+              setOneSignalDebug(prev => {
+                const str = `\nSubscription: id=${pushId || 'null'}, optedIn=${OneSignal.User.PushSubscription.optedIn}`;
+                if (!prev.includes(str)) return prev + str;
+                return prev;
+              });
             }
 
             setIsSubscribed(hasPermission && hasSubscription);
@@ -440,8 +463,8 @@ const AdminLayout = ({
               setPlayerId(pushId);
             }
           }
-        } catch (err) {
-          // Silently handle
+        } catch (err: any) {
+          setOneSignalDebug(prev => prev + '\nStatus check error: ' + err.message);
         }
       });
     };
@@ -453,30 +476,35 @@ const AdminLayout = ({
 
   const handleGlobalSubscribe = async () => {
     setIsSubscribing(true);
+    setOneSignalDebug(prev => prev + '\nStarting global subscribe click handler...');
     const OneSignal = (window as any).OneSignal;
     
     if (OneSignal && OneSignal.Notifications) {
       try {
         const perm = OneSignal.Notifications.permission;
+        setOneSignalDebug(prev => prev + '\nDirect permission read: ' + perm);
         if (perm === 'granted') {
           if (OneSignal.User?.PushSubscription) {
             await OneSignal.User.PushSubscription.optIn();
             const pushId = OneSignal.User.PushSubscription.id;
+            setOneSignalDebug(prev => prev + '\nOpted in. Push ID: ' + pushId);
             if (userId && pushId) {
               await addDevicePushId(userId, 'admin', pushId);
               toast.success('Successfully subscribed to notifications!');
             }
           }
         } else {
-          console.log('Requesting permission via global OneSignal...');
+          setOneSignalDebug(prev => prev + '\nCalling requestPermission() directly...');
           await OneSignal.Notifications.requestPermission();
           
           // Recheck permission immediately after prompt response
           const newPerm = OneSignal.Notifications.permission;
+          setOneSignalDebug(prev => prev + '\nPermission after request: ' + newPerm);
           if (newPerm === 'granted') {
             if (OneSignal.User?.PushSubscription) {
               await OneSignal.User.PushSubscription.optIn();
               const pushId = OneSignal.User.PushSubscription.id;
+              setOneSignalDebug(prev => prev + '\nNew Sub ID: ' + pushId);
               if (userId && pushId) {
                 await addDevicePushId(userId, 'admin', pushId);
                 toast.success('Successfully subscribed to notifications!');
@@ -487,6 +515,7 @@ const AdminLayout = ({
         setIsSubscribing(false);
         return;
       } catch (err: any) {
+        setOneSignalDebug(prev => prev + '\nDirect subscribe error: ' + err.message);
         console.error('Direct subscription error:', err);
       }
     }
@@ -494,32 +523,39 @@ const AdminLayout = ({
     const OneSignalDeferred = (window as any).OneSignalDeferred;
     if (!OneSignalDeferred) {
       toast.error('OneSignal SDK not loaded. Please refresh.');
+      setOneSignalDebug(prev => prev + '\nDeferred missing on click.');
       setIsSubscribing(false);
       return;
     }
 
+    setOneSignalDebug(prev => prev + '\nPushing subscription request to Deferred queue...');
     OneSignalDeferred.push(async (OS: any) => {
       try {
         if (OS.Notifications) {
           const perm = OS.Notifications.permission;
+          setOneSignalDebug(prev => prev + '\nDeferred read permission: ' + perm);
           if (perm === 'granted') {
             if (OS.User?.PushSubscription) {
               await OS.User.PushSubscription.optIn();
               const pushId = OS.User.PushSubscription.id;
+              setOneSignalDebug(prev => prev + '\nDeferred Sync Sub ID: ' + pushId);
               if (userId && pushId) {
                 await addDevicePushId(userId, 'admin', pushId);
                 toast.success('Successfully subscribed to notifications!');
               }
             }
           } else {
+            setOneSignalDebug(prev => prev + '\nDeferred requestPermission()...');
             await OS.Notifications.requestPermission();
             
             // Recheck permission immediately after prompt response
             const newPerm = OS.Notifications.permission;
+            setOneSignalDebug(prev => prev + '\nDeferred new permission: ' + newPerm);
             if (newPerm === 'granted') {
               if (OS.User?.PushSubscription) {
                 await OS.User.PushSubscription.optIn();
                 const pushId = OS.User.PushSubscription.id;
+                setOneSignalDebug(prev => prev + '\nDeferred post-perm ID: ' + pushId);
                 if (userId && pushId) {
                   await addDevicePushId(userId, 'admin', pushId);
                   toast.success('Successfully subscribed to notifications!');
@@ -528,12 +564,15 @@ const AdminLayout = ({
             }
           }
         } else if (typeof OS.showNativePrompt === 'function') {
+          setOneSignalDebug(prev => prev + '\nCalling showNativePrompt() legacy...');
           await OS.showNativePrompt();
         } else {
           toast.warning('OneSignal is still initializing. Please wait.');
+          setOneSignalDebug(prev => prev + '\nNotifications namespace missing on Deferred push.');
         }
       } catch (err: any) {
         console.error('Subscription error:', err);
+        setOneSignalDebug(prev => prev + '\nDeferred subscription error: ' + err.message);
         toast.error(err.message || 'Failed to subscribe');
       } finally {
         setIsSubscribing(false);
@@ -647,6 +686,20 @@ const AdminLayout = ({
                             : 'આ સાઇટ માટે ઓટોમેટિક પુશ એલર્ટ્સ અને સાઉન્ડ ચાલુ કરવા માટે પરમિશન ઓન કરો.'}
                         </p>
 
+                        {/* iOS PWA Setup Warning */}
+                        {isIOS && !isPWA && (
+                          <div className="p-3 bg-rose-50 rounded-2xl border border-rose-100/50 text-[11px] text-rose-800 space-y-1.5 font-sans">
+                            <p className="font-bold text-rose-900">⚠️ iPhone (iOS) સેટઅપ જરૂરી:</p>
+                            <p className="leading-relaxed font-medium">iPhone માં સામાન્ય Safari પેજ પર નોટિફિકેશન ચાલુ નથી થતી. આ રીતે ચાલુ કરો:</p>
+                            <ol className="list-decimal pl-4 space-y-1.5 font-semibold text-rose-950">
+                              <li>Safari બ્રાઉઝરમાં નીચે <b>Share (તીર વાળું)</b> બટન દબાવો.</li>
+                              <li>ત્યાં <b>'Add to Home Screen'</b> પર ક્લિક કરો.</li>
+                              <li>હોમ સ્ક્રીન પર બનેલી <b>એપ શોર્ટકટ</b> ખોલો અને લોગિન કરો.</li>
+                              <li>ત્યાંથી આ સેટિંગ્સ ખોલીને <b>Subscribe Now</b> પર ક્લિક કરો.</li>
+                            </ol>
+                          </div>
+                        )}
+
                         {permissionState === 'denied' && (
                           <div className="p-3 bg-rose-50 rounded-2xl border border-rose-100/50 text-[11px] text-rose-700 space-y-1.5 font-sans">
                             <p className="font-bold">ખોલવા માટેની ગાઈડ (How to Reset):</p>
@@ -658,25 +711,49 @@ const AdminLayout = ({
                           </div>
                         )}
 
-                        {isSubscribed && playerId && (
-                          <>
-                            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] text-slate-500 font-mono break-all select-all cursor-pointer" title="Click to copy Player ID" onClick={() => {
-                              navigator.clipboard.writeText(playerId);
-                              toast.success('Player ID copied to clipboard!');
-                            }}>
-                              <span className="font-sans font-bold text-slate-400 uppercase tracking-wider block mb-1 text-[9px]">Your Device Player ID (Click to copy):</span>
-                              {playerId}
+                        {/* Diagnostic Details Area */}
+                        <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] space-y-1.5 text-slate-600 font-sans">
+                          <div className="flex justify-between"><span>ડિવાઇસ ટાઇપ:</span><span className="font-bold">{isIOS ? 'iPhone (iOS)' : 'Android / PC'}</span></div>
+                          <div className="flex justify-between"><span>એપ મોડ:</span><span className="font-bold">{isPWA ? 'PWA Installed' : 'Browser Tab'}</span></div>
+                          <div className="flex justify-between"><span>પરમિશન સ્ટેટ્સ:</span><span className="font-bold capitalize">{permissionState}</span></div>
+                          <div className="flex justify-between"><span>SDK એક્ટિવ:</span><span className="font-bold">{(window as any).OneSignalDeferred ? 'Yes' : 'No'}</span></div>
+                          
+                          {playerId ? (
+                            <div className="pt-1.5 border-t border-slate-200/60 mt-1.5">
+                              <span className="block font-bold text-slate-500 text-[9px] uppercase tracking-wider mb-1">Device Player ID (Click to copy):</span>
+                              <code className="text-[9px] font-mono break-all select-all block bg-white p-1.5 rounded-lg border border-slate-200 cursor-pointer" onClick={() => {
+                                navigator.clipboard.writeText(playerId || '');
+                                toast.success('Player ID copied!');
+                              }}>{playerId}</code>
                             </div>
-                            <button
-                              type="button"
-                              onClick={handleTestDeviceNotification}
-                              disabled={isTestingDevice}
-                              className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 disabled:opacity-50"
-                            >
-                              {isTestingDevice ? 'Sending Test...' : '🔔 Test Push On This Phone'}
-                            </button>
-                          </>
+                          ) : (
+                            <div className="text-rose-600 text-[9px] font-bold pt-1.5 border-t border-slate-200/60 mt-1.5">
+                              ⚠️ Player ID રજીસ્ટર નથી થયું. કૃપા કરીને નીચે 'Subscribe Now' બટન દબાવો.
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Test Push Button */}
+                        {playerId && (
+                          <button
+                            type="button"
+                            onClick={handleTestDeviceNotification}
+                            disabled={isTestingDevice}
+                            className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 disabled:opacity-50 border border-indigo-100/50"
+                          >
+                            {isTestingDevice ? 'Sending Test...' : '🔔 Test Push On This Phone'}
+                          </button>
                         )}
+
+                        {/* Diagnostics Logs Collapsible */}
+                        <details className="mt-2 text-left bg-slate-50 p-2 rounded-xl text-[9px] font-mono text-slate-500 border border-slate-100">
+                          <summary className="cursor-pointer font-sans font-bold uppercase text-[9px] text-slate-400 select-none hover:text-slate-600">
+                            ⚙️ Diagnostics Logs ({oneSignalDebug.split('\n').length})
+                          </summary>
+                          <pre className="mt-1.5 whitespace-pre-wrap break-all max-h-32 overflow-y-auto font-mono text-[8px] bg-white p-1.5 rounded-lg border border-slate-200 text-slate-700 leading-normal">
+                            {oneSignalDebug}
+                          </pre>
+                        </details>
 
                         <div className="flex gap-2 pt-2">
                           {permissionState === 'denied' ? (
