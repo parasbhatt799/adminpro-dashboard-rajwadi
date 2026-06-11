@@ -17,6 +17,7 @@ interface UserPaymentProps {
 export default function UserPayment({ userId }: UserPaymentProps) {
   const [activeTab, setActiveTab] = useState<'qr' | 'bill' | 'payout'>('qr');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
+  const [upiId, setUpiId] = useState<string | null>(null);
   const [offlineQrUrl, setOfflineQrUrl] = useState<string | null>(null);
   const [activeQrId, setActiveQrId] = useState<string | null>(null);
   const [qrName, setQrName] = useState<string | null>(null);
@@ -367,7 +368,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch QR
         const { data: qrData, error: qrError } = await supabase
           .from('qr_settings')
-          .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit')
+          .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit, upi_id')
           .eq('id', 1)
           .single();
 
@@ -375,6 +376,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setIsQrEnabled(qrData.is_service_enabled ?? true);
           if (qrData.is_enabled) {
             setQrUrl(qrData.qr_url);
+            setUpiId(qrData.upi_id || null);
           }
           setQrMinLimit(Number(qrData.qr_min_limit) || 100);
           setQrMaxLimit(Number(qrData.qr_max_limit) || 100000);
@@ -389,13 +391,16 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch Current Active QR ID from History
         const { data: activeQR } = await supabase
           .from('qr_history')
-          .select('id, qr_name')
+          .select('id, qr_name, upi_id')
           .eq('is_active', true)
           .single();
 
         if (activeQR) {
           setActiveQrId(activeQR.id);
           setQrName(activeQR.qr_name);
+          if (activeQR.upi_id) {
+            setUpiId(activeQR.upi_id);
+          }
         }
 
         // Fetch Inactive QRs from the last 24 hours
@@ -605,8 +610,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Only update URL if enabled
         if (isEnabled) {
           setQrUrl(payload.new.qr_url);
+          setUpiId(payload.new.upi_id || null);
         } else {
           setQrUrl(null);
+          setUpiId(null);
         }
 
         // Sync Bill status
@@ -660,6 +667,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setActiveQrId(payload.new.id);
           setQrUrl(payload.new.qr_url);
           setQrName(payload.new.qr_name);
+          setUpiId(payload.new.upi_id || null);
         }
       })
       .subscribe();
@@ -703,8 +711,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         setIsQrEnabled(newData.is_service_enabled ?? true);
         if (newData.is_enabled) {
           setQrUrl(newData.qr_url);
+          setUpiId(newData.upi_id || null);
         } else {
           setQrUrl(null);
+          setUpiId(null);
         }
         if (newData.qr_min_limit !== undefined) {
           setQrMinLimit(Number(newData.qr_min_limit) || 100);
@@ -1238,6 +1248,20 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                             <span className="text-sm font-bold text-emerald-700 uppercase tracking-widest">
                               {qrName}
                             </span>
+                          </div>
+                        )}
+                        {upiId && (
+                          <div 
+                            onClick={() => {
+                              navigator.clipboard.writeText(upiId);
+                              setSuccess('UPI ID Copied: ' + upiId);
+                            }}
+                            className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100/70 border border-indigo-100 rounded-2xl mb-4 inline-flex items-center gap-2 shadow-sm cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98] animate-in fade-in slide-in-from-bottom-2 duration-500"
+                            title="Click to copy UPI ID"
+                          >
+                            <span className="text-xs font-black uppercase text-indigo-400">UPI ID:</span>
+                            <span className="text-xs font-bold text-indigo-700">{upiId}</span>
+                            <span className="text-[10px] text-indigo-500 font-bold bg-indigo-100/50 px-1.5 py-0.5 rounded-md border border-indigo-200/50">Copy</span>
                           </div>
                         )}
                         <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>

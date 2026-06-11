@@ -29,6 +29,7 @@ interface QRMasterItem {
   display_order: number;
   created_at: string;
   is_active: boolean;
+  upi_id?: string;
 }
 
 const COLOR_OPTIONS = [
@@ -57,6 +58,7 @@ export default function QRMasterManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [qrName, setQrName] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
+  const [upiId, setUpiId] = useState('');
   const [profitPercentage, setProfitPercentage] = useState('0');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -111,6 +113,7 @@ export default function QRMasterManagement() {
     setEditingId(null);
     setQrName('');
     setMobileNumber('');
+    setUpiId('');
     setProfitPercentage('0');
     setImageFile(null);
     setImagePreview(null);
@@ -156,6 +159,7 @@ export default function QRMasterManagement() {
           .update({
             qr_name: qrName.trim(),
             mobile_number: mobileNumber.trim(),
+            upi_id: upiId.trim(),
             qr_image_url: finalImageUrl,
             bg_color: bgColor,
             profit_percentage: Number(profitPercentage)
@@ -173,6 +177,7 @@ export default function QRMasterManagement() {
           .insert({
             qr_name: qrName.trim(),
             mobile_number: mobileNumber.trim(),
+            upi_id: upiId.trim(),
             qr_image_url: finalImageUrl,
             bg_color: bgColor,
             profit_percentage: Number(profitPercentage),
@@ -220,6 +225,7 @@ export default function QRMasterManagement() {
     setEditingId(item.id);
     setQrName(item.qr_name);
     setMobileNumber(item.mobile_number || '');
+    setUpiId(item.upi_id || '');
     setProfitPercentage(String(item.profit_percentage || 0));
     setImagePreview(item.qr_image_url);
     setImageFile(null);
@@ -336,6 +342,20 @@ export default function QRMasterManagement() {
                   placeholder="e.g. 919876543210" 
                   value={mobileNumber}
                   onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, ''))}
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">UPI ID</label>
+              <div className="relative">
+                <QrCode className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type="text" 
+                  placeholder="e.g. merchant@ybl" 
+                  value={upiId}
+                  onChange={(e) => setUpiId(e.target.value.trim())}
                   className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
                 />
               </div>
@@ -494,6 +514,12 @@ export default function QRMasterManagement() {
                             <Phone size={14} />
                             {item.mobile_number || 'No Mobile'}
                           </p>
+                          {item.upi_id && (
+                            <p className="text-sm opacity-70 flex items-center gap-1.5 mt-1">
+                              <span className="text-xs font-bold text-slate-400 uppercase">UPI:</span>
+                              <span className="font-medium">{item.upi_id}</span>
+                            </p>
+                          )}
                           <div className="mt-2 inline-flex items-center gap-1 bg-white/50 px-2 py-1 rounded-lg border border-black/5 shadow-inner">
                             <span className="text-[10px] font-black uppercase text-slate-400">Profit:</span>
                             <span className="text-[10px] font-black text-indigo-600">{item.profit_percentage || 0}%</span>

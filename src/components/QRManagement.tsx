@@ -87,8 +87,9 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
   const [success, setSuccess] = useState<string | null>(null);
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
   const [historyUpdateLoading, setHistoryUpdateLoading] = useState(false);
-  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number }[]>([]);
+  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number; upi_id?: string }[]>([]);
   const [selectedMasterUrl, setSelectedMasterUrl] = useState<string | null>(null);
+  const [selectedMasterUpiId, setSelectedMasterUpiId] = useState<string>('');
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
   const [showHistoryDropdownId, setShowHistoryDropdownId] = useState<string | null>(null);
   const [qrSearch, setQrSearch] = useState('');
@@ -393,7 +394,8 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
           whatsapp_number: whatsappNumber.trim(),
           qr_url: finalImageUrl,
           profit_percentage: Number(uploadProfitPercentage),
-          is_active: true
+          is_active: true,
+          upi_id: selectedMasterUpiId
         })
         .select()
         .single();
@@ -403,7 +405,10 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
       // 3. Update Legacy Settings
       const { error: dbError } = await supabase
         .from('qr_settings')
-        .update({ qr_url: finalImageUrl })
+        .update({ 
+          qr_url: finalImageUrl,
+          upi_id: selectedMasterUpiId
+        })
         .eq('id', 1);
 
       if (dbError) throw dbError;
@@ -411,6 +416,7 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
       setQrName('');
       setWhatsappNumber('');
       setSelectedMasterUrl(null);
+      setSelectedMasterUpiId('');
       await fetchQRData();
       setSuccess('New QR Code activated and tracking started!');
 
@@ -574,6 +580,7 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
                                 setWhatsappNumber(m.mobile_number || '');
                                 setUploadProfitPercentage(String(m.profit_percentage || 0));
                                 setSelectedMasterUrl(m.qr_image_url);
+                                setSelectedMasterUpiId(m.upi_id || '');
                                 setShowUploadDropdown(false);
                                 setQrSearch('');
                               }}

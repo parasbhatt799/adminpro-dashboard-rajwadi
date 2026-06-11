@@ -69,7 +69,7 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
   const [success, setSuccess] = useState<string | null>(null);
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
   const [historyUpdateLoading, setHistoryUpdateLoading] = useState(false);
-  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number }[]>([]);
+  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number; upi_id?: string }[]>([]);
   const [showHistoryDropdownId, setShowHistoryDropdownId] = useState<string | null>(null);
   const [qrSearch, setQrSearch] = useState('');
 
