@@ -893,8 +893,25 @@ async function startServer() {
     const results: any = {
       timestamp: new Date().toISOString(),
       testStaging: null,
-      testProduction: null
+      testProduction: null,
+      gitLog: 'unknown',
+      serverTsModified: 'unknown'
     };
+
+    try {
+      const { execSync } = await import('child_process');
+      results.gitLog = execSync('git log -n 1 --oneline').toString().trim();
+    } catch (e: any) {
+      results.gitLog = 'Error: ' + e.message;
+    }
+
+    try {
+      const fs = await import('fs');
+      const stats = fs.statSync('server.ts');
+      results.serverTsModified = stats.mtime.toISOString();
+    } catch (e: any) {
+      results.serverTsModified = 'Error: ' + e.message;
+    }
 
     // Staging test
     try {
