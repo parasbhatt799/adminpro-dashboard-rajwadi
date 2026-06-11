@@ -1604,17 +1604,17 @@ export default function QRPaymentRequests() {
                         </p>
                       </div>
                     </div>
-                    {selectedProof.qr_history?.upi_id && (
-                      <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-2 duration-300">
-                        <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
-                          <QrCode size={14} />
-                        </div>
-                        <div>
-                          <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider leading-tight">UPI ID</p>
-                          <p className="text-[11px] font-bold text-purple-900 leading-tight select-all">{selectedProof.qr_history.upi_id}</p>
-                        </div>
+                    <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-2 duration-300">
+                      <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
+                        <QrCode size={14} />
                       </div>
-                    )}
+                      <div>
+                        <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider leading-tight">UPI ID</p>
+                        <p className="text-[11px] font-bold text-purple-900 leading-tight select-all">
+                          {selectedProof.qr_history?.upi_id || 'Not Defined'}
+                        </p>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-3">
