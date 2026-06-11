@@ -44,7 +44,14 @@ export default function QRScreenshotGallery() {
   const [dates, setDates] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedFolder, setSelectedFolder] = useState<{ qrId: string; folderIndex: number } | null>(null);
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [activeImageIndex, setActiveImageIndex] = useState<number | null>(null);
+  const [activeImages, setActiveImages] = useState<{
+    id: string;
+    url: string;
+    amount: number;
+    created_at: string;
+    is_shared?: boolean;
+  }[]>([]);
   const [isProcessing, setIsProcessing] = useState<string | null>(null); // 'sharing' | 'downloading' | null
   const [progress, setProgress] = useState<{ current: number; total: number } | null>(null);
   const [datePage, setDatePage] = useState(1);
@@ -61,6 +68,55 @@ export default function QRScreenshotGallery() {
   const [merchantPage, setMerchantPage] = useState(1);
   const [processingMerchant, setProcessingMerchant] = useState<string | null>(null);
   const IMAGES_PER_PAGE = 20;
+
+  const handleNextImage = () => {
+    if (activeImageIndex === null || activeImages.length === 0) return;
+    const newIndex = (activeImageIndex + 1) % activeImages.length;
+    setActiveImageIndex(newIndex);
+    
+    if (galleryTab === 'daily' && selectedFolder) {
+      const newFolderIndex = Math.floor(newIndex / 10);
+      if (newFolderIndex !== selectedFolder.folderIndex) {
+        setSelectedFolder({
+          qrId: selectedFolder.qrId,
+          folderIndex: newFolderIndex
+        });
+      }
+    }
+  };
+
+  const handlePrevImage = () => {
+    if (activeImageIndex === null || activeImages.length === 0) return;
+    const newIndex = (activeImageIndex - 1 + activeImages.length) % activeImages.length;
+    setActiveImageIndex(newIndex);
+
+    if (galleryTab === 'daily' && selectedFolder) {
+      const newFolderIndex = Math.floor(newIndex / 10);
+      if (newFolderIndex !== selectedFolder.folderIndex) {
+        setSelectedFolder({
+          qrId: selectedFolder.qrId,
+          folderIndex: newFolderIndex
+        });
+      }
+    }
+  };
+
+  // Keyboard navigation for gallery
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (activeImageIndex === null) return;
+      if (e.key === 'ArrowRight') {
+        handleNextImage();
+      } else if (e.key === 'ArrowLeft') {
+        handlePrevImage();
+      } else if (e.key === 'Escape') {
+        setActiveImageIndex(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeImageIndex, activeImages, galleryTab, selectedFolder]);
 
   useEffect(() => {
     fetchDates();
@@ -675,7 +731,12 @@ export default function QRScreenshotGallery() {
                           )}
                           <div className="absolute inset-0 bg-indigo-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                             <button 
-                              onClick={() => setSelectedImage(img.url)}
+                              onClick={() => {
+                                const allScreenshots = currentDateData!.qrs[selectedFolder.qrId].screenshots;
+                                const index = allScreenshots.findIndex(s => s.id === img.id);
+                                setActiveImages(allScreenshots);
+                                setActiveImageIndex(index !== -1 ? index : 0);
+                              }}
                               className="p-2 bg-white text-indigo-600 rounded-lg shadow-xl active:scale-90 transition-all"
                             >
                               <ImageIcon size={18} />
@@ -865,7 +926,17 @@ export default function QRScreenshotGallery() {
                                 />
                                 <div className="absolute inset-0 bg-indigo-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                   <button
-                                    onClick={() => setSelectedImage(img.proof_url)}
+                                    onClick={() => {
+                                      const normalized = merchantScreenshots.map(m => ({
+                                        id: m.id,
+                                        url: m.proof_url,
+                                        amount: m.amount,
+                                        created_at: m.created_at
+                                      }));
+                                      const index = merchantScreenshots.findIndex(s => s.id === img.id);
+                                      setActiveImages(normalized);
+                                      setActiveImageIndex(index !== -1 ? index : 0);
+                                    }}
                                     className="p-2 bg-white text-indigo-600 rounded-lg shadow-xl active:scale-90 transition-all"
                                   >
                                     <ImageIcon size={18} />
@@ -961,30 +1032,67 @@ export default function QRScreenshotGallery() {
 
       {/* Full Preview Modal */}
       <AnimatePresence>
-        {selectedImage && (
+        {activeImageIndex !== null && activeImages[activeImageIndex] && (
           <div 
-            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/90 backdrop-blur-md"
-            onClick={() => setSelectedImage(null)}
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-950/95 backdrop-blur-md select-none"
+            onClick={() => setActiveImageIndex(null)}
           >
+            {/* Top Bar for close and metadata */}
+            <div className="absolute top-0 inset-x-0 p-6 flex items-center justify-between text-white z-10 bg-gradient-to-b from-slate-950/85 to-transparent">
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">
+                  Image {activeImageIndex + 1} of {activeImages.length}
+                </p>
+                <p className="text-xs text-slate-400 font-semibold">
+                  Amount: ₹{activeImages[activeImageIndex].amount.toLocaleString()} | {new Date(activeImages[activeImageIndex].created_at).toLocaleString('en-GB')}
+                </p>
+              </div>
+              <button 
+                onClick={() => setActiveImageIndex(null)}
+                className="p-2 hover:bg-white/10 rounded-full text-white hover:text-rose-400 transition-all active:scale-95 cursor-pointer"
+              >
+                <X size={28} />
+              </button>
+            </div>
+
+            {/* Left Control Arrow */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePrevImage();
+              }}
+              className="absolute left-6 p-4 bg-white/5 hover:bg-white/15 border border-white/10 text-white rounded-full transition-all active:scale-90 cursor-pointer z-10"
+            >
+              <ChevronLeft size={24} />
+            </button>
+
+            {/* Main Image Container */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="relative max-w-full max-h-full"
+              key={activeImages[activeImageIndex].id}
+              initial={{ opacity: 0, scale: 0.95, x: 20 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.95, x: -20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="relative max-w-full max-h-full flex items-center justify-center"
               onClick={e => e.stopPropagation()}
             >
-              <button 
-                onClick={() => setSelectedImage(null)}
-                className="absolute -top-12 right-0 p-2 text-white hover:text-indigo-400 transition-colors"
-              >
-                <X size={32} />
-              </button>
               <img 
-                src={selectedImage} 
+                src={activeImages[activeImageIndex].url} 
                 alt="Full Preview" 
-                className="max-w-[90vw] max-h-[85vh] rounded-2xl shadow-2xl border-4 border-white/10"
+                className="max-w-[85vw] max-h-[75vh] rounded-3xl shadow-2xl border-4 border-white/10 object-contain"
               />
             </motion.div>
+
+            {/* Right Control Arrow */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleNextImage();
+              }}
+              className="absolute right-6 p-4 bg-white/5 hover:bg-white/15 border border-white/10 text-white rounded-full transition-all active:scale-90 cursor-pointer z-10"
+            >
+              <ChevronRight size={24} />
+            </button>
           </div>
         )}
       </AnimatePresence>
