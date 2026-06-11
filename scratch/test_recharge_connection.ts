@@ -41,7 +41,7 @@ async function runTest() {
 
   console.log("\nStep 2: Fetching Recharge Plans (Airtel Prepaid test)...");
   try {
-    const plansRes = await getRechargePlans("AIRT00000PRE");
+    const plansRes = await getRechargePlans("AIRT00000PRE", "Gujarat");
     const planMdm = plansRes?.planMdmResponse;
     
     if (planMdm && planMdm.responseCode === '0000') {

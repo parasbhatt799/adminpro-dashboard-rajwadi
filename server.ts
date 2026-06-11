@@ -1485,8 +1485,44 @@ async function startServer() {
       if (!mobile) {
         return res.status(400).json({ status: "ERROR", message: "Mobile number is required." });
       }
-      const response = await recharge.detectOperatorMNP(mobile);
-      res.json(response);
+
+      const isStaging = process.env.BILLAVENUE_ENV !== 'production';
+      let response;
+      try {
+        response = await recharge.detectOperatorMNP(mobile);
+      } catch (apiErr: any) {
+        console.warn("[Recharge API] MNP API call failed:", apiErr.message);
+      }
+
+      if (response && response.operator) {
+        return res.json(response);
+      }
+
+      if (isStaging) {
+        // Mock fallback logic based on prefix or last digit
+        const prefix = mobile.slice(0, 4);
+        const PREFIX_MOCKS: Record<string, { operator: string; circle: string; billerId: string }> = {
+          '9999': { operator: 'Airtel Prepaid', circle: 'Delhi', billerId: 'AIRT00000PRE' },
+          '9876': { operator: 'Jio Prepaid', circle: 'Punjab', billerId: 'JIO000000PRE' },
+          '9000': { operator: 'Vi Prepaid', circle: 'Andhra Pradesh', billerId: 'VODA00000PRE' },
+          '9444': { operator: 'BSNL Prepaid', circle: 'Tamil Nadu', billerId: 'BSNL00000PRE' }
+        };
+
+        if (PREFIX_MOCKS[prefix]) {
+          return res.json(PREFIX_MOCKS[prefix]);
+        }
+
+        const lastDigit = Number(mobile.slice(-1)) || 0;
+        if (lastDigit === 0 || lastDigit === 5) {
+          return res.json({ operator: 'Vi Prepaid', circle: 'Mumbai', billerId: 'VODA00000PRE' });
+        } else if (lastDigit % 2 === 1) {
+          return res.json({ operator: 'Jio Prepaid', circle: 'Gujarat', billerId: 'JIO000000PRE' });
+        } else {
+          return res.json({ operator: 'Airtel Prepaid', circle: 'Maharashtra', billerId: 'AIRT00000PRE' });
+        }
+      }
+
+      return res.status(400).json({ status: "ERROR", message: "MNP detection failed." });
     } catch (error: any) {
       console.error("[Recharge API] MNP Error:", error);
       res.status(500).json({ status: "ERROR", message: error.message });
@@ -1495,45 +1531,122 @@ async function startServer() {
 
   app.get("/api/recharge/plans", async (req, res) => {
     try {
-      const { billerId, operator, circle } = req.query;
+      const { billerId, operator, circle, mobile } = req.query;
       if (!billerId) {
         return res.status(400).json({ status: "ERROR", message: "billerId is required." });
       }
 
+      const isStaging = process.env.BILLAVENUE_ENV !== 'production';
       let response;
       try {
-        response = await recharge.getRechargePlans(billerId as string);
+        response = await recharge.getRechargePlans(billerId as string, (circle as string) || 'Gujarat', mobile as string);
       } catch (apiErr: any) {
-        console.warn("[Recharge API] Plan Fetch Failed, trying local database fallback:", apiErr.message);
+        console.warn("[Recharge API] Plan Fetch Failed:", apiErr.message);
       }
 
-      if (response && response.json?.planMdmResponse?.planList?.plan) {
-        const planList = Array.isArray(response.json.planMdmResponse.planList.plan)
-          ? response.json.planMdmResponse.planList.plan
-          : [response.json.planMdmResponse.planList.plan];
+      // Helper function to return UAT/staging mock plans
+      const getMockPlans = (bId: string, circ: string) => {
+        const opLower = (operator as string || bId).toLowerCase();
+        let planList = [];
+        if (opLower.includes('airt')) {
+          planList = [
+            { planName: 'Data Pack', amount: 19, validity: '1 Day', description: '1 GB Data Pack' },
+            { planName: 'Smart Recharge', amount: 155, validity: '24 Days', description: '1 GB, Unlimited Calls, 300 SMS' },
+            { planName: 'Daily Data', amount: 239, validity: '28 Days', description: '1.5 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Unlimited Data', amount: 299, validity: '28 Days', description: '2 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Super Value', amount: 719, validity: '84 Days', description: '1.5 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Annual Pack', amount: 2999, validity: '365 Days', description: '2 GB/Day, Unlimited Calls, 100 SMS/Day' }
+          ];
+        } else if (opLower.includes('jio')) {
+          planList = [
+            { planName: 'Data Booster', amount: 15, validity: 'Active Plan', description: '1 GB Data Booster' },
+            { planName: 'Value Pack', amount: 149, validity: '20 Days', description: '1 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Popular Pack', amount: 239, validity: '28 Days', description: '1.5 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Hero Pack', amount: 299, validity: '28 Days', description: '2 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Super Value', amount: 666, validity: '84 Days', description: '1.5 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Annual Plan', amount: 2999, validity: '365 Days', description: '2.5 GB/Day, Unlimited Calls, 100 SMS/Day' }
+          ];
+        } else if (opLower.includes('voda') || opLower.includes('vi') || opLower.includes('idea')) {
+          planList = [
+            { planName: 'Data Pack', amount: 22, validity: '1 Day', description: 'Get 1 GB Data. No Service Validity.' },
+            { planName: 'Data Pack Plus', amount: 33, validity: '2 Days', description: 'Get 2 GB Data. No Service Validity.' },
+            { planName: 'Combo Pack', amount: 98, validity: '15 Days', description: 'Unlimited Calls, 200 MB Data' },
+            { planName: 'Hero Unlimited', amount: 269, validity: '28 Days', description: '1 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Daily Pack', amount: 299, validity: '28 Days', description: '1.5 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Super Pack', amount: 479, validity: '56 Days', description: '1.5 GB/Day, Unlimited Calls, 100 SMS/Day' },
+            { planName: 'Value Pack', amount: 719, validity: '84 Days', description: '1.5 GB/Day, Unlimited Calls, 100 SMS/Day' }
+          ];
+        } else {
+          // BSNL
+          planList = [
+            { planName: 'STV 18', amount: 18, validity: '2 Days', description: 'Unlimited Calls, 1 GB/Day' },
+            { planName: 'STV 97', amount: 97, validity: '15 Days', description: 'Unlimited Calls, 2 GB/Day, Lokdhun' },
+            { planName: 'STV 153', amount: 153, validity: '26 Days', description: 'Unlimited Calls, 1 GB/Day, PRBT' },
+            { planName: 'Plan 197', amount: 197, validity: '70 Days', description: 'Unlimited Calls (first 18 days), 2 GB/Day' },
+            { planName: 'Plan 397', amount: 397, validity: '150 Days', description: 'Unlimited Calls (first 30 days), 2 GB/Day' }
+          ];
+        }
+        return planList;
+      };
+
+      let plansResponse = response?.json?.rechargePlanResponse || response?.json?.planMdmResponse;
+      let planListRaw = plansResponse?.rechargePlan?.rechargePlansDetails || plansResponse?.planList?.plan;
+
+      if (isStaging && (!planListRaw || (Array.isArray(planListRaw) && planListRaw.length === 0))) {
+        console.log(`[Recharge API] Staging: Biller ${billerId} circle ${circle} returned no plans. Using simulated UAT plans.`);
+        planListRaw = getMockPlans(billerId as string, (circle as string) || 'Gujarat');
+      }
+
+      if (planListRaw) {
+        const planList = Array.isArray(planListRaw) ? planListRaw : [planListRaw];
 
         const mapped = planList.map((p: any) => ({
           operator: (operator as string) || billerId as string,
           circle: (circle as string) || 'All Circles',
-          plan_name: p.planName || p.talktime || 'Recharge Plan',
-          amount: Number(p.amount) || 0,
-          validity: p.validity,
-          description: p.description
+          plan_name: p.planName || p.PlanName || p.talktime || p.Talktime || 'Recharge Plan',
+          amount: Number(p.amount || p.Amount) || 0,
+          validity: p.validity || p.Validity || 'N/A',
+          description: p.description || p.Description || ''
         }));
 
         // Seed to recharge_plans table in database
         if (operator && circle) {
-          await supabaseAdmin
-            .from('recharge_plans')
-            .delete()
-            .eq('operator', operator)
-            .eq('circle', circle);
+          try {
+            await supabaseAdmin
+              .from('recharge_plans')
+              .delete()
+              .eq('operator', operator)
+              .eq('circle', circle);
+
+            for (let i = 0; i < mapped.length; i += 100) {
+              const chunk = mapped.slice(i, i + 100).map(m => ({
+                operator: m.operator,
+                circle: m.circle,
+                plan_name: m.plan_name,
+                amount: m.amount,
+                validity: m.validity,
+                description: m.description
+              }));
+              await supabaseAdmin.from('recharge_plans').insert(chunk);
+            }
+          } catch (dbErr) {
+            console.error("[Recharge API] DB Seeding failed:", dbErr);
+          }
         }
-        for (let i = 0; i < mapped.length; i += 100) {
-          const chunk = mapped.slice(i, i + 100);
-          await supabaseAdmin.from('recharge_plans').insert(chunk);
-        }
-        return res.json(response.json);
+
+        return res.json({
+          planMdmResponse: {
+            responseCode: '0000',
+            planList: {
+              plan: mapped.map(m => ({
+                planName: m.plan_name,
+                amount: m.amount,
+                validity: m.validity,
+                description: m.description
+              }))
+            }
+          }
+        });
       }
 
       // Database fallback

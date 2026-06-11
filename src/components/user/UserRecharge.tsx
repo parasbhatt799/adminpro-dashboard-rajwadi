@@ -34,10 +34,10 @@ interface PlanInfo {
 }
 
 const CIRCLES = [
-  'All Circles', 'Andhra Pradesh', 'Assam', 'Bihar', 'Delhi', 'Gujarat', 
-  'Haryana', 'Himachal Pradesh', 'Jammu & Kashmir', 'Karnataka', 'Kerala', 
-  'Kolkata', 'Madhya Pradesh', 'Maharashtra', 'Mumbai', 'North East', 
-  'Orissa', 'Punjab', 'Rajasthan', 'Tamil Nadu', 'UP East', 'UP West', 'West Bengal'
+  'Andhra Pradesh', 'Assam', 'Bihar & Jharkhand', 'Chennai', 'Delhi', 'Gujarat', 
+  'Haryana', 'Himachal Pradesh', 'J&K', 'Karnataka', 'Kerala', 
+  'Kolkata', 'Madhya Pradesh', 'Maharashtra', 'Mumbai', 'NorthEast', 
+  'Orissa', 'Punjab', 'Rajasthan', 'Tamilnadu', 'Uttar Pradesh (East)', 'Uttar Pradesh (West)', 'West Bengal & AN Island', 'Uttaranchal'
 ];
 
 export default function UserRecharge({ userId }: { userId: string }) {
@@ -214,7 +214,7 @@ export default function UserRecharge({ userId }: { userId: string }) {
     setSelectedPlan(null);
 
     try {
-      const res = await fetch(`/api/recharge/plans?billerId=${selectedOperator.billerId}&operator=${selectedOperator.billerName}&circle=${selectedCircle}`);
+      const res = await fetch(`/api/recharge/plans?billerId=${selectedOperator.billerId}&operator=${selectedOperator.billerName}&circle=${selectedCircle}&mobile=${mobileNumber}`);
       const data = await res.json();
       const list = data?.planMdmResponse?.planList?.plan || [];
       const plansArray = Array.isArray(list) ? list : [list];

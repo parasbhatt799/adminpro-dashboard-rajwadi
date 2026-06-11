@@ -8,9 +8,9 @@ const IS_PROD = process.env.BILLAVENUE_ENV === 'production';
 const BASE_URL = IS_PROD ? 'https://api.billavenue.com' : 'https://stgapi.billavenue.com';
 
 const RECHARGE_ENDPOINTS = {
-  mnp: `${BASE_URL}/billpay/extMnp/fetchInfo/xml`,
+  mnp: `${BASE_URL}/billpay/extMnp/mnpRequest/xml`,
   deposit: `${BASE_URL}/billpay/extDeposit/enquiry/xml`,
-  plans: `${BASE_URL}/billpay/extPlanMDM/planMdmRequest/xml`,
+  plans: `${BASE_URL}/billpay/extFetchPlans/fetchPlansRequest/xml`,
   validate: `${BASE_URL}/billpay/extBillValCntrl/billValidationRequest/xml`,
   pay: `${BASE_URL}/billpay/extBillPayCntrl/billPayRequest/xml`,
   status: `${BASE_URL}/billpay/transactionStatus/fetchInfo/xml`
@@ -52,19 +52,26 @@ export async function detectOperatorMNP(mobile: string): Promise<any> {
   try {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <mnpRequest>
-    <mobileNumber>${mobile}</mobileNumber>
+    <agentId>${AGENT_ID}</agentId>
+    <mobileNo>${mobile}</mobileNo>
 </mnpRequest>`;
 
     const response = await callBillAvenueApi(RECHARGE_ENDPOINTS.mnp, xml);
     const mnpResponse = response.json?.mnpResponse;
 
-    if (mnpResponse && (mnpResponse.responseCode === '0000' || mnpResponse.status === 'SUCCESS')) {
-      const detectedOp = mnpResponse.operator || fallback.operator;
-      const matchingBiller = OPERATORS.find(op => op.billerName.toLowerCase().includes(detectedOp.toLowerCase())) || OPERATORS[1]; // Fallback to Jio
+    if (mnpResponse && (mnpResponse.responseCode === '000' || mnpResponse.responseCode === '0000' || mnpResponse.status === 'SUCCESS')) {
+      const detectedOp = mnpResponse.currentOperator || mnpResponse.operator || fallback.operator;
+      const detectedLoc = mnpResponse.currentLocation || mnpResponse.circle || fallback.circle;
+      
+      const matchingBiller = OPERATORS.find(op => 
+        op.billerName.toLowerCase().includes(detectedOp.toLowerCase()) || 
+        detectedOp.toLowerCase().includes(op.billerName.split(' ')[0].toLowerCase())
+      ) || OPERATORS[1]; // Fallback to Jio
+
       return {
         operator: matchingBiller.billerName,
         billerId: matchingBiller.billerId,
-        circle: mnpResponse.circle || fallback.circle
+        circle: detectedLoc
       };
     }
   } catch (err: any) {
@@ -77,11 +84,17 @@ export async function detectOperatorMNP(mobile: string): Promise<any> {
 /**
  * Fetch Recharge plans for operator and circle
  */
-export async function getRechargePlans(billerId: string): Promise<any> {
+export async function getRechargePlans(billerId: string, circle: string, mobile?: string): Promise<any> {
+  const isAirtelOrVi = billerId.includes('AIRT') || billerId.includes('VODA') || billerId.includes('VI') || billerId.includes('IDEA');
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<planMdmRequest>
+<rechargePlanRequest>
     <billerId>${billerId}</billerId>
-</planMdmRequest>`;
+    <circle>${circle}</circle>
+    ${isAirtelOrVi && mobile ? `
+    <agentId>${AGENT_ID}</agentId>
+    <mobileNo>${mobile}</mobileNo>
+    ` : ''}
+</rechargePlanRequest>`;
 
   return callBillAvenueApi(RECHARGE_ENDPOINTS.plans, xml);
 }
