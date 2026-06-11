@@ -1281,7 +1281,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
                 <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full max-w-xl">
-                  {/* Dropdown for Sample Billers */}
+                  {/* Dropdown for Biller Selection */}
                   <select
                     onChange={(e) => {
                       if (e.target.value) {
@@ -1300,13 +1300,26 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                       }
                     }}
                     value=""
-                    className="px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all shadow-sm w-full sm:w-64"
+                    className="px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all shadow-sm w-full sm:w-72"
                   >
-                    <option value="">-- Or Choose Sample Biller --</option>
-                    <option value="OTME00005XXZ43">OTME00005XXZ43 - UAT Fetch & Pay Biller</option>
-                    <option value="OTNS00005XXZ43">OTNS00005XXZ43 - UAT Quick Pay Biller</option>
-                    <option value="PGVCL0000000001">PGVCL - Gujarat Electricity</option>
-                    <option value="TORRENT0000001">Torrent Power - Electricity</option>
+                    <option value="">-- Choose Provider / Biller --</option>
+                    
+                    {filteredBillers.length > 0 && (
+                      <optgroup label={`${selectedCategory} Providers`}>
+                        {filteredBillers.map((b) => (
+                          <option key={b.billerId} value={b.billerId}>
+                            {b.billerName}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+
+                    <optgroup label="Sample / UAT Billers">
+                      <option value="OTME00005XXZ43">OTME00005XXZ43 - UAT Fetch & Pay Biller</option>
+                      <option value="OTNS00005XXZ43">OTNS00005XXZ43 - UAT Quick Pay Biller</option>
+                      <option value="PGVCL0000000001">PGVCL - Gujarat Electricity</option>
+                      <option value="TORRENT0000001">Torrent Power - Electricity</option>
+                    </optgroup>
                   </select>
 
                   <div className="relative flex-1">
@@ -1327,32 +1340,17 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                   <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fetching providers...</p>
                 </div>
-              ) : filteredBillers.length === 0 ? (
-                <div className="text-center py-16 text-slate-400 space-y-2">
-                  <Info size={32} className="mx-auto text-slate-300" />
-                  <p className="text-xs font-black text-slate-600">No Providers Found</p>
-                  <p className="text-[11px]">Could not find providers matching your search.</p>
-                </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredBillers.map((biller, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => selectBiller(biller)}
-                      className="p-4 rounded-2xl border border-slate-100/80 bg-white hover:border-indigo-100 hover:bg-indigo-50/5 hover:-translate-y-0.5 text-left transition-all duration-300 flex items-center gap-4 group cursor-pointer shadow-sm hover:shadow-md relative overflow-hidden"
-                    >
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getBillerGradient(biller.billerName)} text-white flex items-center justify-center font-black text-sm shadow-md group-hover:scale-105 transition-transform flex-shrink-0`}>
-                        {biller.billerName.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        <p className="text-xs font-black text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{biller.billerName}</p>
-                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{biller.billerId}</p>
-                      </div>
-                      <div className="w-7 h-7 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all flex-shrink-0">
-                        <ChevronRight size={14} />
-                      </div>
-                    </button>
-                  ))}
+                <div className="flex flex-col items-center justify-center py-16 px-4 border border-dashed border-slate-200 rounded-[28px] text-center max-w-md mx-auto my-4 space-y-4">
+                  <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 rounded-full flex items-center justify-center text-indigo-600 shadow-inner">
+                    <Receipt size={28} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-800 tracking-tight uppercase">Select Your Provider</h4>
+                    <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                      Please select your specific {selectedCategory} provider from the dropdown menu above. You can type in the search box to filter the list.
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
