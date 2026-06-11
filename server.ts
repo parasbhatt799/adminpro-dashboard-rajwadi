@@ -51,41 +51,76 @@ async function startServer() {
     next();
   });
 
-  app.post("/api/send-email", async (req, res) => {
-    const { to, subject, text, html } = req.body;
-    console.log("Incoming email request to:", to);
+  async function sendResendEmail(to: string, subject: string, text: string, html: string) {
+    const apiKey = process.env.RESEND_API_KEY || "re_G9Ldd9PN_FUesjTAdNB2Y6gzSvtV3SoQQ";
+    const fromEmail = process.env.SMTP_FROM || "onboarding@resend.dev";
+    const fromName = process.env.SMTP_FROM_NAME || "UsePay";
 
-    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.error("SMTP configuration missing in process.env");
-      return res.status(500).json({
-        error: "SMTP configuration missing. Please ensure your .env file is correct and you have RESTARTED the server."
-      });
-    }
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: parseInt(process.env.SMTP_PORT || "587"),
-      secure: process.env.SMTP_PORT === "465",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-    });
+    console.log(`[Resend] Sending email to ${to} (Subject: ${subject})...`);
 
     try {
-      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-      const fromName = process.env.SMTP_FROM_NAME || 'UsePay';
-
-      await transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
-        to,
-        subject,
-        text,
-        html,
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: `"${fromName}" <${fromEmail}>`,
+          to,
+          subject,
+          text,
+          html
+        })
       });
+
+      const data: any = await response.json();
+      if (response.ok) {
+        console.log(`[Resend] Email sent successfully to ${to}, ID: ${data.id}`);
+        return data;
+      }
+      
+      const errMsg = data?.message || "";
+      if (response.status === 403 || errMsg.toLowerCase().includes("verify") || errMsg.toLowerCase().includes("domain") || errMsg.toLowerCase().includes("sender")) {
+        console.warn(`[Resend] First attempt failed (${errMsg}). Falling back to onboarding@resend.dev...`);
+        const fallbackResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            from: `"${fromName}" <onboarding@resend.dev>`,
+            to,
+            subject,
+            text,
+            html
+          })
+        });
+        const fallbackData: any = await fallbackResponse.json();
+        if (fallbackResponse.ok) {
+          console.log(`[Resend] Fallback email sent successfully to ${to}, ID: ${fallbackData.id}`);
+          return fallbackData;
+        }
+        throw new Error(fallbackData?.message || `Fallback failed with status ${fallbackResponse.status}`);
+      }
+      
+      throw new Error(errMsg || `HTTP error! status: ${response.status}`);
+    } catch (err: any) {
+      console.error("[Resend] Critical error sending email:", err.message);
+      throw err;
+    }
+  }
+
+  app.post("/api/send-email", async (req, res) => {
+    const { to, subject, text, html } = req.body;
+    console.log("Incoming Resend email request to:", to);
+
+    try {
+      await sendResendEmail(to, subject, text, html);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error sending email:", error);
+      console.error("Error sending email via Resend:", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -95,44 +130,17 @@ async function startServer() {
       const { to = "jigs.vanani@gmail.com" } = req.query;
       console.log("[Test Email Endpoint] Sending to:", to);
 
-      if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
-        return res.json({
-          success: false,
-          error: "SMTP Config missing in process.env",
-          env: {
-            host: !!process.env.SMTP_HOST,
-            user: !!process.env.SMTP_USER,
-            pass: !!process.env.SMTP_PASS
-          }
-        });
-      }
-
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: parseInt(process.env.SMTP_PORT || "587"),
-        secure: process.env.SMTP_PORT === "465",
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-
-      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-      const fromName = process.env.SMTP_FROM_NAME || "UsePay Test";
-
-      const info = await transporter.sendMail({
-        from: `"${fromName}" <${fromEmail}>`,
-        to: to as string,
-        subject: "BBPS Complaint Live Test Email",
-        text: "This is a live test email from the server endpoint.",
-        html: "<b>This is a live test email from the server endpoint.</b>"
-      });
+      const info = await sendResendEmail(
+        to as string,
+        "BBPS Complaint Live Test Email",
+        "This is a live test email from the server endpoint.",
+        "<b>This is a live test email from the server endpoint.</b>"
+      );
 
       res.json({
         success: true,
         message: "Email sent successfully!",
-        response: info.response,
-        messageId: info.messageId
+        response: info
       });
     } catch (error: any) {
       console.error("[Test Email Endpoint] Error:", error);
@@ -1564,23 +1572,9 @@ async function startServer() {
             const userName = profile.name || "Customer";
             const complaintId = finalRegisterResponse.complaintId;
 
-            if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-              const transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST,
-                port: parseInt(process.env.SMTP_PORT || "587"),
-                secure: process.env.SMTP_PORT === "465",
-                auth: {
-                  user: process.env.SMTP_USER,
-                  pass: process.env.SMTP_PASS,
-                },
-              });
-
-              const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
-              const fromName = process.env.SMTP_FROM_NAME || "UsePay";
-              
-              const subject = `BBPS Complaint Registered successfully - ${complaintId}`;
-              const text = `Dear Customer, your complaint has been registered successfully with Complaint ID ${complaintId} at Bharat BillPay. UsePay.`;
-              const html = `<!DOCTYPE html>
+            const subject = `BBPS Complaint Registered successfully - ${complaintId}`;
+            const text = `Dear Customer, your complaint has been registered successfully with Complaint ID ${complaintId} at Bharat BillPay. UsePay.`;
+            const html = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
@@ -1741,20 +1735,13 @@ async function startServer() {
 </body>
 </html>`;
 
-              transporter.sendMail({
-                from: `"${fromName}" <${fromEmail}>`,
-                to: userEmail,
-                subject,
-                text,
-                html,
-              }).then(() => {
-                console.log(`[BillAvenue Server] Confirmation email sent successfully to ${userEmail} for complaint ${complaintId}`);
-              }).catch((emailErr) => {
-                console.error("[BillAvenue Server] Error sending confirmation email (async):", emailErr);
+            sendResendEmail(userEmail, subject, text, html)
+              .then(() => {
+                console.log(`[BillAvenue Server] Confirmation email sent successfully to ${userEmail} for complaint ${complaintId} via Resend`);
+              })
+              .catch((emailErr) => {
+                console.error("[BillAvenue Server] Error sending confirmation email (async via Resend):", emailErr.message);
               });
-            } else {
-              console.warn("[BillAvenue Server] SMTP configuration missing. Skipping complaint email dispatch.");
-            }
           } else {
             console.warn(`[BillAvenue Server] No email found for mobile: ${mobile}. Skipping email dispatch.`);
           }
