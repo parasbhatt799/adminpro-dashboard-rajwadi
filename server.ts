@@ -90,6 +90,60 @@ async function startServer() {
     }
   });
 
+  app.get("/api/test-complaint-email", async (req, res) => {
+    try {
+      const { to = "jigs.vanani@gmail.com" } = req.query;
+      console.log("[Test Email Endpoint] Sending to:", to);
+
+      if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        return res.json({
+          success: false,
+          error: "SMTP Config missing in process.env",
+          env: {
+            host: !!process.env.SMTP_HOST,
+            user: !!process.env.SMTP_USER,
+            pass: !!process.env.SMTP_PASS
+          }
+        });
+      }
+
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT || "587"),
+        secure: process.env.SMTP_PORT === "465",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+      const fromName = process.env.SMTP_FROM_NAME || "UsePay Test";
+
+      const info = await transporter.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to: to as string,
+        subject: "BBPS Complaint Live Test Email",
+        text: "This is a live test email from the server endpoint.",
+        html: "<b>This is a live test email from the server endpoint.</b>"
+      });
+
+      res.json({
+        success: true,
+        message: "Email sent successfully!",
+        response: info.response,
+        messageId: info.messageId
+      });
+    } catch (error: any) {
+      console.error("[Test Email Endpoint] Error:", error);
+      res.json({
+        success: false,
+        error: error.message,
+        stack: error.stack
+      });
+    }
+  });
+
   app.post("/api/manage-admin", async (req, res) => {
     const { action, password, mobileNumber } = req.body;
 
