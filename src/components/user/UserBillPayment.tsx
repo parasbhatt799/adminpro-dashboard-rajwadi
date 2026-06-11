@@ -1440,13 +1440,15 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
                   <div className="text-center border-b border-dashed border-slate-100 pb-5">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <CheckCircle2 className="text-emerald-500" size={40} />
+                      <img src="/assured_logo.png" alt="Assured Logo" className="h-16 w-16 object-contain mb-1" />
                       <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">BBPS Receipt</span>
                     </div>
                     <div className="text-2xl font-black text-slate-800 mt-4">
                       ₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </div>
-                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
+                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
+                      <CheckCircle2 size={12} className="text-emerald-500" /> Transaction Success
+                    </p>
                   </div>
 
                   <div className="space-y-4 text-xs font-semibold text-slate-600">
