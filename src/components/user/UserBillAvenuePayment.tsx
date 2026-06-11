@@ -1338,21 +1338,6 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                             </optgroup>
                           </select>
                         </div>
-
-                        {/* Search Input */}
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Filter / Search List</label>
-                          <div className="relative">
-                            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                            <input
-                              type="text"
-                              placeholder="Type to search providers..."
-                              value={searchBillerQuery}
-                              onChange={(e) => setSearchBillerQuery(e.target.value)}
-                              className="w-full pl-10 pr-4 py-3.5 bg-white rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-sm"
-                            />
-                          </div>
-                        </div>
                       </div>
                     </div>
                   )}
