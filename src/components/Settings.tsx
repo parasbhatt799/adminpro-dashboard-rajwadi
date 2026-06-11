@@ -1,14 +1,14 @@
 import { LogoLoader } from './shared/LoadingSpinner';
-import { 
+import {
   Send,
-  Settings as SettingsIcon, 
-  MessageSquare, 
-  Save, 
-  Loader2, 
-  AlertCircle, 
-  CheckCircle2, 
-  Key, 
-  Hash, 
+  Settings as SettingsIcon,
+  MessageSquare,
+  Save,
+  Loader2,
+  AlertCircle,
+  CheckCircle2,
+  Key,
+  Hash,
   Phone,
   Bell,
   BellRing,
@@ -121,7 +121,7 @@ export default function Settings() {
         .select('*')
         .eq('id', 1)
         .single();
-      
+
       if (osError && osError.code !== 'PGRST116') throw osError;
       if (osData) {
         setOneSignalSettings({
@@ -137,7 +137,7 @@ export default function Settings() {
         .select('*')
         .eq('id', 1)
         .single();
-      
+
       if (qrError && qrError.code !== 'PGRST116') throw qrError;
       if (qrData) {
         setBrandingSettings({
@@ -178,26 +178,8 @@ export default function Settings() {
   useEffect(() => {
     fetchSettings();
 
-    const isPushSupported = () => {
-      if (typeof window === 'undefined') return false;
-      
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || false;
-      
-      if (isIOS && !isStandalone) {
-        return false;
-      }
-      
-      return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
-    };
-
     // Check OneSignal Subscription Status & Player ID
     const checkStatus = async () => {
-      if (!isPushSupported()) {
-        setPermissionState('unsupported');
-        setIsSubscribed(false);
-        return;
-      }
       const OneSignalDeferred = (window as any).OneSignalDeferred;
       if (!OneSignalDeferred) return;
 
@@ -214,9 +196,9 @@ export default function Settings() {
               perm = OneSignal.Notifications.permission;
               hasPermission = perm === 'granted';
             }
-            
+
             setPermissionState(perm);
-            
+
             // Check User namespace
             if (OneSignal.User?.PushSubscription) {
               pushId = OneSignal.User.PushSubscription.id;
@@ -437,26 +419,8 @@ export default function Settings() {
   };
 
   const handleSubscribe = async () => {
-    const isPushSupported = () => {
-      if (typeof window === 'undefined') return false;
-      
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone || false;
-      
-      if (isIOS && !isStandalone) {
-        return false;
-      }
-      
-      return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
-    };
-
-    if (!isPushSupported()) {
-      setError('Push notifications are not supported on this browser/device. (On iOS, add to Home Screen first)');
-      return;
-    }
-
     const OneSignal = (window as any).OneSignal;
-    
+
     // Attempt direct synchronous call to satisfy Safari user-gesture policy
     if (OneSignal && OneSignal.Notifications) {
       try {
@@ -496,7 +460,7 @@ export default function Settings() {
             if (OS.User?.PushSubscription) {
               await OS.User.PushSubscription.optIn();
               console.log('Successfully opted-in to push subscription');
-              
+
               const pushId = OS.User.PushSubscription.id;
               const currentUserId = localStorage.getItem('userId');
               if (currentUserId && pushId) {
@@ -640,8 +604,8 @@ export default function Settings() {
                 <p className="text-xs text-slate-500">Configure Meta Cloud API for automated notifications.</p>
               </div>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setWhatsappSettings(prev => ({ ...prev, is_active: !prev.is_active }))}
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ${whatsappSettings.is_active ? 'bg-emerald-500' : 'bg-slate-200'}`}
             >
@@ -654,13 +618,13 @@ export default function Settings() {
               <div className="md:col-span-2 space-y-2">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">WhatsApp Provider</label>
                 <div className="flex gap-4">
-                  <button 
+                  <button
                     onClick={() => setWhatsappSettings(prev => ({ ...prev, provider: 'meta' }))}
                     className={`flex-1 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold ${whatsappSettings.provider === 'meta' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
                   >
                     Meta Cloud API (Official)
                   </button>
-                  <button 
+                  <button
                     onClick={() => setWhatsappSettings(prev => ({ ...prev, provider: 'aisensy' }))}
                     className={`flex-1 py-3 rounded-xl border-2 transition-all flex items-center justify-center gap-2 font-bold ${whatsappSettings.provider === 'aisensy' ? 'bg-indigo-50 border-indigo-500 text-indigo-700' : 'bg-white border-slate-100 text-slate-400 hover:border-slate-200'}`}
                   >
@@ -675,7 +639,7 @@ export default function Settings() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Phone Number ID</label>
                     <div className="relative">
                       <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input 
+                      <input
                         type="text"
                         placeholder="e.g. 1092837465..."
                         value={whatsappSettings.phone_number_id}
@@ -689,7 +653,7 @@ export default function Settings() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Sender Mobile Number</label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input 
+                      <input
                         type="text"
                         placeholder="e.g. 919876543210"
                         value={whatsappSettings.sender_number}
@@ -703,7 +667,7 @@ export default function Settings() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">System Access Token (Meta API)</label>
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <textarea 
+                      <textarea
                         rows={3}
                         placeholder="Enter your Meta Cloud API permanent access token..."
                         value={whatsappSettings.access_token}
@@ -719,7 +683,7 @@ export default function Settings() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">AiSensy API Key</label>
                     <div className="relative">
                       <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input 
+                      <input
                         type="text"
                         placeholder="Enter your AiSensy API Key..."
                         value={whatsappSettings.aisensy_api_key}
@@ -733,7 +697,7 @@ export default function Settings() {
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Approved Campaign Name (Template)</label>
                     <div className="relative">
                       <MessageSquare className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input 
+                      <input
                         type="text"
                         placeholder="e.g. payment_proof_notification"
                         value={whatsappSettings.aisensy_campaign_name}
@@ -760,7 +724,7 @@ export default function Settings() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Test WhatsApp Number</label>
                 <div className="relative">
                   <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
+                  <input
                     type="text"
                     placeholder="e.g. 9876543210"
                     value={testWA}
@@ -769,7 +733,7 @@ export default function Settings() {
                   />
                 </div>
               </div>
-              <button 
+              <button
                 onClick={handleTestWhatsApp}
                 disabled={whatsappTestLoading}
                 className="px-8 py-2.5 bg-emerald-600 text-white rounded-xl font-bold text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-100 flex items-center gap-2 disabled:opacity-50 h-[42px]"
@@ -797,8 +761,8 @@ export default function Settings() {
                 <p className="text-xs text-slate-500">Enable real-time mobile push alerts for new requests.</p>
               </div>
             </div>
-            
-            <button 
+
+            <button
               onClick={() => setOneSignalSettings(prev => ({ ...prev, is_enabled: !prev.is_enabled }))}
               className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none ${oneSignalSettings.is_enabled ? 'bg-indigo-500' : 'bg-slate-200'}`}
             >
@@ -812,7 +776,7 @@ export default function Settings() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">OneSignal App ID</label>
                 <div className="relative">
                   <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
+                  <input
                     type="text"
                     placeholder="e.g. 550e8400-e29b-41d4-a716..."
                     value={oneSignalSettings.app_id}
@@ -826,7 +790,7 @@ export default function Settings() {
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">REST API Key</label>
                 <div className="relative">
                   <Key className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
+                  <input
                     type="password"
                     placeholder="Enter your REST API key..."
                     value={oneSignalSettings.rest_api_key}
@@ -846,8 +810,8 @@ export default function Settings() {
                       {isSubscribed ? 'Device Subscribed' : 'Device Not Subscribed'}
                     </p>
                     <p className="text-xs text-slate-500">
-                      {isSubscribed 
-                        ? `Your Unique Player ID: ${playerId || 'Detecting...'}` 
+                      {isSubscribed
+                        ? `Your Unique Player ID: ${playerId || 'Detecting...'}`
                         : `Permission Status: ${permissionState === 'default' ? 'Not Asked Yet' : permissionState === 'denied' ? 'Blocked/Denied' : permissionState}`}
                     </p>
                     {permissionState === 'denied' && (
@@ -859,11 +823,10 @@ export default function Settings() {
                 </div>
                 <button
                   onClick={handleSubscribe}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 ${
-                    isSubscribed 
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 ${isSubscribed
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
                       : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}
+                    }`}
                 >
                   {isSubscribed ? 'Sync Device ID' : 'Subscribe Now'}
                 </button>
@@ -894,8 +857,8 @@ export default function Settings() {
               <AlertCircle className="text-amber-600 shrink-0" size={18} />
               <div className="text-xs text-amber-800 leading-relaxed">
                 <p className="font-bold mb-1">How it works:</p>
-                1. Save your OneSignal credentials above. <br/>
-                2. Click **"Subscribe Now"** on your mobile phone browser. <br/>
+                1. Save your OneSignal credentials above. <br />
+                2. Click **"Subscribe Now"** on your mobile phone browser. <br />
                 3. The system will now send a push notification to your phone whenever a user submits a QR Payment, Bill, or KYC request.
               </div>
             </div>
@@ -936,9 +899,9 @@ export default function Settings() {
                     <label className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold hover:bg-indigo-700 cursor-pointer transition-all shadow-md shadow-indigo-100">
                       <Upload size={16} />
                       Upload Logo
-                      <input 
-                        type="file" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        className="hidden"
                         accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -975,9 +938,9 @@ export default function Settings() {
                     <label className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-xl text-sm font-bold hover:bg-emerald-700 cursor-pointer transition-all shadow-md shadow-emerald-100">
                       <Upload size={16} />
                       Upload Mini Logo
-                      <input 
-                        type="file" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        className="hidden"
                         accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -1014,9 +977,9 @@ export default function Settings() {
                     <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 cursor-pointer transition-all shadow-md">
                       <Upload size={16} />
                       Upload Icon
-                      <input 
-                        type="file" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        className="hidden"
                         accept="image/png,image/x-icon,image/vnd.microsoft.icon"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -1049,9 +1012,9 @@ export default function Settings() {
                     <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 cursor-pointer transition-all shadow-md">
                       <Upload size={16} />
                       Upload Watermark
-                      <input 
-                        type="file" 
-                        className="hidden" 
+                      <input
+                        type="file"
+                        className="hidden"
                         accept="image/*"
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -1080,14 +1043,12 @@ export default function Settings() {
                   </div>
                   <button
                     onClick={() => setBrandingSettings(prev => ({ ...prev, is_watermark_enabled: !prev.is_watermark_enabled }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                      brandingSettings.is_watermark_enabled ? 'bg-indigo-600' : 'bg-slate-200'
-                    }`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${brandingSettings.is_watermark_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                      }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        brandingSettings.is_watermark_enabled ? 'translate-x-6' : 'translate-x-1'
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${brandingSettings.is_watermark_enabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
                     />
                   </button>
                 </div>
@@ -1121,14 +1082,12 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => setBrandingSettings(prev => ({ ...prev, is_bill_enabled: !prev.is_bill_enabled }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  brandingSettings.is_bill_enabled ? 'bg-indigo-600' : 'bg-slate-200'
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${brandingSettings.is_bill_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    brandingSettings.is_bill_enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${brandingSettings.is_bill_enabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
@@ -1151,14 +1110,12 @@ export default function Settings() {
               </div>
               <button
                 onClick={() => setBrandingSettings(prev => ({ ...prev, is_animation_enabled: !prev.is_animation_enabled }))}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                  brandingSettings.is_animation_enabled ? 'bg-indigo-600' : 'bg-slate-200'
-                }`}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${brandingSettings.is_animation_enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                  }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    brandingSettings.is_animation_enabled ? 'translate-x-6' : 'translate-x-1'
-                  }`}
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${brandingSettings.is_animation_enabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
                 />
               </button>
             </div>
@@ -1192,9 +1149,8 @@ export default function Settings() {
                     <h4 className="text-sm font-bold text-slate-900">{item.label}</h4>
                     <button
                       onClick={() => setBrandingSettings(prev => ({ ...prev, [`is_${item.id}_sound_enabled`]: !prev[`is_${item.id}_sound_enabled` as keyof typeof prev] }))}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                        item.enabled ? 'bg-indigo-600' : 'bg-slate-200'
-                      }`}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${item.enabled ? 'bg-indigo-600' : 'bg-slate-200'
+                        }`}
                     >
                       <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${item.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
                     </button>
@@ -1205,9 +1161,9 @@ export default function Settings() {
                       <label className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 cursor-pointer transition-all shadow-sm w-full">
                         <Music size={14} className="shrink-0" />
                         <span className="truncate">{item.sound ? 'Change Sound' : 'Upload Sound'}</span>
-                        <input 
-                          type="file" 
-                          className="hidden" 
+                        <input
+                          type="file"
+                          className="hidden"
                           accept="audio/mpeg"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
@@ -1239,7 +1195,7 @@ export default function Settings() {
         <div className="flex items-center justify-between gap-4 pt-4 border-t border-slate-100">
           <AnimatePresence>
             {success && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
@@ -1250,7 +1206,7 @@ export default function Settings() {
               </motion.div>
             )}
             {error && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0 }}
@@ -1273,5 +1229,21 @@ export default function Settings() {
         </div>
       </div>
     </div>
+  );
+}
+            )}
+          </AnimatePresence >
+
+  <button
+    onClick={handleSave}
+    disabled={saving}
+    className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 ml-auto active:scale-95"
+  >
+    {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+    <span>{saving ? 'Saving...' : 'Save Settings'}</span>
+  </button>
+        </div >
+      </div >
+    </div >
   );
 }
