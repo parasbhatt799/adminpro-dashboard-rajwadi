@@ -1112,7 +1112,7 @@ async function startServer() {
         return res.json(response.json);
       } catch (apiError: any) {
         console.warn(`[BillAvenue Proxy] Fetch failed, checking if staging mock is possible for ${billerId}:`, apiError.message);
-        if (isStaging || apiError.message.includes('IP') || apiError.message.includes('whitelist') || apiError.message.includes('Decrypt')) {
+        if (isStaging) {
           console.log(`[BillAvenue Proxy] Returning Mock Staging Bill for biller: ${billerId}`);
           return res.json(getMockResponse());
         }
@@ -1216,7 +1216,7 @@ async function startServer() {
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);
         const isStaging = process.env.BILLAVENUE_ENV !== 'production';
-        if (isStaging || payApiError.message.includes('IP') || payApiError.message.includes('whitelist') || payApiError.message.includes('Decrypt')) {
+        if (isStaging) {
           console.log(`[BillAvenue Proxy] Returning Mock Staging Pay response for biller: ${billerId}`);
           apiResponse = {
             requestId: 'MOCK' + Math.random().toString(36).substring(2, 9).toUpperCase(),
