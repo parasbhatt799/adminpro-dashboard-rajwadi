@@ -89,8 +89,17 @@ const logInit = (msg: string) => {
   }
 };
 
+export const isPushSupported = () => {
+  if (typeof window === 'undefined') return false;
+  return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+};
+
 // OneSignal Initialization Helper
 const initOneSignal = async () => {
+  if (!isPushSupported()) {
+    logInit('initOneSignal: Push not supported on this device/browser');
+    return;
+  }
   logInit('initOneSignal started');
   if (typeof window !== 'undefined') {
     logInit('Protocol: ' + window.location.protocol);
@@ -238,6 +247,7 @@ const initOneSignal = async () => {
 };
 
 const syncOneSignalUser = async (currentUserId: string) => {
+  if (!isPushSupported()) return;
   try {
     const OneSignalDeferred = (window as any).OneSignalDeferred;
     if (!OneSignalDeferred) return;
@@ -463,6 +473,12 @@ const AdminLayout = ({
 
   useEffect(() => {
     const checkStatus = async () => {
+      if (!isPushSupported()) {
+        setPermissionState('unsupported');
+        setIsSubscribed(false);
+        setOneSignalDebug('Push notifications not supported on this browser/device. (On iOS, you must Add to Home Screen first)');
+        return;
+      }
       const OneSignalDeferred = (window as any).OneSignalDeferred;
       if (!OneSignalDeferred) {
         setOneSignalDebug(prev => {
@@ -528,6 +544,10 @@ const AdminLayout = ({
   }, []);
 
   const handleGlobalSubscribe = async () => {
+    if (!isPushSupported()) {
+      toast.error('Push notifications are not supported in this browser. (On iOS, add to Home Screen first)');
+      return;
+    }
     setIsSubscribing(true);
     setOneSignalDebug(prev => prev + '\nStarting global subscribe click handler...');
     let OneSignal = (window as any).OneSignal;

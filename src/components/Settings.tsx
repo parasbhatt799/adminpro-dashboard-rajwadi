@@ -178,8 +178,18 @@ export default function Settings() {
   useEffect(() => {
     fetchSettings();
 
+    const isPushSupported = () => {
+      if (typeof window === 'undefined') return false;
+      return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+    };
+
     // Check OneSignal Subscription Status & Player ID
     const checkStatus = async () => {
+      if (!isPushSupported()) {
+        setPermissionState('unsupported');
+        setIsSubscribed(false);
+        return;
+      }
       const OneSignalDeferred = (window as any).OneSignalDeferred;
       if (!OneSignalDeferred) return;
 
@@ -419,6 +429,16 @@ export default function Settings() {
   };
 
   const handleSubscribe = async () => {
+    const isPushSupported = () => {
+      if (typeof window === 'undefined') return false;
+      return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+    };
+
+    if (!isPushSupported()) {
+      setError('Push notifications are not supported on this browser/device. (On iOS, add to Home Screen first)');
+      return;
+    }
+
     const OneSignal = (window as any).OneSignal;
     
     // Attempt direct synchronous call to satisfy Safari user-gesture policy

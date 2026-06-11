@@ -16,6 +16,12 @@ export default function SubscribeNotification() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState('');
+  const [supported, setSupported] = useState(true);
+
+  const isPushSupported = () => {
+    if (typeof window === 'undefined') return false;
+    return 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window;
+  };
 
   // 1. Fetch current OneSignal subscription state from browser SDK
   const checkOneSignalState = () => {
@@ -35,6 +41,12 @@ export default function SubscribeNotification() {
   };
 
   useEffect(() => {
+    const hasSupport = isPushSupported();
+    setSupported(hasSupport);
+    if (!hasSupport) {
+      setError('આ બ્રાઉઝરમાં લાઈવ પુશ નોટિફિકેશન સપોર્ટ કરતું નથી. જો iPhone હોય તો "Add to Home Screen" કરી તે શોર્ટકટ એપ ઓપન કરો.');
+      return;
+    }
     checkOneSignalState();
     // Check again after 1.5 seconds in case OneSignal is still loading
     const timer = setTimeout(checkOneSignalState, 1500);
@@ -223,24 +235,35 @@ export default function SubscribeNotification() {
             </button>
           </div>
 
-          {/* Permission Badge */}
-          <div className="mb-6 bg-slate-950/40 border border-white/5 rounded-2xl p-4 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-              બ્રાઉઝર પરમિશન:
-            </span>
-            {permissionState === 'granted' ? (
-              <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Active / Granted
+          {/* Permission / Support Badge */}
+          <div className="mb-6 bg-slate-950/40 border border-white/5 rounded-2xl p-4 flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                {!supported ? 'બ્રાઉઝર સપોર્ટ:' : 'બ્રાઉઝર પરમિશન:'}
               </span>
-            ) : permissionState === 'denied' ? (
-              <span className="px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-full text-xs font-bold">
-                ⚠️ Blocked / Denied
-              </span>
-            ) : (
-              <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-bold">
-                🔍 Not Configured (Default)
-              </span>
+              {!supported ? (
+                <span className="px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-full text-xs font-bold">
+                  ⚠️ Unsupported
+                </span>
+              ) : permissionState === 'granted' ? (
+                <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full text-xs font-bold flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  Active / Granted
+                </span>
+              ) : permissionState === 'denied' ? (
+                <span className="px-3 py-1 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-full text-xs font-bold">
+                  ⚠️ Blocked / Denied
+                </span>
+              ) : (
+                <span className="px-3 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-full text-xs font-bold">
+                  🔍 Not Configured (Default)
+                </span>
+              )}
+            </div>
+            {!supported && (
+              <p className="text-[11px] text-amber-400 leading-relaxed mt-1">
+                આઇફોન (iPhone) પર નોટિફિકેશન મેળવવા માટે નીચે આપેલા **Share (શેર)** બટન પર ક્લિક કરી **"Add to Home Screen"** પર ક્લિક કરો અને બનેલી નવી હોમ સ્ક્રીન એપમાંથી આ લિંક ખોલો.
+              </p>
             )}
           </div>
 
