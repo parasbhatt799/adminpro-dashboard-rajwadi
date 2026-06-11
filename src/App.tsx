@@ -80,37 +80,71 @@ import { PrivacyPolicy, TermsAndConditions, RefundPolicy, CancellationPolicy } f
 const DEVELOPER_MOBILE = '9999099999';
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes in milliseconds
 
+const logInit = (msg: string) => {
+  console.log('[OneSignalInit]', msg);
+  if (typeof window !== 'undefined') {
+    (window as any).oneSignalInitLogs = (window as any).oneSignalInitLogs || [];
+    (window as any).oneSignalInitLogs.push(msg);
+  }
+};
+
 // OneSignal Initialization Helper
 const initOneSignal = async () => {
+  logInit('initOneSignal started');
   try {
     const OneSignalDeferred = (window as any).OneSignalDeferred;
-    if (!OneSignalDeferred) return;
+    if (!OneSignalDeferred) {
+      logInit('initOneSignal: OneSignalDeferred missing on window');
+      return;
+    }
 
-    // 1. Fetch App ID
-    const { data: settings } = await supabase
-      .from('onesignal_settings')
-      .select('app_id')
-      .eq('id', 1)
-      .single();
+    let appId = '0b006a43-d6bf-4087-81d6-86c69fec876d'; // Hardcoded default fallback
+    logInit('initOneSignal: Fetching app ID from DB with 2s timeout...');
 
-    if (!settings?.app_id) return;
+    try {
+      const dbPromise = supabase
+        .from('onesignal_settings')
+        .select('app_id')
+        .eq('id', 1)
+        .single();
+      
+      const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 2000));
+      const result = await Promise.race([dbPromise, timeoutPromise]);
 
-    // 2. Initialize via Deferred Queue
+      if (result && 'data' in result && result.data?.app_id) {
+        appId = result.data.app_id;
+        logInit('initOneSignal: Fetched App ID from DB: ' + appId);
+      } else if (result === null) {
+        logInit('initOneSignal: DB fetch timed out. Using fallback App ID: ' + appId);
+      } else {
+        logInit('initOneSignal: DB fetch empty/error. Using fallback App ID: ' + appId);
+      }
+    } catch (dbErr: any) {
+      logInit('initOneSignal: DB fetch failed: ' + dbErr.message + '. Using fallback App ID: ' + appId);
+    }
+
+    logInit('initOneSignal: Pushing initialization task to OneSignalDeferred queue...');
     OneSignalDeferred.push(async (OneSignal: any) => {
+      logInit('initOneSignal (Deferred callback): Started execution');
       try {
+        logInit(`initOneSignal (Deferred callback): SDK version=${OneSignal.sdk || 'unknown'}, initialized=${OneSignal.initialized || 'false'}`);
         if (!OneSignal.initialized) {
+          logInit('initOneSignal (Deferred callback): Calling OneSignal.init...');
           await OneSignal.init({
-            appId: settings.app_id,
+            appId: appId,
             allowLocalhostAsSecureOrigin: true,
             notifyButton: { enable: false },
             serviceWorkerParam: { scope: '/' },
             serviceWorkerPath: 'OneSignalSDKWorker.js',
           });
-          console.log('OneSignal Web SDK Initialized successfully');
+          logInit('initOneSignal (Deferred callback): OneSignal.init execution finished');
+        } else {
+          logInit('initOneSignal (Deferred callback): OneSignal was already initialized');
         }
 
         // Force foreground notifications to display (show popups even if the tab is focused)
         if (OneSignal.Notifications) {
+          logInit('initOneSignal: Notifications namespace exists. Attaching listener...');
           if (!(OneSignal.Notifications as any)._hasForegroundListener) {
             OneSignal.Notifications.addEventListener('foregroundWillDisplay', (event: any) => {
               try {
@@ -118,16 +152,17 @@ const initOneSignal = async () => {
                   event.preventDefault(); // Stop default display behavior to prevent double notifications
                   if (typeof event.notification.display === 'function') {
                     event.notification.display();
-                    console.log('Forced foreground notification display');
+                    logInit('Foreground notification displayed successfully');
                   }
                 }
-              } catch (fgErr) {
-                console.error('Error displaying foreground notification:', fgErr);
+              } catch (fgErr: any) {
+                logInit('Error displaying foreground notification: ' + fgErr.message);
               }
             });
             (OneSignal.Notifications as any)._hasForegroundListener = true;
-            console.log('OneSignal foreground notification listener registered');
           }
+        } else {
+          logInit('initOneSignal: Notifications namespace missing on OneSignal');
         }
 
         const registerListener = () => {
@@ -141,20 +176,20 @@ const initOneSignal = async () => {
               try {
                 const newPushId = event.current?.id;
                 const currentUserId = localStorage.getItem('userId');
-                console.log('OneSignal subscription change event. New ID:', newPushId);
+                logInit('OneSignal subscription change event. New ID: ' + newPushId);
 
                 if (currentUserId && newPushId) {
                   const userType = localStorage.getItem('userType') as 'admin' | 'user';
                   await addDevicePushId(currentUserId, userType, newPushId);
-                  console.log('OneSignal Event Sync Success:', newPushId);
+                  logInit('OneSignal Event Sync Success: ' + newPushId);
                 }
-              } catch (eventErr) {
-                console.error('Error handling subscription change event:', eventErr);
+              } catch (eventErr: any) {
+                logInit('Error handling subscription change event: ' + eventErr.message);
               }
             });
 
             (OneSignal.User.PushSubscription as any)._hasSyncListener = true;
-            console.log('OneSignal subscription change listener registered successfully');
+            logInit('OneSignal subscription change listener registered successfully');
             return true;
           }
           return false;
@@ -162,10 +197,12 @@ const initOneSignal = async () => {
 
         // Attempt immediate listener registration. If modules aren't ready, retry for a few seconds.
         if (!registerListener()) {
+          logInit('OneSignal User PushSubscription namespace not ready. Scheduling retry polling...');
           let retries = 0;
           const maxRetries = 10;
           const interval = setInterval(() => {
             retries++;
+            logInit(`PushSubscription retry attempt ${retries}...`);
             if (registerListener() || retries >= maxRetries) {
               clearInterval(interval);
             }
@@ -175,21 +212,22 @@ const initOneSignal = async () => {
         // Force sync current user immediately after initialization is complete
         const currentUserId = localStorage.getItem('userId');
         if (currentUserId) {
+          logInit('Logging in user ' + currentUserId + ' to OneSignal...');
           OneSignal.login(currentUserId);
           const pushId = OneSignal.User?.PushSubscription?.id;
           if (pushId) {
             const userType = localStorage.getItem('userType') as 'admin' | 'user';
             await addDevicePushId(currentUserId, userType, pushId);
-            console.log('OneSignal Initialized Sync success:', pushId);
+            logInit('OneSignal Initialized Sync success: ' + pushId);
           }
         }
-      } catch (innerErr) {
-        console.error('Error inside OneSignalDeferred initialization queue:', innerErr);
+      } catch (innerErr: any) {
+        logInit('Error inside OneSignalDeferred initialization callback: ' + innerErr.message);
       }
     });
 
-  } catch (err) {
-    console.error('OneSignal Setup Error:', err);
+  } catch (err: any) {
+    logInit('OneSignal Setup Error: ' + err.message);
   }
 };
 
@@ -429,24 +467,32 @@ const AdminLayout = ({
 
       OneSignalDeferred.push(async (OneSignal: any) => {
         try {
+          // Sync init logs to diagnostic console
+          const initLogs = (window as any).oneSignalInitLogs || [];
+          setOneSignalDebug(prev => {
+            let next = prev;
+            initLogs.forEach((l: string) => {
+              if (!next.includes(l)) {
+                next += '\n' + l;
+              }
+            });
+            const str = `\nSDK version: ${OneSignal.sdk || 'unknown'}, initialized: ${OneSignal.initialized || 'false'}`;
+            if (!next.includes(str)) next += str;
+            return next;
+          });
+
           if (typeof OneSignal.init === 'function') {
             let hasPermission = false;
             let hasSubscription = false;
             let pushId = null;
             let perm = 'default';
 
-            setOneSignalDebug(prev => {
-              const str = `\nSDK version: ${OneSignal.sdk || 'unknown'}, initialized: ${OneSignal.initialized || 'false'}`;
-              if (!prev.includes(str)) return prev + str;
-              return prev;
-            });
-
             if (OneSignal.Notifications) {
               perm = OneSignal.Notifications.permission;
               hasPermission = perm === 'granted';
             }
             
-            setPermissionState(perm);
+            setPermissionState(perm || 'default');
             
             if (OneSignal.User?.PushSubscription) {
               pushId = OneSignal.User.PushSubscription.id;
@@ -715,7 +761,7 @@ const AdminLayout = ({
                         <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] space-y-1.5 text-slate-600 font-sans">
                           <div className="flex justify-between"><span>ડિવાઇસ ટાઇપ:</span><span className="font-bold">{isIOS ? 'iPhone (iOS)' : 'Android / PC'}</span></div>
                           <div className="flex justify-between"><span>એપ મોડ:</span><span className="font-bold">{isPWA ? 'PWA Installed' : 'Browser Tab'}</span></div>
-                          <div className="flex justify-between"><span>પરમિશન સ્ટેટ્સ:</span><span className="font-bold capitalize">{permissionState}</span></div>
+                          <div className="flex justify-between"><span>પરમિશન સ્ટેટ્સ:</span><span className="font-bold capitalize">{permissionState || 'default'}</span></div>
                           <div className="flex justify-between"><span>SDK એક્ટિવ:</span><span className="font-bold">{(window as any).OneSignalDeferred ? 'Yes' : 'No'}</span></div>
                           
                           {playerId ? (
