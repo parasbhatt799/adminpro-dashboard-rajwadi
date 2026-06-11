@@ -342,6 +342,47 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
   };
 
+  const refreshActiveQr = React.useCallback(async () => {
+    try {
+      const { data: qrData } = await supabase
+        .from('qr_settings')
+        .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit, upi_id, is_bill_enabled, daily_normal_bill_limit')
+        .eq('id', 1)
+        .single();
+
+      const { data: activeQR } = await supabase
+        .from('qr_history')
+        .select('id, qr_name, upi_id')
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (qrData) {
+        setIsQrEnabled(qrData.is_service_enabled ?? true);
+        if (qrData.is_enabled) {
+          setQrUrl(qrData.qr_url);
+        } else {
+          setQrUrl(null);
+        }
+        
+        if (activeQR) {
+          setActiveQrId(activeQR.id);
+          setQrName(activeQR.qr_name);
+          setUpiId(activeQR.upi_id || qrData.upi_id || null);
+        } else {
+          setUpiId(qrData.upi_id || null);
+        }
+
+        setQrMinLimit(Number(qrData.qr_min_limit) || 100);
+        setQrMaxLimit(Number(qrData.qr_max_limit) || 100000);
+        setTPlusOneLimit(qrData.t_plus_one_limit !== undefined && qrData.t_plus_one_limit !== null ? Number(qrData.t_plus_one_limit) : 0);
+        setIsBillEnabled(qrData.is_bill_enabled ?? true);
+        setGlobalNormalBillLimit(Number(qrData.daily_normal_bill_limit) || 500000);
+      }
+    } catch (err) {
+      console.error('Error refreshing active QR:', err);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -365,43 +406,13 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           .order('min_amount', { ascending: true });
         setSlabs(slabData || []);
 
-        // Fetch QR
-        const { data: qrData, error: qrError } = await supabase
-          .from('qr_settings')
-          .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit, upi_id')
-          .eq('id', 1)
-          .single();
-
-        if (!qrError && qrData) {
-          setIsQrEnabled(qrData.is_service_enabled ?? true);
-          if (qrData.is_enabled) {
-            setQrUrl(qrData.qr_url);
-            setUpiId(qrData.upi_id || null);
-          }
-          setQrMinLimit(Number(qrData.qr_min_limit) || 100);
-          setQrMaxLimit(Number(qrData.qr_max_limit) || 100000);
-          setTPlusOneLimit(qrData.t_plus_one_limit !== undefined && qrData.t_plus_one_limit !== null ? Number(qrData.t_plus_one_limit) : 0);
-        }
+        // Fetch active QR and details
+        await refreshActiveQr();
 
         await fetchTodayT1Sum();
 
         const offlineUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/site_assets/offline_qr.png`;
         setOfflineQrUrl(`${offlineUrl}?t=${Date.now()}`);
-
-        // Fetch Current Active QR ID from History
-        const { data: activeQR } = await supabase
-          .from('qr_history')
-          .select('id, qr_name, upi_id')
-          .eq('is_active', true)
-          .single();
-
-        if (activeQR) {
-          setActiveQrId(activeQR.id);
-          setQrName(activeQR.qr_name);
-          if (activeQR.upi_id) {
-            setUpiId(activeQR.upi_id);
-          }
-        }
 
         // Fetch Inactive QRs from the last 24 hours
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -435,17 +446,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setInactiveQrs(filteredOldQRs);
         }
 
-        // Fetch Global Settings (QR & Bill status)
-        const { data: globalSettings } = await supabase
-          .from('qr_settings')
-          .select('is_bill_enabled, daily_normal_bill_limit')
-          .eq('id', 1)
-          .single();
 
-        if (globalSettings) {
-          setIsBillEnabled(globalSettings.is_bill_enabled ?? true);
-          setGlobalNormalBillLimit(Number(globalSettings.daily_normal_bill_limit) || 500000);
-        }
 
         // Fetch Banks
         const { data: bankData, error: bankError } = await supabase
@@ -605,36 +606,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         schema: 'public',
         table: 'qr_settings',
         filter: 'id=eq.1'
-      }, (payload: any) => {
-        const isEnabled = payload.new?.is_enabled;
-        // Only update URL if enabled
-        if (isEnabled) {
-          setQrUrl(payload.new.qr_url);
-          setUpiId(payload.new.upi_id || null);
-        } else {
-          setQrUrl(null);
-          setUpiId(null);
-        }
+      }, async (payload: any) => {
+        await refreshActiveQr();
 
         // Sync Bill status
         const billEnabled = payload.new.is_bill_enabled ?? true;
         setIsBillEnabled(billEnabled);
         if (!billEnabled && activeTab === 'bill') {
           setActiveTab('qr');
-        }
-
-        // Sync limits
-        if (payload.new.qr_min_limit !== undefined) {
-          setQrMinLimit(Number(payload.new.qr_min_limit) || 100);
-        }
-        if (payload.new.qr_max_limit !== undefined) {
-          setQrMaxLimit(Number(payload.new.qr_max_limit) || 100000);
-        }
-        if (payload.new.daily_normal_bill_limit !== undefined) {
-          setGlobalNormalBillLimit(Number(payload.new.daily_normal_bill_limit) || 500000);
-        }
-        if (payload.new.t_plus_one_limit !== undefined) {
-          setTPlusOneLimit(payload.new.t_plus_one_limit !== null ? Number(payload.new.t_plus_one_limit) : 0);
         }
       })
       .subscribe();
@@ -706,35 +685,15 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         schema: 'public',
         table: 'qr_settings',
         filter: 'id=eq.1'
-      }, (payload) => {
-        const newData = payload.new;
-        setIsQrEnabled(newData.is_service_enabled ?? true);
-        if (newData.is_enabled) {
-          setQrUrl(newData.qr_url);
-          setUpiId(newData.upi_id || null);
-        } else {
-          setQrUrl(null);
-          setUpiId(null);
-        }
-        if (newData.qr_min_limit !== undefined) {
-          setQrMinLimit(Number(newData.qr_min_limit) || 100);
-        }
-        if (newData.qr_max_limit !== undefined) {
-          setQrMaxLimit(Number(newData.qr_max_limit) || 100000);
-        }
-        if (newData.daily_normal_bill_limit !== undefined) {
-          setGlobalNormalBillLimit(Number(newData.daily_normal_bill_limit) || 500000);
-        }
-        if (newData.t_plus_one_limit !== undefined) {
-          setTPlusOneLimit(newData.t_plus_one_limit !== null ? Number(newData.t_plus_one_limit) : 0);
-        }
+      }, async (payload) => {
+        await refreshActiveQr();
       })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [refreshActiveQr]);
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

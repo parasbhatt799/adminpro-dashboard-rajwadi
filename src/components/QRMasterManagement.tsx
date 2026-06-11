@@ -154,6 +154,13 @@ export default function QRMasterManagement() {
       }
 
       if (editingId) {
+        // Fetch the old name first to match against active QR
+        const { data: oldMaster } = await supabase
+          .from('qr_master')
+          .select('qr_name')
+          .eq('id', editingId)
+          .single();
+
         const { error: dbError } = await supabase
           .from('qr_master')
           .update({
@@ -167,6 +174,38 @@ export default function QRMasterManagement() {
           .eq('id', editingId);
 
         if (dbError) throw dbError;
+
+        if (oldMaster) {
+          // Check if this QR name is currently active in qr_history
+          const { data: activeQR } = await supabase
+            .from('qr_history')
+            .select('id')
+            .eq('is_active', true)
+            .eq('qr_name', oldMaster.qr_name)
+            .maybeSingle();
+
+          if (activeQR) {
+            // Update active history record
+            await supabase
+              .from('qr_history')
+              .update({
+                qr_name: qrName.trim(),
+                qr_url: finalImageUrl,
+                upi_id: upiId.trim()
+              })
+              .eq('id', activeQR.id);
+
+            // Update legacy qr_settings
+            await supabase
+              .from('qr_settings')
+              .update({
+                qr_url: finalImageUrl,
+                upi_id: upiId.trim()
+              })
+              .eq('id', 1);
+          }
+        }
+
         setSuccess('QR entry updated successfully!');
       } else {
         // Get max display order for the new item
