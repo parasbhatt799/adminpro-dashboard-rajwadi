@@ -10,40 +10,6 @@
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
-      window.addEventListener('error', function(e) {
-        var div = document.createElement('div');
-        div.style.position = 'fixed';
-        div.style.top = '0';
-        div.style.left = '0';
-        div.style.width = '100%';
-        div.style.background = '#fecaca';
-        div.style.color = '#991b1b';
-        div.style.padding = '15px';
-        div.style.zIndex = '999999';
-        div.style.fontFamily = 'monospace';
-        div.style.fontSize = '12px';
-        div.style.whiteSpace = 'pre-wrap';
-        div.style.borderBottom = '3px solid #ef4444';
-        div.innerText = 'JS Error: ' + e.message + '\nAt: ' + e.filename + ':' + e.lineno;
-        document.body.appendChild(div);
-      });
-      window.addEventListener('unhandledrejection', function(e) {
-        var div = document.createElement('div');
-        div.style.position = 'fixed';
-        div.style.top = '0';
-        div.style.left = '0';
-        div.style.width = '100%';
-        div.style.background = '#fde047';
-        div.style.color = '#854d0e';
-        div.style.padding = '15px';
-        div.style.zIndex = '999999';
-        div.style.fontFamily = 'monospace';
-        div.style.fontSize = '12px';
-        div.style.whiteSpace = 'pre-wrap';
-        div.style.borderBottom = '3px solid #eab308';
-        div.innerText = 'Promise Reject: ' + e.reason;
-        document.body.appendChild(div);
-      });
     </script>
   </head>
   <body>

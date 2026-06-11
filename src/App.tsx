@@ -69,7 +69,7 @@ const HomePage = lazy(() => import('./components/HomePage'));
 const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
 const RechargeDashboard = lazy(() => import('./components/RechargeDashboard'));
 const UserRecharge = lazy(() => import('./components/user/UserRecharge'));
-import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone, BellOff, CheckCircle2 } from 'lucide-react';
+import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase, addDevicePushId, removeDevicePushId } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import { motion, AnimatePresence } from 'motion/react';
@@ -171,18 +171,6 @@ const initOneSignal = async () => {
             }
           }, 1000);
         }
-
-        // Force sync current user immediately after initialization is complete
-        const currentUserId = localStorage.getItem('userId');
-        if (currentUserId) {
-          OneSignal.login(currentUserId);
-          const pushId = OneSignal.User?.PushSubscription?.id;
-          if (pushId) {
-            const userType = localStorage.getItem('userType') as 'admin' | 'user';
-            await addDevicePushId(currentUserId, userType, pushId);
-            console.log('OneSignal Initialized Sync success:', pushId);
-          }
-        }
       } catch (innerErr) {
         console.error('Error inside OneSignalDeferred initialization queue:', innerErr);
       }
@@ -203,20 +191,6 @@ const syncOneSignalUser = async (currentUserId: string) => {
         if (currentUserId) {
           // Always associate this device with the user's ID in OneSignal
           OneSignal.login(currentUserId);
-
-          // Auto-prompt on site load/login for admins if permission is 'default'
-          const userType = localStorage.getItem('userType') as 'admin' | 'user';
-          if (userType === 'admin' && OneSignal.Notifications) {
-            const perm = OneSignal.Notifications.permission;
-            if (perm === 'default') {
-              console.log('Auto-requesting notification permission on load for admin...');
-              try {
-                await OneSignal.Notifications.requestPermission();
-              } catch (permErr) {
-                console.error('Error auto-requesting permission:', permErr);
-              }
-            }
-          }
 
           let attempts = 0;
           const maxAttempts = 10;
@@ -373,174 +347,6 @@ const AdminLayout = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const currentTab = location.pathname.substring(1) || 'dashboard';
 
-  const toast = useToast();
-  const [isSubscribed, setIsSubscribed] = useState(false);
-  const [permissionState, setPermissionState] = useState('default');
-  const [playerId, setPlayerId] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [isSubscribing, setIsSubscribing] = useState(false);
-  const [showOneSignalPopover, setShowOneSignalPopover] = useState(false);
-  const [isTestingDevice, setIsTestingDevice] = useState(false);
-
-  const handleTestDeviceNotification = async () => {
-    if (!playerId) {
-      toast.error('No Player ID found. Please subscribe first.');
-      return;
-    }
-    setIsTestingDevice(true);
-    try {
-      const response = await fetch('/api/send-push-notification', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: 'Test Device Alert 🔔',
-          message: 'તમારા આ ફોન પર નોટિફિકેશન સફળતાપૂર્વક ચાલુ થઈ ગઈ છે!',
-          player_ids: [playerId]
-        })
-      });
-
-      const resData = await response.json();
-      if (!response.ok) throw new Error(resData.error || 'Failed to send test');
-      toast.success('Test alert sent! Check your phone.');
-    } catch (err: any) {
-      console.error('Test Device Alert Error:', err);
-      toast.error('Test failed: ' + err.message);
-    } finally {
-      setIsTestingDevice(false);
-    }
-  };
-
-  useEffect(() => {
-    const checkStatus = async () => {
-      const OneSignalDeferred = (window as any).OneSignalDeferred;
-      if (!OneSignalDeferred) return;
-
-      OneSignalDeferred.push(async (OneSignal: any) => {
-        try {
-          if (typeof OneSignal.init === 'function') {
-            let hasPermission = false;
-            let hasSubscription = false;
-            let pushId = null;
-            let perm = 'default';
-
-            if (OneSignal.Notifications) {
-              perm = OneSignal.Notifications.permission;
-              hasPermission = perm === 'granted';
-            }
-
-            setPermissionState(perm);
-
-            if (OneSignal.User?.PushSubscription) {
-              pushId = OneSignal.User.PushSubscription.id;
-              hasSubscription = !!pushId && OneSignal.User.PushSubscription.optedIn;
-            }
-
-            setIsSubscribed(hasPermission && hasSubscription);
-            if (pushId) {
-              setPlayerId(pushId);
-            }
-          }
-        } catch (err) {
-          // Silently handle
-        }
-      });
-    };
-
-    checkStatus();
-    const interval = setInterval(checkStatus, 3000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleGlobalSubscribe = async () => {
-    setIsSubscribing(true);
-    const OneSignal = (window as any).OneSignal;
-
-    if (OneSignal && OneSignal.Notifications) {
-      try {
-        const perm = OneSignal.Notifications.permission;
-        if (perm === 'granted') {
-          if (OneSignal.User?.PushSubscription) {
-            await OneSignal.User.PushSubscription.optIn();
-            const pushId = OneSignal.User.PushSubscription.id;
-            if (userId && pushId) {
-              await addDevicePushId(userId, 'admin', pushId);
-              toast.success('Successfully subscribed to notifications!');
-            }
-          }
-        } else {
-          console.log('Requesting permission via global OneSignal...');
-          await OneSignal.Notifications.requestPermission();
-
-          // Recheck permission immediately after prompt response
-          const newPerm = OneSignal.Notifications.permission;
-          if (newPerm === 'granted') {
-            if (OneSignal.User?.PushSubscription) {
-              await OneSignal.User.PushSubscription.optIn();
-              const pushId = OneSignal.User.PushSubscription.id;
-              if (userId && pushId) {
-                await addDevicePushId(userId, 'admin', pushId);
-                toast.success('Successfully subscribed to notifications!');
-              }
-            }
-          }
-        }
-        setIsSubscribing(false);
-        return;
-      } catch (err: any) {
-        console.error('Direct subscription error:', err);
-      }
-    }
-
-    const OneSignalDeferred = (window as any).OneSignalDeferred;
-    if (!OneSignalDeferred) {
-      toast.error('OneSignal SDK not loaded. Please refresh.');
-      setIsSubscribing(false);
-      return;
-    }
-
-    OneSignalDeferred.push(async (OS: any) => {
-      try {
-        if (OS.Notifications) {
-          const perm = OS.Notifications.permission;
-          if (perm === 'granted') {
-            if (OS.User?.PushSubscription) {
-              await OS.User.PushSubscription.optIn();
-              const pushId = OS.User.PushSubscription.id;
-              if (userId && pushId) {
-                await addDevicePushId(userId, 'admin', pushId);
-                toast.success('Successfully subscribed to notifications!');
-              }
-            }
-          } else {
-            await OS.Notifications.requestPermission();
-
-            // Recheck permission immediately after prompt response
-            const newPerm = OS.Notifications.permission;
-            if (newPerm === 'granted') {
-              if (OS.User?.PushSubscription) {
-                await OS.User.PushSubscription.optIn();
-                const pushId = OS.User.PushSubscription.id;
-                if (userId && pushId) {
-                  await addDevicePushId(userId, 'admin', pushId);
-                  toast.success('Successfully subscribed to notifications!');
-                }
-              }
-            }
-          }
-        } else if (typeof OS.showNativePrompt === 'function') {
-          await OS.showNativePrompt();
-        } else {
-          toast.warning('OneSignal is still initializing. Please wait.');
-        }
-      } catch (err: any) {
-        console.error('Subscription error:', err);
-        toast.error(err.message || 'Failed to subscribe');
-      } finally {
-        setIsSubscribing(false);
-      }
-    });
-  };
-
   return (
     <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       <Sidebar
@@ -567,164 +373,6 @@ const AdminLayout = ({
 
           <div className="flex items-center gap-4">
             <LiveClock />
-
-            {/* OneSignal Push Subscription Widget */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  if (permissionState === 'default' && !isSubscribed) {
-                    handleGlobalSubscribe();
-                  } else {
-                    setShowOneSignalPopover(!showOneSignalPopover);
-                  }
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-all shadow-sm active:scale-95 ${permissionState === 'denied'
-                    ? 'bg-rose-50 border-rose-100 text-rose-700 hover:bg-rose-100'
-                    : isSubscribed
-                      ? 'bg-emerald-50 border-emerald-100 text-emerald-700 hover:bg-emerald-100'
-                      : 'bg-indigo-50 border-indigo-100 text-indigo-700 hover:bg-indigo-100 animate-pulse'
-                  }`}
-              >
-                {permissionState === 'denied' ? (
-                  <>
-                    <BellOff size={14} className="shrink-0 text-rose-500" />
-                    <span className="hidden sm:inline">Alerts Blocked</span>
-                  </>
-                ) : isSubscribed ? (
-                  <>
-                    <CheckCircle2 size={14} className="shrink-0 text-emerald-500" />
-                    <span className="hidden sm:inline">Alerts Active</span>
-                  </>
-                ) : (
-                  <>
-                    <Bell size={14} className="shrink-0 text-indigo-500 animate-bounce" />
-                    <span>Enable Alerts</span>
-                  </>
-                )}
-              </button>
-
-              <AnimatePresence>
-                {showOneSignalPopover && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setShowOneSignalPopover(false)}
-                    ></div>
-                    <motion.div
-                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                      className="absolute right-0 mt-3 w-80 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 p-5 overflow-hidden text-left"
-                    >
-                      <div className="flex items-center gap-3 border-b border-slate-50 pb-3 mb-3">
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${permissionState === 'denied'
-                            ? 'bg-rose-50 text-rose-500'
-                            : isSubscribed
-                              ? 'bg-emerald-50 text-emerald-500'
-                              : 'bg-indigo-50 text-indigo-500'
-                          }`}>
-                          {permissionState === 'denied' ? <BellOff size={20} /> : <Bell size={20} />}
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-slate-900 text-sm">
-                            {permissionState === 'denied' ? 'Alerts Blocked' : isSubscribed ? 'Alerts Active' : 'Enable Push Alerts'}
-                          </h4>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                            Push Notification Status
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="space-y-3">
-                        <p className="text-xs text-slate-600 leading-relaxed">
-                          {permissionState === 'denied'
-                            ? 'આ બ્રાઉઝરમાં નોટિફિકેશન બ્લોક છે. તેથી બિલ અને પેમેન્ટના અવાજ અને મેસેજ નહીં આવે.'
-                            : isSubscribed
-                              ? 'આ બ્રાઉઝર પરથી તમને KYC, Bill Payment અને QR Payment ની ઓટોમેટિક નોટિફિકેશન્સ અને સાઉન્ડ મળશે.'
-                              : 'આ સાઇટ માટે ઓટોમેટિક પુશ એલર્ટ્સ અને સાઉન્ડ ચાલુ કરવા માટે પરમિશન ઓન કરો.'}
-                        </p>
-
-                        {permissionState === 'denied' && (
-                          <div className="p-3 bg-rose-50 rounded-2xl border border-rose-100/50 text-[11px] text-rose-700 space-y-1.5 font-sans">
-                            <p className="font-bold">ખોલવા માટેની ગાઈડ (How to Reset):</p>
-                            <ol className="list-decimal pl-4 space-y-1 font-medium">
-                              <li>બ્રાઉઝરની ઉપર URL બારની ડાબી બાજુએ લોક (🔒) અથવા સેટિંગ્સ આઇકોન પર ક્લિક કરો.</li>
-                              <li>ત્યાં <b>Notifications</b> શોધો અને તેને <b>Allow</b> (ઓન) કરો.</li>
-                              <li>પેજ રીફ્રેશ (Reload) કરો.</li>
-                            </ol>
-                          </div>
-                        )}
-
-                        {isSubscribed && playerId && (
-                          <>
-                            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] text-slate-500 font-mono break-all select-all cursor-pointer" title="Click to copy Player ID" onClick={() => {
-                              navigator.clipboard.writeText(playerId);
-                              toast.success('Player ID copied to clipboard!');
-                            }}>
-                              <span className="font-sans font-bold text-slate-400 uppercase tracking-wider block mb-1 text-[9px]">Your Device Player ID (Click to copy):</span>
-                              {playerId}
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleTestDeviceNotification}
-                              disabled={isTestingDevice}
-                              className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 disabled:opacity-50"
-                            >
-                              {isTestingDevice ? 'Sending Test...' : '🔔 Test Push On This Phone'}
-                            </button>
-                          </>
-                        )}
-
-                        <div className="flex gap-2 pt-2">
-                          {permissionState === 'denied' ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleGlobalSubscribe();
-                                setShowOneSignalPopover(false);
-                              }}
-                              className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
-                            >
-                              ફરીથી ટ્રાય કરો
-                            </button>
-                          ) : isSubscribed ? (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                await handleGlobalSubscribe();
-                                setShowOneSignalPopover(false);
-                              }}
-                              className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
-                            >
-                              Sync Device ID
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                handleGlobalSubscribe();
-                                setShowOneSignalPopover(false);
-                              }}
-                              className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
-                            >
-                              Subscribe Now
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setShowOneSignalPopover(false)}
-                            className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all"
-                          >
-                            બંધ કરો
-                          </button>
-                        </div>
-                      </div>
-                    </motion.div>
-                  </>
-                )}
-              </AnimatePresence>
-            </div>
 
             {/* Total Hold Balance Wallet */}
             <div className="hidden lg:flex items-center gap-2 bg-amber-50 px-3 py-1.5 rounded-xl border border-amber-100 shadow-sm animate-in fade-in slide-in-from-right-4 duration-500">
@@ -1277,14 +925,14 @@ export default function App() {
           if (data) {
             const isEnabled = isOn ? data.is_service_on_sound_enabled : data.is_service_off_sound_enabled;
             if (isEnabled) {
-              const soundUrl = isOn
+              const soundUrl = isOn 
                 ? (data.service_on_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
                 : (data.service_off_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
               const audio = new Audio(soundUrl);
               audio.play().catch(() => { });
             }
           }
-        } catch (err) { }
+        } catch (err) {}
       };
 
       // Listen for Service Status Changes (is_bill_enabled)
@@ -1452,7 +1100,7 @@ export default function App() {
     };
 
     const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
-
+    
     // Add event listeners
     activityEvents.forEach(event => {
       window.addEventListener(event, resetTimer);
@@ -1523,29 +1171,29 @@ export default function App() {
         >
           <Route path="dashboard" element={
             (adminRole === 'full' || adminPermissions.includes('dashboard')) ? <Dashboard /> :
-              adminPermissions.includes('users-list') ? <Navigate to="/users-list" replace /> :
-                adminPermissions.includes('qr-payment-requests') ? <Navigate to="/qr-payment-requests" replace /> :
-                  adminPermissions.includes('bill-payment-requests') ? <Navigate to="/bill-payment-requests" replace /> :
-                    adminPermissions.includes('payout-requests') ? <Navigate to="/payout-requests" replace /> :
-                      adminPermissions.includes('qr-upload') ? <Navigate to="/qr-upload" replace /> :
-                        adminPermissions.includes('qr-history') ? <Navigate to="/qr-history" replace /> :
-                          adminPermissions.includes('super-distributors') ? <Navigate to="/super-distributors" replace /> :
-                            adminPermissions.includes('distributors') ? <Navigate to="/distributors" replace /> :
-                              adminPermissions.includes('distributor-withdrawals') ? <Navigate to="/distributor-withdrawals" replace /> :
-                                adminPermissions.includes('service-charge') ? <Navigate to="/service-charge" replace /> :
-                                  adminPermissions.includes('reason-entry') ? <Navigate to="/reason-entry" replace /> :
-                                    adminPermissions.includes('complaints-management') ? <Navigate to="/complaints-management" replace /> :
-                                      adminPermissions.includes('headlines') ? <Navigate to="/headlines" replace /> :
-                                        adminPermissions.includes('policies') ? <Navigate to="/policies" replace /> :
-                                          adminPermissions.includes('user-agreement') ? <Navigate to="/agreement" replace /> :
-                                            adminPermissions.includes('bank-upload') ? <Navigate to="/bank-upload" replace /> :
-                                              adminPermissions.includes('withdrawal-balance') ? <Navigate to="/withdrawal-balance" replace /> :
-                                                adminPermissions.includes('qr-master') ? <Navigate to="/qr-master" replace /> :
-                                                  adminPermissions.includes('kyc-verification-requests') ? <Navigate to="/kyc-verification-requests" replace /> :
-                                                    adminPermissions.includes('qr-gallery') ? <Navigate to="/qr-gallery" replace /> :
-                                                      adminPermissions.includes('bbps-history') ? <Navigate to="/bbps-history" replace /> :
-                                                        adminPermissions.includes('recharge-dashboard') ? <Navigate to="/admin/recharge-dashboard" replace /> :
-                                                          <Navigate to="/change-password" replace />
+            adminPermissions.includes('users-list') ? <Navigate to="/users-list" replace /> :
+            adminPermissions.includes('qr-payment-requests') ? <Navigate to="/qr-payment-requests" replace /> :
+            adminPermissions.includes('bill-payment-requests') ? <Navigate to="/bill-payment-requests" replace /> :
+            adminPermissions.includes('payout-requests') ? <Navigate to="/payout-requests" replace /> :
+            adminPermissions.includes('qr-upload') ? <Navigate to="/qr-upload" replace /> :
+            adminPermissions.includes('qr-history') ? <Navigate to="/qr-history" replace /> :
+            adminPermissions.includes('super-distributors') ? <Navigate to="/super-distributors" replace /> :
+            adminPermissions.includes('distributors') ? <Navigate to="/distributors" replace /> :
+            adminPermissions.includes('distributor-withdrawals') ? <Navigate to="/distributor-withdrawals" replace /> :
+            adminPermissions.includes('service-charge') ? <Navigate to="/service-charge" replace /> :
+            adminPermissions.includes('reason-entry') ? <Navigate to="/reason-entry" replace /> :
+            adminPermissions.includes('complaints-management') ? <Navigate to="/complaints-management" replace /> :
+            adminPermissions.includes('headlines') ? <Navigate to="/headlines" replace /> :
+            adminPermissions.includes('policies') ? <Navigate to="/policies" replace /> :
+            adminPermissions.includes('user-agreement') ? <Navigate to="/agreement" replace /> :
+            adminPermissions.includes('bank-upload') ? <Navigate to="/bank-upload" replace /> :
+            adminPermissions.includes('withdrawal-balance') ? <Navigate to="/withdrawal-balance" replace /> :
+            adminPermissions.includes('qr-master') ? <Navigate to="/qr-master" replace /> :
+            adminPermissions.includes('kyc-verification-requests') ? <Navigate to="/kyc-verification-requests" replace /> :
+            adminPermissions.includes('qr-gallery') ? <Navigate to="/qr-gallery" replace /> :
+            adminPermissions.includes('bbps-history') ? <Navigate to="/bbps-history" replace /> :
+            adminPermissions.includes('recharge-dashboard') ? <Navigate to="/admin/recharge-dashboard" replace /> :
+            <Navigate to="/change-password" replace />
           } />
           <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
 
@@ -1572,7 +1220,7 @@ export default function App() {
           <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
           <Route path="bbps-history" element={(adminRole === 'full' || adminPermissions.includes('bbps-history')) ? <BBPSHistory /> : <Navigate to="/dashboard" replace />} />
           <Route path="admin/recharge-dashboard" element={(adminRole === 'full' || adminPermissions.includes('recharge-dashboard')) ? <RechargeDashboard /> : <Navigate to="/dashboard" replace />} />
-
+          
           <Route path="reports">
             <Route path="qr-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
             <Route path="bill-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <BillPaymentReport /> : <Navigate to="/dashboard" replace />} />
