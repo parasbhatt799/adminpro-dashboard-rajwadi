@@ -199,8 +199,10 @@ export default function QRPaymentRequests() {
       }
 
       // 5. UPI ID Match Checking (Case-insensitive)
-      if (!targetUpi) {
+      if (!targetUpi && !detectedUpiVal) {
         setOcrUpiMatchStatus('matched');
+      } else if (!targetUpi || !detectedUpiVal) {
+        setOcrUpiMatchStatus('mismatch');
       } else {
         const hasMatch = cleanUpis.some(v => v.toLowerCase().replace(/[^a-z0-9@]/g, '') === targetUpi.toLowerCase().replace(/[^a-z0-9@]/g, ''));
         setOcrUpiMatchStatus(hasMatch ? 'matched' : 'mismatch');
@@ -1425,9 +1427,11 @@ export default function QRPaymentRequests() {
                                 }
                               </span>
                             </div>
-                            <p className="mt-2 leading-normal break-all" title={selectedProof.qr_history?.upi_id || 'Not Defined'}>
-                              Expected: <span className="font-bold text-slate-800">"{selectedProof.qr_history?.upi_id || 'Not Defined'}"</span>
-                            </p>
+                            {selectedProof.qr_history?.upi_id && (
+                              <p className="mt-2 leading-normal break-all" title={selectedProof.qr_history.upi_id}>
+                                Expected: <span className="font-bold text-slate-800">"{selectedProof.qr_history.upi_id}"</span>
+                              </p>
+                            )}
                             {detectedUpi && (
                               <p className="mt-1 leading-normal break-all" title={detectedUpi}>
                                 Detected: <span className="font-bold text-slate-800">"{detectedUpi}"</span>
