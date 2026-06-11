@@ -261,6 +261,9 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const [customerEmail, setCustomerEmail] = useState<string>('');
   const [manualAmount, setManualAmount] = useState<string>('');
 
+  // SMS Notification / Mockup Mobile State
+  const [isSmsAppOpen, setIsSmsAppOpen] = useState<boolean>(false);
+
   // Plans (for Mobile Prepaid)
   const [plans, setPlans] = useState<any[]>([]);
   const [planLoading, setPlanLoading] = useState<boolean>(false);
@@ -494,6 +497,30 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       setCcf1Fee(0);
     }
   }, [manualAmount, selectedPlan, ccf1Config]);
+
+  useEffect(() => {
+    if (step === 3 && receipt) {
+      setIsSmsAppOpen(false);
+      const timer = setTimeout(() => {
+        setIsSmsAppOpen(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [step, receipt]);
+
+  const getFormattedDateForSms = () => {
+    const dateObj = new Date();
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const y = dateObj.getFullYear();
+    let hr = dateObj.getHours();
+    const min = String(dateObj.getMinutes()).padStart(2, '0');
+    const ampm = hr >= 12 ? 'PM' : 'AM';
+    hr = hr % 12;
+    hr = hr ? hr : 12;
+    const hrStr = String(hr).padStart(2, '0');
+    return `${d}/${m}/${y} ${hrStr}:${min} ${ampm}`;
+  };
 
   const fetchProfileData = async () => {
     try {
@@ -1625,117 +1652,266 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
 
               {/* Step 3: Success Receipt */}
               {step === 3 && receipt && (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="w-full max-w-md bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6 relative" id="receipt-print-area">
-                    <div className="absolute top-4 right-4 z-10">
-                      <img src="/assured_logo.png" alt="Be-Assured Logo" style={{ width: '130px', height: '120px', objectFit: 'contain' }} className="opacity-100 brightness-110 filter drop-shadow-sm" />
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start justify-center max-w-6xl mx-auto py-8">
+                  {/* Left Column: Receipt Card */}
+                  <div className="lg:col-span-7 flex flex-col items-center justify-center w-full">
+                    <div className="w-full max-w-md bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6 relative" id="receipt-print-area">
+                      <div className="absolute top-4 right-4 z-10">
+                        <img src="/assured_logo.png" alt="Be-Assured Logo" style={{ width: '130px', height: '120px', objectFit: 'contain' }} className="opacity-100 brightness-110 filter drop-shadow-sm" />
+                      </div>
+
+                      <div className="text-center border-b border-dashed border-slate-100 pb-5">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <CheckCircle2 className="text-emerald-500" size={40} />
+                          <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Bharat Connect Receipt</span>
+                        </div>
+                        <div className="text-2xl font-black text-slate-800 mt-4">
+                          ₹{receipt.totalAmount.toFixed(2)}
+                        </div>
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
+                      </div>
+
+                      <div className="space-y-3.5 text-xs font-semibold text-slate-600">
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">B-Connect Txn ID</span>
+                          <span className="font-black text-slate-800 text-right select-all font-mono">{receipt.bConnectTxnId}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Biller ID</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.billerId}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Biller Name</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.billerName}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Customer Name</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.customerName}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Customer Number</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.customerNumber}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Date</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.billDate}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Period</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.billPeriod}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Number</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.billNumber}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Due Date</span>
+                          <span className="font-black text-slate-800 text-right text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">{receipt.dueDate}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Amount</span>
+                          <span className="font-black text-slate-800 text-right">₹{receipt.billAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Convenience Fees</span>
+                          <span className="font-black text-slate-800 text-right">₹{receipt.ccf1Fee.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Total Amount</span>
+                          <span className="font-black text-emerald-600 text-right text-sm">₹{receipt.totalAmount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Date & Time</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.date}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Initiating Channel</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.initiatingChannel}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Payment Mode</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.paymentMode}</span>
+                        </div>
+                        <div className="flex justify-between border-b border-slate-100 pb-2">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Status</span>
+                          <span className="font-black text-emerald-600 text-right">{receipt.transactionStatus}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Approval Number</span>
+                          <span className="font-black text-slate-800 text-right">{receipt.approvalNumber}</span>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-slate-100 pt-5 flex items-center justify-between text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none">
+                        <div className="flex items-center gap-1">
+                          <ShieldCheck size={11} className="text-emerald-500" />
+                          Bharat Connect Secured
+                        </div>
+                        <span>UAT STAGING</span>
+                      </div>
                     </div>
 
-                    <div className="text-center border-b border-dashed border-slate-100 pb-5">
-                      <div className="flex flex-col items-center justify-center gap-2">
-                        <CheckCircle2 className="text-emerald-500" size={40} />
-                        <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Bharat Connect Receipt</span>
-                      </div>
-                      <div className="text-2xl font-black text-slate-800 mt-4">
-                        ₹{receipt.totalAmount.toFixed(2)}
-                      </div>
-                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
-                    </div>
-
-                    <div className="space-y-3.5 text-xs font-semibold text-slate-600">
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">B-Connect Txn ID</span>
-                        <span className="font-black text-slate-800 text-right select-all font-mono">{receipt.bConnectTxnId}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Biller ID</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.billerId}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Biller Name</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.billerName}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Customer Name</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.customerName}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Customer Number</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.customerNumber}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Date</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.billDate}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Period</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.billPeriod}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Number</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.billNumber}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Due Date</span>
-                        <span className="font-black text-slate-800 text-right text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">{receipt.dueDate}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Bill Amount</span>
-                        <span className="font-black text-slate-800 text-right">₹{receipt.billAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Convenience Fees</span>
-                        <span className="font-black text-slate-800 text-right">₹{receipt.ccf1Fee.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Total Amount</span>
-                        <span className="font-black text-emerald-600 text-right text-sm">₹{receipt.totalAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Date & Time</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.date}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Initiating Channel</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.initiatingChannel}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Payment Mode</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.paymentMode}</span>
-                      </div>
-                      <div className="flex justify-between border-b border-slate-100 pb-2">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Status</span>
-                        <span className="font-black text-emerald-600 text-right">{receipt.transactionStatus}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 uppercase tracking-wider text-[9px]">Approval Number</span>
-                        <span className="font-black text-slate-800 text-right">{receipt.approvalNumber}</span>
-                      </div>
-                    </div>
-
-                    <div className="border-t border-slate-100 pt-5 flex items-center justify-between text-[9px] text-slate-400 font-bold uppercase tracking-wider leading-none">
-                      <div className="flex items-center gap-1">
-                        <ShieldCheck size={11} className="text-emerald-500" />
-                        Bharat Connect Secured
-                      </div>
-                      <span>UAT STAGING</span>
+                    <div className="mt-8 flex gap-4 w-full max-w-md print:hidden">
+                      <button
+                        onClick={downloadPDFReceipt}
+                        className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200/50"
+                      >
+                        <Printer size={14} />
+                        Download PDF
+                      </button>
+                      <button
+                        onClick={resetForm}
+                        className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-100"
+                      >
+                        Done
+                      </button>
                     </div>
                   </div>
 
-                  <div className="mt-8 flex gap-4 w-full max-w-md">
-                    <button
-                      onClick={downloadPDFReceipt}
-                      className="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-200/50"
-                    >
-                      <Printer size={14} />
-                      Download PDF
-                    </button>
-                    <button
-                      onClick={resetForm}
-                      className="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-100"
-                    >
-                      Done
-                    </button>
+                  {/* Right Column: Simulated Mobile Mockup */}
+                  <div className="lg:col-span-5 flex flex-col items-center justify-center print:hidden w-full">
+                    {/* Simulated Mobile Phone Frame */}
+                    <div className="relative mx-auto bg-slate-900 border-[12px] border-slate-950 rounded-[40px] h-[550px] w-[270px] shadow-2xl overflow-hidden select-none">
+                      {/* Notch/Speaker */}
+                      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-950 rounded-b-2xl z-40 flex items-center justify-center gap-1.5">
+                        <div className="w-12 h-1 bg-neutral-800 rounded-full"></div>
+                        <div className="w-2.5 h-2.5 bg-neutral-900 border border-neutral-800 rounded-full"></div>
+                      </div>
+
+                      {/* Screen Content */}
+                      <div className="w-full h-full bg-[#121212] relative text-white flex flex-col font-sans pt-6">
+                        {/* Status Bar */}
+                        <div className="px-5 py-1.5 flex justify-between items-center text-[10px] font-bold text-neutral-400 z-30 select-none">
+                          <span>{new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}</span>
+                          <div className="flex items-center gap-1">
+                            <span className="w-3.5 h-2 bg-neutral-400 rounded-sm"></span>
+                          </div>
+                        </div>
+
+                        <AnimatePresence mode="wait">
+                          {!isSmsAppOpen ? (
+                            /* Lock Screen / Home Screen with Slide-in Notification */
+                            <motion.div
+                              key="lockscreen"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute inset-0 bg-gradient-to-b from-indigo-950 via-slate-900 to-emerald-950 flex flex-col justify-between p-5 pt-10"
+                            >
+                              {/* Date and Time on Lock Screen */}
+                              <div className="text-center space-y-1 mt-6">
+                                <span className="text-4xl font-extralight">
+                                  {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                                </span>
+                                <p className="text-[10px] text-neutral-300 font-medium uppercase tracking-wider">
+                                  {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
+                                </p>
+                              </div>
+
+                              {/* Notification Banner */}
+                              <motion.div
+                                initial={{ y: -100, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                transition={{ delay: 0.8, type: 'spring', stiffness: 100 }}
+                                onClick={() => setIsSmsAppOpen(true)}
+                                className="bg-[#1f1f1fc0] backdrop-blur-md border border-white/10 rounded-2xl p-3 shadow-lg flex gap-3 cursor-pointer hover:bg-[#2e2e2ed0] transition-colors text-left"
+                              >
+                                <div className="w-7 h-7 bg-indigo-600 rounded-lg flex items-center justify-center text-white text-xs shrink-0 shadow-md shadow-indigo-500/20">
+                                  <MessageSquare size={14} />
+                                </div>
+                                <div className="space-y-0.5 text-left overflow-hidden">
+                                  <div className="flex justify-between items-center w-full">
+                                    <span className="text-[10px] font-black text-neutral-300 uppercase tracking-wider">Messages</span>
+                                    <span className="text-[9px] text-neutral-400">now</span>
+                                  </div>
+                                  <p className="text-[10px] font-bold text-white">UsePay</p>
+                                  <p className="text-[9px] text-neutral-300 leading-normal truncate">
+                                    Thank you for payment of Rs.{receipt.totalAmount.toFixed(2)} against {selectedCategory}...
+                                  </p>
+                                </div>
+                              </motion.div>
+
+                              {/* Bottom Swipe text */}
+                              <div className="text-center pb-4 animate-pulse">
+                                <p className="text-[9px] text-neutral-400 font-bold uppercase tracking-widest">Swipe up to unlock</p>
+                              </div>
+                            </motion.div>
+                          ) : (
+                            /* SMS Messages App Thread */
+                            <motion.div
+                              key="smsapp"
+                              initial={{ y: 20, opacity: 0 }}
+                              animate={{ y: 0, opacity: 1 }}
+                              exit={{ y: -20, opacity: 0 }}
+                              className="flex-1 flex flex-col h-full bg-[#121212]"
+                            >
+                              {/* SMS Header */}
+                              <div className="bg-[#1e1e1e] border-b border-neutral-800 py-2.5 px-4 flex items-center gap-3 shrink-0 text-left">
+                                <button
+                                  onClick={() => setIsSmsAppOpen(false)}
+                                  className="text-neutral-400 hover:text-white transition-colors"
+                                >
+                                  <ArrowLeft size={16} />
+                                </button>
+                                <div className="w-8 h-8 bg-neutral-700 rounded-full flex items-center justify-center font-bold text-sm text-indigo-400 border border-neutral-600">
+                                  UP
+                                </div>
+                                <div className="text-left">
+                                  <p className="text-xs font-black text-white">UsePay</p>
+                                  <p className="text-[8px] text-emerald-500 font-bold uppercase tracking-wider">Online</p>
+                                </div>
+                              </div>
+
+                              {/* Chat Area */}
+                              <div className="flex-1 overflow-y-auto p-4 space-y-4 flex flex-col justify-end">
+                                <div className="text-center">
+                                  <span className="text-[9px] bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded-full font-bold">
+                                    Today {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                                  </span>
+                                </div>
+
+                                {/* SMS Bubble */}
+                                <motion.div
+                                  initial={{ scale: 0.9, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ delay: 0.2 }}
+                                  className="bg-[#242424] border border-neutral-800 text-neutral-200 rounded-2xl rounded-tl-none p-3.5 text-[10px] leading-relaxed max-w-[85%] self-start space-y-1 shadow-md"
+                                >
+                                  <p className="text-left font-medium">
+                                    Thank you for payment of Rs.{receipt.totalAmount.toFixed(2)} against {selectedCategory}, Consumer no{' '}
+                                    <span className="underline font-bold text-white select-all">
+                                      {Object.values(receipt.consumerDetails)[0] || receipt.customerNumber}
+                                    </span>
+                                    , B-Connect Txn id{' '}
+                                    <span className="underline font-bold text-white select-all">
+                                      {receipt.bConnectTxnId}
+                                    </span>{' '}
+                                    on{' '}
+                                    <span className="underline">
+                                      {getFormattedDateForSms()}
+                                    </span>{' '}
+                                    vide Cash.
+                                  </p>
+                                </motion.div>
+                              </div>
+
+                              {/* SMS Input Mock */}
+                              <div className="p-3 bg-[#1e1e1e] border-t border-neutral-800 flex gap-2 items-center shrink-0">
+                                <input
+                                  type="text"
+                                  disabled
+                                  placeholder="Text Message"
+                                  className="flex-1 bg-[#282828] border border-neutral-700 rounded-full px-4 py-1.5 text-[10px] outline-none text-neutral-400"
+                                />
+                                <div className="w-7 h-7 bg-neutral-700 rounded-full flex items-center justify-center text-neutral-400">
+                                  <ArrowRight size={14} />
+                                </div>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
