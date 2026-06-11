@@ -91,6 +91,11 @@ const logInit = (msg: string) => {
 // OneSignal Initialization Helper
 const initOneSignal = async () => {
   logInit('initOneSignal started');
+  if (typeof window !== 'undefined') {
+    logInit('Protocol: ' + window.location.protocol);
+    logInit('Origin: ' + window.location.origin);
+    logInit('UserAgent: ' + navigator.userAgent);
+  }
   try {
     const OneSignalDeferred = (window as any).OneSignalDeferred;
     if (!OneSignalDeferred) {
@@ -764,11 +769,21 @@ const AdminLayout = ({
                           </div>
                         )}
 
+                        {/* Insecure Origin Warning */}
+                        {typeof window !== 'undefined' && window.location.protocol !== 'https:' && (
+                          <div className="p-3 bg-rose-50 rounded-2xl border border-rose-100/50 text-[11px] text-rose-800 space-y-1 font-sans">
+                            <p className="font-bold text-rose-900">⚠️ HTTPS (સિક્યોર કનેક્શન) જરૂરી:</p>
+                            <p className="leading-relaxed">પુશ નોટિફિકેશન માટે <b>https://</b> વાળી લિંક હોવી ફરજિયાત છે. અત્યારે તમે http:// પર છો, તેથી બ્રાઉઝર નોટિફિકેશન બ્લોક રાખશે.</p>
+                          </div>
+                        )}
+
                         {/* Diagnostic Details Area */}
                         <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] space-y-1.5 text-slate-600 font-sans">
                           <div className="flex justify-between"><span>ડિવાઇસ ટાઇપ:</span><span className="font-bold">{isIOS ? 'iPhone (iOS)' : 'Android / PC'}</span></div>
                           <div className="flex justify-between"><span>એપ મોડ:</span><span className="font-bold">{isPWA ? 'PWA Installed' : 'Browser Tab'}</span></div>
                           <div className="flex justify-between"><span>પરમિશન સ્ટેટ્સ:</span><span className="font-bold capitalize">{permissionState || 'default'}</span></div>
+                          <div className="flex justify-between"><span>સાઇટ પ્રોટોકોલ:</span><span className="font-bold">{typeof window !== 'undefined' && window.location.protocol === 'https:' ? '🔒 HTTPS' : '⚠️ HTTP (Insecure)'}</span></div>
+                          <div className="flex justify-between"><span>SDK લોડ થયેલું:</span><span className="font-bold">{typeof (window as any).OneSignal !== 'undefined' ? 'Yes' : 'No (નથી લોડ થયું)'}</span></div>
                           <div className="flex justify-between"><span>SDK એક્ટિવ:</span><span className="font-bold">{(window as any).OneSignalDeferred ? 'Yes' : 'No'}</span></div>
                           
                           {playerId ? (
