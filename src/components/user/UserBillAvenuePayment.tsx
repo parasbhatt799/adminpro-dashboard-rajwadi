@@ -7,6 +7,7 @@ import {
   Receipt,
   Search,
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   X,
   AlertTriangle,
@@ -257,6 +258,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const [inputParams, setInputParams] = useState<BillerInputParam[]>([]);
   const [formInputs, setFormInputs] = useState<Record<string, string>>({});
   const [customerMobile, setCustomerMobile] = useState<string>('');
+  const [customerEmail, setCustomerEmail] = useState<string>('');
   const [manualAmount, setManualAmount] = useState<string>('');
 
   // Plans (for Mobile Prepaid)
@@ -440,6 +442,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     setManualAmount('');
     setSelectedPlan(null);
     setPlans([]);
+    setCustomerEmail('');
   };
 
   useEffect(() => {
@@ -740,7 +743,8 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
         body: JSON.stringify({
           billerId: selectedBiller.billerId,
           customerParams: formInputs,
-          customerMobile
+          customerMobile,
+          customerEmail
         })
       });
 
@@ -892,6 +896,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           billerId: selectedBiller.billerId,
           customerParams: formInputs,
           customerMobile,
+          customerEmail,
           amount: amt,
           paymentMode: 'UPI',
           quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
@@ -1295,324 +1300,326 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                     <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
                   </div>
 
-                    <>
-                      <div className="max-w-xl mx-auto my-8 bg-slate-50 border border-slate-200/60 p-8 rounded-[28px] space-y-6 shadow-sm">
-                        <div className="text-center space-y-2">
-                          <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mx-auto shadow-inner">
-                            <Receipt size={22} />
-                          </div>
-                          <h4 className="text-sm font-black text-slate-800 tracking-tight uppercase">Choose Your Provider</h4>
-                          <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
-                            Select your {selectedCategory} biller from the dropdown or search to begin your payment.
-                          </p>
-                        </div>
-
-                        <div className="space-y-4">
-                          {/* Dropdown for Biller Selection */}
-                          <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Select Provider</label>
-                            <select
-                               onChange={(e) => {
-                                 if (e.target.value) {
-                                   const selectedId = e.target.value;
-                                   const b = filteredBillers.find(x => x.billerId === selectedId) ||
-                                     allBillers.find(x => x.billerId === selectedId);
-                                   if (b) {
-                                     selectBiller(b as BillerInfo);
-                                   }
-                                 } else {
-                                   setSelectedBiller(null);
-                                   setBillDetails(null);
-                                   setFormInputs({});
-                                   setManualAmount('');
-                                   setSelectedPlan(null);
-                                   setPlans([]);
-                                 }
-                               }}
-                               value={selectedBiller?.billerId || ""}
-                               className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-sm cursor-pointer"
-                             >
-                               <option value="">-- Choose Provider / Biller --</option>
-                               {filteredBillers.length > 0 && (
-                                 <optgroup label={`${selectedCategory} Providers`}>
-                                   {filteredBillers.map((b) => (
-                                     <option key={b.billerId} value={b.billerId}>
-                                       {b.billerName}
-                                     </option>
-                                   ))}
-                                 </optgroup>
-                               )}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Inline billing form loaded on selection */}
-                      {billerParamsLoading ? (
-                        <div className="flex flex-col items-center justify-center py-12 gap-3 border-t border-slate-100 mt-8 pt-8">
-                          <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading billing details...</p>
-                        </div>
-                      ) : (
-                        selectedBiller && (
-                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 border-t border-slate-100 pt-8 mt-8">
-                            {/* Left Column: Form Inputs */}
-                            <div className="lg:col-span-7 space-y-6">
-                              <form onSubmit={handleFetchBill} className="space-y-4">
-                                {inputParams.map((param, idx) => (
-                                  <div key={idx} className="space-y-1.5">
-                                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1">
-                                      {param.paramName}
-                                      {!param.optional && <span className="text-rose-500">*</span>}
-                                    </label>
-                                    <input
-                                      type="text"
-                                      required={!param.optional}
-                                      value={formInputs[param.paramName] || ''}
-                                      onChange={(e) => setFormInputs({ ...formInputs, [param.paramName]: e.target.value })}
-                                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all bg-white"
-                                      placeholder={`Enter ${param.paramName.toLowerCase()}`}
-                                    />
-                                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
+                    {/* Left Column: Biller Selection & Form Inputs */}
+                    <div className="lg:col-span-7 space-y-6 bg-white border border-slate-200/80 p-6 md:p-8 rounded-2xl shadow-sm">
+                      <div className="space-y-4">
+                        {/* Select Provider Dropdown */}
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-semibold text-slate-700 block">
+                            Select Biller
+                          </label>
+                          <select
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const selectedId = e.target.value;
+                                const b = filteredBillers.find(x => x.billerId === selectedId) ||
+                                  allBillers.find(x => x.billerId === selectedId);
+                                if (b) {
+                                  selectBiller(b as BillerInfo);
+                                }
+                              } else {
+                                setSelectedBiller(null);
+                                setBillDetails(null);
+                                setFormInputs({});
+                                setManualAmount('');
+                                setSelectedPlan(null);
+                                setPlans([]);
+                              }
+                            }}
+                            value={selectedBiller?.billerId || ""}
+                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all cursor-pointer"
+                          >
+                            <option value="">-- Select Biller --</option>
+                            {filteredBillers.length > 0 && (
+                              <optgroup label={`${selectedCategory} Providers`}>
+                                {filteredBillers.map((b) => (
+                                  <option key={b.billerId} value={b.billerId}>
+                                    {b.billerName}
+                                  </option>
                                 ))}
+                              </optgroup>
+                            )}
+                          </select>
+                        </div>
 
-                                <div className="space-y-1.5">
-                                  <label className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                                    Customer Mobile Number <span className="text-rose-500">*</span>
+                        {/* Inline billing form loaded on selection */}
+                        {billerParamsLoading ? (
+                          <div className="flex flex-col items-center justify-center py-8 gap-2 border-t border-slate-100/80 pt-4">
+                            <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading billing details...</p>
+                          </div>
+                        ) : (
+                          selectedBiller && (
+                            <form onSubmit={handleFetchBill} className="space-y-4 border-t border-slate-100/80 pt-4 animate-in fade-in duration-300">
+                              {inputParams.map((param, idx) => (
+                                <div key={idx} className="space-y-1.5">
+                                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                                    {param.paramName}
+                                    {!param.optional && <span className="text-rose-500 font-bold ml-1">*</span>}
                                   </label>
                                   <input
-                                    type="tel"
-                                    required
-                                    maxLength={10}
-                                    value={customerMobile}
-                                    onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all bg-white"
-                                    placeholder="Enter 10-digit mobile number"
+                                    type="text"
+                                    required={!param.optional}
+                                    value={formInputs[param.paramName] || ''}
+                                    onChange={(e) => setFormInputs({ ...formInputs, [param.paramName]: e.target.value })}
+                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                                    placeholder={`Enter ${param.paramName}`}
                                   />
                                 </div>
+                              ))}
 
-                                {selectedCategory !== 'Mobile Prepaid' && (
-                                  <button
-                                    type="submit"
-                                    disabled={loading}
-                                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 flex items-center justify-center gap-2 cursor-pointer"
-                                  >
-                                    {loading ? 'Fetching details...' : 'Fetch Bill Details'}
-                                  </button>
-                                )}
-                              </form>
+                              <div className="space-y-1.5">
+                                <label className="text-sm font-semibold text-slate-700">
+                                  Customer Mobile <span className="text-rose-500 font-bold ml-1">*</span>
+                                </label>
+                                <input
+                                  type="tel"
+                                  required
+                                  maxLength={10}
+                                  value={customerMobile}
+                                  onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, ''))}
+                                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                                  placeholder="Enter customer mobile"
+                                />
+                              </div>
 
-                              {/* Prepaid Plan List for mobile recharge */}
-                              {selectedCategory === 'Mobile Prepaid' && (
-                                <div className="space-y-4">
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Select Recharge Plan</h4>
-                                    {planLoading && <span className="text-[10px] text-indigo-600 animate-pulse font-bold">Loading plans...</span>}
-                                  </div>
+                              <div className="space-y-1.5">
+                                <label className="text-sm font-semibold text-slate-700">
+                                  Customer Email
+                                </label>
+                                <input
+                                  type="email"
+                                  value={customerEmail}
+                                  onChange={(e) => setCustomerEmail(e.target.value)}
+                                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                                  placeholder="Enter customer email"
+                                />
+                              </div>
 
-                                  <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 no-scrollbar border border-slate-100 rounded-2xl p-3 bg-slate-50/50">
-                                    {plans.length === 0 && !planLoading ? (
-                                      <div className="text-center py-10 text-slate-400 text-xs">
-                                        No plans retrieved. You can enter transaction amount manually.
-                                      </div>
-                                    ) : (
-                                      plans.map((p, idx) => (
-                                        <div
-                                          key={idx}
-                                          onClick={() => {
-                                            setSelectedPlan(p);
-                                            setManualAmount(p.amount);
-                                          }}
-                                          className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${selectedPlan === p ? 'bg-indigo-50/50 border-indigo-500 shadow-sm' : 'bg-white border-slate-200/60 hover:bg-slate-50'
-                                            }`}
-                                        >
-                                          <div className="space-y-1 pr-4">
-                                            <p className="text-xs font-black text-slate-800">
-                                              ₹{p.amount} <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold">{p.validity}</span>
-                                            </p>
-                                            <p className="text-[11px] text-slate-500 leading-normal">{p.description}</p>
-                                          </div>
-                                          <ChevronRight size={16} className={selectedPlan === p ? 'text-indigo-600' : 'text-slate-400'} />
-                                        </div>
-                                      ))
-                                    )}
-                                  </div>
+                              {selectedCategory !== 'Mobile Prepaid' && (
+                                <button
+                                  type="submit"
+                                  disabled={loading}
+                                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-100"
+                                >
+                                  {loading ? 'Fetching Bill...' : 'Fetch Bill'}
+                                  <ArrowRight size={16} />
+                                </button>
+                              )}
+                            </form>
+                          )
+                        )}
+
+                        {/* Prepaid Plan List for mobile recharge */}
+                        {selectedBiller && selectedCategory === 'Mobile Prepaid' && (
+                          <div className="space-y-4 border-t border-slate-100/80 pt-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Select Recharge Plan</h4>
+                              {planLoading && <span className="text-[10px] text-indigo-600 animate-pulse font-bold">Loading plans...</span>}
+                            </div>
+
+                            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 no-scrollbar border border-slate-100 rounded-2xl p-3 bg-slate-50/50">
+                              {plans.length === 0 && !planLoading ? (
+                                <div className="text-center py-10 text-slate-400 text-xs">
+                                  No plans retrieved. You can enter transaction amount manually.
                                 </div>
+                              ) : (
+                                plans.map((p, idx) => (
+                                  <div
+                                    key={idx}
+                                    onClick={() => {
+                                      setSelectedPlan(p);
+                                      setManualAmount(p.amount);
+                                    }}
+                                    className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${selectedPlan === p ? 'bg-indigo-50/50 border-indigo-500 shadow-sm' : 'bg-white border-slate-200/60 hover:bg-slate-50'
+                                      }`}
+                                  >
+                                    <div className="space-y-1 pr-4">
+                                      <p className="text-xs font-black text-slate-800">
+                                        ₹{p.amount} <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold">{p.validity}</span>
+                                      </p>
+                                      <p className="text-[11px] text-slate-500 leading-normal">{p.description}</p>
+                                    </div>
+                                    <ChevronRight size={16} className={selectedPlan === p ? 'text-indigo-600' : 'text-slate-400'} />
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column: Bill Summary and Payment Summary */}
+                    <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-8 pt-8 lg:pt-0">
+                      <div className="space-y-6">
+                        <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Bill Summary</h3>
+
+                        {loading && !billDetails && (
+                          <div className="flex items-center justify-center py-12">
+                            <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                          </div>
+                        )}
+
+                        {!loading && !billDetails && selectedCategory !== 'Mobile Prepaid' && (
+                          <div className="p-8 border border-dashed border-slate-200 rounded-3xl text-center text-slate-400 space-y-2">
+                            <HelpCircle size={24} className="mx-auto text-slate-300" />
+                            <p className="text-xs font-black text-slate-600">No Details Fetched</p>
+                            <p className="text-[10px]">Enter account parameters and click Fetch Bill Details.</p>
+                          </div>
+                        )}
+
+                        {(billDetails || selectedCategory === 'Mobile Prepaid') && (
+                          <div className="bg-slate-50 border border-slate-200 rounded-[24px] p-6 space-y-6">
+                            <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
+                              <div>
+                                <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase tracking-wider">Verified Info</span>
+                                <h4 className="text-sm font-black text-slate-800 mt-2">{billDetails ? billDetails.customerName : 'Prepaid Recharge'}</h4>
+                              </div>
+                              {billDetails && (
+                                <button
+                                  onClick={() => {
+                                    setBillDetails(null);
+                                    setManualAmount('');
+                                  }}
+                                  className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-all"
+                                >
+                                  <X size={16} />
+                                </button>
                               )}
                             </div>
 
-                            {/* Right Column: Bill Summary and Payment summary */}
-                            <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-8 pt-8 lg:pt-0">
-                              <div className="space-y-6">
-                                <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Bill Summary</h3>
-
-                                {loading && !billDetails && (
-                                  <div className="flex items-center justify-center py-12">
-                                    <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                            {(!billDetails || billDetails.fetchSupported) ? (
+                              <div className="space-y-4">
+                                {billDetails && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
+                                    <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                   </div>
                                 )}
 
-                                {!loading && !billDetails && selectedCategory !== 'Mobile Prepaid' && (
-                                  <div className="p-8 border border-dashed border-slate-200 rounded-3xl text-center text-slate-400 space-y-2">
-                                    <HelpCircle size={24} className="mx-auto text-slate-300" />
-                                    <p className="text-xs font-black text-slate-600">No Details Fetched</p>
-                                    <p className="text-[10px]">Enter account parameters and click Fetch Bill Details.</p>
-                                  </div>
-                                )}
+                                <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
+                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                  <input
+                                    type="number"
+                                    required
+                                    value={manualAmount}
+                                    onChange={(e) => setManualAmount(e.target.value)}
+                                    placeholder="Enter exact amount to pay"
+                                    disabled={selectedPlan !== null}
+                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
+                                  />
+                                </div>
 
-                                {(billDetails || selectedCategory === 'Mobile Prepaid') && (
-                                  <div className="bg-slate-50 border border-slate-200 rounded-[24px] p-6 space-y-6">
-                                    <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
-                                      <div>
-                                        <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase tracking-wider">Verified Info</span>
-                                        <h4 className="text-sm font-black text-slate-800 mt-2">{billDetails ? billDetails.customerName : 'Prepaid Recharge'}</h4>
-                                      </div>
-                                      {billDetails && (
-                                        <button
-                                          onClick={() => {
-                                            setBillDetails(null);
-                                            setManualAmount('');
-                                          }}
-                                          className="p-1 hover:bg-slate-200 rounded-lg text-slate-400 hover:text-slate-600 transition-all"
-                                        >
-                                          <X size={16} />
-                                        </button>
-                                      )}
+                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                  <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
+                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                      <span>Bill Base Amount</span>
+                                      <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                     </div>
-
-                                    {(!billDetails || billDetails.fetchSupported) ? (
-                                      <div className="space-y-4">
-                                        {billDetails && (
-                                          <div className="flex justify-between items-center text-xs">
-                                            <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
-                                            <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                          </div>
-                                        )}
-
-                                        <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
-                                          <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                                          <input
-                                            type="number"
-                                            required
-                                            value={manualAmount}
-                                            onChange={(e) => setManualAmount(e.target.value)}
-                                            placeholder="Enter exact amount to pay"
-                                            disabled={selectedPlan !== null}
-                                            className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                          />
-                                        </div>
-
-                                        {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                          <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
-                                            <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                              <span>Bill Base Amount</span>
-                                              <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                              <span>Transaction Charges</span>
-                                              <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                            {ccf1Fee > 0 && (
-                                              <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                                <span>Convenience Fee (CCF1 + GST)</span>
-                                                <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                              </div>
-                                            )}
-                                            <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                              <span>Total Debited</span>
-                                              <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                          </div>
-                                        )}
-
-                                        {billDetails?.dueDate && (
-                                          <div className="flex justify-between items-center text-xs">
-                                            <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
-                                            <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
-                                          </div>
-                                        )}
-                                        {billDetails?.billNumber && billDetails.billNumber !== "NA" && (
-                                          <div className="flex justify-between items-center text-xs">
-                                            <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
-                                            <span className="font-bold text-slate-600">{billDetails.billNumber}</span>
-                                          </div>
-                                        )}
-                                        {billDetails?.billDate && billDetails.billDate !== "NA" && (
-                                          <div className="flex justify-between items-center text-xs">
-                                            <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
-                                            <span className="font-bold text-slate-600">{billDetails.billDate}</span>
-                                          </div>
-                                        )}
-                                        {billDetails?.billPeriod && billDetails.billPeriod !== "NA" && (
-                                          <div className="flex justify-between items-center text-xs">
-                                            <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
-                                            <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
-                                          </div>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      // Manual entry (QuickPay)
-                                      <div className="space-y-4">
-                                        <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
-                                          <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                                          <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
-                                        </div>
-                                        <div className="space-y-2">
-                                          <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                                          <input
-                                            type="number"
-                                            required
-                                            value={manualAmount}
-                                            onChange={(e) => setManualAmount(e.target.value)}
-                                            placeholder="Enter exact amount to pay"
-                                            className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                          />
-                                        </div>
-
-                                        {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                          <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
-                                            <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                              <span>Bill Base Amount</span>
-                                              <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                              <span>Transaction Charges</span>
-                                              <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                            {ccf1Fee > 0 && (
-                                              <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                                <span>Convenience Fee (CCF1 + GST)</span>
-                                                <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                              </div>
-                                            )}
-                                            <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                              <span>Total Debited</span>
-                                              <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                            </div>
-                                          </div>
-                                        )}
+                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                      <span>Transaction Charges</span>
+                                      <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    {ccf1Fee > 0 && (
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Convenience Fee (CCF1 + GST)</span>
+                                        <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                     )}
+                                    <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                      <span>Total Debited</span>
+                                      <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                  </div>
+                                )}
 
-                                    <div className="pt-2">
-                                      <button
-                                        type="button"
-                                        onClick={initiatePayment}
-                                        disabled={loading || (!billDetails?.fetchSupported && !manualAmount)}
-                                        className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
-                                      >
-                                        <ShieldCheck size={16} />
-                                        Pay Securely Now
-                                      </button>
+                                {billDetails?.dueDate && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
+                                    <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
+                                  </div>
+                                )}
+                                {billDetails?.billNumber && billDetails.billNumber !== "NA" && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
+                                    <span className="font-bold text-slate-600">{billDetails.billNumber}</span>
+                                  </div>
+                                )}
+                                {billDetails?.billDate && billDetails.billDate !== "NA" && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
+                                    <span className="font-bold text-slate-600">{billDetails.billDate}</span>
+                                  </div>
+                                )}
+                                {billDetails?.billPeriod && billDetails.billPeriod !== "NA" && (
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
+                                    <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              // Manual entry (QuickPay)
+                              <div className="space-y-4">
+                                <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
+                                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                                  <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                  <input
+                                    type="number"
+                                    required
+                                    value={manualAmount}
+                                    onChange={(e) => setManualAmount(e.target.value)}
+                                    placeholder="Enter exact amount to pay"
+                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
+                                  />
+                                </div>
+
+                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                  <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
+                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                      <span>Bill Base Amount</span>
+                                      <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                      <span>Transaction Charges</span>
+                                      <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                    {ccf1Fee > 0 && (
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Convenience Fee (CCF1 + GST)</span>
+                                        <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                    )}
+                                    <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                      <span>Total Debited</span>
+                                      <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                   </div>
                                 )}
                               </div>
+                            )}
+
+                            <div className="pt-2">
+                              <button
+                                type="button"
+                                onClick={initiatePayment}
+                                disabled={loading || (!billDetails?.fetchSupported && !manualAmount)}
+                                className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
+                              >
+                                <ShieldCheck size={16} />
+                                Pay Securely Now
+                              </button>
                             </div>
                           </div>
-                        )
-                      )}
-                    </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
