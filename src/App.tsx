@@ -530,10 +530,10 @@ const AdminLayout = ({
     setOneSignalDebug(prev => prev + '\nStarting global subscribe click handler...');
     let OneSignal = (window as any).OneSignal;
 
-    // Explicitly initialize if needed
+    // Synchronously check initialization. Do NOT use await before requestPermission to preserve user gesture context on mobile browsers.
     if (!OneSignal || !OneSignal.initialized) {
-      setOneSignalDebug(prev => prev + '\nSDK not initialized on click. Invoking initOneSignal...');
-      await initOneSignal();
+      setOneSignalDebug(prev => prev + '\nSDK not initialized on click. Calling initOneSignal synchronously...');
+      initOneSignal();
       OneSignal = (window as any).OneSignal;
     }
     
@@ -1538,27 +1538,8 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    // 1. Clear OneSignal association in DB (best-effort, don't block logout)
-    if (userId) {
-      try {
-        const userType = localStorage.getItem('userType') as 'admin' | 'user';
-        const OneSignalDeferred = (window as any).OneSignalDeferred;
-        let pushId: string | null = null;
-        if (OneSignalDeferred) {
-          await new Promise<void>((resolve) => {
-            OneSignalDeferred.push((OneSignal: any) => {
-              pushId = OneSignal.User?.PushSubscription?.id || null;
-              resolve();
-            });
-          });
-        }
-        if (pushId) {
-          await removeDevicePushId(userId, userType, pushId);
-        }
-      } catch (err) {
-        console.warn('OneSignal DB clear failed (non-blocking):', err);
-      }
-    }
+    // Note: We intentionally DO NOT clear onesignal_id from the database on logout.
+    // This allows administrators to continue receiving persistent background push alerts on their devices.
 
     // 2. OneSignal Logout to clear association in their system
     const OneSignalDeferred = (window as any).OneSignalDeferred;
