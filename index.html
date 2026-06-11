@@ -11,6 +11,11 @@
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       window.addEventListener('error', function(e) {
+        var msg = String(e.message || '');
+        var filename = String(e.filename || '');
+        if (msg.indexOf('OneSignal') !== -1 || msg.indexOf('onesignal') !== -1 || filename.indexOf('onesignal') !== -1) {
+          return; // Ignore OneSignal script errors
+        }
         var div = document.createElement('div');
         div.style.position = 'fixed';
         div.style.top = '0';
@@ -28,6 +33,10 @@
         document.body.appendChild(div);
       });
       window.addEventListener('unhandledrejection', function(e) {
+        var reasonStr = String(e.reason || '');
+        if (reasonStr.indexOf('OneSignal') !== -1 || reasonStr.indexOf('onesignal') !== -1) {
+          return; // Ignore OneSignal background promise rejections
+        }
         var div = document.createElement('div');
         div.style.position = 'fixed';
         div.style.top = '0';
