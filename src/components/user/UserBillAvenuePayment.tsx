@@ -135,7 +135,6 @@ function getCategoryDetails(name: string) {
 }
 
 const STANDARD_CATEGORIES = [
-  { name: 'Mobile Prepaid', icon: Smartphone, gradient: 'from-emerald-400 to-teal-600', desc: 'Recharge any prepaid connection' },
   { name: 'Mobile Postpaid', icon: Smartphone, gradient: 'from-blue-400 to-indigo-600', desc: 'Pay postpaid mobile bills' },
   { name: 'Credit Card', icon: CreditCard, gradient: 'from-pink-400 to-rose-600', desc: 'Pay credit card bills instantly' },
   { name: 'Electricity', icon: Lightbulb, gradient: 'from-amber-400 to-orange-500', desc: 'Pay state power bills' },
@@ -317,10 +316,13 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
 
       setAllBillers(mappedBillers);
 
-      // Extract unique categories from the API
+      // Extract unique categories from the API, filtering out prepaid/recharge
       const apiCategoryNames = Array.from(
         new Set(mappedBillers.map(b => b.categoryName))
-      ).filter(Boolean);
+      ).filter(Boolean).filter(name => {
+        const norm = name.toLowerCase();
+        return !norm.includes('prepaid') && !norm.includes('recharge');
+      });
 
       // Start with our comprehensive standard categories list
       const mergedCats = [...STANDARD_CATEGORIES];
