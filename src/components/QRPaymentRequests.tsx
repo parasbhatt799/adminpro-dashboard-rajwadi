@@ -1425,11 +1425,11 @@ export default function QRPaymentRequests() {
                                 }
                               </span>
                             </div>
-                            <p className="mt-2 leading-normal truncate" title={selectedProof.qr_history?.upi_id || 'Not Defined'}>
+                            <p className="mt-2 leading-normal break-all" title={selectedProof.qr_history?.upi_id || 'Not Defined'}>
                               Expected: <span className="font-bold text-slate-800">"{selectedProof.qr_history?.upi_id || 'Not Defined'}"</span>
                             </p>
                             {detectedUpi && (
-                              <p className="mt-1 leading-normal truncate" title={detectedUpi}>
+                              <p className="mt-1 leading-normal break-all" title={detectedUpi}>
                                 Detected: <span className="font-bold text-slate-800">"{detectedUpi}"</span>
                               </p>
                             )}
@@ -1610,7 +1610,7 @@ export default function QRPaymentRequests() {
                       </div>
                       <div>
                         <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider leading-tight">UPI ID</p>
-                        <p className="text-[11px] font-bold text-purple-900 leading-tight select-all">
+                        <p className="text-[11px] font-bold text-purple-900 leading-tight select-all break-all">
                           {selectedProof.qr_history?.upi_id || 'Not Defined'}
                         </p>
                       </div>
