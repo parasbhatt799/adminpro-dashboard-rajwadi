@@ -171,6 +171,18 @@ const initOneSignal = async () => {
             }
           }, 1000);
         }
+
+        // Force sync current user immediately after initialization is complete
+        const currentUserId = localStorage.getItem('userId');
+        if (currentUserId) {
+          OneSignal.login(currentUserId);
+          const pushId = OneSignal.User?.PushSubscription?.id;
+          if (pushId) {
+            const userType = localStorage.getItem('userType') as 'admin' | 'user';
+            await addDevicePushId(currentUserId, userType, pushId);
+            console.log('OneSignal Initialized Sync success:', pushId);
+          }
+        }
       } catch (innerErr) {
         console.error('Error inside OneSignalDeferred initialization queue:', innerErr);
       }
@@ -429,6 +441,19 @@ const AdminLayout = ({
         } else {
           console.log('Requesting permission via global OneSignal...');
           await OneSignal.Notifications.requestPermission();
+          
+          // Recheck permission immediately after prompt response
+          const newPerm = OneSignal.Notifications.permission;
+          if (newPerm === 'granted') {
+            if (OneSignal.User?.PushSubscription) {
+              await OneSignal.User.PushSubscription.optIn();
+              const pushId = OneSignal.User.PushSubscription.id;
+              if (userId && pushId) {
+                await addDevicePushId(userId, 'admin', pushId);
+                toast.success('Successfully subscribed to notifications!');
+              }
+            }
+          }
         }
         setIsSubscribing(false);
         return;
@@ -459,6 +484,19 @@ const AdminLayout = ({
             }
           } else {
             await OS.Notifications.requestPermission();
+            
+            // Recheck permission immediately after prompt response
+            const newPerm = OS.Notifications.permission;
+            if (newPerm === 'granted') {
+              if (OS.User?.PushSubscription) {
+                await OS.User.PushSubscription.optIn();
+                const pushId = OS.User.PushSubscription.id;
+                if (userId && pushId) {
+                  await addDevicePushId(userId, 'admin', pushId);
+                  toast.success('Successfully subscribed to notifications!');
+                }
+              }
+            }
           }
         } else if (typeof OS.showNativePrompt === 'function') {
           await OS.showNativePrompt();
