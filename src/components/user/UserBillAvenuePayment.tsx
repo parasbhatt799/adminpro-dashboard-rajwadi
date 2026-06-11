@@ -1125,7 +1125,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
             <div className="flex flex-col items-center justify-center py-8">
               <div className="w-full max-w-sm bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6 relative" id="receipt-print-area">
                 <div className="absolute top-4 right-4 z-10">
-                  <img src="/assured_logo.png" alt="Be-Assured Logo" className="h-[30px] w-auto object-contain" />
+                  <img src="/assured_logo.png" alt="Be-Assured Logo" className="h-[52px] w-auto object-contain opacity-100 brightness-110 filter drop-shadow-sm" />
                 </div>
 
                 <div className="text-center border-b border-dashed border-slate-100 pb-5">

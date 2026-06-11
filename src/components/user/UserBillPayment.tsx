@@ -658,8 +658,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
     // Enforce daily Live BBPS limit
     try {
-      const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0 
-        ? Number(userProfile.custom_daily_live_bbps_limit) 
+      const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0
+        ? Number(userProfile.custom_daily_live_bbps_limit)
         : (Number(globalLiveBbpsLimit) || 500000);
 
       // Find start of today in IST, converted to UTC timezone
@@ -740,7 +740,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
       if (latestProfile.tpin !== tpinInput) {
         const nextAttempts = (Number(latestProfile.tpin_attempts) || 0) + 1;
-        
+
         if (nextAttempts >= 3) {
           const lockTime = new Date(Date.now() + 10 * 60 * 1000).toISOString();
           const { error: lockErr } = await supabase
@@ -816,8 +816,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
     // Enforce daily Live BBPS limit
     try {
-      const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0 
-        ? Number(userProfile.custom_daily_live_bbps_limit) 
+      const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0
+        ? Number(userProfile.custom_daily_live_bbps_limit)
         : (Number(globalLiveBbpsLimit) || 500000);
 
       // Find start of today in IST, converted to UTC timezone
@@ -964,11 +964,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         <div className="relative z-10 space-y-2">
           <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 w-fit">
             <Sparkles size={12} className="animate-spin-slow" />
-            Secure Gateway
+            Live Gateway
           </span>
           <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <img src="/b_mnemonic.png" alt="B" className="h-8 w-8 object-contain" />
-            BBPS PAY BILL
+            <Receipt className="text-indigo-400" size={32} />
+            Live BBPS Payments
           </h2>
           <p className="text-slate-400 max-w-md text-sm leading-relaxed">
             Pay electricity, gas, Credit Cards bills instantly with secure real-time verification.
@@ -1014,9 +1014,9 @@ export default function UserBillPayment({ userId }: { userId: string }) {
             <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
               Step {step} of 4: {
                 step === 1 ? 'Select Utility Service' :
-                step === 2 ? `Select ${selectedCategory?.cat_name || 'Utility'} Provider` :
-                step === 3 ? `Enter Account Details` :
-                'Receipt generated'
+                  step === 2 ? `Select ${selectedCategory?.cat_name || 'Utility'} Provider` :
+                    step === 3 ? `Enter Account Details` :
+                      'Receipt generated'
               }
             </span>
           </div>
@@ -1403,11 +1403,10 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 type="button"
                                 onClick={handlePrePayCheck}
                                 disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
-                                className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${
-                                  lockoutSeconds > 0
+                                className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${lockoutSeconds > 0
                                     ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
                                     : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
-                                }`}
+                                  }`}
                               >
                                 {loading ? (
                                   <>
@@ -1440,7 +1439,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
               >
                 <div className="w-full max-w-sm bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6 relative" id="receipt-print-area">
                   <div className="absolute top-4 right-4 z-10">
-                    <img src="/assured_logo.png" alt="Be-Assured Logo" className="h-[30px] w-auto object-contain" />
+                    <img src="/assured_logo.png" alt="Be-Assured Logo" className="h-[52px] w-auto object-contain opacity-100 brightness-110 filter drop-shadow-sm" />
                   </div>
 
                   <div className="text-center border-b border-dashed border-slate-100 pb-5">
