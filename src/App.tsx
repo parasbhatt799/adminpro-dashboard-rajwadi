@@ -69,6 +69,7 @@ const HomePage = lazy(() => import('./components/HomePage'));
 const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
 const RechargeDashboard = lazy(() => import('./components/RechargeDashboard'));
 const UserRecharge = lazy(() => import('./components/user/UserRecharge'));
+const SubscribeNotification = lazy(() => import('./components/SubscribeNotification'));
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone, BellOff, CheckCircle2 } from 'lucide-react';
 import { supabase, addDevicePushId, removeDevicePushId } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -1619,6 +1620,7 @@ export default function App() {
     <Router>
       <Routes>
         <Route path="/" element={<HomePage isAdmin={isAdmin} isUser={isUser} onLogout={handleLogout} />} />
+        <Route path="/subscribe" element={<SubscribeNotification />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-and-conditions" element={<TermsAndConditions />} />
         <Route path="/refund-policy" element={<RefundPolicy />} />
