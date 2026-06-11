@@ -1063,7 +1063,7 @@ async function startServer() {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
       }
 
-      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001'].includes(billerId);
+      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001', 'SBIC000000CC'].includes(billerId);
 
       const getMockResponse = () => ({
         billFetchResponse: {
@@ -1216,7 +1216,7 @@ async function startServer() {
         }
       }
 
-      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001'].includes(billerId);
+      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001', 'SBIC000000CC'].includes(billerId);
 
       const responseJson = apiResponse.json;
       let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
