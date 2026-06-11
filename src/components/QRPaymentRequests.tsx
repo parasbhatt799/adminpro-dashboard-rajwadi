@@ -107,6 +107,7 @@ export default function QRPaymentRequests() {
   const [ocrQrMatchStatus, setOcrQrMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
   const [ocrAmountMatchStatus, setOcrAmountMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
   const [bypassOcr, setBypassOcr] = useState(false);
+  const [detectedUpi, setDetectedUpi] = useState<string | null>(null);
 
   const runOcrOnProof = async (imageUrl: string, targetUtr: string, qrName: string, targetAmount: number) => {
     setOcrState('loading');
@@ -116,6 +117,7 @@ export default function QRPaymentRequests() {
     setOcrQrMatchStatus('unchecked');
     setOcrAmountMatchStatus('unchecked');
     setBypassOcr(false);
+    setDetectedUpi(null);
 
     try {
       // Fetch the image as a blob first to prevent any CORS issues in Tesseract canvas operations
@@ -174,6 +176,23 @@ export default function QRPaymentRequests() {
       const isAmountMatched = uniqueAmounts.some(val => Math.abs(val - Number(targetAmount)) < 0.01);
       setOcrAmountMatchStatus(isAmountMatched ? 'matched' : 'mismatch');
 
+      // 4. UPI ID (VPA) extraction
+      const upiMatches = text.match(/[a-zA-Z0-9.\-_]+@[a-zA-Z0-9.\-_]+/g) || [];
+      const cleanUpis = Array.from(new Set(upiMatches)).filter(val => {
+        const lower = val.toLowerCase();
+        return !lower.includes('gmail') && 
+               !lower.includes('yahoo') && 
+               !lower.includes('outlook') && 
+               !lower.includes('hotmail') && 
+               !lower.includes('email') &&
+               !lower.includes('tesseract');
+      });
+      if (cleanUpis.length > 0) {
+        setDetectedUpi(cleanUpis[0]);
+      } else {
+        setDetectedUpi(null);
+      }
+
       setOcrState('success');
     } catch (err) {
       console.error('OCR Error:', err);
@@ -182,7 +201,7 @@ export default function QRPaymentRequests() {
   };
 
   useEffect(() => {
-    if (selectedProof && selectedProof.status === 'pending') {
+    if (selectedProof) {
       runOcrOnProof(
         selectedProof.proof_url, 
         selectedProof.utr_id, 
@@ -197,6 +216,7 @@ export default function QRPaymentRequests() {
       setOcrQrMatchStatus('unchecked');
       setOcrAmountMatchStatus('unchecked');
       setBypassOcr(false);
+      setDetectedUpi(null);
     }
   }, [selectedProof]);
   const isDeveloper = currentUserId === '9999099999';
@@ -1535,6 +1555,17 @@ export default function QRPaymentRequests() {
                         </p>
                       </div>
                     </div>
+                    {detectedUpi && (
+                      <div className="flex items-center gap-2 bg-purple-50 px-3 py-1.5 rounded-xl border border-purple-100 animate-in fade-in slide-in-from-left-2 duration-300">
+                        <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center text-purple-600">
+                          <QrCode size={14} />
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-purple-400 font-bold uppercase tracking-wider leading-tight">UPI ID</p>
+                          <p className="text-[11px] font-bold text-purple-900 leading-tight select-all">{detectedUpi}</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-3">
