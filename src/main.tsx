@@ -5,17 +5,8 @@ import './index.css';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import { ToastProvider } from './context/ToastContext.tsx';
 
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/OneSignalSDKWorker.js', { scope: '/' })
-      .then((reg) => {
-        console.log('PWA ServiceWorker registered successfully:', reg.scope);
-      })
-      .catch((err) => {
-        console.error('PWA ServiceWorker registration failed:', err);
-      });
-  });
-}
+// OneSignal SDK manages its own service worker registration inside init().
+// Manual registration here has been disabled to prevent lifecycle conflicts that drop push subscriptions.
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

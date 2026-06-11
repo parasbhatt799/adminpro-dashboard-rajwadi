@@ -261,6 +261,18 @@ const syncOneSignalUser = async (currentUserId: string) => {
             }
           }
 
+          // If browser permission is already granted, force opt-in to avoid getting stuck in opted-out state
+          if (OneSignal.Notifications && OneSignal.Notifications.permission === 'granted') {
+            if (OneSignal.User?.PushSubscription && !OneSignal.User.PushSubscription.optedIn) {
+              logInit('syncOneSignalUser: Browser permission is granted but PushSubscription is optedOut. Forcing optIn...');
+              try {
+                await OneSignal.User.PushSubscription.optIn();
+              } catch (optInErr: any) {
+                logInit('syncOneSignalUser optIn error: ' + optInErr.message);
+              }
+            }
+          }
+
           let attempts = 0;
           const maxAttempts = 10;
           const intervalTime = 2000;
@@ -285,27 +297,16 @@ const syncOneSignalUser = async (currentUserId: string) => {
 
           await checkAndSync();
         } else {
-          // Logged out
-          try {
-            const pushId = OneSignal.User?.PushSubscription?.id;
-            const userType = localStorage.getItem('userType') as 'admin' | 'user';
-            if (pushId && userType) {
-              await removeDevicePushId(currentUserId, userType, pushId);
-            }
-            if (OneSignal.User?.externalId && typeof OneSignal.logout === 'function') {
-              await OneSignal.logout();
-              console.log('OneSignal Cleaned (Logged Out)');
-            }
-          } catch (logoutErr) {
-            console.warn('OneSignal logout skipped/failed:', logoutErr);
-          }
+          // Logged out: We intentionally keep the push subscription registered in the DB and active in OneSignal
+          // so that background push alerts continue to be received on this device.
+          logInit('syncOneSignalUser (Logged out): Retaining push registration for offline alerts');
         }
-      } catch (innerSyncErr) {
-        console.error('Error inside OneSignalDeferred sync queue:', innerSyncErr);
+      } catch (innerSyncErr: any) {
+        logInit('Error inside OneSignalDeferred sync queue: ' + innerSyncErr.message);
       }
     });
-  } catch (err) {
-    console.error('OneSignal Sync Error:', err);
+  } catch (err: any) {
+    logInit('OneSignal Sync Error: ' + err.message);
   }
 };
 
