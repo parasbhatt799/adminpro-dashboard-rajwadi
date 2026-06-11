@@ -1407,17 +1407,45 @@ async function startServer() {
 
   app.post("/api/bbps/complaint/register", async (req, res) => {
     try {
-      const { complaintType, txnRefId, complaintDesc, mobile } = req.body;
-      if (!txnRefId || !complaintDesc || !mobile) {
+      const { complaintType, txnRefId, complaintDesc, mobile, dateRange } = req.body;
+      if ((!txnRefId && !dateRange) || !complaintDesc || !mobile) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
       }
 
       const isStaging = process.env.BILLAVENUE_ENV !== "production";
+      let finalTxnRefId = txnRefId;
+
+      if (!finalTxnRefId && dateRange?.startDate && dateRange?.endDate) {
+        try {
+          const { data: txns } = await supabaseAdmin
+            .from("billavenue_transactions")
+            .select("txn_ref_id")
+            .eq("customer_mobile", mobile)
+            .gte("created_at", new Date(dateRange.startDate).toISOString())
+            .lte("created_at", new Date(dateRange.endDate).toISOString())
+            .order("created_at", { ascending: false });
+
+          if (txns && txns.length > 0) {
+            finalTxnRefId = txns[0].txn_ref_id;
+          }
+        } catch (dbErr) {
+          console.error("[BillAvenue Server] Error searching transaction:", dbErr);
+        }
+
+        if (!finalTxnRefId) {
+          if (isStaging) {
+            finalTxnRefId = `CC01${Math.floor(1000000000000000 + Math.random() * 9000000000000000)}`;
+          } else {
+            return res.status(400).json({ status: "ERROR", message: "No transaction found matching the mobile number and date range." });
+          }
+        }
+      }
+
       let responseJson: any = null;
       let requestId = `REQ${Math.floor(100000 + Math.random() * 900000)}`;
 
       try {
-        const response = await billAvenue.registerComplaint(complaintType, txnRefId, complaintDesc, mobile);
+        const response = await billAvenue.registerComplaint(complaintType, finalTxnRefId, complaintDesc, mobile);
         responseJson = response.json;
         requestId = response.requestId;
       } catch (apiError: any) {
