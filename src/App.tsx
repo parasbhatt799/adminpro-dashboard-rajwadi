@@ -380,6 +380,35 @@ const AdminLayout = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isSubscribing, setIsSubscribing] = useState(false);
   const [showOneSignalPopover, setShowOneSignalPopover] = useState(false);
+  const [isTestingDevice, setIsTestingDevice] = useState(false);
+
+  const handleTestDeviceNotification = async () => {
+    if (!playerId) {
+      toast.error('No Player ID found. Please subscribe first.');
+      return;
+    }
+    setIsTestingDevice(true);
+    try {
+      const response = await fetch('/api/send-push-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: 'Test Device Alert 🔔',
+          message: 'તમારા આ ફોન પર નોટિફિકેશન સફળતાપૂર્વક ચાલુ થઈ ગઈ છે!',
+          player_ids: [playerId]
+        })
+      });
+
+      const resData = await response.json();
+      if (!response.ok) throw new Error(resData.error || 'Failed to send test');
+      toast.success('Test alert sent! Check your phone.');
+    } catch (err: any) {
+      console.error('Test Device Alert Error:', err);
+      toast.error('Test failed: ' + err.message);
+    } finally {
+      setIsTestingDevice(false);
+    }
+  };
 
   useEffect(() => {
     const checkStatus = async () => {
@@ -630,13 +659,23 @@ const AdminLayout = ({
                         )}
 
                         {isSubscribed && playerId && (
-                          <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] text-slate-500 font-mono break-all select-all cursor-pointer" title="Click to copy Player ID" onClick={() => {
-                            navigator.clipboard.writeText(playerId);
-                            toast.success('Player ID copied to clipboard!');
-                          }}>
-                            <span className="font-sans font-bold text-slate-400 uppercase tracking-wider block mb-1 text-[9px]">Your Device Player ID (Click to copy):</span>
-                            {playerId}
-                          </div>
+                          <>
+                            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 text-[10px] text-slate-500 font-mono break-all select-all cursor-pointer" title="Click to copy Player ID" onClick={() => {
+                              navigator.clipboard.writeText(playerId);
+                              toast.success('Player ID copied to clipboard!');
+                            }}>
+                              <span className="font-sans font-bold text-slate-400 uppercase tracking-wider block mb-1 text-[9px]">Your Device Player ID (Click to copy):</span>
+                              {playerId}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleTestDeviceNotification}
+                              disabled={isTestingDevice}
+                              className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1 disabled:opacity-50"
+                            >
+                              {isTestingDevice ? 'Sending Test...' : '🔔 Test Push On This Phone'}
+                            </button>
+                          </>
                         )}
 
                         <div className="flex gap-2 pt-2">
