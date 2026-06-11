@@ -727,11 +727,11 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
         <div className="relative z-10 space-y-2">
           <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 w-fit">
             <Sparkles size={12} className="animate-spin-slow" />
-            BillAvenue Gateway
+            Secure Gateway
           </span>
           <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <Receipt className="text-indigo-400" size={32} />
-            BillAvenue BBPS Pay
+            <img src="/b_mnemonic.png" alt="B" className="h-8 w-8 object-contain" />
+            BBPS PAY BILL
           </h2>
           <p className="text-slate-400 max-w-md text-sm leading-relaxed">
             Securely recharge plans and pay all utility bills instantly with direct NPCI settlement.
