@@ -1148,7 +1148,7 @@ async function startServer() {
         billFetchResponse: {
           responseCode: '0000',
           responseReason: 'Successful',
-          customerName: 'UAT Test Customer',
+          customerName: 'Sumit C Patel',
           billAmount: '10000', // ₹100.00 (in paise)
           dueDate: '2026-06-30',
           billNumber: 'BILL998811',

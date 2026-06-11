@@ -921,7 +921,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           bConnectTxnId: cleanTxnRefId,
           billerId: selectedBiller.billerId,
           billerName: selectedBiller.billerName,
-          customerName: billDetails?.customerName || 'UAT Test Customer',
+          customerName: billDetails?.customerName || 'Sumit C Patel',
           customerNumber: customerMobile,
           billDate: billDetails?.billDate || 'N/A',
           billPeriod: billDetails?.billPeriod || 'N/A',
