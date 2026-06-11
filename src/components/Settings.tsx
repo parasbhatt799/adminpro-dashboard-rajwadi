@@ -1231,19 +1231,3 @@ export default function Settings() {
     </div>
   );
 }
-            )}
-          </AnimatePresence >
-
-  <button
-    onClick={handleSave}
-    disabled={saving}
-    className="flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 disabled:opacity-50 ml-auto active:scale-95"
-  >
-    {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-    <span>{saving ? 'Saving...' : 'Save Settings'}</span>
-  </button>
-        </div >
-      </div >
-    </div >
-  );
-}
