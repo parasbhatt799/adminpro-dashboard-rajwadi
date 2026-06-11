@@ -202,6 +202,19 @@ const MOCK_BILLERS_BY_CATEGORY: Record<string, BillerInfo[]> = {
   ]
 };
 
+const getBillerGradient = (name: string) => {
+  const hash = name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const gradients = [
+    'from-blue-500 to-indigo-600 shadow-blue-500/10',
+    'from-purple-500 to-pink-600 shadow-purple-500/10',
+    'from-emerald-500 to-teal-600 shadow-emerald-500/10',
+    'from-rose-500 to-red-600 shadow-rose-500/10',
+    'from-amber-500 to-orange-600 shadow-amber-500/10',
+    'from-cyan-500 to-blue-600 shadow-cyan-500/10'
+  ];
+  return gradients[hash % gradients.length];
+};
+
 export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -878,13 +891,18 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                     <button
                       key={idx}
                       onClick={() => selectBiller(biller)}
-                      className="p-5 rounded-2xl border border-slate-100 hover:border-slate-300 hover:bg-slate-50 text-left transition-all flex items-center justify-between group cursor-pointer shadow-sm"
+                      className="p-4 rounded-2xl border border-slate-100/80 bg-white hover:border-indigo-100 hover:bg-indigo-50/5 hover:-translate-y-0.5 text-left transition-all duration-300 flex items-center gap-4 group cursor-pointer shadow-sm hover:shadow-md relative overflow-hidden"
                     >
-                      <div className="space-y-0.5 max-w-[85%]">
-                        <p className="text-xs font-black text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{biller.billerName}</p>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{biller.billerId}</p>
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${getBillerGradient(biller.billerName)} text-white flex items-center justify-center font-black text-sm shadow-md group-hover:scale-105 transition-transform flex-shrink-0`}>
+                        {biller.billerName.charAt(0)}
                       </div>
-                      <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        <p className="text-xs font-black text-slate-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">{biller.billerName}</p>
+                        <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">{biller.billerId}</p>
+                      </div>
+                      <div className="w-7 h-7 rounded-lg bg-slate-50 text-slate-400 flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all flex-shrink-0">
+                        <ChevronRight size={14} />
+                      </div>
                     </button>
                   ))}
                 </div>
