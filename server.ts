@@ -1063,7 +1063,24 @@ async function startServer() {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
       }
 
-      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001', 'SBIC000000CC'].includes(billerId);
+      const isStaging = process.env.BILLAVENUE_ENV !== 'production';
+
+      // Attempt to load category/name from DB to make mock realistic
+      let billerCategory = 'Utility';
+      let billerName = 'UAT Test Biller';
+      try {
+        const { data: dbBiller } = await supabaseAdmin
+          .from('billavenue_billers')
+          .select('category, biller_name')
+          .eq('biller_id', billerId)
+          .maybeSingle();
+        if (dbBiller) {
+          billerCategory = dbBiller.category || 'Utility';
+          billerName = dbBiller.biller_name || 'UAT Test Biller';
+        }
+      } catch (dbErr) {
+        console.warn('Failed to load biller info for mock:', dbErr);
+      }
 
       const getMockResponse = () => ({
         billFetchResponse: {
@@ -1077,7 +1094,9 @@ async function startServer() {
           billPeriod: 'Monthly',
           additionalInfo: {
             info: [
-              { infoName: 'Consumer ID', infoValue: customerParams[Object.keys(customerParams)[0]] || '123456' }
+              { infoName: 'Consumer ID', infoValue: customerParams[Object.keys(customerParams)[0]] || '123456' },
+              { infoName: 'Biller Name', infoValue: billerName },
+              { infoName: 'Category', infoValue: billerCategory }
             ]
           }
         }
@@ -1086,15 +1105,15 @@ async function startServer() {
       try {
         const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile);
         const responseCode = response.json?.billFetchResponse?.responseCode;
-        if (isUat && responseCode !== '0000') {
-          console.log(`[BillAvenue Proxy] UAT Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
+        if (isStaging && responseCode !== '0000') {
+          console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
           return res.json(getMockResponse());
         }
         return res.json(response.json);
       } catch (apiError: any) {
-        console.warn(`[BillAvenue Proxy] Fetch failed, checking if UAT Biller mock is possible for ${billerId}:`, apiError.message);
-        if (isUat || apiError.message.includes('IP') || apiError.message.includes('whitelist') || apiError.message.includes('Decrypt')) {
-          console.log(`[BillAvenue Proxy] Returning Mock Staging Bill for UAT biller: ${billerId}`);
+        console.warn(`[BillAvenue Proxy] Fetch failed, checking if staging mock is possible for ${billerId}:`, apiError.message);
+        if (isStaging || apiError.message.includes('IP') || apiError.message.includes('whitelist') || apiError.message.includes('Decrypt')) {
+          console.log(`[BillAvenue Proxy] Returning Mock Staging Bill for biller: ${billerId}`);
           return res.json(getMockResponse());
         }
         throw apiError;
@@ -1195,9 +1214,9 @@ async function startServer() {
           ccf1 !== undefined ? Number(ccf1) : undefined
         );
       } catch (payApiError: any) {
-        console.warn(`[BillAvenue Proxy] Pay failed, checking if UAT Biller mock is possible for ${billerId}:`, payApiError.message);
-        const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001'].includes(billerId);
-        if (isUat || payApiError.message.includes('IP') || payApiError.message.includes('whitelist') || payApiError.message.includes('Decrypt')) {
+        console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);
+        const isStaging = process.env.BILLAVENUE_ENV !== 'production';
+        if (isStaging || payApiError.message.includes('IP') || payApiError.message.includes('whitelist') || payApiError.message.includes('Decrypt')) {
           console.log(`[BillAvenue Proxy] Returning Mock Staging Pay response for biller: ${billerId}`);
           apiResponse = {
             requestId: 'MOCK' + Math.random().toString(36).substring(2, 9).toUpperCase(),
@@ -1216,7 +1235,7 @@ async function startServer() {
         }
       }
 
-      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001', 'SBIC000000CC'].includes(billerId);
+      const isStaging = process.env.BILLAVENUE_ENV !== 'production';
 
       const responseJson = apiResponse.json;
       let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
@@ -1225,8 +1244,8 @@ async function startServer() {
       
       let isSuccess = responseCode === '0000' || responseCode === '000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
 
-      if (!isSuccess && isUat) {
-        console.log(`[BillAvenue Proxy] UAT Biller ${billerId} payment failed with ${responseCode}. Mocking success.`);
+      if (!isSuccess && isStaging) {
+        console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} payment failed with ${responseCode}. Mocking success.`);
         payResponse = {
           responseCode: '0000',
           responseReason: 'Successful',
