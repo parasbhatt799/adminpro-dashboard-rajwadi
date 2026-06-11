@@ -1191,13 +1191,13 @@ async function startServer() {
       }
 
       const responseJson = apiResponse.json;
-      const payResponse = responseJson?.billPayResponse;
+      const payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
       const responseCode = payResponse?.responseCode;
       const txnRefId = payResponse?.txnRefId;
       
-      const isSuccess = responseCode === '0000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
+      const isSuccess = responseCode === '0000' || responseCode === '000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
 
-      if (isSuccess || responseCode === '0000') {
+      if (isSuccess || responseCode === '0000' || responseCode === '000') {
         const newBalance = currentBalance - totalDeduction;
 
         // 4. Deduct wallet balance in Supabase
@@ -1283,7 +1283,7 @@ async function startServer() {
       }
       const response = await billAvenue.getTransactionStatus(requestId as string, trackType as string);
       
-      const statusResponse = response.json?.transactionStatusResponse;
+      const statusResponse = response.json?.transactionStatusResp || response.json?.transactionStatusResponse;
       if (statusResponse) {
         const txnStatus = statusResponse.status?.toLowerCase();
         let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
@@ -1352,7 +1352,7 @@ async function startServer() {
       }
 
       const response = await billAvenue.registerComplaint(complaintType, txnRefId, complaintDesc, mobile);
-      const registerResponse = response.json?.complaintResponse;
+      const registerResponse = response.json?.complaintRegistrationResp || response.json?.complaintResponse;
 
       if (registerResponse?.complaintId) {
         await supabaseAdmin
@@ -1381,7 +1381,7 @@ async function startServer() {
       }
       const response = await billAvenue.trackComplaint(complaintId, mobile);
       
-      const trackResponse = response.json?.complaintTrackResponse;
+      const trackResponse = response.json?.complaintTrackingResp || response.json?.complaintTrackResponse;
       if (trackResponse) {
         const cStatus = trackResponse.status?.toLowerCase();
         let mappedStatus: 'pending' | 'resolved' | 'failed' = 'pending';
