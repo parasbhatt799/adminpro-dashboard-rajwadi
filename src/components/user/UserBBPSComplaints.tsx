@@ -52,6 +52,11 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
   // Tracking state for individual complaints
   const [trackingId, setTrackingId] = useState<string | null>(null);
 
+  // Manual Tracking State
+  const [manualComplaintId, setManualComplaintId] = useState<string>('');
+  const [trackingManual, setTrackingManual] = useState<boolean>(false);
+  const [manualTrackResult, setManualTrackResult] = useState<any>(null);
+
   const BBPS_DISPOSITIONS = [
     'Transaction Successful, Amount Debited but services not received',
     'Transaction Successful, Amount Debited but Service Disconnected or Service Stopped',
@@ -197,6 +202,41 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
     }
   };
 
+  const handleManualTrack = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manualComplaintId.trim()) {
+      toast.error('Please enter a Complaint ID.');
+      return;
+    }
+
+    setTrackingManual(true);
+    setManualTrackResult(null);
+
+    try {
+      const res = await fetch('/api/bbps/complaint/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          complaintId: manualComplaintId.trim(),
+          mobile: customerMobile
+        })
+      });
+
+      const data = await res.json();
+      const trackResp = data?.complaintTrackingResp || data?.complaintTrackResponse;
+      if (trackResp) {
+        setManualTrackResult(trackResp);
+        toast.success(`Complaint status retrieved successfully!`);
+      } else {
+        toast.error(data.message || 'Failed to track complaint.');
+      }
+    } catch (err) {
+      toast.error('Error tracking complaint.');
+    } finally {
+      setTrackingManual(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4">
       {/* Header card */}
@@ -257,6 +297,71 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
+                {/* Manual Tracking Section */}
+                <div className="bg-slate-50 border border-slate-200/80 p-6 rounded-[24px] space-y-4">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Track Complaint Manually</h3>
+                    <p className="text-slate-400 text-[11px] mt-0.5">Enter any BBPS Complaint ID to check its current resolution status.</p>
+                  </div>
+                  <form onSubmit={handleManualTrack} className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Enter Complaint ID (e.g. COM123456789012)"
+                        value={manualComplaintId}
+                        onChange={(e) => setManualComplaintId(e.target.value)}
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all placeholder:text-slate-300"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={trackingManual}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 active:scale-95 shrink-0"
+                    >
+                      {trackingManual ? 'Tracking...' : 'Track Status'}
+                    </button>
+                  </form>
+
+                  {/* Manual Track Result display */}
+                  {manualTrackResult && (
+                    <div className="border-t border-slate-200/80 pt-4 mt-2 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-600">Status details for: <span className="font-mono text-indigo-600 font-bold">{manualComplaintId}</span></span>
+                        <button 
+                          type="button"
+                          onClick={() => setManualTrackResult(null)}
+                          className="text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                      <div className="bg-white p-4 rounded-2xl border border-slate-200/50 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Status</span>
+                          <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${
+                            manualTrackResult.status === 'RESOLVED' || manualTrackResult.status === 'SUCCESS' || manualTrackResult.status?.toString().toLowerCase() === 'resolved'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                              : manualTrackResult.status === 'FAILED' || manualTrackResult.status === 'REJECTED' || manualTrackResult.status?.toString().toLowerCase() === 'failed'
+                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                              : 'bg-amber-50 text-amber-600 border border-amber-200'
+                          }`}>
+                            {manualTrackResult.status || 'PENDING'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Assigned To</span>
+                          <span className="text-xs font-bold text-slate-700 mt-1 block">{manualTrackResult.complaintAssigned || 'N/A'}</span>
+                        </div>
+                        <div className="col-span-1 sm:col-span-2">
+                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Remarks / Description</span>
+                          <span className="text-xs font-semibold text-slate-600 mt-1 block leading-relaxed">{manualTrackResult.desc || manualTrackResult.complaintRemarks || 'No remarks available.'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {loading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-3">
                     <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
