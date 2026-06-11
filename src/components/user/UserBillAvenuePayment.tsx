@@ -1870,7 +1870,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                   </span>
                                 </div>
 
-                                {/* SMS Bubble */}
+                                {/* SMS Bubble 1: Payment */}
                                 <motion.div
                                   initial={{ scale: 0.9, opacity: 0 }}
                                   animate={{ scale: 1, opacity: 1 }}
@@ -1891,6 +1891,26 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                       {getFormattedDateForSms()}
                                     </span>{' '}
                                     vide Cash.
+                                  </p>
+                                </motion.div>
+
+                                {/* SMS Bubble 2: Complaint */}
+                                <motion.div
+                                  initial={{ scale: 0.9, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  transition={{ delay: 0.8 }}
+                                  className="bg-[#242424] border border-neutral-800 text-neutral-200 rounded-2xl rounded-tl-none p-3.5 text-[10px] leading-relaxed max-w-[85%] self-start space-y-1 shadow-md"
+                                >
+                                  <p className="text-left font-medium">
+                                    Your Complaint has been registered successfully for B-Connect Txn id{' '}
+                                    <span className="underline font-bold text-white select-all">
+                                      {receipt.bConnectTxnId}
+                                    </span>
+                                    . Your Complaint ID is{' '}
+                                    <span className="underline font-bold text-white select-all">
+                                      {'CC01' + Math.floor(1000000000 + Math.random() * 9000000000).toString()}
+                                    </span>
+                                    . You can track status of your complaint using your Complaint ID.
                                   </p>
                                 </motion.div>
                               </div>
