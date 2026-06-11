@@ -1687,14 +1687,17 @@ async function startServer() {
 </body>
 </html>`;
 
-              await transporter.sendMail({
+              transporter.sendMail({
                 from: `"${fromName}" <${fromEmail}>`,
                 to: userEmail,
                 subject,
                 text,
                 html,
+              }).then(() => {
+                console.log(`[BillAvenue Server] Confirmation email sent successfully to ${userEmail} for complaint ${complaintId}`);
+              }).catch((emailErr) => {
+                console.error("[BillAvenue Server] Error sending confirmation email (async):", emailErr);
               });
-              console.log(`[BillAvenue Server] Confirmation email sent successfully to ${userEmail} for complaint ${complaintId}`);
             } else {
               console.warn("[BillAvenue Server] SMTP configuration missing. Skipping complaint email dispatch.");
             }
