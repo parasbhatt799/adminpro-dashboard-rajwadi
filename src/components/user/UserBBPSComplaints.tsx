@@ -15,7 +15,8 @@ import {
   RefreshCw,
   Calendar,
   Smartphone,
-  ChevronRight
+  ChevronRight,
+  Info
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
@@ -118,14 +119,21 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
 
   const handleRegisterComplaint = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (complaintIdentifyMethod === 'txnId' && !complaintTxnRef.trim()) {
-      toast.error('Please enter the Transaction Ref ID.');
+    
+    const txnRef = complaintTxnRef.trim();
+    const hasTxnId = txnRef.length > 0;
+    const hasMobileDate = complaintMobile.trim().length === 10 && complaintStartDate && complaintEndDate;
+
+    if (!hasTxnId && !hasMobileDate) {
+      toast.error('Please enter either a B-Connect Transaction ID starting with CC01, or enter Mobile Number + Date Range.');
       return;
     }
-    if (complaintIdentifyMethod === 'mobileDate' && (!complaintMobile.trim() || !complaintStartDate || !complaintEndDate)) {
-      toast.error('Please fill in all mobile and date range fields.');
+
+    if (hasTxnId && !txnRef.startsWith('CC01')) {
+      toast.error('B-Connect Transaction ID must start with CC01.');
       return;
     }
+
     if (!complaintText.trim()) {
       toast.error('Please enter a complaint description.');
       return;
@@ -135,13 +143,13 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
 
     try {
       const payload: any = {
-        complaintType,
-        complaintDesc: complaintType === 'Transaction' ? `[Disposition: ${complaintDisposition}] ${complaintText}` : complaintText,
-        mobile: complaintIdentifyMethod === 'mobileDate' ? complaintMobile : customerMobile
+        complaintType: 'Transaction',
+        complaintDesc: `[Disposition: ${complaintDisposition}] ${complaintText}`,
+        mobile: complaintMobile.trim() || customerMobile
       };
 
-      if (complaintIdentifyMethod === 'txnId') {
-        payload.txnRefId = complaintTxnRef;
+      if (hasTxnId) {
+        payload.txnRefId = txnRef;
       } else {
         payload.dateRange = {
           startDate: complaintStartDate,
@@ -252,7 +260,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
           </span>
           <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
             <img src="/b_mnemonic.png" alt="B" className="h-8 w-8 object-contain" />
-            BBPS COMPLAINT CENTER
+            Bharat Connect Complaint Center
           </h2>
           <p className="text-slate-400 max-w-md text-sm leading-relaxed">
             Register and track complaints for your utility bill payments securely with direct Bharat Connect settlement.
@@ -290,7 +298,11 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
           <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
             {viewState === 'list' ? 'Your Complaints History' : 'Complaint Center'}
           </span>
-          <img src="/bharat_connect.png" alt="Bharat Connect" className="h-[24px] w-auto object-contain" />
+          <img 
+            src="/bharat_connect.png" 
+            alt="Bharat Connect" 
+            style={{ width: '83px', height: '30px', objectFit: 'contain' }} 
+          />
         </div>
 
         <div className="p-8">
@@ -313,7 +325,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                     <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400 mb-4 shadow-inner">
                       <MessageSquare size={28} />
                     </div>
-                    <h3 className="text-base font-black text-slate-700 tracking-tight">No BBPS complaints registered</h3>
+                    <h3 className="text-base font-black text-slate-700 tracking-tight">No Bharat Connect complaints registered</h3>
                     <p className="text-slate-400 text-xs mt-1 max-w-xs mx-auto">If you have any issues with bill payments, you can register a formal dispute here.</p>
                     <button
                       onClick={() => {
@@ -414,134 +426,97 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
 
                 {activeFormTab === 'lodge' ? (
                   <form onSubmit={handleRegisterComplaint} className="space-y-6">
-                    {/* Complaint Type */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Type</label>
+                    <div className="bg-indigo-50 border border-indigo-100 text-indigo-700 p-4 rounded-2xl text-xs flex gap-2 mb-2">
+                      <Info size={16} className="shrink-0 mt-0.5" />
+                      <p className="leading-relaxed font-semibold">
+                        To lodge a complaint, please provide either a valid <strong>B-Connect Transaction ID</strong> (starting with CC01) OR enter both the <strong>Customer Mobile Number</strong> and <strong>Date Range</strong>.
+                      </p>
+                    </div>
+
+                    {/* 1. Transaction ID */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+                        B-Connect Transaction ID <span className="text-slate-400 font-normal">(Starting with CC01)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={complaintTxnRef}
+                        onChange={(e) => setComplaintTxnRef(e.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all bg-white"
+                        placeholder="e.g. CC018473950284759281 (optional if Mobile & Date Range is provided)"
+                      />
+                    </div>
+
+                    {/* 2. Mobile & Date Range Group */}
+                    <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-[24px] space-y-4">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Or Provide Customer details</span>
+                      
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Mobile Number</label>
+                          <input
+                            type="tel"
+                            maxLength={10}
+                            value={complaintMobile}
+                            onChange={(e) => setComplaintMobile(e.target.value.replace(/\D/g, ''))}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all bg-white"
+                            placeholder="Enter 10-digit mobile"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Start Date</label>
+                          <input
+                            type="date"
+                            value={complaintStartDate}
+                            onChange={(e) => setComplaintStartDate(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all bg-white"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">End Date</label>
+                          <input
+                            type="date"
+                            value={complaintEndDate}
+                            onChange={(e) => setComplaintEndDate(e.target.value)}
+                            className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all bg-white"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 3. Complaint Disposition */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Complaint Disposition</label>
                       <select
-                        value={complaintType}
-                        onChange={(e) => setComplaintType(e.target.value)}
-                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
+                        value={complaintDisposition}
+                        onChange={(e) => setComplaintDisposition(e.target.value)}
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
                       >
-                        <option value="Transaction">Transaction Related (Default)</option>
-                        <option value="Service">Service Related</option>
+                        {BBPS_DISPOSITIONS.map((disp, idx) => (
+                          <option key={idx} value={disp}>{disp}</option>
+                        ))}
                       </select>
                     </div>
 
-                    {/* Identification Method */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Identify Transaction By</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setComplaintIdentifyMethod('txnId')}
-                          className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${
-                            complaintIdentifyMethod === 'txnId'
-                              ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                          }`}
-                        >
-                          Transaction ID
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setComplaintIdentifyMethod('mobileDate')}
-                          className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${
-                            complaintIdentifyMethod === 'mobileDate'
-                              ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                          }`}
-                        >
-                          Mobile & Date Range
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Conditional Fields */}
-                    {complaintIdentifyMethod === 'txnId' ? (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">BBPS Transaction Ref ID</label>
-                        <input
-                          type="text"
-                          required
-                          value={complaintTxnRef}
-                          onChange={(e) => setComplaintTxnRef(e.target.value)}
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all placeholder:text-slate-300"
-                          placeholder="Enter 20-character reference ID starting with CC01"
-                        />
-                      </div>
-                    ) : (
-                      <div className="space-y-4 p-5 bg-slate-50 rounded-[24px] border border-slate-200/50">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Mobile Number</label>
-                          <input
-                            type="tel"
-                            required
-                            value={complaintMobile}
-                            onChange={(e) => setComplaintMobile(e.target.value)}
-                            className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                            placeholder="Enter customer mobile number"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Start Date</label>
-                            <input
-                              type="date"
-                              required
-                              value={complaintStartDate}
-                              onChange={(e) => setComplaintStartDate(e.target.value)}
-                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">End Date</label>
-                            <input
-                              type="date"
-                              required
-                              value={complaintEndDate}
-                              onChange={(e) => setComplaintEndDate(e.target.value)}
-                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Complaint Disposition */}
-                    {complaintType === 'Transaction' && (
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Disposition</label>
-                        <select
-                          value={complaintDisposition}
-                          onChange={(e) => setComplaintDisposition(e.target.value)}
-                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
-                        >
-                          {BBPS_DISPOSITIONS.map((disp, idx) => (
-                            <option key={idx} value={disp}>{disp}</option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    {/* Description */}
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Description</label>
+                    {/* 4. Description */}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Complaint Description</label>
                       <textarea
                         required
                         rows={4}
                         value={complaintText}
                         onChange={(e) => setComplaintText(e.target.value)}
-                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all resize-none"
-                        placeholder="Provide detailed comments about the transaction issue..."
+                        className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all resize-none"
+                        placeholder="Provide details about the transaction issue..."
                       />
                     </div>
 
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20 active:scale-98 disabled:opacity-50"
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100 active:scale-98 disabled:opacity-50 cursor-pointer"
                     >
-                      {submitting ? 'Registering Complaint...' : 'Register BBPS Complaint'}
+                      {submitting ? 'Registering Complaint...' : 'Register Bharat Connect Complaint'}
                     </button>
                   </form>
                 ) : (

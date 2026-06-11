@@ -1216,7 +1216,7 @@ async function startServer() {
       // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
          .from("users_profiles")
-        .select("wallet_balance, service_charge_enabled, custom_service_charge")
+        .select("wallet_balance, service_charge_enabled, custom_service_charge, email, name")
         .eq("id", userId)
         .single();
 
@@ -1364,6 +1364,202 @@ async function startServer() {
               paymentMode: paymentMode || 'UPI'
             }
           });
+
+        // Send email alert (Obs 8)
+        try {
+          if (user?.email) {
+            let billerName = "Bharat Connect Biller";
+            try {
+              const { data: dbBiller } = await supabaseAdmin
+                .from('billavenue_billers')
+                .select('biller_name')
+                .eq('biller_id', billerId)
+                .maybeSingle();
+              if (dbBiller?.biller_name) {
+                billerName = dbBiller.biller_name;
+              }
+            } catch (dbErr) {
+              console.warn('Failed to load biller name for email:', dbErr);
+            }
+
+            const consumerNo = customerParams ? (customerParams[Object.keys(customerParams)[0]] || "N/A") : "N/A";
+            const dateTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }) + " IST";
+            const paymentChannel = "Internet (WEB)";
+
+            const subject = `Payment Successful - B-Connect Txn Ref ID: ${txnRefId || apiResponse.requestId}`;
+            const text = `Thank you for payment of ₹${paymentAmount} against ${billerName}, Consumer no ${consumerNo}, B-connect Txn Ref ID ${txnRefId || apiResponse.requestId} on ${dateTime} vide ${paymentChannel}.`;
+            
+            const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Payment Successful</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+    .header {
+      background-color: #0f172a;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .header .subtitle {
+      color: #10b981;
+      font-size: 14px;
+      margin-top: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .content {
+      padding: 32px 24px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #111827;
+    }
+    .message {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #4b5563;
+      margin-bottom: 24px;
+    }
+    .payment-card {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .payment-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .info-label {
+      font-weight: 500;
+      color: #64748b;
+    }
+    .info-value {
+      font-weight: 600;
+      color: #0f172a;
+      text-align: right;
+    }
+    .bbps-badge {
+      display: inline-block;
+      background-color: #ecfdf5;
+      border: 1px solid #a7f3d0;
+      color: #047857;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>UsePay</h1>
+      <div class="subtitle">Bharat Connect (B-Connect)</div>
+    </div>
+    <div class="content">
+      <div class="greeting">Hello, ${user.name || "Customer"}</div>
+      <div class="bbps-badge">✓ Payment Successful</div>
+      <div class="message">
+        Thank you for payment of ₹${paymentAmount} against ${billerName}, Consumer no ${consumerNo}, B-connect Txn Ref ID ${txnRefId || apiResponse.requestId} on ${dateTime} vide ${paymentChannel}.
+      </div>
+      <div class="payment-card">
+        <div class="payment-title">Payment Transaction Details</div>
+        <div class="info-row">
+          <span class="info-label">B-Connect Txn Ref ID</span>
+          <span class="info-value" style="color: #059669;">${txnRefId || apiResponse.requestId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Biller Name</span>
+          <span class="info-value">${billerName}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Consumer Number</span>
+          <span class="info-value">${consumerNo}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Amount Paid</span>
+          <span class="info-value">₹${paymentAmount.toFixed(2)}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Transaction Date & Time</span>
+          <span class="info-value">${dateTime}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Payment Channel</span>
+          <span class="info-value">${paymentChannel}</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      This is an automated email notification from UsePay. Please do not reply directly to this message.<br>
+      &copy; 2026 UsePay. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>`;
+
+            sendResendEmail(user.email, subject, text, html)
+              .then(() => {
+                console.log(`[BillAvenue Server] Payment confirmation email sent successfully to ${user.email} via Resend`);
+              })
+              .catch((emailErr) => {
+                console.error("[BillAvenue Server] Error sending payment confirmation email:", emailErr.message);
+              });
+          }
+        } catch (emailErr) {
+          console.error("[BillAvenue Server] Error triggering payment confirmation email:", emailErr);
+        }
 
         return res.json({
           status: "SUCCESS",
@@ -1572,8 +1768,8 @@ async function startServer() {
             const userName = profile.name || "Customer";
             const complaintId = finalRegisterResponse.complaintId;
 
-            const subject = `BBPS Complaint Registered successfully - ${complaintId}`;
-            const text = `Dear Customer, your complaint has been registered successfully with Complaint ID ${complaintId} at Bharat BillPay. UsePay.`;
+            const subject = `Bharat Connect Complaint Registered - ${complaintId}`;
+            const text = `Your Complaint has been registered successfully for B-connect Txn Ref ID ${finalTxnRefId}. Your Complaint ID is ${complaintId}. You can track status of your complaint using your Complaint ID.`;
             const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -1690,13 +1886,13 @@ async function startServer() {
   <div class="container">
     <div class="header">
       <h1>UsePay</h1>
-      <div class="subtitle">Bharat BillPay (BBPS)</div>
+      <div class="subtitle">Bharat Connect (B-Connect)</div>
     </div>
     <div class="content">
       <div class="greeting">Hello, ${userName}</div>
-      <div class="bbps-badge">✓ Bharat BillPay Registered</div>
+      <div class="bbps-badge">✓ Bharat Connect Registered</div>
       <div class="message">
-        Dear Customer, your complaint has been registered successfully with Complaint ID <strong>${complaintId}</strong> at Bharat BillPay.
+        Your Complaint has been registered successfully for B-connect Txn Ref ID <strong>${finalTxnRefId}</strong>. Your Complaint ID is <strong>${complaintId}</strong>. You can track status of your complaint using your Complaint ID.
       </div>
       <div class="complaint-card">
         <div class="complaint-title">Complaint Details</div>

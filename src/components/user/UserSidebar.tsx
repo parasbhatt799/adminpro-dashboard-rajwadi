@@ -30,12 +30,12 @@ const menuItems = [
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
   { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
-  { id: 'billavenue-payment', label: 'BBPS Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
+  { id: 'billavenue-payment', label: 'Bharat Connect Bill Pay', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
-  { id: 'bbps-complaints', label: 'BBPS Complaints', icon: MessageSquare, path: '/user/bbps-complaints' },
+  { id: 'bbps-complaints', label: 'Bharat Connect Complaints', icon: MessageSquare, path: '/user/bbps-complaints' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
   { id: 'tpin', label: 'Create TPIN', icon: ShieldCheck, path: '/user/tpin' },
   { id: 'change-password', label: 'Security', icon: KeyRound, path: '/user/change-password' },
@@ -227,7 +227,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
                   <>
                     {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' || item.id === 'bbps-complaints' ? (
                       <img 
-                        src="/bbps_logo.png" 
+                        src="/b_mnemonic.png" 
                         alt="" 
                         className={`w-5 h-5 object-contain shrink-0 transition-all ${isActive ? 'brightness-0 invert' : 'opacity-70 group-hover:opacity-100'}`}
                       />
