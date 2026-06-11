@@ -52,6 +52,7 @@ interface QRPaymentRequest {
   qr_history?: {
     qr_name: string;
     whatsapp_number?: string;
+    upi_id?: string;
   };
   actioned_by?: string;
   actioned_at?: string;
@@ -106,16 +107,18 @@ export default function QRPaymentRequests() {
   const [ocrUtrMatchStatus, setOcrUtrMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
   const [ocrQrMatchStatus, setOcrQrMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
   const [ocrAmountMatchStatus, setOcrAmountMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
+  const [ocrUpiMatchStatus, setOcrUpiMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
   const [bypassOcr, setBypassOcr] = useState(false);
   const [detectedUpi, setDetectedUpi] = useState<string | null>(null);
 
-  const runOcrOnProof = async (imageUrl: string, targetUtr: string, qrName: string, targetAmount: number) => {
+  const runOcrOnProof = async (imageUrl: string, targetUtr: string, qrName: string, targetAmount: number, targetUpi?: string) => {
     setOcrState('loading');
     setOcrProgress(0);
     setDetectedUtrs([]);
     setOcrUtrMatchStatus('unchecked');
     setOcrQrMatchStatus('unchecked');
     setOcrAmountMatchStatus('unchecked');
+    setOcrUpiMatchStatus('unchecked');
     setBypassOcr(false);
     setDetectedUpi(null);
 
@@ -187,10 +190,20 @@ export default function QRPaymentRequests() {
                !lower.includes('email') &&
                !lower.includes('tesseract');
       });
+      let detectedUpiVal: string | null = null;
       if (cleanUpis.length > 0) {
-        setDetectedUpi(cleanUpis[0]);
+        detectedUpiVal = cleanUpis[0];
+        setDetectedUpi(detectedUpiVal);
       } else {
         setDetectedUpi(null);
+      }
+
+      // 5. UPI ID Match Checking (Case-insensitive)
+      if (!targetUpi) {
+        setOcrUpiMatchStatus('matched');
+      } else {
+        const hasMatch = cleanUpis.some(v => v.toLowerCase().replace(/[^a-z0-9@]/g, '') === targetUpi.toLowerCase().replace(/[^a-z0-9@]/g, ''));
+        setOcrUpiMatchStatus(hasMatch ? 'matched' : 'mismatch');
       }
 
       setOcrState('success');
@@ -206,7 +219,8 @@ export default function QRPaymentRequests() {
         selectedProof.proof_url, 
         selectedProof.utr_id, 
         selectedProof.qr_history?.qr_name || '', 
-        selectedProof.amount
+        selectedProof.amount,
+        selectedProof.qr_history?.upi_id
       );
     } else {
       setOcrState('idle');
@@ -215,6 +229,7 @@ export default function QRPaymentRequests() {
       setOcrUtrMatchStatus('unchecked');
       setOcrQrMatchStatus('unchecked');
       setOcrAmountMatchStatus('unchecked');
+      setOcrUpiMatchStatus('unchecked');
       setBypassOcr(false);
       setDetectedUpi(null);
     }
@@ -284,7 +299,7 @@ export default function QRPaymentRequests() {
 
       let query = supabase
         .from('payment_submissions')
-        .select('*, users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number)', { count: 'exact' });
+        .select('*, users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name, profile_photo_url, distributor_id, charge_percentage, admin_base_qr_charge), qr_history(qr_name, whatsapp_number, upi_id)', { count: 'exact' });
 
       // Apply Filters
       if (filter !== 'all') {
@@ -389,9 +404,9 @@ export default function QRPaymentRequests() {
   const fetchQRs = async () => {
     try {
       const { data, error } = await supabase
-        .from('qr_history')
-        .select('id, qr_name, created_at')
-        .order('created_at', { ascending: false });
+          .from('qr_history')
+          .select('id, qr_name, created_at, upi_id')
+          .order('created_at', { ascending: false });
       if (error) throw error;
       setAllQRs(data || []);
     } catch (err) {
@@ -1253,8 +1268,8 @@ export default function QRPaymentRequests() {
 
               {/* OCR Verification Banner */}
               {selectedProof.status === 'pending' && (() => {
-                const isOcrMatched = ocrUtrMatchStatus === 'matched' && ocrQrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched';
-                const isOcrMismatched = ocrUtrMatchStatus === 'mismatch' || ocrQrMatchStatus === 'mismatch' || ocrAmountMatchStatus === 'mismatch';
+                const isOcrMatched = ocrUtrMatchStatus === 'matched' && ocrQrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched' && ocrUpiMatchStatus === 'matched';
+                const isOcrMismatched = ocrUtrMatchStatus === 'mismatch' || ocrQrMatchStatus === 'mismatch' || ocrAmountMatchStatus === 'mismatch' || ocrUpiMatchStatus === 'mismatch';
                 
                 return (
                   <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex flex-col gap-3">
@@ -1290,7 +1305,7 @@ export default function QRPaymentRequests() {
                     )}
 
                     {ocrState === 'success' && (
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                         {/* UTR Check Status */}
                         <div className={`p-3 rounded-2xl border text-xs flex gap-2.5 items-start ${
                           ocrUtrMatchStatus === 'matched' 
@@ -1383,6 +1398,35 @@ export default function QRPaymentRequests() {
                             </div>
                             <p className="mt-2 leading-normal">
                               Expected: <span className="font-extrabold text-slate-800">₹{selectedProof.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* UPI ID Check Status */}
+                        <div className={`p-3 rounded-2xl border text-xs flex gap-2.5 items-start ${
+                          ocrUpiMatchStatus === 'matched' 
+                            ? 'bg-emerald-50/40 border-emerald-100 text-emerald-800' 
+                            : 'bg-amber-50/40 border-amber-100 text-amber-800'
+                        }`}>
+                          {ocrUpiMatchStatus === 'matched' ? (
+                            <CheckCircle2 size={16} className="text-emerald-600 shrink-0 mt-0.5" />
+                          ) : (
+                            <AlertCircle size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-bold text-slate-900 text-[11px]">UPI ID Match</p>
+                              <span className={`text-[9px] font-extrabold uppercase tracking-wide shrink-0 ${
+                                ocrUpiMatchStatus === 'matched' ? 'text-emerald-600' : 'text-amber-600'
+                              }`}>
+                                {ocrUpiMatchStatus === 'matched'
+                                  ? (!selectedProof.qr_history?.upi_id ? '✓ Skipped' : '✓ Matched')
+                                  : '✗ Mismatch'
+                                }
+                              </span>
+                            </div>
+                            <p className="mt-2 leading-normal truncate" title={selectedProof.qr_history?.upi_id || 'Not Defined'}>
+                              Expected: <span className="font-bold text-slate-800">"{selectedProof.qr_history?.upi_id || 'Not Defined'}"</span>
                             </p>
                           </div>
                         </div>
@@ -1514,7 +1558,7 @@ export default function QRPaymentRequests() {
                                           setSelectedProof(prev => prev ? {
                                             ...prev,
                                             qr_id: qr.id,
-                                            qr_history: { ...prev.qr_history, qr_name: qr.qr_name }
+                                            qr_history: { ...prev.qr_history, qr_name: qr.qr_name, upi_id: qr.upi_id }
                                           } as any : null);
                                           setQrSearchQuery('');
                                         }}
