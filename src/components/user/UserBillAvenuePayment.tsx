@@ -1246,14 +1246,14 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                       <p className="text-[11px]">Could not fetch categories from BillAvenue API.</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                       {categories.map((cat, idx) => {
                         const Icon = cat.icon;
                         return (
                           <button
                             key={idx}
                             onClick={() => selectCategory(cat.name)}
-                            className="group flex flex-col items-start p-6 rounded-3xl border border-slate-100 hover:border-indigo-100 bg-slate-50/50 hover:bg-indigo-50/20 transition-all text-left shadow-sm hover:shadow-md cursor-pointer relative overflow-hidden"
+                            className="group flex flex-col items-start p-4 sm:p-5 rounded-3xl border border-slate-100 hover:border-indigo-100 bg-slate-50/50 hover:bg-indigo-50/20 transition-all text-left shadow-sm hover:shadow-md cursor-pointer relative overflow-hidden"
                           >
                             <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-indigo-500/5 to-purple-500/5 rounded-bl-full pointer-events-none group-hover:scale-105 transition-transform"></div>
                             <div className={`w-12 h-12 bg-gradient-to-r ${cat.gradient} text-white rounded-2xl flex items-center justify-center mb-4 shadow-lg`}>
