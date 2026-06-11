@@ -523,7 +523,14 @@ const AdminLayout = ({
   const handleGlobalSubscribe = async () => {
     setIsSubscribing(true);
     setOneSignalDebug(prev => prev + '\nStarting global subscribe click handler...');
-    const OneSignal = (window as any).OneSignal;
+    let OneSignal = (window as any).OneSignal;
+
+    // Explicitly initialize if needed
+    if (!OneSignal || !OneSignal.initialized) {
+      setOneSignalDebug(prev => prev + '\nSDK not initialized on click. Invoking initOneSignal...');
+      await initOneSignal();
+      OneSignal = (window as any).OneSignal;
+    }
     
     if (OneSignal && OneSignal.Notifications) {
       try {
@@ -807,7 +814,6 @@ const AdminLayout = ({
                               type="button"
                               onClick={() => {
                                 handleGlobalSubscribe();
-                                setShowOneSignalPopover(false);
                               }}
                               className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
                             >
@@ -818,7 +824,6 @@ const AdminLayout = ({
                               type="button"
                               onClick={async () => {
                                 await handleGlobalSubscribe();
-                                setShowOneSignalPopover(false);
                               }}
                               className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
                             >
@@ -829,7 +834,6 @@ const AdminLayout = ({
                               type="button"
                               onClick={() => {
                                 handleGlobalSubscribe();
-                                setShowOneSignalPopover(false);
                               }}
                               className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-95"
                             >
