@@ -1312,48 +1312,36 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                           <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Select Provider</label>
                             <select
-                              onChange={(e) => {
-                                if (e.target.value) {
-                                  const selectedId = e.target.value;
-                                  const b = filteredBillers.find(x => x.billerId === selectedId) ||
-                                    allBillers.find(x => x.billerId === selectedId) ||
-                                    [
-                                      { billerId: 'OTME00005XXZ43', billerName: 'OTME00005XXZ43 - UAT Fetch & Pay Biller', categoryName: selectedCategory },
-                                      { billerId: 'OTNS00005XXZ43', billerName: 'OTNS00005XXZ43 - UAT Quick Pay Biller', categoryName: selectedCategory },
-                                      { billerId: 'PGVCL0000000001', billerName: 'PGVCL - Gujarat Electricity', categoryName: 'Electricity' },
-                                      { billerId: 'TORRENT0000001', billerName: 'Torrent Power - Electricity', categoryName: 'Electricity' }
-                                    ].find(x => x.billerId === selectedId);
-                                  if (b) {
-                                    selectBiller(b as BillerInfo);
-                                  }
-                                } else {
-                                  setSelectedBiller(null);
-                                  setBillDetails(null);
-                                  setFormInputs({});
-                                  setManualAmount('');
-                                  setSelectedPlan(null);
-                                  setPlans([]);
-                                }
-                              }}
-                              value={selectedBiller?.billerId || ""}
-                              className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-sm cursor-pointer"
-                            >
-                              <option value="">-- Choose Provider / Biller --</option>
-                              {filteredBillers.length > 0 && (
-                                <optgroup label={`${selectedCategory} Providers`}>
-                                  {filteredBillers.map((b) => (
-                                    <option key={b.billerId} value={b.billerId}>
-                                      {b.billerName}
-                                    </option>
-                                  ))}
-                                </optgroup>
-                              )}
-                              <optgroup label="Sample / UAT Billers">
-                                <option value="OTME00005XXZ43">OTME00005XXZ43 - UAT Fetch & Pay Biller</option>
-                                <option value="OTNS00005XXZ43">OTNS00005XXZ43 - UAT Quick Pay Biller</option>
-                                <option value="PGVCL0000000001">PGVCL - Gujarat Electricity</option>
-                                <option value="TORRENT0000001">Torrent Power - Electricity</option>
-                              </optgroup>
+                               onChange={(e) => {
+                                 if (e.target.value) {
+                                   const selectedId = e.target.value;
+                                   const b = filteredBillers.find(x => x.billerId === selectedId) ||
+                                     allBillers.find(x => x.billerId === selectedId);
+                                   if (b) {
+                                     selectBiller(b as BillerInfo);
+                                   }
+                                 } else {
+                                   setSelectedBiller(null);
+                                   setBillDetails(null);
+                                   setFormInputs({});
+                                   setManualAmount('');
+                                   setSelectedPlan(null);
+                                   setPlans([]);
+                                 }
+                               }}
+                               value={selectedBiller?.billerId || ""}
+                               className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-sm cursor-pointer"
+                             >
+                               <option value="">-- Choose Provider / Biller --</option>
+                               {filteredBillers.length > 0 && (
+                                 <optgroup label={`${selectedCategory} Providers`}>
+                                   {filteredBillers.map((b) => (
+                                     <option key={b.billerId} value={b.billerId}>
+                                       {b.billerName}
+                                     </option>
+                                   ))}
+                                 </optgroup>
+                               )}
                             </select>
                           </div>
                         </div>
