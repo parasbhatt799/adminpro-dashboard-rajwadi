@@ -35,6 +35,7 @@ const menuItems = [
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
+  { id: 'bbps-complaints', label: 'BBPS Complaints', icon: MessageSquare, path: '/user/bbps-complaints' },
   { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
   { id: 'tpin', label: 'Create TPIN', icon: ShieldCheck, path: '/user/tpin' },
   { id: 'change-password', label: 'Security', icon: KeyRound, path: '/user/change-password' },
@@ -116,7 +117,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       return true;
     }),
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'mobile-recharge' || item.id === 'bill-history' || item.id === 'fund-transfer')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'mobile-recharge' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment') {
@@ -224,7 +225,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
               >
                 {({ isActive }) => (
                   <>
-                    {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' ? (
+                    {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' || item.id === 'bbps-complaints' ? (
                       <img 
                         src="/bbps_logo.png" 
                         alt="" 

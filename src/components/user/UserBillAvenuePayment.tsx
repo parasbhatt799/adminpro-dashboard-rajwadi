@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import {
   Receipt,
@@ -155,6 +156,7 @@ const STANDARD_CATEGORIES = [
 
 export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const toast = useToast();
+  const navigate = useNavigate();
 
   // Wallet & Profile State
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -214,33 +216,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   // Receipt State
   const [receipt, setReceipt] = useState<any | null>(null);
 
-  // Complaints state
-  const [complaintText, setComplaintText] = useState<string>('');
-  const [complaintType, setComplaintType] = useState<string>('Transaction');
-  const [complaintTxnRef, setComplaintTxnRef] = useState<string>('');
-  const [showComplaintModal, setShowComplaintModal] = useState<boolean>(false);
-  const [complaintTab, setComplaintTab] = useState<'lodge' | 'track'>('lodge');
-  const [complaintIdentifyMethod, setComplaintIdentifyMethod] = useState<'txnId' | 'mobileDate'>('txnId');
-  const [complaintMobile, setComplaintMobile] = useState<string>('');
-  const [complaintStartDate, setComplaintStartDate] = useState<string>('');
-  const [complaintEndDate, setComplaintEndDate] = useState<string>('');
-  const [complaintDisposition, setComplaintDisposition] = useState<string>(
-    'Transaction Successful, Amount Debited but services not received'
-  );
-  const [trackComplaintId, setTrackComplaintId] = useState<string>('');
-  const [trackedComplaintDetails, setTrackedComplaintDetails] = useState<any | null>(null);
-  const [trackLoading, setTrackLoading] = useState<boolean>(false);
-
-  const BBPS_DISPOSITIONS = [
-    'Transaction Successful, Amount Debited but services not received',
-    'Transaction Successful, Amount Debited but Service Disconnected or Service Stopped',
-    'Transaction Successful, Amount Debited but Late Payment Surcharge Charges add in next bill',
-    'Erroneously paid in wrong account',
-    'Duplicate Payment',
-    'Erroneously paid the wrong amount',
-    'Payment information not received from Biller or Delay in receiving payment information from the Biller',
-    'Bill Paid but Amount not adjusted or still showing due amount'
-  ];
+  // Removed complaints states as they are now on a dedicated page
 
   useEffect(() => {
     fetchProfileData();
@@ -305,7 +281,6 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
         setDbTpinValue(data.tpin || null);
         setTpinAttempts(Number(data.tpin_attempts) || 0);
         setCustomerMobile(data.mobile_number || '');
-        setComplaintMobile(data.mobile_number || '');
 
         const lockedUntil = data.tpin_locked_until ? new Date(data.tpin_locked_until).getTime() : 0;
         const now = Date.now();
@@ -684,104 +659,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     }
   };
 
-  const handleRegisterComplaint = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (complaintIdentifyMethod === 'txnId' && !complaintTxnRef.trim()) {
-      toast.error('Please enter the Transaction Ref ID.');
-      return;
-    }
-    if (complaintIdentifyMethod === 'mobileDate' && (!complaintMobile.trim() || !complaintStartDate || !complaintEndDate)) {
-      toast.error('Please fill in all mobile and date range fields.');
-      return;
-    }
-    if (!complaintText.trim()) {
-      toast.error('Please enter a complaint description.');
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const payload: any = {
-        complaintType,
-        complaintDesc: complaintType === 'Transaction' ? `[Disposition: ${complaintDisposition}] ${complaintText}` : complaintText,
-        mobile: complaintIdentifyMethod === 'mobileDate' ? complaintMobile : customerMobile
-      };
-
-      if (complaintIdentifyMethod === 'txnId') {
-        payload.txnRefId = complaintTxnRef;
-      } else {
-        payload.dateRange = {
-          startDate: complaintStartDate,
-          endDate: complaintEndDate
-        };
-      }
-
-      const res = await fetch('/api/bbps/complaint/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-      const registerResp = data?.complaintResponse || data?.complaintRegistrationResp;
-      const cId = registerResp?.complaintId;
-      if (cId) {
-        toast.success(`Complaint registered successfully! ID: ${cId}`);
-        setShowComplaintModal(false);
-        setComplaintText('');
-        setComplaintTxnRef('');
-        setComplaintStartDate('');
-        setComplaintEndDate('');
-      } else {
-        const errorMsg = registerResp?.desc || registerResp?.errorReason || data.message || 'Failed to lodge complaint.';
-        toast.error(errorMsg);
-      }
-    } catch (err) {
-      toast.error('Error submitting complaint request.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleTrackComplaint = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!trackComplaintId.trim()) {
-      toast.error('Please enter a Complaint ID.');
-      return;
-    }
-
-    setTrackLoading(true);
-    setTrackedComplaintDetails(null);
-
-    try {
-      const res = await fetch('/api/bbps/complaint/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          complaintId: trackComplaintId,
-          mobile: customerMobile
-        })
-      });
-
-      const data = await res.json();
-      const trackResp = data?.complaintTrackingResp || data?.complaintTrackResponse;
-      if (trackResp) {
-        setTrackedComplaintDetails({
-          complaintId: trackResp.complaintId || trackComplaintId,
-          status: trackResp.status || 'UNKNOWN',
-          desc: trackResp.desc || 'No description available.'
-        });
-        toast.success('Complaint status retrieved successfully.');
-      } else {
-        toast.error(data.message || 'Failed to track complaint.');
-      }
-    } catch (err) {
-      toast.error('Error tracking complaint.');
-    } finally {
-      setTrackLoading(false);
-    }
-  };
+  // Removed complaint handlers as they are now on a dedicated page
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4">
@@ -838,7 +716,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           </div>
 
           <button
-            onClick={() => setShowComplaintModal(true)}
+            onClick={() => navigate('/user/bbps-complaints')}
             className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-4 rounded-3xl border border-slate-700 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
           >
             <MessageSquare size={16} />
@@ -1404,254 +1282,6 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                   {tpinLoading ? 'Verifying...' : 'Authorize Transaction'}
                 </button>
               </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* COMPLAINT MODAL DIALOG */}
-      <AnimatePresence>
-        {showComplaintModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowComplaintModal(false)}
-              className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 15 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative z-10 w-full max-w-lg bg-white rounded-[32px] p-6 shadow-2xl space-y-6 border border-slate-100 max-h-[90vh] overflow-y-auto no-scrollbar"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <img src="/bharat_connect.png" alt="Bharat Connect" className="h-[20px] w-auto object-contain" />
-                  <span className="text-slate-300">|</span>
-                  <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Complaint Center</h3>
-                </div>
-                <button
-                  onClick={() => setShowComplaintModal(false)}
-                  className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-
-              {/* Tab Selector */}
-              <div className="flex border-b border-slate-100 gap-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setComplaintTab('lodge');
-                    setTrackedComplaintDetails(null);
-                  }}
-                  className={`flex-1 pb-3 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
-                    complaintTab === 'lodge' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Lodge Complaint
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setComplaintTab('track')}
-                  className={`flex-1 pb-3 text-[11px] font-black uppercase tracking-widest border-b-2 transition-all ${
-                    complaintTab === 'track' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-slate-400 hover:text-slate-600'
-                  }`}
-                >
-                  Track Complaint
-                </button>
-              </div>
-
-              {complaintTab === 'lodge' ? (
-                <form onSubmit={handleRegisterComplaint} className="space-y-4">
-                  {/* Complaint Type */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Complaint Type</label>
-                    <select
-                      value={complaintType}
-                      onChange={(e) => setComplaintType(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
-                    >
-                      <option value="Transaction">Transaction Related (Default)</option>
-                      <option value="Service">Service Related</option>
-                    </select>
-                  </div>
-
-                  {/* Identification Method */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Identify Transaction By</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setComplaintIdentifyMethod('txnId')}
-                        className={`py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${
-                          complaintIdentifyMethod === 'txnId'
-                            ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        Transaction ID
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setComplaintIdentifyMethod('mobileDate')}
-                        className={`py-2 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl border transition-all ${
-                          complaintIdentifyMethod === 'mobileDate'
-                            ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        Mobile & Date Range
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Conditional Fields based on Identification Method */}
-                  {complaintIdentifyMethod === 'txnId' ? (
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">BBPS Transaction Ref ID</label>
-                      <input
-                        type="text"
-                        required
-                        value={complaintTxnRef}
-                        onChange={(e) => setComplaintTxnRef(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
-                        placeholder="Enter 20-character ID starting with CC01"
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-3 p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Mobile Number</label>
-                        <input
-                          type="tel"
-                          required
-                          value={complaintMobile}
-                          onChange={(e) => setComplaintMobile(e.target.value)}
-                          className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                          placeholder="Enter customer mobile number"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Start Date</label>
-                          <input
-                            type="date"
-                            required
-                            value={complaintStartDate}
-                            onChange={(e) => setComplaintStartDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">End Date</label>
-                          <input
-                            type="date"
-                            required
-                            value={complaintEndDate}
-                            onChange={(e) => setComplaintEndDate(e.target.value)}
-                            className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Complaint Disposition (only for Transaction Type) */}
-                  {complaintType === 'Transaction' && (
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Complaint Disposition</label>
-                      <select
-                        value={complaintDisposition}
-                        onChange={(e) => setComplaintDisposition(e.target.value)}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
-                      >
-                        {BBPS_DISPOSITIONS.map((disp, idx) => (
-                          <option key={idx} value={disp}>{disp}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Description */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Complaint Description</label>
-                    <textarea
-                      required
-                      rows={3}
-                      value={complaintText}
-                      onChange={(e) => setComplaintText(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all resize-none"
-                      placeholder="Provide details about the issue..."
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100"
-                  >
-                    Submit Complaint
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={handleTrackComplaint} className="space-y-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Complaint ID</label>
-                    <input
-                      type="text"
-                      required
-                      value={trackComplaintId}
-                      onChange={(e) => setTrackComplaintId(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
-                      placeholder="Enter complaint reference ID"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={trackLoading}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-100 disabled:opacity-50"
-                  >
-                    {trackLoading ? 'Tracking Complaint...' : 'Track Complaint Status'}
-                  </button>
-
-                  {/* Track Status Result Display */}
-                  {trackedComplaintDetails && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5"
-                    >
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Complaint Tracking Result</h4>
-                      <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div>
-                          <p className="text-slate-400 font-bold uppercase text-[9px]">Complaint ID</p>
-                          <p className="font-semibold text-slate-700">{trackedComplaintDetails.complaintId}</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-400 font-bold uppercase text-[9px]">Status</p>
-                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider mt-0.5 ${
-                            trackedComplaintDetails.status.toLowerCase() === 'resolved' || trackedComplaintDetails.status.toLowerCase() === 'success'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : trackedComplaintDetails.status.toLowerCase() === 'failed' || trackedComplaintDetails.status.toLowerCase() === 'rejected'
-                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                              : 'bg-amber-50 text-amber-600 border border-amber-200'
-                          }`}>
-                            {trackedComplaintDetails.status}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-slate-200">
-                        <p className="text-slate-400 font-bold uppercase text-[9px]">Resolution Description</p>
-                        <p className="text-xs font-semibold text-slate-700 leading-relaxed mt-0.5">{trackedComplaintDetails.desc}</p>
-                      </div>
-                    </motion.div>
-                  )}
-                </form>
-              )}
             </motion.div>
           </div>
         )}

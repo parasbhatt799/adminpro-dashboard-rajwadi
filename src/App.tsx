@@ -44,6 +44,7 @@ const UserBillAvenuePayment = lazy(() => import('./components/user/UserBillAvenu
 const UserBillHistory = lazy(() => import('./components/user/UserBillHistory'));
 const UserReports = lazy(() => import('./components/user/UserReports'));
 const UserComplaints = lazy(() => import('./components/user/UserComplaints'));
+const UserBBPSComplaints = lazy(() => import('./components/user/UserBBPSComplaints'));
 const UserPolicies = lazy(() => import('./components/user/UserPolicies'));
 const UserStatementReport = lazy(() => import('./components/user/UserStatementReport'));
 const UserFundTransfer = lazy(() => import('./components/user/UserFundTransfer'));
@@ -1263,6 +1264,7 @@ export default function App() {
           <Route path="withdrawal" element={<DistributorWithdrawal userId={userId} />} />
           <Route path="dist-withdrawals" element={<SuperDistributorWithdrawals userId={userId} />} />
           <Route path="complaints" element={<UserComplaints userId={userId} />} />
+          <Route path="bbps-complaints" element={<UserBBPSComplaints userId={userId} />} />
           <Route path="policies" element={<UserPolicies userId={userId} />} />
           <Route path="tpin" element={<UserTPIN userId={userId} />} />
           <Route path="change-password" element={<UserChangePassword userId={userId} onLogout={handleLogout} />} />
