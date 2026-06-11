@@ -1275,61 +1275,8 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
               {/* Step 2: Billers */}
               {step === 2 && (
                 <div className="space-y-6">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
-                    <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full max-w-xl">
-                      {/* Dropdown for Biller Selection */}
-                      <select
-                        onChange={(e) => {
-                          if (e.target.value) {
-                            const selectedId = e.target.value;
-                            const b = filteredBillers.find(x => x.billerId === selectedId) ||
-                              allBillers.find(x => x.billerId === selectedId) ||
-                              [
-                                { billerId: 'OTME00005XXZ43', billerName: 'OTME00005XXZ43 - UAT Fetch & Pay Biller', categoryName: selectedCategory },
-                                { billerId: 'OTNS00005XXZ43', billerName: 'OTNS00005XXZ43 - UAT Quick Pay Biller', categoryName: selectedCategory },
-                                { billerId: 'PGVCL0000000001', billerName: 'PGVCL - Gujarat Electricity', categoryName: 'Electricity' },
-                                { billerId: 'TORRENT0000001', billerName: 'Torrent Power - Electricity', categoryName: 'Electricity' }
-                              ].find(x => x.billerId === selectedId);
-                            if (b) {
-                              selectBiller(b as BillerInfo);
-                            }
-                          }
-                        }}
-                        value=""
-                        className="px-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all shadow-sm w-full sm:w-72"
-                      >
-                        <option value="">-- Choose Provider / Biller --</option>
-
-                        {filteredBillers.length > 0 && (
-                          <optgroup label={`${selectedCategory} Providers`}>
-                            {filteredBillers.map((b) => (
-                              <option key={b.billerId} value={b.billerId}>
-                                {b.billerName}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-
-                        <optgroup label="Sample / UAT Billers">
-                          <option value="OTME00005XXZ43">OTME00005XXZ43 - UAT Fetch & Pay Biller</option>
-                          <option value="OTNS00005XXZ43">OTNS00005XXZ43 - UAT Quick Pay Biller</option>
-                          <option value="PGVCL0000000001">PGVCL - Gujarat Electricity</option>
-                          <option value="TORRENT0000001">Torrent Power - Electricity</option>
-                        </optgroup>
-                      </select>
-
-                      <div className="relative flex-1">
-                        <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input
-                          type="text"
-                          placeholder="Search providers..."
-                          value={searchBillerQuery}
-                          onChange={(e) => setSearchBillerQuery(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 bg-slate-50 rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all shadow-inner"
-                        />
-                      </div>
-                    </div>
                   </div>
 
                   {loading ? (
@@ -1338,15 +1285,74 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                       <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Fetching providers...</p>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-16 px-4 border border-dashed border-slate-200 rounded-[28px] text-center max-w-md mx-auto my-4 space-y-4">
-                      <div className="w-16 h-16 bg-indigo-50 border border-indigo-100 rounded-full flex items-center justify-center text-indigo-600 shadow-inner">
-                        <Receipt size={28} />
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-black text-slate-800 tracking-tight uppercase">Select Your Provider</h4>
-                        <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-                          Please select your specific {selectedCategory} provider from the dropdown menu above. You can type in the search box to filter the list.
+                    <div className="max-w-xl mx-auto my-8 bg-slate-50 border border-slate-200/60 p-8 rounded-[28px] space-y-6 shadow-sm">
+                      <div className="text-center space-y-2">
+                        <div className="w-12 h-12 bg-indigo-50 border border-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 mx-auto shadow-inner">
+                          <Receipt size={22} />
+                        </div>
+                        <h4 className="text-sm font-black text-slate-800 tracking-tight uppercase">Choose Your Provider</h4>
+                        <p className="text-xs text-slate-500 max-w-xs mx-auto leading-relaxed">
+                          Select your {selectedCategory} biller from the dropdown or search to begin your payment.
                         </p>
+                      </div>
+
+                      <div className="space-y-4">
+                        {/* Dropdown for Biller Selection */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Select Provider</label>
+                          <select
+                            onChange={(e) => {
+                              if (e.target.value) {
+                                const selectedId = e.target.value;
+                                const b = filteredBillers.find(x => x.billerId === selectedId) ||
+                                  allBillers.find(x => x.billerId === selectedId) ||
+                                  [
+                                    { billerId: 'OTME00005XXZ43', billerName: 'OTME00005XXZ43 - UAT Fetch & Pay Biller', categoryName: selectedCategory },
+                                    { billerId: 'OTNS00005XXZ43', billerName: 'OTNS00005XXZ43 - UAT Quick Pay Biller', categoryName: selectedCategory },
+                                    { billerId: 'PGVCL0000000001', billerName: 'PGVCL - Gujarat Electricity', categoryName: 'Electricity' },
+                                    { billerId: 'TORRENT0000001', billerName: 'Torrent Power - Electricity', categoryName: 'Electricity' }
+                                  ].find(x => x.billerId === selectedId);
+                                if (b) {
+                                  selectBiller(b as BillerInfo);
+                                }
+                              }
+                            }}
+                            value={selectedBiller?.billerId || ""}
+                            className="w-full px-4 py-3.5 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-sm cursor-pointer"
+                          >
+                            <option value="">-- Choose Provider / Biller --</option>
+                            {filteredBillers.length > 0 && (
+                              <optgroup label={`${selectedCategory} Providers`}>
+                                {filteredBillers.map((b) => (
+                                  <option key={b.billerId} value={b.billerId}>
+                                    {b.billerName}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            <optgroup label="Sample / UAT Billers">
+                              <option value="OTME00005XXZ43">OTME00005XXZ43 - UAT Fetch & Pay Biller</option>
+                              <option value="OTNS00005XXZ43">OTNS00005XXZ43 - UAT Quick Pay Biller</option>
+                              <option value="PGVCL0000000001">PGVCL - Gujarat Electricity</option>
+                              <option value="TORRENT0000001">Torrent Power - Electricity</option>
+                            </optgroup>
+                          </select>
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Filter / Search List</label>
+                          <div className="relative">
+                            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                            <input
+                              type="text"
+                              placeholder="Type to search providers..."
+                              value={searchBillerQuery}
+                              onChange={(e) => setSearchBillerQuery(e.target.value)}
+                              className="w-full pl-10 pr-4 py-3.5 bg-white rounded-2xl border border-slate-200 outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-sm"
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
