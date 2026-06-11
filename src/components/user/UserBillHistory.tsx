@@ -24,6 +24,10 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all'>('today');
+  const [amountFilter, setAmountFilter] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
 
   // Fetch past bill submissions
@@ -51,20 +55,71 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
     }
   }, [userId]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, amountFilter, search]);
+
   const handlePrint = () => {
     window.print();
   };
 
-  // Filter history based on search
+  const checkDateFilter = (createdAtStr: string, filter: string) => {
+    if (filter === 'all') return true;
+    
+    const createdDate = new Date(createdAtStr);
+    const now = new Date();
+    
+    // Set to midnight for proper day comparisons
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    if (filter === 'today') {
+      return createdDate >= todayStart;
+    }
+    
+    if (filter === 'yesterday') {
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      return createdDate >= yesterdayStart && createdDate < todayStart;
+    }
+    
+    if (filter === '7days') {
+      const sevenDaysAgo = new Date(todayStart);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return createdDate >= sevenDaysAgo;
+    }
+    
+    if (filter === '30days') {
+      const thirtyDaysAgo = new Date(todayStart);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return createdDate >= thirtyDaysAgo;
+    }
+    
+    if (filter === 'thisMonth') {
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return createdDate >= firstDayOfMonth;
+    }
+    
+    return true;
+  };
+
+  // Filter history based on search, date, and amount
   const filteredHistory = history.filter(item => {
     const term = search.toLowerCase();
-    return (
+    const matchesSearch = (
       (item.provider || '').toLowerCase().includes(term) ||
       (item.consumer_number || '').toLowerCase().includes(term) ||
       (item.transaction_id || '').toLowerCase().includes(term) ||
       (item.service_type || '').toLowerCase().includes(term)
     );
+
+    const matchesDate = checkDateFilter(item.created_at, dateFilter);
+    const matchesAmount = amountFilter ? Number(item.amount) >= Number(amountFilter) : true;
+
+    return matchesSearch && matchesDate && matchesAmount;
   });
+
+  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
+  const paginatedHistory = filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="space-y-8">
@@ -113,16 +168,51 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-3 w-full max-w-md">
-        <Search className="text-slate-400" size={20} />
-        <input
-          type="text"
-          placeholder="Search by operator, customer ID, UTR..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full text-sm outline-none font-medium text-slate-700 bg-transparent placeholder-slate-400"
-        />
+      {/* Filter Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        {/* Search */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Search</label>
+          <div className="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-200 flex items-center gap-3">
+            <Search className="text-slate-400 shrink-0" size={18} />
+            <input
+              type="text"
+              placeholder="Search operator, consumer ID, UTR..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-xs outline-none font-semibold text-slate-700 bg-transparent placeholder-slate-400"
+            />
+          </div>
+        </div>
+
+        {/* Date Filter */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Date Range</label>
+          <select
+            value={dateFilter}
+            onChange={(e: any) => setDateFilter(e.target.value)}
+            className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all cursor-pointer"
+          >
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="7days">Last 7 Days</option>
+            <option value="30days">Last 30 Days</option>
+            <option value="thisMonth">This Month</option>
+            <option value="all">All Time</option>
+          </select>
+        </div>
+
+        {/* Min Amount */}
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Min Amount (₹)</label>
+          <input
+            type="number"
+            placeholder="Min amount..."
+            value={amountFilter}
+            onChange={(e) => setAmountFilter(e.target.value)}
+            className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all placeholder-slate-400"
+          />
+        </div>
       </div>
 
       {/* History Table / Grid */}
@@ -157,7 +247,7 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredHistory.map((item, idx) => (
+                 {paginatedHistory.map((item, idx) => (
                   <tr key={item.id || idx} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 text-center">
                       <p className="text-xs font-bold text-slate-900">{format(parseISO(item.created_at), 'dd MMM yyyy')}</p>
@@ -207,6 +297,39 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
           </div>
         )}
       </div>
+
+      {/* Pagination Controls */}
+      {filteredHistory.length > 0 && totalPages > 1 && (
+        <div className="flex items-center justify-between bg-white px-6 py-4 rounded-3xl border border-slate-200 shadow-sm">
+          <p className="text-xs text-slate-500 font-bold">
+            Showing <span className="text-slate-800">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+            <span className="text-slate-800">
+              {Math.min(currentPage * itemsPerPage, filteredHistory.length)}
+            </span>{' '}
+            of <span className="text-slate-800">{filteredHistory.length}</span> bills
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 text-slate-600 disabled:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider transition-all border border-slate-200/50 cursor-pointer"
+            >
+              Previous
+            </button>
+            <span className="text-xs font-bold text-slate-700 px-2">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 text-slate-600 disabled:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider transition-all border border-slate-200/50 cursor-pointer"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* GORGEOUS POPUP RECEIPT OVERLAY MODAL */}
       <AnimatePresence>
