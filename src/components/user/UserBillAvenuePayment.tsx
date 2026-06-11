@@ -172,6 +172,36 @@ const STANDARD_CATEGORIES = [
   { name: 'Prepaid Meter', icon: Lightbulb, gradient: 'from-amber-500 to-orange-600', desc: 'Recharge prepaid smart meters' }
 ];
 
+const MOCK_BILLERS_BY_CATEGORY: Record<string, BillerInfo[]> = {
+  'clubs and associations': [
+    { billerId: 'TESTCLU00000001', billerName: 'Test Club & Association Provider', categoryName: 'Clubs and Associations' }
+  ],
+  'donation': [
+    { billerId: 'TESTDON00000001', billerName: 'Test Donation Trust / Foundation', categoryName: 'Donation' }
+  ],
+  'e-challan': [
+    { billerId: 'TESTCHA00000001', billerName: 'Test E-Challan (Traffic / RTO)', categoryName: 'E-Challan' }
+  ],
+  'municipal services': [
+    { billerId: 'TESTMUN00000001', billerName: 'Test Municipal Services Provider', categoryName: 'Municipal Services' }
+  ],
+  'recurring deposit': [
+    { billerId: 'TESTRDE00000001', billerName: 'Test Recurring Deposit Account', categoryName: 'Recurring Deposit' }
+  ],
+  'rental': [
+    { billerId: 'TESTREN00000001', billerName: 'Test Rental & Property Management', categoryName: 'Rental' }
+  ],
+  'ncmc': [
+    { billerId: 'TESTNCM00000001', billerName: 'Test National Common Mobility Card', categoryName: 'NCMC' }
+  ],
+  'nps': [
+    { billerId: 'TESTNPS00000001', billerName: 'Test National Pension System', categoryName: 'NPS' }
+  ],
+  'prepaid meter': [
+    { billerId: 'TESTMET00000001', billerName: 'Test Smart Prepaid Meter', categoryName: 'Prepaid Meter' }
+  ]
+};
+
 export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -385,9 +415,9 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     setStep(2);
     setSearchBillerQuery('');
 
-    const filtered = allBillers.filter((b: any) => {
+    const searchLower = catName.toLowerCase();
+    let filtered = allBillers.filter((b: any) => {
       const catLower = b.categoryName.toLowerCase();
-      const searchLower = catName.toLowerCase();
       if (searchLower === 'mobile prepaid') {
         return catLower.includes('mobile prepaid') || catLower.includes('recharge');
       }
@@ -397,6 +427,10 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
         searchLower.includes(catLower)
       );
     });
+
+    if (filtered.length === 0 && MOCK_BILLERS_BY_CATEGORY[searchLower]) {
+      filtered = MOCK_BILLERS_BY_CATEGORY[searchLower];
+    }
 
     setBillers(filtered);
     setFilteredBillers(filtered);
