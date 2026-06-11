@@ -99,16 +99,30 @@ export default function SubscribeNotification() {
       return;
     }
 
+    // Check if permission is already denied
+    if (OneSignal.Notifications && OneSignal.Notifications.permission === 'denied') {
+      setError('બ્રાઉઝર પરમિશન બ્લોક કરેલી છે. કૃપા કરીને બ્રાઉઝર સેટિંગ્સમાંથી પરમિશન Allow કરો.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      // Request browser permission synchronously
+      // Request browser permission synchronously with a timeout
       console.log('[SubscribePage] Requesting browser notification permission...');
       if (OneSignal.Notifications) {
-        await OneSignal.Notifications.requestPermission();
+        await Promise.race([
+          OneSignal.Notifications.requestPermission(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_PERMISSION')), 6000))
+        ]);
       }
 
-      // Opt in push subscription
+      // Opt in push subscription with a timeout
       if (OneSignal.User?.PushSubscription) {
-        await OneSignal.User.PushSubscription.optIn();
+        await Promise.race([
+          OneSignal.User.PushSubscription.optIn(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT_OPTIN')), 6000))
+        ]);
+        
         const pId = OneSignal.User.PushSubscription.id;
         
         if (pId) {
@@ -120,14 +134,18 @@ export default function SubscribeNotification() {
           await addDevicePushId(mobileNumber, 'admin', pId);
           setSuccess(`અભિનંદન! ${adminName} માટે લાઈવ નોટિફિકેશન એક્ટિવેટ થઈ ગઈ છે.`);
         } else {
-          throw new Error('સબસ્ક્રિપ્શન ID મળી શક્યું નથી. મહેરબાની કરીને બ્રાઉઝર પરમિશન Allow કરો.');
+          throw new Error('TIMEOUT_OPTIN'); // Trigger timeout message if push subscription doesn't resolve an ID
         }
       } else {
         throw new Error('OneSignal પુશ સબસ્ક્રિપ્શન સર્વિસ ઉપલબ્ધ નથી.');
       }
     } catch (err: any) {
       console.error('Subscription error:', err);
-      setError(err.message || 'નોટિફિકેશન ચાલુ કરવામાં સમસ્યા આવી.');
+      if (err.message === 'TIMEOUT_PERMISSION' || err.message === 'TIMEOUT_OPTIN') {
+        setError('નોટિફિકેશન ચાલુ કરવાનો પ્રયાસ સમયસીમા (Timeout) વટાવી ગયો છે. કૃપા કરીને ખાતરી કરો કે તમે આ લિંક સીધી Chrome અથવા Safari બ્રાઉઝરમાં ખોલી છે (WhatsApp કે Telegram ની અંદર નહીં). જો તમે iPhone વાપરતા હોવ, તો "Add to Home Screen" કરી તે ઇન્સ્ટોલ કરેલી એપ ઓપન કરો.');
+      } else {
+        setError(err.message || 'નોટિફિકેશન ચાલુ કરવામાં સમસ્યા આવી.');
+      }
     } finally {
       setLoading(false);
     }
