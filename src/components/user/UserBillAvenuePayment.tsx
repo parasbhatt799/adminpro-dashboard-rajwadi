@@ -716,14 +716,6 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
               <p className="text-xl font-black text-white">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
             </div>
           </div>
-
-          <button
-            onClick={() => navigate('/user/bbps-complaints')}
-            className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-4 rounded-3xl border border-slate-700 hover:text-white transition-all text-xs font-bold uppercase tracking-wider"
-          >
-            <MessageSquare size={16} />
-            Complaints
-          </button>
         </div>
       </div>
 
