@@ -1496,6 +1496,214 @@ async function startServer() {
         } catch (dbError) {
           console.error("[BillAvenue Server] DB Insert Complaint Error:", dbError);
         }
+
+        // Email Notification Logic
+        try {
+          const { data: profile } = await supabaseAdmin
+            .from("users_profiles")
+            .select("email, name")
+            .eq("mobile_number", mobile)
+            .single();
+
+          if (profile?.email) {
+            const userEmail = profile.email;
+            const userName = profile.name || "Customer";
+            const complaintId = finalRegisterResponse.complaintId;
+
+            if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+              const transporter = nodemailer.createTransport({
+                host: process.env.SMTP_HOST,
+                port: parseInt(process.env.SMTP_PORT || "587"),
+                secure: process.env.SMTP_PORT === "465",
+                auth: {
+                  user: process.env.SMTP_USER,
+                  pass: process.env.SMTP_PASS,
+                },
+              });
+
+              const fromEmail = process.env.SMTP_FROM || process.env.SMTP_USER;
+              const fromName = process.env.SMTP_FROM_NAME || "UsePay";
+              
+              const subject = `BBPS Complaint Registered successfully - ${complaintId}`;
+              const text = `Dear Customer, your complaint has been registered successfully with Complaint ID ${complaintId} at Bharat BillPay. UsePay.`;
+              const html = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>BBPS Complaint Registered</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f3f4f6;
+      color: #1f2937;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      overflow: hidden;
+      border: 1px solid #e5e7eb;
+    }
+    .header {
+      background-color: #0f172a;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+    .header .subtitle {
+      color: #38bdf8;
+      font-size: 14px;
+      margin-top: 4px;
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .content {
+      padding: 32px 24px;
+    }
+    .greeting {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #111827;
+    }
+    .message {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #4b5563;
+      margin-bottom: 24px;
+    }
+    .complaint-card {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+    }
+    .complaint-title {
+      font-size: 14px;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .info-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+    .info-label {
+      font-weight: 500;
+      color: #64748b;
+    }
+    .info-value {
+      font-weight: 600;
+      color: #0f172a;
+      text-align: right;
+    }
+    .bbps-badge {
+      display: inline-block;
+      background-color: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      color: #166534;
+      padding: 6px 12px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>UsePay</h1>
+      <div class="subtitle">Bharat BillPay (BBPS)</div>
+    </div>
+    <div class="content">
+      <div class="greeting">Hello, ${userName}</div>
+      <div class="bbps-badge">✓ Bharat BillPay Registered</div>
+      <div class="message">
+        Dear Customer, your complaint has been registered successfully with Complaint ID <strong>${complaintId}</strong> at Bharat BillPay.
+      </div>
+      <div class="complaint-card">
+        <div class="complaint-title">Complaint Details</div>
+        <div class="info-row">
+          <span class="info-label">Complaint ID</span>
+          <span class="info-value" style="color: #2563eb;">${complaintId}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Complaint Type</span>
+          <span class="info-value">${complaintType || 'N/A'}</span>
+        </div>
+        ${finalTxnRefId ? `
+        <div class="info-row">
+          <span class="info-label">Transaction Ref ID</span>
+          <span class="info-value">${finalTxnRefId}</span>
+        </div>
+        ` : ''}
+        <div class="info-row">
+          <span class="info-label">Mobile Number</span>
+          <span class="info-value">${mobile}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Registration Date</span>
+          <span class="info-value">${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST</span>
+        </div>
+      </div>
+      <div class="message" style="font-size: 14px; color: #64748b;">
+        Our support team and Bharat BillPay will review your concern. You can track your complaint status anytime using the Complaint ID in your UsePay dashboard.
+      </div>
+    </div>
+    <div class="footer">
+      This is an automated email notification from UsePay. Please do not reply directly to this message.<br>
+      &copy; 2026 UsePay. All rights reserved.
+    </div>
+  </div>
+</body>
+</html>`;
+
+              await transporter.sendMail({
+                from: `"${fromName}" <${fromEmail}>`,
+                to: userEmail,
+                subject,
+                text,
+                html,
+              });
+              console.log(`[BillAvenue Server] Confirmation email sent successfully to ${userEmail} for complaint ${complaintId}`);
+            } else {
+              console.warn("[BillAvenue Server] SMTP configuration missing. Skipping complaint email dispatch.");
+            }
+          } else {
+            console.warn(`[BillAvenue Server] No email found for mobile: ${mobile}. Skipping email dispatch.`);
+          }
+        } catch (emailErr) {
+          console.error("[BillAvenue Server] Error sending confirmation email:", emailErr);
+        }
       }
 
       res.json(responseJson);
