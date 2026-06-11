@@ -30,7 +30,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
   const toast = useToast();
   const [loading, setLoading] = useState<boolean>(true);
   const [customerMobile, setCustomerMobile] = useState<string>('');
-  
+
   // Complaints List
   const [complaints, setComplaints] = useState<any[]>([]);
 
@@ -119,7 +119,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
 
   const handleRegisterComplaint = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const txnRef = complaintTxnRef.trim();
     const hasTxnId = txnRef.length > 0;
     const hasMobileDate = complaintMobile.trim().length === 10 && complaintStartDate && complaintEndDate;
@@ -258,8 +258,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
             <ShieldCheck size={12} />
             Support Gateway
           </span>
-          <h2 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-            <img src="/b_mnemonic.png" alt="B" className="h-8 w-8 object-contain" />
+          <h2 className="text-3xl font-black text-white tracking-tight">
             Bharat Connect Complaint Center
           </h2>
           <p className="text-slate-400 max-w-md text-sm leading-relaxed">
@@ -298,10 +297,10 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
           <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
             {viewState === 'list' ? 'Your Complaints History' : 'Complaint Center'}
           </span>
-          <img 
-            src="/bharat_connect.png" 
-            alt="Bharat Connect" 
-            style={{ width: '83px', height: '30px', objectFit: 'contain' }} 
+          <img
+            src="/bharat_connect.png"
+            alt="Bharat Connect"
+            style={{ width: '83px', height: '30px', objectFit: 'contain' }}
           />
         </div>
 
@@ -348,13 +347,12 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                               <span className="text-[11px] font-black text-slate-900 bg-slate-200/60 px-3 py-1 rounded-full border border-slate-300/40 select-all font-mono">
                                 ID: {c.complaint_id}
                               </span>
-                              <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                                c.status === 'resolved' || c.status === 'success'
+                              <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${c.status === 'resolved' || c.status === 'success'
                                   ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                                   : c.status === 'failed' || c.status === 'rejected'
-                                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                                  : 'bg-amber-50 text-amber-600 border border-amber-200'
-                              }`}>
+                                    ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                    : 'bg-amber-50 text-amber-600 border border-amber-200'
+                                }`}>
                                 {c.status}
                               </span>
                               <span className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
@@ -362,7 +360,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                                 {format(parseISO(c.created_at), 'dd MMM yyyy, hh:mm a')}
                               </span>
                             </div>
-                            
+
                             <p className="text-xs font-semibold text-slate-700 leading-relaxed max-w-2xl">
                               {resp.desc || c.response?.message || 'Complaint details registered.'}
                             </p>
@@ -400,11 +398,10 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                       setActiveFormTab('lodge');
                       setManualTrackResult(null);
                     }}
-                    className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
-                      activeFormTab === 'lodge'
+                    className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeFormTab === 'lodge'
                         ? 'border-indigo-600 text-indigo-600'
                         : 'border-transparent text-slate-400 hover:text-slate-600'
-                    }`}
+                      }`}
                   >
                     Lodge Complaint
                   </button>
@@ -414,11 +411,10 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                       setActiveFormTab('track');
                       setManualTrackResult(null);
                     }}
-                    className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
-                      activeFormTab === 'track'
+                    className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeFormTab === 'track'
                         ? 'border-indigo-600 text-indigo-600'
                         : 'border-transparent text-slate-400 hover:text-slate-600'
-                    }`}
+                      }`}
                   >
                     Track Complaint
                   </button>
@@ -450,7 +446,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                     {/* 2. Mobile & Date Range Group */}
                     <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-[24px] space-y-4">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Or Provide Customer details</span>
-                      
+
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
                           <label className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Mobile Number</label>
@@ -564,13 +560,12 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Status</span>
-                            <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${
-                              manualTrackResult.status === 'RESOLVED' || manualTrackResult.status === 'SUCCESS' || manualTrackResult.status?.toString().toLowerCase() === 'resolved'
+                            <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${manualTrackResult.status === 'RESOLVED' || manualTrackResult.status === 'SUCCESS' || manualTrackResult.status?.toString().toLowerCase() === 'resolved'
                                 ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                                 : manualTrackResult.status === 'FAILED' || manualTrackResult.status === 'REJECTED' || manualTrackResult.status?.toString().toLowerCase() === 'failed'
-                                ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                                : 'bg-amber-50 text-amber-600 border border-amber-200'
-                            }`}>
+                                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                  : 'bg-amber-50 text-amber-600 border border-amber-200'
+                              }`}>
                               {manualTrackResult.status || 'PENDING'}
                             </span>
                           </div>
