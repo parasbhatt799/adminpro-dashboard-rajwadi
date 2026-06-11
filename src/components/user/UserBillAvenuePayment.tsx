@@ -28,7 +28,13 @@ import {
   User,
   MessageSquare,
   Sparkles,
-  Info
+  Info,
+  Users,
+  Heart,
+  FileText,
+  GraduationCap,
+  Activity,
+  Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
@@ -135,22 +141,35 @@ function getCategoryDetails(name: string) {
 }
 
 const STANDARD_CATEGORIES = [
-  { name: 'Mobile Postpaid', icon: Smartphone, gradient: 'from-blue-400 to-indigo-600', desc: 'Pay postpaid mobile bills' },
+  { name: 'Broadband Postpaid', icon: Wifi, gradient: 'from-indigo-400 to-purple-600', desc: 'Pay broadband postpaid internet bills' },
+  { name: 'Cable TV', icon: Tv, gradient: 'from-blue-400 to-indigo-600', desc: 'Recharge cable TV connection' },
+  { name: 'Clubs and Associations', icon: Users, gradient: 'from-sky-400 to-blue-600', desc: 'Pay club & association membership fees' },
   { name: 'Credit Card', icon: CreditCard, gradient: 'from-pink-400 to-rose-600', desc: 'Pay credit card bills instantly' },
-  { name: 'Electricity', icon: Lightbulb, gradient: 'from-amber-400 to-orange-500', desc: 'Pay state power bills' },
-  { name: 'Gas', icon: Flame, gradient: 'from-red-400 to-rose-600', desc: 'Piped gas & cylinder booking' },
-  { name: 'Water', icon: Droplets, gradient: 'from-cyan-400 to-blue-600', desc: 'Pay municipal water bills' },
-  { name: 'Broadband', icon: Wifi, gradient: 'from-purple-400 to-pink-600', desc: 'High-speed internet recharges' },
-  { name: 'DTH', icon: Tv, gradient: 'from-sky-400 to-blue-500', desc: 'Recharge DTH connection' },
-  { name: 'Cable TV', icon: Tv, gradient: 'from-teal-400 to-cyan-500', desc: 'Pay Cable TV operator bills' },
-  { name: 'Loan Repayment', icon: Receipt, gradient: 'from-violet-400 to-fuchsia-600', desc: 'Repay active bank loans & EMIs' },
-  { name: 'Insurance', icon: ShieldCheck, gradient: 'from-teal-400 to-emerald-600', desc: 'Pay life, health or vehicle insurance' },
+  { name: 'Donation', icon: Heart, gradient: 'from-rose-400 to-red-500', desc: 'Donate to verified causes & charities' },
+  { name: 'DTH', icon: Tv, gradient: 'from-sky-400 to-blue-500', desc: 'Recharge DTH television connection' },
+  { name: 'E-Challan', icon: FileText, gradient: 'from-slate-500 to-slate-700', desc: 'Pay traffic or civic e-challans' },
+  { name: 'Education Fees', icon: GraduationCap, gradient: 'from-violet-500 to-purple-600', desc: 'Pay school, college or tuition fees' },
+  { name: 'Electricity', icon: Lightbulb, gradient: 'from-amber-400 to-orange-500', desc: 'Pay state power & electricity bills' },
   { name: 'FASTag', icon: Tag, gradient: 'from-amber-500 to-yellow-600', desc: 'Recharge FASTag toll account' },
-  { name: 'Education Fees', icon: HelpCircle, gradient: 'from-violet-500 to-purple-600', desc: 'Pay school, college or coaching fees' },
-  { name: 'Municipal Taxes', icon: Receipt, gradient: 'from-slate-500 to-slate-700', desc: 'Pay municipal property tax' },
-  { name: 'Housing Society', icon: HelpCircle, gradient: 'from-rose-400 to-pink-500', desc: 'Pay maintenance or society charges' },
-  { name: 'Subscription', icon: Sparkles, gradient: 'from-yellow-400 to-amber-500', desc: 'Pay platform subscription fees' },
-  { name: 'Hospital', icon: HelpCircle, gradient: 'from-red-500 to-rose-600', desc: 'Pay hospital & clinic bills' }
+  { name: 'Gas', icon: Flame, gradient: 'from-red-400 to-rose-600', desc: 'Pay piped gas utility bills' },
+  { name: 'Hospital', icon: Activity, gradient: 'from-emerald-400 to-teal-600', desc: 'Pay hospital & medical bills' },
+  { name: 'Hospital and Pathology', icon: Activity, gradient: 'from-teal-400 to-cyan-600', desc: 'Pay pathology labs & diagnostic tests' },
+  { name: 'Housing Society', icon: Home, gradient: 'from-indigo-400 to-blue-600', desc: 'Pay housing maintenance or society fees' },
+  { name: 'Insurance (Life, General, Health & Others)', icon: ShieldCheck, gradient: 'from-emerald-500 to-teal-600', desc: 'Pay premiums for life, health & general insurance' },
+  { name: 'Landline Postpaid', icon: Smartphone, gradient: 'from-slate-400 to-slate-600', desc: 'Pay landline postpaid phone bills' },
+  { name: 'Loan Repayment', icon: Receipt, gradient: 'from-violet-400 to-fuchsia-600', desc: 'Repay active bank loans & EMIs' },
+  { name: 'LPG Gas', icon: Flame, gradient: 'from-orange-500 to-red-600', desc: 'Book and pay LPG cylinder refills' },
+  { name: 'Mobile Postpaid', icon: Smartphone, gradient: 'from-blue-400 to-indigo-600', desc: 'Pay postpaid mobile bills' },
+  { name: 'Mobile Prepaid', icon: Smartphone, gradient: 'from-emerald-400 to-teal-600', desc: 'Recharge prepaid mobile connection' },
+  { name: 'Municipal Services', icon: Receipt, gradient: 'from-slate-500 to-slate-700', desc: 'Pay municipal utility charges' },
+  { name: 'Municipal Taxes', icon: Receipt, gradient: 'from-zinc-500 to-zinc-700', desc: 'Pay municipal property & civic taxes' },
+  { name: 'Recurring Deposit', icon: Wallet, gradient: 'from-amber-400 to-yellow-600', desc: 'Invest in recurring deposit accounts' },
+  { name: 'Rental', icon: Home, gradient: 'from-teal-500 to-emerald-600', desc: 'Pay home, office or shop rent' },
+  { name: 'Subscription', icon: Sparkles, gradient: 'from-yellow-400 to-amber-500', desc: 'Pay subscription & membership fees' },
+  { name: 'Water', icon: Droplets, gradient: 'from-cyan-400 to-blue-600', desc: 'Pay municipal water bills' },
+  { name: 'NCMC', icon: CreditCard, gradient: 'from-pink-500 to-rose-600', desc: 'Recharge National Common Mobility Card' },
+  { name: 'NPS', icon: Wallet, gradient: 'from-indigo-500 to-indigo-700', desc: 'Contribute to National Pension Scheme' },
+  { name: 'Prepaid Meter', icon: Lightbulb, gradient: 'from-amber-500 to-orange-600', desc: 'Recharge prepaid smart meters' }
 ];
 
 export default function UserBillAvenuePayment({ userId }: { userId: string }) {
@@ -316,13 +335,10 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
 
       setAllBillers(mappedBillers);
 
-      // Extract unique categories from the API, filtering out prepaid/recharge
+      // Extract unique categories from the API
       const apiCategoryNames = Array.from(
         new Set(mappedBillers.map(b => b.categoryName))
-      ).filter(Boolean).filter(name => {
-        const norm = name.toLowerCase();
-        return !norm.includes('prepaid') && !norm.includes('recharge');
-      });
+      ).filter(Boolean);
 
       // Start with our comprehensive standard categories list
       const mergedCats = [...STANDARD_CATEGORIES];
