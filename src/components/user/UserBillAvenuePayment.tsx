@@ -391,7 +391,11 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       if (searchLower === 'mobile prepaid') {
         return catLower.includes('mobile prepaid') || catLower.includes('recharge');
       }
-      return catLower === searchLower || catLower.includes(searchLower);
+      return (
+        catLower === searchLower ||
+        catLower.includes(searchLower) ||
+        searchLower.includes(catLower)
+      );
     });
 
     setBillers(filtered);
