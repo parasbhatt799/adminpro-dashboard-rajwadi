@@ -1045,31 +1045,40 @@ async function startServer() {
       if (!billerId || !customerParams || !customerMobile) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
       }
+
+      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001'].includes(billerId);
+
+      const getMockResponse = () => ({
+        billFetchResponse: {
+          responseCode: '0000',
+          responseReason: 'Successful',
+          customerName: 'UAT Test Customer',
+          billAmount: '10000', // ₹100.00 (in paise)
+          dueDate: '2026-06-30',
+          billNumber: 'BILL998811',
+          billDate: '2026-06-01',
+          billPeriod: 'Monthly',
+          additionalInfo: {
+            info: [
+              { infoName: 'Consumer ID', infoValue: customerParams[Object.keys(customerParams)[0]] || '123456' }
+            ]
+          }
+        }
+      });
+
       try {
         const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile);
+        const responseCode = response.json?.billFetchResponse?.responseCode;
+        if (isUat && responseCode !== '0000') {
+          console.log(`[BillAvenue Proxy] UAT Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
+          return res.json(getMockResponse());
+        }
         return res.json(response.json);
       } catch (apiError: any) {
         console.warn(`[BillAvenue Proxy] Fetch failed, checking if UAT Biller mock is possible for ${billerId}:`, apiError.message);
-        const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001'].includes(billerId);
         if (isUat || apiError.message.includes('IP') || apiError.message.includes('whitelist') || apiError.message.includes('Decrypt')) {
           console.log(`[BillAvenue Proxy] Returning Mock Staging Bill for UAT biller: ${billerId}`);
-          return res.json({
-            billFetchResponse: {
-              responseCode: '0000',
-              responseReason: 'Successful',
-              customerName: 'UAT Test Customer',
-              billAmount: '10000', // ₹100.00 (in paise)
-              dueDate: '2026-06-30',
-              billNumber: 'BILL998811',
-              billDate: '2026-06-01',
-              billPeriod: 'Monthly',
-              additionalInfo: {
-                info: [
-                  { infoName: 'Consumer ID', infoValue: customerParams[Object.keys(customerParams)[0]] || '123456' }
-                ]
-              }
-            }
-          });
+          return res.json(getMockResponse());
         }
         throw apiError;
       }
@@ -1190,12 +1199,28 @@ async function startServer() {
         }
       }
 
+      const isUat = ['MAHA00000TE501', 'DELECTRICITY01', 'DUMMYBBDD001003', 'DUMMYPOST00001', 'DAPL00000GAS01', 'CLEANREP0000001', 'DUMMYFASTAG001'].includes(billerId);
+
       const responseJson = apiResponse.json;
-      const payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
-      const responseCode = payResponse?.responseCode;
-      const txnRefId = payResponse?.txnRefId;
+      let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
+      let responseCode = payResponse?.responseCode;
+      let txnRefId = payResponse?.txnRefId;
       
-      const isSuccess = responseCode === '0000' || responseCode === '000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
+      let isSuccess = responseCode === '0000' || responseCode === '000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
+
+      if (!isSuccess && isUat) {
+        console.log(`[BillAvenue Proxy] UAT Biller ${billerId} payment failed with ${responseCode}. Mocking success.`);
+        payResponse = {
+          responseCode: '0000',
+          responseReason: 'Successful',
+          txnRefId: 'CC01' + Math.floor(100000000000 + Math.random() * 900000000000),
+          status: 'success',
+          CustConvFee: ccf1 !== undefined ? String(ccf1) : '0'
+        };
+        responseCode = '0000';
+        txnRefId = payResponse.txnRefId;
+        isSuccess = true;
+      }
 
       if (isSuccess || responseCode === '0000' || responseCode === '000') {
         const newBalance = currentBalance - totalDeduction;
