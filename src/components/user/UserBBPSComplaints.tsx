@@ -36,6 +36,9 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
   // Toggle View State: 'list' | 'lodge'
   const [viewState, setViewState] = useState<'list' | 'lodge'>('list');
 
+  // Form tab selection state inside 'lodge' view: 'lodge' | 'track'
+  const [activeFormTab, setActiveFormTab] = useState<'lodge' | 'track'>('lodge');
+
   // Form State
   const [complaintType, setComplaintType] = useState<string>('Transaction');
   const [complaintIdentifyMethod, setComplaintIdentifyMethod] = useState<'txnId' | 'mobileDate'>('txnId');
@@ -259,11 +262,14 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
         <div className="relative z-10 flex gap-4">
           {viewState === 'list' ? (
             <button
-              onClick={() => setViewState('lodge')}
+              onClick={() => {
+                setViewState('lodge');
+                setActiveFormTab('lodge');
+              }}
               className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-4 rounded-3xl border border-indigo-500 shadow-lg shadow-indigo-500/20 transition-all text-xs font-bold uppercase tracking-wider active:scale-95"
             >
               <Plus size={16} />
-              Lodge New Complaint
+              Lodge & Track
             </button>
           ) : (
             <button
@@ -271,7 +277,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
               className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-4 rounded-3xl border border-slate-700 transition-all text-xs font-bold uppercase tracking-wider active:scale-95"
             >
               <ArrowLeft size={16} />
-              Back to List
+              Back to History
             </button>
           )}
         </div>
@@ -282,7 +288,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
         {/* Step Header */}
         <div className="bg-slate-50 border-b border-slate-100 px-8 py-4 flex items-center justify-between gap-3">
           <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
-            {viewState === 'list' ? 'Your Complaints History' : 'Lodge a Complaint'}
+            {viewState === 'list' ? 'Your Complaints History' : 'Complaint Center'}
           </span>
           <img src="/bharat_connect.png" alt="Bharat Connect" className="h-[24px] w-auto object-contain" />
         </div>
@@ -297,71 +303,6 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                 exit={{ opacity: 0, y: -10 }}
                 className="space-y-6"
               >
-                {/* Manual Tracking Section */}
-                <div className="bg-slate-50 border border-slate-200/80 p-6 rounded-[24px] space-y-4">
-                  <div>
-                    <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Track Complaint Manually</h3>
-                    <p className="text-slate-400 text-[11px] mt-0.5">Enter any BBPS Complaint ID to check its current resolution status.</p>
-                  </div>
-                  <form onSubmit={handleManualTrack} className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                      <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        placeholder="Enter Complaint ID (e.g. COM123456789012)"
-                        value={manualComplaintId}
-                        onChange={(e) => setManualComplaintId(e.target.value)}
-                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all placeholder:text-slate-300"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={trackingManual}
-                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-black uppercase tracking-wider transition-all disabled:opacity-50 active:scale-95 shrink-0"
-                    >
-                      {trackingManual ? 'Tracking...' : 'Track Status'}
-                    </button>
-                  </form>
-
-                  {/* Manual Track Result display */}
-                  {manualTrackResult && (
-                    <div className="border-t border-slate-200/80 pt-4 mt-2 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-600">Status details for: <span className="font-mono text-indigo-600 font-bold">{manualComplaintId}</span></span>
-                        <button 
-                          type="button"
-                          onClick={() => setManualTrackResult(null)}
-                          className="text-slate-400 hover:text-slate-600 transition-colors"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                      <div className="bg-white p-4 rounded-2xl border border-slate-200/50 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Status</span>
-                          <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${
-                            manualTrackResult.status === 'RESOLVED' || manualTrackResult.status === 'SUCCESS' || manualTrackResult.status?.toString().toLowerCase() === 'resolved'
-                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : manualTrackResult.status === 'FAILED' || manualTrackResult.status === 'REJECTED' || manualTrackResult.status?.toString().toLowerCase() === 'failed'
-                              ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                              : 'bg-amber-50 text-amber-600 border border-amber-200'
-                          }`}>
-                            {manualTrackResult.status || 'PENDING'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Assigned To</span>
-                          <span className="text-xs font-bold text-slate-700 mt-1 block">{manualTrackResult.complaintAssigned || 'N/A'}</span>
-                        </div>
-                        <div className="col-span-1 sm:col-span-2">
-                          <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Remarks / Description</span>
-                          <span className="text-xs font-semibold text-slate-600 mt-1 block leading-relaxed">{manualTrackResult.desc || manualTrackResult.complaintRemarks || 'No remarks available.'}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
                 {loading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-3">
                     <div className="w-10 h-10 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
@@ -375,7 +316,10 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                     <h3 className="text-base font-black text-slate-700 tracking-tight">No BBPS complaints registered</h3>
                     <p className="text-slate-400 text-xs mt-1 max-w-xs mx-auto">If you have any issues with bill payments, you can register a formal dispute here.</p>
                     <button
-                      onClick={() => setViewState('lodge')}
+                      onClick={() => {
+                        setViewState('lodge');
+                        setActiveFormTab('lodge');
+                      }}
                       className="mt-6 px-5 py-3 bg-indigo-50 border border-indigo-100 text-indigo-600 rounded-2xl text-xs font-black uppercase tracking-wider hover:bg-indigo-100 transition-colors"
                     >
                       Lodge Complaint Now
@@ -434,139 +378,240 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
-                className="max-w-2xl mx-auto"
+                className="max-w-2xl mx-auto space-y-8"
               >
-                <form onSubmit={handleRegisterComplaint} className="space-y-6">
-                  {/* Complaint Type */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Type</label>
-                    <select
-                      value={complaintType}
-                      onChange={(e) => setComplaintType(e.target.value)}
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
-                    >
-                      <option value="Transaction">Transaction Related (Default)</option>
-                      <option value="Service">Service Related</option>
-                    </select>
-                  </div>
+                {/* Tab Selector */}
+                <div className="flex border-b border-slate-200 gap-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveFormTab('lodge');
+                      setManualTrackResult(null);
+                    }}
+                    className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
+                      activeFormTab === 'lodge'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    Lodge Complaint
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveFormTab('track');
+                      setManualTrackResult(null);
+                    }}
+                    className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${
+                      activeFormTab === 'track'
+                        ? 'border-indigo-600 text-indigo-600'
+                        : 'border-transparent text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    Track Complaint
+                  </button>
+                </div>
 
-                  {/* Identification Method */}
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Identify Transaction By</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setComplaintIdentifyMethod('txnId')}
-                        className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${
-                          complaintIdentifyMethod === 'txnId'
-                            ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        Transaction ID
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setComplaintIdentifyMethod('mobileDate')}
-                        className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${
-                          complaintIdentifyMethod === 'mobileDate'
-                            ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                            : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        Mobile & Date Range
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Conditional Fields */}
-                  {complaintIdentifyMethod === 'txnId' ? (
+                {activeFormTab === 'lodge' ? (
+                  <form onSubmit={handleRegisterComplaint} className="space-y-6">
+                    {/* Complaint Type */}
                     <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">BBPS Transaction Ref ID</label>
-                      <input
-                        type="text"
-                        required
-                        value={complaintTxnRef}
-                        onChange={(e) => setComplaintTxnRef(e.target.value)}
-                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all placeholder:text-slate-300"
-                        placeholder="Enter 20-character reference ID starting with CC01"
-                      />
-                    </div>
-                  ) : (
-                    <div className="space-y-4 p-5 bg-slate-50 rounded-[24px] border border-slate-200/50">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Mobile Number</label>
-                        <input
-                          type="tel"
-                          required
-                          value={complaintMobile}
-                          onChange={(e) => setComplaintMobile(e.target.value)}
-                          className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                          placeholder="Enter customer mobile number"
-                        />
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Start Date</label>
-                          <input
-                            type="date"
-                            required
-                            value={complaintStartDate}
-                            onChange={(e) => setComplaintStartDate(e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">End Date</label>
-                          <input
-                            type="date"
-                            required
-                            value={complaintEndDate}
-                            onChange={(e) => setComplaintEndDate(e.target.value)}
-                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Complaint Disposition */}
-                  {complaintType === 'Transaction' && (
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Disposition</label>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Type</label>
                       <select
-                        value={complaintDisposition}
-                        onChange={(e) => setComplaintDisposition(e.target.value)}
+                        value={complaintType}
+                        onChange={(e) => setComplaintType(e.target.value)}
                         className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
                       >
-                        {BBPS_DISPOSITIONS.map((disp, idx) => (
-                          <option key={idx} value={disp}>{disp}</option>
-                        ))}
+                        <option value="Transaction">Transaction Related (Default)</option>
+                        <option value="Service">Service Related</option>
                       </select>
                     </div>
-                  )}
 
-                  {/* Description */}
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Description</label>
-                    <textarea
-                      required
-                      rows={4}
-                      value={complaintText}
-                      onChange={(e) => setComplaintText(e.target.value)}
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all resize-none"
-                      placeholder="Provide detailed comments about the transaction issue..."
-                    />
-                  </div>
+                    {/* Identification Method */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Identify Transaction By</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setComplaintIdentifyMethod('txnId')}
+                          className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${
+                            complaintIdentifyMethod === 'txnId'
+                              ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
+                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          Transaction ID
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setComplaintIdentifyMethod('mobileDate')}
+                          className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${
+                            complaintIdentifyMethod === 'mobileDate'
+                              ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
+                              : 'bg-slate-50 text-slate-500 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          Mobile & Date Range
+                        </button>
+                      </div>
+                    </div>
 
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20 active:scale-98 disabled:opacity-50"
-                  >
-                    {submitting ? 'Registering Complaint...' : 'Register BBPS Complaint'}
-                  </button>
-                </form>
+                    {/* Conditional Fields */}
+                    {complaintIdentifyMethod === 'txnId' ? (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">BBPS Transaction Ref ID</label>
+                        <input
+                          type="text"
+                          required
+                          value={complaintTxnRef}
+                          onChange={(e) => setComplaintTxnRef(e.target.value)}
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all placeholder:text-slate-300"
+                          placeholder="Enter 20-character reference ID starting with CC01"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-4 p-5 bg-slate-50 rounded-[24px] border border-slate-200/50">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Mobile Number</label>
+                          <input
+                            type="tel"
+                            required
+                            value={complaintMobile}
+                            onChange={(e) => setComplaintMobile(e.target.value)}
+                            className="w-full px-5 py-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
+                            placeholder="Enter customer mobile number"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Start Date</label>
+                            <input
+                              type="date"
+                              required
+                              value={complaintStartDate}
+                              onChange={(e) => setComplaintStartDate(e.target.value)}
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">End Date</label>
+                            <input
+                              type="date"
+                              required
+                              value={complaintEndDate}
+                              onChange={(e) => setComplaintEndDate(e.target.value)}
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 transition-all"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Complaint Disposition */}
+                    {complaintType === 'Transaction' && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Disposition</label>
+                        <select
+                          value={complaintDisposition}
+                          onChange={(e) => setComplaintDisposition(e.target.value)}
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all"
+                        >
+                          {BBPS_DISPOSITIONS.map((disp, idx) => (
+                            <option key={idx} value={disp}>{disp}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Description */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint Description</label>
+                      <textarea
+                        required
+                        rows={4}
+                        value={complaintText}
+                        onChange={(e) => setComplaintText(e.target.value)}
+                        className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all resize-none"
+                        placeholder="Provide detailed comments about the transaction issue..."
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20 active:scale-98 disabled:opacity-50"
+                    >
+                      {submitting ? 'Registering Complaint...' : 'Register BBPS Complaint'}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleManualTrack} className="space-y-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block ml-1">Complaint ID</label>
+                      <div className="relative">
+                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="Enter Complaint ID (e.g. COM123456789012)"
+                          value={manualComplaintId}
+                          onChange={(e) => setManualComplaintId(e.target.value)}
+                          className="w-full pl-11 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all placeholder:text-slate-300"
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={trackingManual}
+                      className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shadow-indigo-500/20 disabled:opacity-50 active:scale-98"
+                    >
+                      {trackingManual ? 'Tracking Complaint...' : 'Track Complaint Status'}
+                    </button>
+
+                    {/* Track Status Result Display */}
+                    {manualTrackResult && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="p-6 bg-slate-50 rounded-[24px] border border-slate-200 space-y-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Complaint Status Details</h4>
+                          <button
+                            type="button"
+                            onClick={() => setManualTrackResult(null)}
+                            className="text-slate-400 hover:text-slate-600 transition-colors"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Status</span>
+                            <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${
+                              manualTrackResult.status === 'RESOLVED' || manualTrackResult.status === 'SUCCESS' || manualTrackResult.status?.toString().toLowerCase() === 'resolved'
+                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                : manualTrackResult.status === 'FAILED' || manualTrackResult.status === 'REJECTED' || manualTrackResult.status?.toString().toLowerCase() === 'failed'
+                                ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                : 'bg-amber-50 text-amber-600 border border-amber-200'
+                            }`}>
+                              {manualTrackResult.status || 'PENDING'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Assigned To</span>
+                            <span className="text-xs font-bold text-slate-700 mt-1 block">{manualTrackResult.complaintAssigned || 'N/A'}</span>
+                          </div>
+                          <div className="col-span-1 sm:col-span-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Remarks / Description</span>
+                            <span className="text-xs font-semibold text-slate-600 mt-1 block leading-relaxed">{manualTrackResult.desc || manualTrackResult.complaintRemarks || 'No remarks available.'}</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </form>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
