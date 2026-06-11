@@ -762,23 +762,28 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       {/* Main Workflow container */}
       <div className="bg-white rounded-[36px] border border-slate-200 shadow-md overflow-hidden min-h-[500px]">
         {/* Step Header */}
-        <div className="bg-slate-50 border-b border-slate-100 px-8 py-4 flex items-center gap-3">
-          {step > 1 && (
-            <button
-              onClick={() => setStep(step - 1)}
-              className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-900 cursor-pointer"
-            >
-              <ArrowLeft size={18} />
-            </button>
+        <div className="bg-slate-50 border-b border-slate-100 px-8 py-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            {step > 1 && (
+              <button
+                onClick={() => setStep(step - 1)}
+                className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-900 cursor-pointer"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+            <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
+              Step {step} of 4: {
+                step === 1 ? 'Select Utility Service' :
+                step === 2 ? `Select ${selectedCategory} Provider` :
+                step === 3 ? `Enter Account Details` :
+                'Receipt generated'
+              }
+            </span>
+          </div>
+          {step < 4 && (
+            <img src="/bharat_connect.png" alt="Bharat Connect" className="h-[30px] w-auto object-contain" />
           )}
-          <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
-            Step {step} of 4: {
-              step === 1 ? 'Select Utility Service' :
-              step === 2 ? `Select ${selectedCategory} Provider` :
-              step === 3 ? `Enter Account Details` :
-              'Receipt generated'
-            }
-          </span>
         </div>
 
         {/* Step Contents */}
@@ -1159,21 +1164,19 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           {step === 4 && receipt && (
             <div className="flex flex-col items-center justify-center py-8">
               <div className="w-full max-w-sm bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6 relative" id="receipt-print-area">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-bl-full flex items-center justify-center pointer-events-none">
-                  <ShieldCheck size={16} className="text-emerald-500/10 translate-x-2 -translate-y-2" />
+                <div className="absolute top-4 right-4 z-10">
+                  <img src="/assured_logo.png" alt="Be-Assured Logo" className="h-[30px] w-auto object-contain" />
                 </div>
 
                 <div className="text-center border-b border-dashed border-slate-100 pb-5">
                   <div className="flex flex-col items-center justify-center gap-2">
-                    <img src="/assured_logo.png" alt="Assured Logo" className="h-16 w-16 object-contain mb-1" />
+                    <CheckCircle2 className="text-emerald-500" size={40} />
                     <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">BBPS Receipt</span>
                   </div>
                   <div className="text-2xl font-black text-slate-800 mt-4">
                     ₹{(receipt.amount + (receipt.charges || 0) + (receipt.ccf1Fee || 0)).toFixed(2)}
                   </div>
-                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
-                    <CheckCircle2 size={12} className="text-emerald-500" /> Transaction Success
-                  </p>
+                  <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
                 </div>
 
                 <div className="space-y-4 text-xs font-semibold text-slate-600">
