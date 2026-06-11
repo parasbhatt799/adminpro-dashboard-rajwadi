@@ -681,14 +681,16 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       });
 
       const data = await res.json();
-      const cId = data?.complaintResponse?.complaintId;
+      const registerResp = data?.complaintResponse || data?.complaintRegistrationResp;
+      const cId = registerResp?.complaintId;
       if (cId) {
         toast.success(`Complaint registered successfully! ID: ${cId}`);
         setShowComplaintModal(false);
         setComplaintText('');
         setComplaintTxnRef('');
       } else {
-        toast.error(data.message || 'Failed to lodge complaint.');
+        const errorMsg = registerResp?.desc || registerResp?.errorReason || data.message || 'Failed to lodge complaint.';
+        toast.error(errorMsg);
       }
     } catch (err) {
       toast.error('Error submitting complaint request.');
