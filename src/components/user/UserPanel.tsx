@@ -217,8 +217,9 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
           }
         }
 
-        // Show live toast if status changed from pending
-        if (payload.old?.status === 'pending' && payload.new.status !== 'pending') {
+        // Show live toast if status changed from pending (tolerates default replica identity where payload.old only contains id)
+        const isStatusTransition = !payload.old || !('status' in payload.old) || (payload.old.status === 'pending');
+        if (isStatusTransition && payload.new.status !== 'pending') {
           const adminName = await getAdminName(payload.new.actioned_by);
           const amount = Number(payload.new.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
           
@@ -258,7 +259,9 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         table: 'bill_submissions',
         filter: `user_id=eq.${userId}`
       }, async (payload: any) => {
-        if (payload.old?.status === 'pending' && payload.new.status !== 'pending') {
+        // Show live toast if status changed from pending (tolerates default replica identity where payload.old only contains id)
+        const isStatusTransition = !payload.old || !('status' in payload.old) || (payload.old.status === 'pending');
+        if (isStatusTransition && payload.new.status !== 'pending') {
           const adminName = await getAdminName(payload.new.actioned_by);
           const amount = Number(payload.new.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
