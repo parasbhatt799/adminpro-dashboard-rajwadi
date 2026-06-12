@@ -678,6 +678,14 @@ async function startServer() {
         });
       }
 
+      // Enforce maximum ₹50,000 per transaction cash payment limit for BBPS
+      if (paymentAmount >= 50000) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: "Transaction amount must be less than ₹50,000 per transaction for BBPS Cash payment channel. Please split your payment."
+        });
+      }
+
       // 3. Prepare parameters and call PayPrime API
       // PayPrime requires amount in Paisa, so multiply Rupees by 100
       const amountInPaisa = Math.round(paymentAmount * 100);
