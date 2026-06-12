@@ -125,6 +125,537 @@ async function startServer() {
     }
   });
 
+  const QR_APPROVED_EMAIL_TEMPLATE = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>QR Payment Approved</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+          <!-- Top Header Brand Section -->
+          <tr>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px; text-align: left; vertical-align: middle;">
+              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
+              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #a5b4fc; background-color: rgba(99, 102, 241, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Transaction Notice</span>
+            </td>
+          </tr>
+          
+          <!-- Status Announcement Banner -->
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center;">
+              <div style="width: 56px; height: 56px; background-color: #ecfdf5; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #a7f3d0;">
+                <span style="font-size: 28px; color: #10b981; vertical-align: middle;">✓</span>
+              </div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">QR Payment Approved!</h2>
+              <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your deposit request has been successfully approved and credited to your wallet balance.</p>
+            </td>
+          </tr>
+
+          <!-- Amount Highlight Card -->
+          <tr>
+            <td style="padding: 0 40px 20px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; border-radius: 16px; padding: 20px; text-align: center;">
+                <tr>
+                  <td>
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 1px;">Amount Credited</span>
+                    <h1 style="margin: 5px 0; font-size: 36px; font-weight: 900; color: #10b981;">₹{{amount}}</h1>
+                    <span style="font-size: 11px; font-weight: 700; color: #475569;">Charge: {{charge_pct}}% | Final Profit: ₹{{final_profit}}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Request Details Table -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+                <tr>
+                  <td colspan="2" style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">Request Details</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Retailer ID / Firm</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{userId}} ({{firmName}})</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Transaction UTR</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #6366f1; padding: 12px 0; border-bottom: 1px solid #f8fafc; font-family: monospace;">{{utr}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">QR Account Name</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{qrName}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Request Date</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{date}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0;">New Wallet Balance</td>
+                  <td align="right" style="font-size: 12px; font-weight: 800; color: #0f172a; padding: 12px 0;">₹{{newBalance}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Help / Support Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">If you have any questions regarding this transaction, please contact our support desk.</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const QR_REJECTED_EMAIL_TEMPLATE = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>QR Payment Rejected</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+          <tr>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px;">
+              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
+              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fca5a5; background-color: rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Transaction Alert</span>
+            </td>
+          </tr>
+          
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center;">
+              <div style="width: 56px; height: 56px; background-color: #fef2f2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #fecaca;">
+                <span style="font-size: 28px; color: #ef4444; vertical-align: middle;">✕</span>
+              </div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">QR Payment Rejected</h2>
+              <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your deposit request has been declined. The funds were not credited to your wallet.</p>
+            </td>
+          </tr>
+
+          <!-- Amount Highlight Card -->
+          <tr>
+            <td style="padding: 0 40px 20px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fdf2f2; border-radius: 16px; padding: 20px; text-align: center; border: 1px dashed #fca5a5;">
+                <tr>
+                  <td>
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #b91c1c; letter-spacing: 1px;">Requested Amount</span>
+                    <h1 style="margin: 5px 0; font-size: 36px; font-weight: 900; color: #b91c1c;">₹{{amount}}</h1>
+                    <span style="font-size: 12px; font-weight: 700; color: #991b1b; display: block; margin-top: 10px;">Reason: "{{rejectionReason}}"</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Request Details Table -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+                <tr>
+                  <td colspan="2" style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">Request Details</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Retailer ID / Firm</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{userId}} ({{firmName}})</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Transaction UTR</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc; font-family: monospace;">{{utr}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">QR Account Name</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{qrName}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0;">Request Date</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0;">{{date}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Help / Support Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">Please upload a valid payment proof with a correct UTR to get approval on subsequent attempts.</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const BILL_APPROVED_EMAIL_TEMPLATE = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bill Payment Successful</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+          <tr>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px;">
+              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
+              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #a5b4fc; background-color: rgba(99, 102, 241, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Utility Bill Notice</span>
+            </td>
+          </tr>
+          
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center;">
+              <div style="width: 56px; height: 56px; background-color: #ecfdf5; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #a7f3d0;">
+                <span style="font-size: 28px; color: #10b981; vertical-align: middle;">✓</span>
+              </div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">Bill Payment Successful!</h2>
+              <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your utility bill payment request was approved and processed successfully at the operator end.</p>
+            </td>
+          </tr>
+
+          <!-- Amount Highlight Card -->
+          <tr>
+            <td style="padding: 0 40px 20px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; border-radius: 16px; padding: 20px; text-align: center;">
+                <tr>
+                  <td>
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 1px;">Amount Debited</span>
+                    <h1 style="margin: 5px 0; font-size: 36px; font-weight: 900; color: #0f172a;">₹{{amount}}</h1>
+                    <span style="font-size: 11px; font-weight: 700; color: #6366f1;">Transaction Charge: +₹{{charges}}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Request Details Table -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+                <tr>
+                  <td colspan="2" style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">Payment Details</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Retailer ID / Firm</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{userId}} ({{firmName}})</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Biller Category / Operator</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{serviceType}} ({{provider}})</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Account / Consumer No.</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc; font-family: monospace;">{{consumerNumber}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">BBPS Reference ID</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #10b981; padding: 12px 0; border-bottom: 1px solid #f8fafc; font-family: monospace;">{{txnRefId}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0;">Transaction Date</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0;">{{date}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Help / Support Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">The receipt will be available in your account's Bill History tab for download or print.</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const BILL_REJECTED_EMAIL_TEMPLATE = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bill Payment Failed & Refunded</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
+          <tr>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px;">
+              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
+              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fca5a5; background-color: rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Transaction Refund</span>
+            </td>
+          </tr>
+          
+          <tr>
+            <td style="padding: 40px 40px 20px 40px; text-align: center;">
+              <div style="width: 56px; height: 56px; background-color: #fffbeb; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #fde68a;">
+                <span style="font-size: 28px; color: #d97706; vertical-align: middle;">↩</span>
+              </div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">Bill Payment Failed & Refunded</h2>
+              <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your bill payment request has been rejected. The full debited amount (including charges) has been successfully refunded back to your wallet.</p>
+            </td>
+          </tr>
+
+          <!-- Amount Highlight Card -->
+          <tr>
+            <td style="padding: 0 40px 20px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #fffdf5; border-radius: 16px; padding: 20px; text-align: center; border: 1px dashed #fcd34d;">
+                <tr>
+                  <td>
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #b45309; letter-spacing: 1px;">Refund Credited</span>
+                    <h1 style="margin: 5px 0; font-size: 36px; font-weight: 900; color: #d97706;">₹{{totalDeduction}}</h1>
+                    <span style="font-size: 12px; font-weight: 700; color: #b45309; display: block; margin-top: 10px;">Rejection Reason: "{{rejectionReason}}"</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Request Details Table -->
+          <tr>
+            <td style="padding: 0 40px 30px 40px;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+                <tr>
+                  <td colspan="2" style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #94a3b8; letter-spacing: 1px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;">Payment Details</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Retailer ID / Firm</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{userId}} ({{firmName}})</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Biller / Operator</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">{{provider}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Account / Consumer No.</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc; font-family: monospace;">{{consumerNumber}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0; border-bottom: 1px solid #f8fafc;">Bill Amount + Charges</td>
+                  <td align="right" style="font-size: 12px; font-weight: 700; color: #0f172a; padding: 12px 0; border-bottom: 1px solid #f8fafc;">₹{{amount}} + ₹{{charges}}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; font-weight: 600; color: #64748b; padding: 12px 0;">New Wallet Balance</td>
+                  <td align="right" style="font-size: 12px; font-weight: 800; color: #0f172a; padding: 12px 0;">₹{{newBalance}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Help / Support Footer -->
+          <tr>
+            <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
+              <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">If the refund has not reflected, please contact our support team immediately.</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  app.post("/api/notify-qr-email", async (req, res) => {
+    const { requestId, status, rejectionReason } = req.body;
+    console.log(`[QR Email Notification] Triggered for ID: ${requestId}, status: ${status}`);
+
+    try {
+      if (!requestId || !status) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      // Fetch payment submission
+      const { data: payment, error: paymentErr } = await supabaseAdmin
+        .from('payment_submissions')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+      if (paymentErr || !payment) {
+        throw new Error("Payment submission not found");
+      }
+
+      // Fetch user profile
+      const { data: user, error: userErr } = await supabaseAdmin
+        .from('users_profiles')
+        .select('*')
+        .eq('id', payment.user_id)
+        .single();
+
+      if (userErr || !user) {
+        throw new Error("User profile not found");
+      }
+
+      if (!user.email || !user.email.includes("@")) {
+        console.warn(`[QR Email Notification] Skipping email. User ${user.id} does not have a valid email: ${user.email}`);
+        return res.json({ success: true, skipped: true, reason: "No valid email" });
+      }
+
+      // Fetch QR name if exists
+      let qrName = 'Legacy QR';
+      if (payment.qr_id) {
+        const { data: qr } = await supabaseAdmin
+          .from('qr_history')
+          .select('qr_name')
+          .eq('id', payment.qr_id)
+          .single();
+        if (qr && qr.qr_name) {
+          qrName = qr.qr_name;
+        }
+      }
+
+      const formattedDate = new Date(payment.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      const amountVal = Number(payment.amount);
+      const chargesVal = Number(payment.charges || 0);
+
+      let subject = "";
+      let html = "";
+
+      if (status === 'approved') {
+        subject = `🟢 [UsePay] QR Payment Approved - ₹${amountVal.toLocaleString('en-IN')}`;
+        const chargePct = amountVal > 0 ? ((chargesVal / amountVal) * 100).toFixed(2) : "0.00";
+        const finalProfit = (amountVal - chargesVal).toFixed(2);
+
+        html = QR_APPROVED_EMAIL_TEMPLATE
+          .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{charge_pct\}\}/g, chargePct)
+          .replace(/\{\{final_profit\}\}/g, Number(finalProfit).toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
+          .replace(/\{\{utr\}\}/g, payment.utr_id)
+          .replace(/\{\{qrName\}\}/g, qrName)
+          .replace(/\{\{date\}\}/g, formattedDate)
+          .replace(/\{\{newBalance\}\}/g, Number(user.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }));
+      } else if (status === 'rejected') {
+        subject = `🔴 [UsePay] QR Payment Rejected - ₹${amountVal.toLocaleString('en-IN')}`;
+        const reasonText = rejectionReason || payment.rejection_reason || "Invalid transaction proof or UTR ID.";
+
+        html = QR_REJECTED_EMAIL_TEMPLATE
+          .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{rejectionReason\}\}/g, reasonText)
+          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
+          .replace(/\{\{utr\}\}/g, payment.utr_id)
+          .replace(/\{\{qrName\}\}/g, qrName)
+          .replace(/\{\{date\}\}/g, formattedDate);
+      } else {
+        throw new Error(`Unsupported status: ${status}`);
+      }
+
+      await sendResendEmail(user.email, subject, subject, html);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[QR Email Notification] Failed:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/notify-bill-email", async (req, res) => {
+    const { requestId, status, rejectionReason } = req.body;
+    console.log(`[Bill Email Notification] Triggered for ID: ${requestId}, status: ${status}`);
+
+    try {
+      if (!requestId || !status) {
+        return res.status(400).json({ error: "Missing required parameters" });
+      }
+
+      // Fetch bill submission
+      const { data: bill, error: billErr } = await supabaseAdmin
+        .from('bill_submissions')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+
+      if (billErr || !bill) {
+        throw new Error("Bill submission not found");
+      }
+
+      // Fetch user profile
+      const { data: user, error: userErr } = await supabaseAdmin
+        .from('users_profiles')
+        .select('*')
+        .eq('id', bill.user_id)
+        .single();
+
+      if (userErr || !user) {
+        throw new Error("User profile not found");
+      }
+
+      if (!user.email || !user.email.includes("@")) {
+        console.warn(`[Bill Email Notification] Skipping email. User ${user.id} does not have a valid email: ${user.email}`);
+        return res.json({ success: true, skipped: true, reason: "No valid email" });
+      }
+
+      const formattedDate = new Date(bill.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST';
+      const amountVal = Number(bill.amount);
+      const chargesVal = Number(bill.charges || 0);
+      const maskedCard = bill.card_number ? bill.card_number.replace(/\d(?=\d{4})/g, "*") : "N/A";
+
+      let subject = "";
+      let html = "";
+
+      if (status === 'approved') {
+        subject = `🟢 [UsePay] Bill Payment Successful - ₹${amountVal.toLocaleString('en-IN')}`;
+        
+        html = BILL_APPROVED_EMAIL_TEMPLATE
+          .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{charges\}\}/g, chargesVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
+          .replace(/\{\{serviceType\}\}/g, "Credit Card Bill")
+          .replace(/\{\{provider\}\}/g, bill.card_bank)
+          .replace(/\{\{consumerNumber\}\}/g, maskedCard)
+          .replace(/\{\{txnRefId\}\}/g, bill.transaction_id || 'N/A')
+          .replace(/\{\{date\}\}/g, formattedDate);
+      } else if (status === 'rejected' || status === 'refunded') {
+        // Both rejected and refunded statuses trigger the refund notification template
+        subject = `🔴 [UsePay] Bill Payment Failed & Refunded - ₹${(amountVal + chargesVal).toLocaleString('en-IN')}`;
+        const reasonText = rejectionReason || bill.rejection_reason || "Transaction failed or declined by admin.";
+        const totalDeduction = (amountVal + chargesVal).toFixed(2);
+
+        html = BILL_REJECTED_EMAIL_TEMPLATE
+          .replace(/\{\{totalDeduction\}\}/g, Number(totalDeduction).toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{rejectionReason\}\}/g, reasonText)
+          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
+          .replace(/\{\{provider\}\}/g, bill.card_bank)
+          .replace(/\{\{consumerNumber\}\}/g, maskedCard)
+          .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{charges\}\}/g, chargesVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
+          .replace(/\{\{newBalance\}\}/g, Number(user.wallet_balance).toLocaleString('en-IN', { minimumFractionDigits: 2 }));
+      } else {
+        throw new Error(`Unsupported status: ${status}`);
+      }
+
+      await sendResendEmail(user.email, subject, subject, html);
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("[Bill Email Notification] Failed:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get("/api/test-complaint-email", async (req, res) => {
     try {
       const { to = "jigs.vanani@gmail.com" } = req.query;

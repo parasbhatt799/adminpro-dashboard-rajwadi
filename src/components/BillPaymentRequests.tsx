@@ -325,6 +325,22 @@ export default function BillPaymentRequests() {
           link: '/user/reports'
         }]);
 
+      // 3.5 Send Email Notification
+      try {
+        fetch('/api/notify-bill-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId: id,
+            status: 'refunded'
+          })
+        }).catch(emailErr => {
+          console.error('[Bill Email Notification] Failed to dispatch refund email async:', emailErr);
+        });
+      } catch (emailErr) {
+        console.error('[Bill Email Notification] Error triggering refund email:', emailErr);
+      }
+
       setRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'refunded' } : req));
     } catch (err) {
       console.error('Error moving to refund:', err);
@@ -441,6 +457,23 @@ export default function BillPaymentRequests() {
         }
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);
+      }
+
+      // 4.5 Send Email Notification
+      try {
+        fetch('/api/notify-bill-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId: targetId,
+            status: targetType,
+            rejectionReason: targetReason
+          })
+        }).catch(emailErr => {
+          console.error('[Bill Email Notification] Failed to dispatch email async:', emailErr);
+        });
+      } catch (emailErr) {
+        console.error('[Bill Email Notification] Error triggering email:', emailErr);
       }
 
       setRequests(prev => prev.map(req => req.id === targetId ? { ...req, ...updateData } : req));

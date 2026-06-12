@@ -559,6 +559,23 @@ export default function QRPaymentRequests() {
         }
       }
 
+      // 4.5 Send Email Notification
+      try {
+        fetch('/api/notify-qr-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requestId: targetId,
+            status: targetType,
+            rejectionReason: targetReason
+          })
+        }).catch(emailErr => {
+          console.error('[QR Email Notification] Failed to dispatch async:', emailErr);
+        });
+      } catch (emailErr) {
+        console.error('[QR Email Notification] Error triggering email:', emailErr);
+      }
+
       setRequests(prev => prev.map(req => req.id === targetId ? { ...req, ...updateData } : req));
       setRejectionRowId(null);
       setCharges('0');
