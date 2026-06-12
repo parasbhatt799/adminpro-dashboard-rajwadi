@@ -678,14 +678,6 @@ async function startServer() {
         });
       }
 
-      // Enforce maximum ₹50,000 per transaction cash payment limit for BBPS
-      if (paymentAmount >= 50000) {
-        return res.status(400).json({
-          status: "ERROR",
-          message: "Transaction amount must be less than ₹50,000 per transaction for BBPS Cash payment channel. Please split your payment."
-        });
-      }
-
       // 3. Prepare parameters and call PayPrime API
       // PayPrime requires amount in Paisa, so multiply Rupees by 100
       const amountInPaisa = Math.round(paymentAmount * 100);
@@ -719,9 +711,14 @@ async function startServer() {
         customerParams["Mobile"] ||
         "9999999999";
 
-      // Always use Cash payment mode for Agent (AGT) channel to prevent "UPI invalid for Payment Channel" error
-      const mode = "Cash";
-      const paymentInfoList = [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
+      // Auto-detect if this is a Credit Card payment to pass UPI payment mode
+      const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
+                           (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
+                           (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
+      const mode = isCreditCard ? "UPI" : "Cash";
+      const paymentInfoList = mode === "UPI"
+        ? [ { "infoName": "VPA", "infoValue": `${userMobile}@upi` } ]
+        : [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
 
       const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
