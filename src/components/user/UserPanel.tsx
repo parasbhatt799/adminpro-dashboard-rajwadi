@@ -12,6 +12,7 @@ import { formatDistanceToNow, parseISO, format } from 'date-fns';
 import NewsTicker from './NewsTicker';
 import FlyingCoins from './FlyingCoins';
 import { useRef } from 'react';
+import { useToast } from '../../context/ToastContext';
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
   const [now, setNow] = useState(new Date());
@@ -39,6 +40,7 @@ interface UserPanelProps {
 }
 
 export default function UserPanel({ onLogout, userId }: UserPanelProps) {
+  const toast = useToast();
   const location = useLocation();
   const navigate = useNavigate();
   const activeTab = location.pathname.split('/').pop() || 'payment';
@@ -166,6 +168,22 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     };
     fetchSettings();
 
+    // Helper to resolve admin name
+    const getAdminName = async (mobileNumber: string) => {
+      if (!mobileNumber) return 'Admin';
+      try {
+        const { data, error } = await supabase
+          .from('admin_profiles')
+          .select('name')
+          .eq('mobile_number', mobileNumber)
+          .single();
+        if (error || !data) return 'Admin';
+        return data.name || 'Admin';
+      } catch (e) {
+        return 'Admin';
+      }
+    };
+
     // Global Settings Listener for toggles
     const settingsChannel = supabase.channel('animation_settings_user')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' }, (payload) => {
@@ -189,12 +207,26 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         schema: 'public',
         table: 'payment_submissions',
         filter: `user_id=eq.${userId}`
-      }, (payload: any) => {
+      }, async (payload: any) => {
+        // Play coin animation if approved
         if (payload.new.status === 'approved' && payload.old?.status !== 'approved') {
           if (isAnimationEnabledRef.current) {
             setTargetEntryId(`qr-row-${payload.new.id}`);
             setCoinDirection('add');
             setShowCoins(true);
+          }
+        }
+
+        // Show live toast if status changed from pending
+        if (payload.old?.status === 'pending' && payload.new.status !== 'pending') {
+          const adminName = await getAdminName(payload.new.actioned_by);
+          const amount = Number(payload.new.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+          
+          if (payload.new.status === 'approved' || payload.new.status === 'T+1 Approved') {
+            toast.success(`Approve by ${adminName} qr request approve ₹${amount}`, 10000);
+          } else if (payload.new.status === 'rejected') {
+            const reason = payload.new.rejection_reason || 'No reason provided';
+            toast.error(`Rejected by ${adminName} qr request rejectet ₹${amount} - Reason: ${reason}`, 10000);
           }
         }
       })
@@ -217,9 +249,33 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
       })
       .subscribe();
 
+    // Subscribe to Bill Approvals for live toast notifications
+    const billApprovalChannel = supabase
+      .channel(`bill_approvals_${userId}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'bill_submissions',
+        filter: `user_id=eq.${userId}`
+      }, async (payload: any) => {
+        if (payload.old?.status === 'pending' && payload.new.status !== 'pending') {
+          const adminName = await getAdminName(payload.new.actioned_by);
+          const amount = Number(payload.new.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
+
+          if (payload.new.status === 'approved') {
+            toast.success(`Approve by ${adminName} bill request approve ₹${amount}`, 10000);
+          } else if (payload.new.status === 'rejected' || payload.new.status === 'refunded') {
+            const reason = payload.new.rejection_reason || 'No reason provided';
+            toast.error(`Rejected by ${adminName} bill request rejectet ₹${amount} - Reason: ${reason}`, 10000);
+          }
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(qrApprovalChannel);
       supabase.removeChannel(billChannel);
+      supabase.removeChannel(billApprovalChannel);
       supabase.removeChannel(settingsChannel);
     };
   }, [userId]);
