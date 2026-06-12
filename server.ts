@@ -130,6 +130,17 @@ async function startServer() {
 <head>
   <meta charset="utf-8">
   <title>QR Payment Approved</title>
+  <style>
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .animate-pulse-infinite {
+      animation: pulse 2s infinite ease-in-out;
+      display: inline-block !important;
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
@@ -139,19 +150,27 @@ async function startServer() {
         <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
           <!-- Top Header Brand Section -->
           <tr>
-            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px; text-align: left; vertical-align: middle;">
-              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
-              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #a5b4fc; background-color: rgba(99, 102, 241, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Transaction Notice</span>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 25px 30px; text-align: left; vertical-align: middle;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <img src="{{logoUrl}}" height="32" style="height: 32px; display: block; border: none; outline: none; text-decoration: none;" alt="UsePay" />
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #a5b4fc; background-color: rgba(99, 102, 241, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px;">Transaction Notice</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <!-- Status Announcement Banner -->
           <tr>
             <td style="padding: 40px 40px 20px 40px; text-align: center;">
-              <div style="width: 56px; height: 56px; background-color: #ecfdf5; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #a7f3d0;">
-                <span style="font-size: 28px; color: #10b981; vertical-align: middle;">✓</span>
+              <div class="animate-pulse-infinite" style="width: 56px; height: 56px; background-color: #ecfdf5; border-radius: 50%; display: inline-block; line-height: 56px; text-align: center; border: 1px solid #a7f3d0; margin: 0 auto 20px auto; vertical-align: middle;">
+                <span style="font-size: 28px; color: #10b981; font-weight: bold; line-height: 56px; vertical-align: middle; display: block; text-align: center; margin: 0;">✓</span>
               </div>
-              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">QR Payment Approved!</h2>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">QR Payment Success!</h2>
               <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your deposit request has been successfully approved and credited to your wallet balance.</p>
             </td>
           </tr>
@@ -164,7 +183,7 @@ async function startServer() {
                   <td>
                     <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 1px;">Amount Credited</span>
                     <h1 style="margin: 5px 0; font-size: 36px; font-weight: 900; color: #10b981;">₹{{amount}}</h1>
-                    <span style="font-size: 11px; font-weight: 700; color: #475569;">Charge: {{charge_pct}}% | Final Profit: ₹{{final_profit}}</span>
+                    <span style="font-size: 11px; font-weight: 700; color: #475569;">Charge: {{charge_pct}}% | Credit Wallet Balance: ₹{{final_profit}}</span>
                   </td>
                 </tr>
               </table>
@@ -207,6 +226,7 @@ async function startServer() {
             <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">If you have any questions regarding this transaction, please contact our support desk.</p>
               <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b; font-weight: 600;">Contact Our Support Team: <a href="mailto:usepay.in@gmail.com" style="color: #6366f1; text-decoration: none;">usepay.in@gmail.com</a></p>
             </td>
           </tr>
         </table>
@@ -221,6 +241,17 @@ async function startServer() {
 <head>
   <meta charset="utf-8">
   <title>QR Payment Rejected</title>
+  <style>
+    @keyframes pulse-red {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .animate-pulse-infinite {
+      animation: pulse-red 2s infinite ease-in-out;
+      display: inline-block !important;
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
@@ -228,16 +259,24 @@ async function startServer() {
       <td align="center">
         <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
           <tr>
-            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px;">
-              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
-              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fca5a5; background-color: rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Transaction Alert</span>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 25px 30px; text-align: left; vertical-align: middle;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <img src="{{logoUrl}}" height="32" style="height: 32px; display: block; border: none; outline: none; text-decoration: none;" alt="UsePay" />
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fca5a5; background-color: rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px;">Transaction Alert</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <tr>
             <td style="padding: 40px 40px 20px 40px; text-align: center;">
-              <div style="width: 56px; height: 56px; background-color: #fef2f2; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #fecaca;">
-                <span style="font-size: 28px; color: #ef4444; vertical-align: middle;">✕</span>
+              <div class="animate-pulse-infinite" style="width: 56px; height: 56px; background-color: #fef2f2; border-radius: 50%; display: inline-block; line-height: 56px; text-align: center; border: 1px solid #fecaca; margin: 0 auto 20px auto; vertical-align: middle;">
+                <span style="font-size: 28px; color: #ef4444; font-weight: bold; line-height: 56px; vertical-align: middle; display: block; text-align: center; margin: 0;">✕</span>
               </div>
               <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">QR Payment Rejected</h2>
               <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your deposit request has been declined. The funds were not credited to your wallet.</p>
@@ -291,6 +330,7 @@ async function startServer() {
             <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">Please upload a valid payment proof with a correct UTR to get approval on subsequent attempts.</p>
               <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b; font-weight: 600;">Contact Our Support Team: <a href="mailto:usepay.in@gmail.com" style="color: #6366f1; text-decoration: none;">usepay.in@gmail.com</a></p>
             </td>
           </tr>
         </table>
@@ -305,6 +345,17 @@ async function startServer() {
 <head>
   <meta charset="utf-8">
   <title>Bill Payment Successful</title>
+  <style>
+    @keyframes pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
+    .animate-pulse-infinite {
+      animation: pulse 2s infinite ease-in-out;
+      display: inline-block !important;
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
@@ -312,18 +363,26 @@ async function startServer() {
       <td align="center">
         <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
           <tr>
-            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px;">
-              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
-              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #a5b4fc; background-color: rgba(99, 102, 241, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Utility Bill Notice</span>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 25px 30px; text-align: left; vertical-align: middle;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <img src="{{logoUrl}}" height="32" style="height: 32px; display: block; border: none; outline: none; text-decoration: none;" alt="UsePay" />
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #a5b4fc; background-color: rgba(99, 102, 241, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px;">Utility Bill Notice</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <tr>
             <td style="padding: 40px 40px 20px 40px; text-align: center;">
-              <div style="width: 56px; height: 56px; background-color: #ecfdf5; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #a7f3d0;">
-                <span style="font-size: 28px; color: #10b981; vertical-align: middle;">✓</span>
+              <div class="animate-pulse-infinite" style="width: 56px; height: 56px; background-color: #ecfdf5; border-radius: 50%; display: inline-block; line-height: 56px; text-align: center; border: 1px solid #a7f3d0; margin: 0 auto 20px auto; vertical-align: middle;">
+                <span style="font-size: 28px; color: #10b981; font-weight: bold; line-height: 56px; vertical-align: middle; display: block; text-align: center; margin: 0;">✓</span>
               </div>
-              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">Bill Payment Successful!</h2>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">Bill Payment Success!</h2>
               <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your utility bill payment request was approved and processed successfully at the operator end.</p>
             </td>
           </tr>
@@ -379,6 +438,7 @@ async function startServer() {
             <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">The receipt will be available in your account's Bill History tab for download or print.</p>
               <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b; font-weight: 600;">Contact Our Support Team: <a href="mailto:usepay.in@gmail.com" style="color: #6366f1; text-decoration: none;">usepay.in@gmail.com</a></p>
             </td>
           </tr>
         </table>
@@ -393,6 +453,17 @@ async function startServer() {
 <head>
   <meta charset="utf-8">
   <title>Bill Payment Failed & Refunded</title>
+  <style>
+    @keyframes pulse-amber {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(217, 119, 6, 0.4); }
+      70% { transform: scale(1.05); box-shadow: 0 0 0 10px rgba(217, 119, 6, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(217, 119, 6, 0); }
+    }
+    .animate-pulse-infinite {
+      animation: pulse-amber 2s infinite ease-in-out;
+      display: inline-block !important;
+    }
+  </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
   <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 20px;">
@@ -400,16 +471,24 @@ async function startServer() {
       <td align="center">
         <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">
           <tr>
-            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 30px;">
-              <span style="font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">Use<span style="color: #6366f1;">Pay</span></span>
-              <span style="float: right; font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fca5a5; background-color: rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px; margin-top: 5px;">Transaction Refund</span>
+            <td align="left" style="background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); padding: 25px 30px; text-align: left; vertical-align: middle;">
+              <table width="100%" border="0" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td align="left" valign="middle">
+                    <img src="{{logoUrl}}" height="32" style="height: 32px; display: block; border: none; outline: none; text-decoration: none;" alt="UsePay" />
+                  </td>
+                  <td align="right" valign="middle">
+                    <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; color: #fca5a5; background-color: rgba(239, 68, 68, 0.2); padding: 4px 10px; border-radius: 12px; letter-spacing: 1.5px;">Transaction Refund</span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           
           <tr>
             <td style="padding: 40px 40px 20px 40px; text-align: center;">
-              <div style="width: 56px; height: 56px; background-color: #fffbeb; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; line-height: 56px; text-align: center; border: 1px solid #fde68a;">
-                <span style="font-size: 28px; color: #d97706; vertical-align: middle;">↩</span>
+              <div class="animate-pulse-infinite" style="width: 56px; height: 56px; background-color: #fffbeb; border-radius: 50%; display: inline-block; line-height: 56px; text-align: center; border: 1px solid #fde68a; margin: 0 auto 20px auto; vertical-align: middle;">
+                <span style="font-size: 28px; color: #d97706; font-weight: bold; line-height: 56px; vertical-align: middle; display: block; text-align: center; margin: 0;">↩</span>
               </div>
               <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a; tracking: -0.5px;">Bill Payment Failed & Refunded</h2>
               <p style="margin: 10px 0 0 0; font-size: 13px; color: #64748b; font-weight: 500; line-height: 1.5;">Your bill payment request has been rejected. The full debited amount (including charges) has been successfully refunded back to your wallet.</p>
@@ -467,6 +546,7 @@ async function startServer() {
             <td style="background-color: #f8fafc; padding: 24px 40px; border-top: 1px solid #f1f5f9; text-align: center; border-radius: 0 0 24px 24px;">
               <p style="margin: 0; font-size: 11px; color: #94a3b8; font-weight: 500; line-height: 1.5;">If the refund has not reflected, please contact our support team immediately.</p>
               <p style="margin: 5px 0 0 0; font-size: 11px; color: #6366f1; font-weight: 700;">UsePay Support Desk &bull; www.usepay.in</p>
+              <p style="margin: 5px 0 0 0; font-size: 11px; color: #64748b; font-weight: 600;">Contact Our Support Team: <a href="mailto:usepay.in@gmail.com" style="color: #6366f1; text-decoration: none;">usepay.in@gmail.com</a></p>
             </td>
           </tr>
         </table>
@@ -525,6 +605,13 @@ async function startServer() {
         }
       }
 
+      // Fetch settings logo
+      const { data: settings } = await supabaseAdmin.from('qr_settings').select('logo_url').eq('id', 1).single();
+      let logoUrl = settings?.logo_url || "https://usepay.in/logo.png";
+      if (logoUrl.startsWith('/')) {
+        logoUrl = 'https://usepay.in' + logoUrl;
+      }
+
       const formattedDate = new Date(payment.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST';
       const amountVal = Number(payment.amount);
       const chargesVal = Number(payment.charges || 0);
@@ -533,15 +620,16 @@ async function startServer() {
       let html = "";
 
       if (status === 'approved') {
-        subject = `🟢 [UsePay] QR Payment Approved - ₹${amountVal.toLocaleString('en-IN')}`;
+        subject = `🟢 [UsePay] QR Payment Success - ₹${amountVal.toLocaleString('en-IN')}`;
         const chargePct = amountVal > 0 ? ((chargesVal / amountVal) * 100).toFixed(2) : "0.00";
         const finalProfit = (amountVal - chargesVal).toFixed(2);
 
         html = QR_APPROVED_EMAIL_TEMPLATE
+          .replace(/\{\{logoUrl\}\}/g, logoUrl)
           .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
           .replace(/\{\{charge_pct\}\}/g, chargePct)
           .replace(/\{\{final_profit\}\}/g, Number(finalProfit).toLocaleString('en-IN', { minimumFractionDigits: 2 }))
-          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{userId\}\}/g, user.id)
           .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
           .replace(/\{\{utr\}\}/g, payment.utr_id)
           .replace(/\{\{qrName\}\}/g, qrName)
@@ -552,9 +640,10 @@ async function startServer() {
         const reasonText = rejectionReason || payment.rejection_reason || "Invalid transaction proof or UTR ID.";
 
         html = QR_REJECTED_EMAIL_TEMPLATE
+          .replace(/\{\{logoUrl\}\}/g, logoUrl)
           .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
           .replace(/\{\{rejectionReason\}\}/g, reasonText)
-          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{userId\}\}/g, user.id)
           .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
           .replace(/\{\{utr\}\}/g, payment.utr_id)
           .replace(/\{\{qrName\}\}/g, qrName)
@@ -607,6 +696,13 @@ async function startServer() {
         return res.json({ success: true, skipped: true, reason: "No valid email" });
       }
 
+      // Fetch settings logo
+      const { data: settings } = await supabaseAdmin.from('qr_settings').select('logo_url').eq('id', 1).single();
+      let logoUrl = settings?.logo_url || "https://usepay.in/logo.png";
+      if (logoUrl.startsWith('/')) {
+        logoUrl = 'https://usepay.in' + logoUrl;
+      }
+
       const formattedDate = new Date(bill.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + ' IST';
       const amountVal = Number(bill.amount);
       const chargesVal = Number(bill.charges || 0);
@@ -619,9 +715,10 @@ async function startServer() {
         subject = `🟢 [UsePay] Bill Payment Successful - ₹${amountVal.toLocaleString('en-IN')}`;
         
         html = BILL_APPROVED_EMAIL_TEMPLATE
+          .replace(/\{\{logoUrl\}\}/g, logoUrl)
           .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
           .replace(/\{\{charges\}\}/g, chargesVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
-          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{userId\}\}/g, user.id)
           .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
           .replace(/\{\{serviceType\}\}/g, "Credit Card Bill")
           .replace(/\{\{provider\}\}/g, bill.card_bank)
@@ -635,9 +732,10 @@ async function startServer() {
         const totalDeduction = (amountVal + chargesVal).toFixed(2);
 
         html = BILL_REJECTED_EMAIL_TEMPLATE
+          .replace(/\{\{logoUrl\}\}/g, logoUrl)
           .replace(/\{\{totalDeduction\}\}/g, Number(totalDeduction).toLocaleString('en-IN', { minimumFractionDigits: 2 }))
           .replace(/\{\{rejectionReason\}\}/g, reasonText)
-          .replace(/\{\{userId\}\}/g, user.id.slice(0, 8))
+          .replace(/\{\{userId\}\}/g, user.id)
           .replace(/\{\{firmName\}\}/g, user.firm_name || user.name || 'N/A')
           .replace(/\{\{provider\}\}/g, bill.card_bank)
           .replace(/\{\{consumerNumber\}\}/g, maskedCard)
