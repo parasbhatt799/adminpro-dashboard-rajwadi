@@ -42,6 +42,38 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
 
+const getFieldLabel = (originalLabel: string, isUatBiller: boolean = false) => {
+  if (isUatBiller) return originalLabel;
+  const lower = originalLabel.toLowerCase().trim();
+  if (lower === 'customer mobile' || lower === 'mobile number' || lower === 'customer mobile number') {
+    return 'Mobile number';
+  }
+  if (lower === 'select biller' || lower === 'biller' || lower === 'biller name') {
+    return 'Biller name';
+  }
+  if (lower === 'customer email' || lower === 'email') {
+    return 'Email';
+  }
+  if (lower === 'customer name') {
+    return 'Customer name';
+  }
+  if (
+    lower.includes('consumer') ||
+    lower.includes('account') ||
+    lower.includes('service number') ||
+    lower.includes('subscriber') ||
+    lower.includes('tenement') ||
+    lower.includes('policy number') ||
+    lower.includes('card number') ||
+    lower === 'ca number' ||
+    lower === 'ca_number'
+  ) {
+    return 'CA number';
+  }
+  return originalLabel;
+};
+
+
 interface BillerInputParam {
   paramName: string;
   dataType: string;
@@ -252,6 +284,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const [filteredBillers, setFilteredBillers] = useState<BillerInfo[]>([]);
   const [searchBillerQuery, setSearchBillerQuery] = useState<string>('');
   const [selectedBiller, setSelectedBiller] = useState<BillerInfo | null>(null);
+  const [billerDropdownOpen, setBillerDropdownOpen] = useState<boolean>(false);
   const [billerParamsLoading, setBillerParamsLoading] = useState<boolean>(false);
 
   // Form parameters
@@ -281,6 +314,32 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     fetchSupported: boolean;
   } | null>(null);
 
+  // UAT Multiple Amount and Payment Mode states
+  const [amountOptions, setAmountOptions] = useState({
+    base: true,
+    lateFee: false,
+    additional: false,
+    fixed: false
+  });
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>('UPI');
+
+  const baseBillAmount = billDetails ? billDetails.billAmount : 0;
+  const latePaymentFee = 100.00;
+  const additionalCharges = 50.00;
+  const fixedCharges = 30.00;
+
+  useEffect(() => {
+    if (billDetails && billDetails.fetchSupported) {
+      let sum = 0;
+      if (amountOptions.base) sum += baseBillAmount;
+      if (amountOptions.lateFee) sum += latePaymentFee;
+      if (amountOptions.additional) sum += additionalCharges;
+      if (amountOptions.fixed) sum += fixedCharges;
+      setManualAmount(sum.toFixed(2));
+    }
+  }, [amountOptions, baseBillAmount, billDetails]);
+
+
   // Receipt State
   const [receipt, setReceipt] = useState<any | null>(null);
 
@@ -308,26 +367,26 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       // Colors
       const primaryColor: [number, number, number] = [15, 23, 42]; // slate-900
 
-      // Header Banner
-      doc.setFillColor(15, 23, 42);
-      doc.rect(0, 0, 210, 40, 'F');
-
-      doc.setTextColor(255, 255, 255);
+      // Header Banner (Black strip removed, background remains white)
+      doc.setTextColor(15, 23, 42);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(22);
       doc.text('UsePay', 20, 20);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(10);
+      doc.setTextColor(100, 116, 139);
       doc.text('Bharat Connect Utility Payment Receipt', 20, 30);
 
-      // Trust Seal Badge
-      doc.setFillColor(16, 185, 129);
-      doc.roundedRect(140, 12, 50, 16, 3, 3, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.text('B ASSURED', 152, 22);
+      // Add Be-Assured Logo image in the top-right corner
+      const logoImg = document.getElementById('pdf-assured-logo') as HTMLImageElement;
+      if (logoImg) {
+        try {
+          doc.addImage(logoImg, 'PNG', 160, 8, 30, 30);
+        } catch (imgErr) {
+          console.error('Error adding logo to PDF:', imgErr);
+        }
+      }
 
       // Receipt Box Title
       doc.setTextColor(51, 65, 85);
@@ -338,7 +397,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       // Table data - all 17 fields!
       const columns = ['Parameter', 'Value'];
       const rows = [
-        ['B-Connect Txn ID', receipt.bConnectTxnId || 'N/A'],
+        ['BBPD Transaction ID', receipt.bConnectTxnId || 'N/A'],
         ['Biller ID', receipt.billerId || 'N/A'],
         ['Biller Name', receipt.billerName || 'N/A'],
         ['Customer Name', receipt.customerName || 'N/A'],
@@ -350,7 +409,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
         ['Bill Amount', `INR ${Number(receipt.billAmount).toFixed(2)}`],
         ['Customer Convenience Fees', `INR ${Number(receipt.ccf1Fee).toFixed(2)}`],
         ['Total Amount', `INR ${Number(receipt.totalAmount).toFixed(2)}`],
-        ['Transaction Date & Time', receipt.date || 'N/A'],
+        ['Transaction Date and Time', receipt.date || 'N/A'],
         ['Initiating Channel', receipt.initiatingChannel || 'N/A'],
         ['Payment Mode', receipt.paymentMode || 'N/A'],
         ['Transaction Status', receipt.transactionStatus || 'N/A'],
@@ -442,10 +501,19 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     setBillDetails(null);
     setFormInputs({});
     setSelectedBiller(null);
+    setBillerDropdownOpen(false);
+    setSearchBillerQuery('');
     setManualAmount('');
     setSelectedPlan(null);
     setPlans([]);
     setCustomerEmail('');
+    setAmountOptions({
+      base: true,
+      lateFee: false,
+      additional: false,
+      fixed: false
+    });
+    setSelectedPaymentMode('UPI');
   };
 
   useEffect(() => {
@@ -638,6 +706,16 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       filtered = MOCK_BILLERS_BY_CATEGORY[searchLower];
     }
 
+    // Always prepend UAT testing billers for easy access during validation (except prepaid)
+    if (searchLower !== 'mobile prepaid') {
+      const uatBillers = [
+        { billerId: 'OTME00005XXZ43', billerName: 'UAT Fetch & Pay (OTME00005XXZ43)', categoryName: catName },
+        { billerId: 'OTNS00005XXZ43', billerName: 'UAT Quick Pay (OTNS00005XXZ43)', categoryName: catName }
+      ];
+      const cleanFiltered = filtered.filter(b => b.billerId !== 'OTME00005XXZ43' && b.billerId !== 'OTNS00005XXZ43');
+      filtered = [...uatBillers, ...cleanFiltered];
+    }
+
     setBillers(filtered);
     setFilteredBillers(filtered);
   };
@@ -653,6 +731,13 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     setPlans([]);
     setCcf1Config(null);
     setCcf1Fee(0);
+    setAmountOptions({
+      base: true,
+      lateFee: false,
+      additional: false,
+      fixed: false
+    });
+    setSelectedPaymentMode('UPI');
 
     // Check UAT Special Billers
     if (biller.billerId === 'OTME00005XXZ43' || biller.billerId === 'OTNS00005XXZ43') {
@@ -925,7 +1010,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           customerMobile,
           customerEmail,
           amount: amt,
-          paymentMode: 'UPI',
+          paymentMode: selectedPaymentMode,
           quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
           ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined
         })
@@ -959,7 +1044,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           totalAmount: totAmt,
           date: new Date().toLocaleString('en-IN'),
           initiatingChannel: 'Internet (WEB)',
-          paymentMode: 'UPI',
+          paymentMode: selectedPaymentMode,
           transactionStatus: 'Successful',
           approvalNumber: approvalNum,
           consumerDetails: formInputs
@@ -1013,10 +1098,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
             Secure Gateway
           </span>
           <div className="flex items-center gap-4">
-            <div className="flex flex-col items-center">
-              <img src="/b_mnemonic.png" alt="B" className="h-8 w-8 object-contain" />
-              <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-1 whitespace-nowrap">Bill Payment</span>
-            </div>
+
             <h2 className="text-3xl font-black text-white tracking-tight">
               Bharat Connect Bill Payment
             </h2>
@@ -1043,21 +1125,19 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80 shadow-inner w-fit">
         <button
           onClick={() => setViewMode('payment')}
-          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            viewMode === 'payment'
-              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${viewMode === 'payment'
+            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
         >
           Pay Bills
         </button>
         <button
           onClick={() => setViewMode('search')}
-          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-            viewMode === 'search'
-              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-          }`}
+          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${viewMode === 'search'
+            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+            }`}
         >
           Search Txn
         </button>
@@ -1084,16 +1164,18 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
             )}
             <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
               {viewMode === 'search' ? 'Search Bharat Connect Transactions' : `Step ${step} of 3: ${step === 1 ? 'Select Utility Service' :
-                  step === 2 ? `Select Provider & Enter Details` :
-                    'Receipt generated'
+                step === 2 ? `Select Provider & Enter Details` :
+                  'Receipt generated'
                 }`}
             </span>
           </div>
-          <img
-            src="/bharat_connect.png"
-            alt="Bharat Connect"
-            style={{ width: '83px', height: '30px', objectFit: 'contain' }}
-          />
+          {step !== 3 && (
+            <img
+              src="/bharat_connect.png"
+              alt="Bharat Connect"
+              style={{ width: '130px', height: 'auto', objectFit: 'contain' }}
+            />
+          )}
         </div>
 
         {/* Step Contents */}
@@ -1110,8 +1192,8 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                       type="button"
                       onClick={() => setSearchType('txnId')}
                       className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${searchType === 'txnId'
-                          ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
+                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                         }`}
                     >
                       B-Connect Transaction ID
@@ -1120,8 +1202,8 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                       type="button"
                       onClick={() => setSearchType('mobile')}
                       className={`py-3.5 px-4 text-xs font-black uppercase tracking-widest rounded-2xl border transition-all ${searchType === 'mobile'
-                          ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
-                          : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                        ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-sm'
+                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                         }`}
                     >
                       Mobile & Date Range
@@ -1258,10 +1340,10 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                 <td className="p-4 text-slate-400 font-bold">{new Date(txn.created_at).toLocaleString('en-IN')}</td>
                                 <td className="p-4 text-center">
                                   <span className={`inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${txn.status === 'success' || txn.status === 'approved'
-                                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                                      : txn.status === 'failed' || txn.status === 'rejected'
-                                        ? 'bg-rose-50 text-rose-600 border border-rose-100'
-                                        : 'bg-amber-50 text-amber-600 border border-amber-100'
+                                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                                    : txn.status === 'failed' || txn.status === 'rejected'
+                                      ? 'bg-rose-50 text-rose-600 border border-rose-100'
+                                      : 'bg-amber-50 text-amber-600 border border-amber-100'
                                     }`}>
                                     {txn.status || 'Success'}
                                   </span>
@@ -1334,40 +1416,103 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                         {/* Select Provider Dropdown */}
                         <div className="space-y-1.5">
                           <label className="text-sm font-semibold text-slate-700 block">
-                            Select Biller
+                            {getFieldLabel('Biller name')}
                           </label>
-                          <select
-                            onChange={(e) => {
-                              if (e.target.value) {
-                                const selectedId = e.target.value;
-                                const b = filteredBillers.find(x => x.billerId === selectedId) ||
-                                  allBillers.find(x => x.billerId === selectedId);
-                                if (b) {
-                                  selectBiller(b as BillerInfo);
-                                }
-                              } else {
-                                setSelectedBiller(null);
-                                setBillDetails(null);
-                                setFormInputs({});
-                                setManualAmount('');
-                                setSelectedPlan(null);
-                                setPlans([]);
-                              }
-                            }}
-                            value={selectedBiller?.billerId || ""}
-                            className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all cursor-pointer"
-                          >
-                            <option value="">-- Select Biller --</option>
-                            {filteredBillers.length > 0 && (
-                              <optgroup label={`${selectedCategory} Providers`}>
-                                {filteredBillers.map((b) => (
-                                  <option key={b.billerId} value={b.billerId}>
-                                    {b.billerName}
-                                  </option>
-                                ))}
-                              </optgroup>
+                          <div className="relative">
+                            {/* Custom Dropdown Trigger Button */}
+                            <div
+                              onClick={() => setBillerDropdownOpen(!billerDropdownOpen)}
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all cursor-pointer flex justify-between items-center select-none shadow-sm hover:border-slate-300"
+                            >
+                              <span className={selectedBiller ? "text-slate-800 font-semibold" : "text-slate-400 font-medium"}>
+                                {selectedBiller ? selectedBiller.billerName : `-- ${getFieldLabel('Select Biller')} --`}
+                              </span>
+                              <svg
+                                className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${billerDropdownOpen ? 'transform rotate-180' : ''}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </div>
+
+                            {/* Dropdown Menu Overlay Click-Outside Catcher */}
+                            {billerDropdownOpen && (
+                              <div
+                                className="fixed inset-0 z-40 bg-transparent cursor-default"
+                                onClick={() => setBillerDropdownOpen(false)}
+                              />
                             )}
-                          </select>
+
+                            {/* Dropdown Menu Card */}
+                            {billerDropdownOpen && (
+                              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col max-h-[300px] animate-in slide-in-from-top-2 duration-200">
+                                {/* Search Field */}
+                                <div className="p-3 border-b border-slate-100 bg-slate-50 sticky top-0 z-10 flex items-center gap-2">
+                                  <svg className="w-4 h-4 text-slate-400 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                  </svg>
+                                  <input
+                                    type="text"
+                                    placeholder={`Search ${getFieldLabel('Biller name').toLowerCase()}...`}
+                                    value={searchBillerQuery}
+                                    onChange={(e) => setSearchBillerQuery(e.target.value)}
+                                    className="w-full text-xs font-semibold text-slate-700 bg-transparent outline-none placeholder:text-slate-300"
+                                    onClick={(e) => e.stopPropagation()}
+                                    autoFocus
+                                  />
+                                  {searchBillerQuery && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSearchBillerQuery('');
+                                      }}
+                                      className="p-1 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  )}
+                                </div>
+
+                                {/* Biller Option List */}
+                                <div className="overflow-y-auto divide-y divide-slate-50/50 max-h-[260px] text-left">
+                                  {filteredBillers.length === 0 ? (
+                                    <div className="p-6 text-center text-xs text-slate-400 font-medium">
+                                      No providers found matching "{searchBillerQuery}"
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30 sticky top-0 select-none">
+                                        {selectedCategory} Providers
+                                      </div>
+                                      {filteredBillers.map((b) => (
+                                        <div
+                                          key={b.billerId}
+                                          onClick={() => {
+                                            selectBiller(b);
+                                            setBillerDropdownOpen(false);
+                                            setSearchBillerQuery('');
+                                          }}
+                                          className={`px-4 py-3 text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${
+                                            selectedBiller?.billerId === b.billerId
+                                              ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-4 border-indigo-600'
+                                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent'
+                                          }`}
+                                        >
+                                          <span>{b.billerName}</span>
+                                          {selectedBiller?.billerId === b.billerId && (
+                                            <CheckCircle2 size={14} className="text-indigo-600 shrink-0 ml-2 animate-in zoom-in-50 duration-150" />
+                                          )}
+                                        </div>
+                                      ))}
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Inline billing form loaded on selection */}
@@ -1379,26 +1524,30 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                         ) : (
                           selectedBiller && (
                             <form onSubmit={handleFetchBill} className="space-y-4 border-t border-slate-100/80 pt-4 animate-in fade-in duration-300">
-                              {inputParams.map((param, idx) => (
-                                <div key={idx} className="space-y-1.5">
-                                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
-                                    {param.paramName}
-                                    {!param.optional && <span className="text-rose-500 font-bold ml-1">*</span>}
-                                  </label>
-                                  <input
-                                    type="text"
-                                    required={!param.optional}
-                                    value={formInputs[param.paramName] || ''}
-                                    onChange={(e) => setFormInputs({ ...formInputs, [param.paramName]: e.target.value })}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                    placeholder={`Enter ${param.paramName}`}
-                                  />
-                                </div>
-                              ))}
+                              {inputParams.map((param, idx) => {
+                                const isUat = selectedBiller.billerId === 'OTME00005XXZ43' || selectedBiller.billerId === 'OTNS00005XXZ43';
+                                const labelText = getFieldLabel(param.paramName, isUat);
+                                return (
+                                  <div key={idx} className="space-y-1.5">
+                                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                                      {labelText}
+                                      {!param.optional && <span className="text-rose-500 font-bold ml-1">*</span>}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      required={!param.optional}
+                                      value={formInputs[param.paramName] || ''}
+                                      onChange={(e) => setFormInputs({ ...formInputs, [param.paramName]: e.target.value })}
+                                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                                      placeholder={`Enter ${labelText}`}
+                                    />
+                                  </div>
+                                );
+                              })}
 
                               <div className="space-y-1.5">
                                 <label className="text-sm font-semibold text-slate-700">
-                                  Customer Mobile <span className="text-rose-500 font-bold ml-1">*</span>
+                                  {getFieldLabel('Mobile number')} <span className="text-rose-500 font-bold ml-1">*</span>
                                 </label>
                                 <input
                                   type="tel"
@@ -1407,22 +1556,23 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                   value={customerMobile}
                                   onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, ''))}
                                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                  placeholder="Enter customer mobile"
+                                  placeholder={`Enter ${getFieldLabel('Mobile number').toLowerCase()}`}
                                 />
                               </div>
 
                               <div className="space-y-1.5">
                                 <label className="text-sm font-semibold text-slate-700">
-                                  Customer Email
+                                  {getFieldLabel('Email')}
                                 </label>
                                 <input
                                   type="email"
                                   value={customerEmail}
                                   onChange={(e) => setCustomerEmail(e.target.value)}
                                   className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                  placeholder="Enter customer email"
+                                  placeholder={`Enter ${getFieldLabel('Email').toLowerCase()}`}
                                 />
                               </div>
+
 
                               {selectedCategory !== 'Mobile Prepaid' && (
                                 <button
@@ -1517,23 +1667,205 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                               )}
                             </div>
 
-                            {(!billDetails || billDetails.fetchSupported) ? (
-                              <div className="space-y-4">
-                                {billDetails && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
-                                    <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                            {billDetails ? (
+                              billDetails.fetchSupported ? (
+                                <div className="space-y-4">
+                                  {/* 1. Biller Name */}
+                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Biller Name</span>
+                                    <span className="font-black text-slate-800">{selectedBiller?.billerName || 'N/A'}</span>
                                   </div>
-                                )}
 
-                                <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
-                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                  {/* 2. Customer Name */}
+                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">{getFieldLabel('Customer name')}</span>
+                                    <span className="font-black text-slate-800">{billDetails.customerName}</span>
+                                  </div>
+
+                                  {/* 3. Customer Number */}
+                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Customer Number</span>
+                                    <span className="font-black text-slate-800 font-mono">
+                                      {Object.values(formInputs)[0] || customerMobile || 'N/A'}
+                                    </span>
+                                  </div>
+
+                                  {/* 4. Bill Date */}
+                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
+                                    <span className="font-black text-slate-800">{billDetails.billDate && billDetails.billDate !== 'NA' ? billDetails.billDate : 'N/A'}</span>
+                                  </div>
+
+                                  {/* 5. Bill Period */}
+                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
+                                    <span className="font-black text-slate-800">{billDetails.billPeriod && billDetails.billPeriod !== 'NA' ? billDetails.billPeriod : 'N/A'}</span>
+                                  </div>
+
+                                  {/* 6. Bill Number */}
+                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
+                                    <span className="font-black text-slate-800 font-mono">{billDetails.billNumber && billDetails.billNumber !== 'NA' ? billDetails.billNumber : 'N/A'}</span>
+                                  </div>
+
+                                  {/* 7. Due Date */}
+                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
+                                    <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate && billDetails.dueDate !== 'NA' ? billDetails.dueDate : 'N/A'}</span>
+                                  </div>
+
+                                  {/* 12. Multiple Amount Option Checkboxes */}
+                                  <div className="space-y-2 border-t border-slate-100 pt-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Multiple Amount Option</label>
+                                    <div className="space-y-2 bg-slate-100/50 p-3.5 rounded-2xl border border-slate-200/50">
+                                      {/* Base Bill Amount Checkbox */}
+                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={amountOptions.base}
+                                            onChange={(e) => setAmountOptions({ ...amountOptions, base: e.target.checked })}
+                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                          />
+                                          <span>Base Bill Amount</span>
+                                        </div>
+                                        <span className="font-bold text-slate-800">₹{baseBillAmount.toFixed(2)}</span>
+                                      </label>
+
+                                      {/* Late Payment Fee Checkbox */}
+                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={amountOptions.lateFee}
+                                            onChange={(e) => setAmountOptions({ ...amountOptions, lateFee: e.target.checked })}
+                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                          />
+                                          <span>Late Payment Fee</span>
+                                        </div>
+                                        <span className="font-bold text-slate-800">₹{latePaymentFee.toFixed(2)}</span>
+                                      </label>
+
+                                      {/* Additional Charges Checkbox */}
+                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={amountOptions.additional}
+                                            onChange={(e) => setAmountOptions({ ...amountOptions, additional: e.target.checked })}
+                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                          />
+                                          <span>Additional Charges</span>
+                                        </div>
+                                        <span className="font-bold text-slate-800">₹{additionalCharges.toFixed(2)}</span>
+                                      </label>
+
+                                      {/* Fixed Charges Checkbox */}
+                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
+                                        <div className="flex items-center gap-2">
+                                          <input
+                                            type="checkbox"
+                                            checked={amountOptions.fixed}
+                                            onChange={(e) => setAmountOptions({ ...amountOptions, fixed: e.target.checked })}
+                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                                          />
+                                          <span>Fixed Charges</span>
+                                        </div>
+                                        <span className="font-bold text-slate-800">₹{fixedCharges.toFixed(2)}</span>
+                                      </label>
+                                    </div>
+                                  </div>
+
+                                  {/* 8. Bill Amount */}
+                                  <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-3">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Amount</span>
+                                    <span className="font-black text-slate-800 text-sm">₹{Number(manualAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+
+                                  {/* 9. Customer Convenience Fees */}
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Customer Convenience Fees</span>
+                                    <span className="font-bold text-indigo-600">₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+
+                                  {/* 10. Total Amount */}
+                                  <div className="flex justify-between items-center text-xs bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/50">
+                                    <span className="text-indigo-900 font-black uppercase tracking-wider">Total Amount</span>
+                                    <span className="text-base font-black text-emerald-600">
+                                      ₹{(Number(manualAmount || 0) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </span>
+                                  </div>
+
+                                  {/* 11. Payment Mode */}
+                                  <div className="space-y-1.5 border-t border-slate-100 pt-3">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Payment Mode</label>
+                                    <select
+                                      value={selectedPaymentMode}
+                                      onChange={(e) => setSelectedPaymentMode(e.target.value)}
+                                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 cursor-pointer"
+                                    >
+                                      <option value="UPI">UPI</option>
+                                      <option value="Wallet">Wallet Balance</option>
+                                      <option value="Net Banking">Net Banking</option>
+                                      <option value="Debit Card">Debit Card</option>
+                                      <option value="Credit Card">Credit Card</option>
+                                    </select>
+                                  </div>
+                                </div>
+                              ) : (
+                                // Manual entry (QuickPay)
+                                <div className="space-y-4">
+                                  <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
+                                    <AlertTriangle size={16} className="shrink-0 mt-0.5" />
+                                    <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                    <input
+                                      type="number"
+                                      required
+                                      value={manualAmount}
+                                      onChange={(e) => setManualAmount(e.target.value)}
+                                      placeholder="Enter exact amount to pay"
+                                      className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
+                                    />
+                                  </div>
+
+                                  {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Bill Base Amount</span>
+                                        <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                        <span>Transaction Charges</span>
+                                        <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                      {ccf1Fee > 0 && (
+                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                          <span>Convenience Fee (CCF1 + GST)</span>
+                                          <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                      )}
+                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                        <span>Total Debited</span>
+                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            ) : (
+                              // Mobile Prepaid Simple Summary
+                              <div className="space-y-4">
+                                <div className="space-y-2">
+                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Recharge Amount (₹)</label>
                                   <input
                                     type="number"
                                     required
                                     value={manualAmount}
                                     onChange={(e) => setManualAmount(e.target.value)}
-                                    placeholder="Enter exact amount to pay"
+                                    placeholder="Enter amount to recharge"
                                     disabled={selectedPlan !== null}
                                     className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
                                   />
@@ -1542,74 +1874,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                 {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
                                   <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
                                     <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                      <span>Bill Base Amount</span>
-                                      <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                      <span>Transaction Charges</span>
-                                      <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                    {ccf1Fee > 0 && (
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Convenience Fee (CCF1 + GST)</span>
-                                        <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                    )}
-                                    <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                      <span>Total Debited</span>
-                                      <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {billDetails?.dueDate && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
-                                    <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
-                                  </div>
-                                )}
-                                {billDetails?.billNumber && billDetails.billNumber !== "NA" && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
-                                    <span className="font-bold text-slate-600">{billDetails.billNumber}</span>
-                                  </div>
-                                )}
-                                {billDetails?.billDate && billDetails.billDate !== "NA" && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
-                                    <span className="font-bold text-slate-600">{billDetails.billDate}</span>
-                                  </div>
-                                )}
-                                {billDetails?.billPeriod && billDetails.billPeriod !== "NA" && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
-                                    <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              // Manual entry (QuickPay)
-                              <div className="space-y-4">
-                                <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
-                                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                                  <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
-                                </div>
-                                <div className="space-y-2">
-                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                                  <input
-                                    type="number"
-                                    required
-                                    value={manualAmount}
-                                    onChange={(e) => setManualAmount(e.target.value)}
-                                    placeholder="Enter exact amount to pay"
-                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                  />
-                                </div>
-
-                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                  <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
-                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                      <span>Bill Base Amount</span>
+                                      <span>Base Amount</span>
                                       <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
@@ -1635,7 +1900,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                               <button
                                 type="button"
                                 onClick={initiatePayment}
-                                disabled={loading || (!billDetails?.fetchSupported && !manualAmount)}
+                                disabled={loading || (!billDetails?.fetchSupported && !manualAmount && selectedCategory !== 'Mobile Prepaid')}
                                 className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
                               >
                                 <ShieldCheck size={16} />
@@ -1657,7 +1922,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                   <div className="lg:col-span-7 flex flex-col items-center justify-center w-full">
                     <div className="w-full max-w-md bg-white border border-slate-200 rounded-[32px] p-6 shadow-xl space-y-6 relative" id="receipt-print-area">
                       <div className="absolute top-4 right-4 z-10">
-                        <img src="/assured_logo.png" alt="Be-Assured Logo" style={{ width: '130px', height: '120px', objectFit: 'contain' }} className="opacity-100 brightness-110 filter drop-shadow-sm" />
+                        <img id="pdf-assured-logo" src="/assured_logo.png" alt="Be-Assured Logo" style={{ width: '80px', height: '80px', objectFit: 'contain' }} className="opacity-100 brightness-110 filter drop-shadow-sm" />
                       </div>
 
                       <div className="text-center border-b border-dashed border-slate-100 pb-5">
@@ -1673,7 +1938,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
 
                       <div className="space-y-3.5 text-xs font-semibold text-slate-600">
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">B-Connect Txn ID</span>
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">BBPD Transaction ID</span>
                           <span className="font-black text-slate-800 text-right select-all font-mono">{receipt.bConnectTxnId}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
@@ -1713,7 +1978,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                           <span className="font-black text-slate-800 text-right">₹{receipt.billAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Convenience Fees</span>
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Customer Convenience Fees</span>
                           <span className="font-black text-slate-800 text-right">₹{receipt.ccf1Fee.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
@@ -1721,7 +1986,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                           <span className="font-black text-emerald-600 text-right text-sm">₹{receipt.totalAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Date & Time</span>
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Date and Time</span>
                           <span className="font-black text-slate-800 text-right">{receipt.date}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">

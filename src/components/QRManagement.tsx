@@ -58,6 +58,7 @@ interface QRHistoryItem {
   created_at: string;
   whatsapp_number?: string;
   profit_percentage?: number;
+  t_plus_one?: boolean;
   counts?: {
     total: number;
     pending: number;
@@ -79,6 +80,8 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
     is_service_enabled: true,
     active_qr_id: null
   });
+  const [uploadT1, setUploadT1] = useState(false);
+  const [previewT1, setPreviewT1] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [qrName, setQrName] = useState('');
   const [whatsappNumber, setWhatsappNumber] = useState('');
@@ -380,13 +383,14 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
     try {
       const finalImageUrl = selectedMasterUrl;
 
-      // 1. Set all previous QRs to inactive
+      // 1. Set all previous QRs of the SAME type to inactive
       await supabase
         .from('qr_history')
         .update({ is_active: false })
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('t_plus_one', uploadT1);
 
-      // 2. Create History Entry
+      // 2. Create History Entry with matching type
       const { data: newQR, error: hError } = await supabase
         .from('qr_history')
         .insert({
@@ -395,28 +399,32 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
           qr_url: finalImageUrl,
           profit_percentage: Number(uploadProfitPercentage),
           is_active: true,
-          upi_id: selectedMasterUpiId
+          upi_id: selectedMasterUpiId,
+          t_plus_one: uploadT1
         })
         .select()
         .single();
 
       if (hError) throw hError;
 
-      // 3. Update Legacy Settings
-      const { error: dbError } = await supabase
-        .from('qr_settings')
-        .update({ 
-          qr_url: finalImageUrl,
-          upi_id: selectedMasterUpiId
-        })
-        .eq('id', 1);
+      // 3. Update Legacy Settings (only for Normal QR to maintain compatibility)
+      if (!uploadT1) {
+        const { error: dbError } = await supabase
+          .from('qr_settings')
+          .update({ 
+            qr_url: finalImageUrl,
+            upi_id: selectedMasterUpiId
+          })
+          .eq('id', 1);
 
-      if (dbError) throw dbError;
+        if (dbError) throw dbError;
+      }
 
       setQrName('');
       setWhatsappNumber('');
       setSelectedMasterUrl(null);
       setSelectedMasterUpiId('');
+      setUploadT1(false);
       await fetchQRData();
       setSuccess('New QR Code activated and tracking started!');
 
@@ -627,7 +635,32 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
                 onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, ''))}
                 className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-sm"
               />
+            </div>
 
+            {/* QR Type Selector */}
+            <div className="flex gap-4 w-full">
+              <button
+                type="button"
+                onClick={() => setUploadT1(false)}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 border rounded-xl font-bold text-sm transition-all ${
+                  !uploadT1
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-600'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100/50'
+                }`}
+              >
+                Normal (Same Day)
+              </button>
+              <button
+                type="button"
+                onClick={() => setUploadT1(true)}
+                className={`flex-1 flex items-center justify-center gap-2 py-3 border rounded-xl font-bold text-sm transition-all ${
+                  uploadT1
+                    ? 'bg-amber-50 border-amber-200 text-amber-600'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100/50'
+                }`}
+              >
+                T+1 (Next Day)
+              </button>
             </div>
 
             {selectedMasterUrl && (
@@ -686,7 +719,7 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
 
         {/* Preview Section */}
         <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
             <div>
               <h3 className="font-bold text-slate-900 flex items-center gap-2">
                 <Eye size={20} className="text-indigo-600" />
@@ -694,6 +727,25 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
               </h3>
               <p className="text-xs text-slate-400 mt-1">This QR is currently being shown to users.</p>
             </div>
+
+            {/* Toggle Preview Normal / T+1 */}
+            <div className="flex bg-slate-100 p-1 rounded-xl shrink-0 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={() => setPreviewT1(false)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${!previewT1 ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              >
+                Normal
+              </button>
+              <button
+                type="button"
+                onClick={() => setPreviewT1(true)}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${previewT1 ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}
+              >
+                T+1
+              </button>
+            </div>
+
             <div className="flex items-center gap-2">
               <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${qrData.is_enabled ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
                 {qrData.is_enabled ? 'Live Now' : 'Currently Hidden'}
@@ -708,61 +760,68 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-8 items-center">
-            <div className="relative w-64 h-64 shrink-0 rounded-3xl border-2 border-dashed border-slate-100 flex items-center justify-center overflow-hidden bg-slate-50">
-              {qrData.qr_url ? (
-                <img
-                  src={qrData.qr_url}
-                  alt="Active QR Code"
-                  className="w-full h-full object-contain p-4"
-                />
-              ) : (
-                <div className="flex flex-col items-center text-slate-300">
-                  <ImageIcon size={48} className="mb-4 opacity-20" />
-                  <p className="text-xs font-medium">No QR Uploaded</p>
-                </div>
-              )}
-            </div>
+          {(() => {
+            const activePreviewQR = qrHistory.find(h => h.is_active && !!h.t_plus_one === previewT1);
+            const previewQrUrl = activePreviewQR?.qr_url || null;
 
-            <div className="flex-1 space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Active QR Name</p>
-                  <p className="text-lg font-bold text-slate-900">{qrHistory.find(h => h.is_active)?.qr_name || 'N/A'}</p>
+            return (
+              <div className="flex flex-col md:flex-row gap-8 items-center">
+                <div className="relative w-64 h-64 shrink-0 rounded-3xl border-2 border-dashed border-slate-100 flex items-center justify-center overflow-hidden bg-slate-50">
+                  {previewQrUrl ? (
+                    <img
+                      src={previewQrUrl}
+                      alt="Active QR Code"
+                      className="w-full h-full object-contain p-4"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center text-slate-300">
+                      <ImageIcon size={48} className="mb-4 opacity-20" />
+                      <p className="text-xs font-medium">No QR Uploaded ({previewT1 ? 'T+1' : 'Normal'})</p>
+                    </div>
+                  )}
                 </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">WhatsApp Target</p>
-                  <p className="text-sm font-bold text-slate-900 truncate">{qrHistory.find(h => h.is_active)?.whatsapp_number || 'NOT SET'}</p>
-                </div>
-                <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100">
-                  <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Approved Amount</p>
-                  <p className="text-lg font-bold text-emerald-700">₹{(qrHistory.find(h => h.is_active)?.counts?.amount || 0).toLocaleString('en-IN')}</p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Entries</p>
-                  <p className="text-lg font-bold text-slate-700">{qrHistory.find(h => h.is_active)?.counts?.total || 0}</p>
+
+                <div className="flex-1 space-y-6">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Active QR Name</p>
+                      <p className="text-lg font-bold text-slate-900">{activePreviewQR?.qr_name || 'N/A'}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">WhatsApp Target</p>
+                      <p className="text-sm font-bold text-slate-900 truncate">{activePreviewQR?.whatsapp_number || 'NOT SET'}</p>
+                    </div>
+                    <div className="bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100">
+                      <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1">Approved Amount</p>
+                      <p className="text-lg font-bold text-emerald-700">₹{(activePreviewQR?.counts?.amount || 0).toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Entries</p>
+                      <p className="text-lg font-bold text-slate-700">{activePreviewQR?.counts?.total || 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100">
+                    <h4 className="text-xs font-bold text-indigo-900 mb-3 uppercase tracking-widest">Entry Status Breakdown</h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-amber-600">{activePreviewQR?.counts?.pending || 0}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Pending</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-emerald-600">{activePreviewQR?.counts?.approved || 0}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Approved</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-rose-600">{activePreviewQR?.counts?.rejected || 0}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Rejected</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <div className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100">
-                <h4 className="text-xs font-bold text-indigo-900 mb-3 uppercase tracking-widest">Entry Status Breakdown</h4>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-amber-600">{qrHistory.find(h => h.is_active)?.counts?.pending || 0}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Pending</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-emerald-600">{qrHistory.find(h => h.is_active)?.counts?.approved || 0}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Approved</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-bold text-rose-600">{qrHistory.find(h => h.is_active)?.counts?.rejected || 0}</p>
-                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Rejected</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -1035,9 +1094,18 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 group/name">
+                          <div className="flex items-center gap-2 group/name flex-wrap">
                             <div>
-                              <p className="text-sm font-bold text-slate-900 leading-tight uppercase">{item.qr_name}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold text-slate-900 leading-tight uppercase">{item.qr_name}</p>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                  item.t_plus_one 
+                                    ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                                    : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                }`}>
+                                  {item.t_plus_one ? 'T+1' : 'Normal'}
+                                </span>
+                              </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                                 <p className="text-[10px] text-slate-400 font-bold whitespace-nowrap">{new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
                                 {item.whatsapp_number && (

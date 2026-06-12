@@ -15,7 +15,7 @@ interface UserPaymentProps {
 }
 
 export default function UserPayment({ userId }: UserPaymentProps) {
-  const [activeTab, setActiveTab] = useState<'qr' | 'bill' | 'payout'>('qr');
+  const [activeTab, setActiveTab] = useState<'qr' | 't1_qr' | 'bill' | 'payout'>('qr');
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [upiId, setUpiId] = useState<string | null>(null);
   const [offlineQrUrl, setOfflineQrUrl] = useState<string | null>(null);
@@ -350,16 +350,18 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .eq('id', 1)
         .single();
 
+      const isT1 = activeTab === 't1_qr';
       const { data: activeQR } = await supabase
         .from('qr_history')
-        .select('id, qr_name, upi_id')
+        .select('id, qr_name, upi_id, qr_url')
         .eq('is_active', true)
+        .eq('t_plus_one', isT1)
         .maybeSingle();
 
       if (qrData) {
         setIsQrEnabled(qrData.is_service_enabled ?? true);
-        if (qrData.is_enabled) {
-          setQrUrl(qrData.qr_url);
+        if (qrData.is_enabled && activeQR) {
+          setQrUrl(activeQR.qr_url || qrData.qr_url);
         } else {
           setQrUrl(null);
         }
@@ -369,6 +371,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           setQrName(activeQR.qr_name);
           setUpiId(activeQR.upi_id || qrData.upi_id || null);
         } else {
+          setActiveQrId(null);
+          setQrName(null);
           setUpiId(qrData.upi_id || null);
         }
 
@@ -381,7 +385,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     } catch (err) {
       console.error('Error refreshing active QR:', err);
     }
-  }, []);
+  }, [activeTab]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -420,13 +424,16 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         // Fetch more than 3 to ensure we cover the 24h window
         const { data: recentQRs } = await supabase
           .from('qr_history')
-          .select('id, qr_name, created_at, is_active')
+          .select('id, qr_name, created_at, is_active, t_plus_one')
           .order('created_at', { ascending: false })
           .limit(15);
 
         if (recentQRs) {
+          const isT1 = activeTab === 't1_qr';
           const filteredOldQRs = recentQRs.filter((qr, index) => {
             if (qr.is_active) return false;
+            // Only show matching type
+            if (!!qr.t_plus_one !== isT1) return false;
 
             const createdAt = new Date(qr.created_at);
             const limit = new Date(twentyFourHoursAgo);
@@ -641,13 +648,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         event: '*', // Listen for all changes to ensure we catch active status flips
         schema: 'public',
         table: 'qr_history'
-      }, (payload: any) => {
-        if (payload.new && payload.new.is_active) {
-          setActiveQrId(payload.new.id);
-          setQrUrl(payload.new.qr_url);
-          setQrName(payload.new.qr_name);
-          setUpiId(payload.new.upi_id || null);
-        }
+      }, async () => {
+        await refreshActiveQr();
       })
       .subscribe();
 
@@ -966,7 +968,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       return;
     }
 
-    if (tPlusOne) {
+    const isT1Request = activeTab === 't1_qr';
+
+    if (isT1Request) {
       if (Number(userProfile?.t_plus_one_charge) <= 0) {
         setError('T+1 settlement is not enabled for your account.');
         setSubmitting(false);
@@ -1039,7 +1043,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           amount: parseFloat(amount),
           proof_url: publicUrl,
           status: 'pending',
-          t_plus_one: tPlusOne
+          t_plus_one: isT1Request
         }])
         .select()
         .single();
@@ -1057,7 +1061,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setFile(null);
       setUseOldQr(false);
       setSelectedOldQrId('');
-      setTPlusOne(false);
       fetchTodayT1Sum();
 
       // 4. Send Push Notification to Admin (Mobile & In-App)
@@ -1083,10 +1086,10 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="flex border-b border-slate-100">
+        <div className="flex border-b border-slate-100 flex-wrap">
           <button
             onClick={() => setActiveTab('qr')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'qr'
+            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'qr'
               ? 'text-emerald-600 bg-emerald-50/50 border-b-2 border-emerald-600'
               : 'text-slate-500 hover:bg-slate-50'
               }`}
@@ -1094,9 +1097,21 @@ export default function UserPayment({ userId }: UserPaymentProps) {
             <QrCode size={18} />
             QR Payment
           </button>
+          
+          <button
+            onClick={() => setActiveTab('t1_qr')}
+            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 't1_qr'
+              ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600'
+              : 'text-slate-500 hover:bg-slate-50'
+              }`}
+          >
+            <QrCode size={18} />
+            T+1 QR Payment
+          </button>
+
           <button
             onClick={() => setActiveTab('bill')}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'bill'
+            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'bill'
               ? 'text-indigo-600 bg-indigo-50/50 border-b-2 border-indigo-600'
               : 'text-slate-500 hover:bg-slate-50'
               }`}
@@ -1112,7 +1127,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
               }
             }}
             disabled={payoutSettings?.is_enabled === false}
-            className={`flex-1 flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${payoutSettings?.is_enabled === false
+            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${payoutSettings?.is_enabled === false
               ? 'opacity-40 grayscale cursor-not-allowed text-slate-400'
               : activeTab === 'payout'
                 ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600'
@@ -1129,9 +1144,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
         <div className="p-8">
           <AnimatePresence mode="wait">
-            {activeTab === 'qr' ? (
+            {activeTab === 'qr' || activeTab === 't1_qr' ? (
               <motion.div
-                key="qr-tab"
+                key={activeTab}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 20 }}
@@ -1225,6 +1240,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                         )}
                         <h4 className="text-lg font-bold text-slate-900">Scan QR to Pay</h4>
                         <p className="text-sm text-slate-500 mt-2">Scan the QR code above and complete the payment using any UPI app.</p>
+                        {activeTab === 't1_qr' && (
+                          <div className="bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-xl flex items-center gap-3 w-full max-w-md mt-4 text-left shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+                            <Clock className="text-amber-500 shrink-0 animate-pulse" size={16} />
+                            <div className="leading-tight">
+                              <span className="block text-[10px] font-black text-amber-800 uppercase tracking-wider">T+1 Settlement (Next Day 11:30 AM)</span>
+                              <span className="block text-[10px] text-amber-600 font-bold mt-0.5">
+                                Charge: {userProfile?.t_plus_one_charge ?? 0}% | Limit: ₹{Math.max(0, tPlusOneLimit - todayT1Amount).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       <form onSubmit={handleSubmit} className="space-y-5">
@@ -1323,33 +1349,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           </label>
                         </div>
 
-                        {/* T+1 Settlement Checkbox */}
-                        {tPlusOneLimit > 0 && todayT1Amount < tPlusOneLimit && Number(userProfile?.t_plus_one_charge) > 0 && (
-                          <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 space-y-2 shadow-sm">
-                            <label className={`flex items-center gap-3 group ${parseFloat(amount) > (tPlusOneLimit - todayT1Amount) ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
-                              <div className="relative flex items-center">
-                                <input
-                                  type="checkbox"
-                                  checked={tPlusOne}
-                                  disabled={parseFloat(amount) > (tPlusOneLimit - todayT1Amount)}
-                                  onChange={(e) => setTPlusOne(e.target.checked)}
-                                  className="w-5 h-5 rounded-md border-2 border-amber-300 text-amber-600 focus:ring-amber-500/20 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                />
-                              </div>
-                              <div className="flex flex-col">
-                                <span className={`text-sm font-bold transition-colors ${parseFloat(amount) > (tPlusOneLimit - todayT1Amount) ? 'text-slate-400' : 'text-amber-700 group-hover:text-amber-800'}`}>
-                                  T+1 Settlement (Next Day 11:30 AM)
-                                </span>
-                                <span className="text-[10px] text-amber-600 font-medium mt-0.5">
-                                  {parseFloat(amount) > (tPlusOneLimit - todayT1Amount) 
-                                    ? `Disabled: Amount exceeds remaining T+1 daily limit of ₹${Math.max(0, tPlusOneLimit - todayT1Amount).toLocaleString()}`
-                                    : `Settlement charge of ${userProfile?.t_plus_one_charge ?? 0}% will apply. Balance will credit tomorrow at 11:30 AM.`
-                                  }
-                                </span>
-                              </div>
-                            </label>
-                          </div>
-                        )}
+
 
                         {/* Old QR Selector */}
                         {inactiveQrs.length > 0 && (
