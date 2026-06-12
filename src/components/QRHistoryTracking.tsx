@@ -146,11 +146,12 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
           }
         }));
 
-        // Filter: Only show rows that have activity in the selected time range
+        // Filter: Only show rows that have activity in the selected time range, but always keep active QRs
         const filtered = enrichedHistory.filter(item => {
           if (!isFullAdmin && item.qr_name?.toUpperCase() === 'MADHAV ENTERPRISE') {
             return false;
           }
+          if (item.is_active) return true;
           if (historyTimeRange === 'all') return true;
           return Number(item.total_count) > 0;
         });
