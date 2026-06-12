@@ -596,10 +596,10 @@ async function startServer() {
         return res.status(400).json({ status: "ERROR", message: "Invalid amount specified." });
       }
 
-      // 1. Fetch user's current wallet balance, service charge settings, and PAN number
+      // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
         .from("users_profiles")
-        .select("wallet_balance, service_charge_enabled, custom_service_charge, custom_daily_live_bbps_limit, pan_number")
+        .select("wallet_balance, service_charge_enabled, custom_service_charge, custom_daily_live_bbps_limit")
         .eq("id", userId)
         .single();
 
@@ -678,6 +678,14 @@ async function startServer() {
         });
       }
 
+      // Enforce maximum ₹50,000 per transaction cash payment limit for BBPS
+      if (paymentAmount >= 50000) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: "Transaction amount must be less than ₹50,000 per transaction for BBPS Cash payment channel. Please split your payment."
+        });
+      }
+
       // 3. Prepare parameters and call PayPrime API
       // PayPrime requires amount in Paisa, so multiply Rupees by 100
       const amountInPaisa = Math.round(paymentAmount * 100);
@@ -711,38 +719,9 @@ async function startServer() {
         customerParams["Mobile"] ||
         "9999999999";
 
-      // Determine payment mode and payment info list
-      // For transactions >= 50k, NPCI mandates PAN card verification if the payment mode is Cash.
-      // If the user profile has a valid 10-character PAN card, we use Cash and pass the PAN number.
-      // Otherwise, we switch the payment mode to "Internet Banking" to bypass the PAN check entirely.
-      let mode = "Cash";
-      let paymentInfoList = [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
-
-      if (paymentAmount >= 50000) {
-        if (user && user.pan_number && user.pan_number.trim().length === 10) {
-          const pan = user.pan_number.trim().toUpperCase();
-          console.log(`[BBPS Proxy] High value transaction (>= 50k). Found PAN in user profile: ${pan}. Using Cash mode with PAN.`);
-          mode = "Cash";
-          paymentInfoList = [
-            { "infoName": "Cash Payment", "infoValue": "Cash Payment" },
-            { "infoName": "Pan No.", "infoValue": pan }
-          ];
-          
-          // Add PAN to input parameters as well to cover all gateway formats
-          if (!paramArray.find(p => p.paramName.toLowerCase().includes("pan"))) {
-            paramArray.push({
-              paramName: "Pan No.",
-              paramValue: pan
-            });
-          }
-        } else {
-          console.log(`[BBPS Proxy] High value transaction (>= 50k) and no valid PAN in user profile. Switching payment mode to "Internet Banking" to bypass PAN check.`);
-          mode = "Internet Banking";
-          paymentInfoList = [
-            { "infoName": "Bank Name", "infoValue": "State Bank of India" }
-          ];
-        }
-      }
+      // Always use Cash payment mode for Agent (AGT) channel to prevent "UPI invalid for Payment Channel" error
+      const mode = "Cash";
+      const paymentInfoList = [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
 
       const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
@@ -764,12 +743,6 @@ async function startServer() {
 
       // Always pass request_id, billerResponse, and additionalInfo if a fetch was performed first,
       // regardless of whether we are paying custom amount (quickPay = "Y") or exact amount (quickPay = "N").
-      if (mode === "Cash" && paymentAmount >= 50000 && user && user.pan_number) {
-        const pan = user.pan_number.trim().toUpperCase();
-        payPrimePayload.pan_no = pan;
-        payPrimePayload.pan = pan;
-      }
-
       if (fetchResponse && fetchResponse.data?.billerResponse) {
         payPrimePayload.request_id = fetchResponse.request_id;
         payPrimePayload.billerResponse = fetchResponse.data.billerResponse;

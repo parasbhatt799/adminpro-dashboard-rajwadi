@@ -656,6 +656,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       return;
     }
 
+    if (finalAmount >= 50000) {
+      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
+      return;
+    }
+
     // Enforce daily Live BBPS limit
     try {
       const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0
@@ -811,6 +816,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
     if (finalAmount > bbpsMaxLimit) {
       toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${finalAmount.toLocaleString()}.`);
+      return;
+    }
+
+    if (finalAmount >= 50000) {
+      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
       return;
     }
 
@@ -1299,6 +1309,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                       <AlertTriangle size={16} className="shrink-0" />
                                       <span>Amount exceeds limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
                                     </div>
+                                  ) : Number(manualAmount) >= 50000 ? (
+                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                      <AlertTriangle size={16} className="shrink-0" />
+                                      <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
+                                    </div>
                                   ) : (
                                     <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
@@ -1378,6 +1393,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                       <AlertTriangle size={16} className="shrink-0" />
                                       <span>Amount exceeds limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
                                     </div>
+                                  ) : Number(manualAmount) >= 50000 ? (
+                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                      <AlertTriangle size={16} className="shrink-0" />
+                                      <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
+                                    </div>
                                   ) : (
                                     <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
@@ -1402,7 +1422,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                               <button
                                 type="button"
                                 onClick={handlePrePayCheck}
-                                disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
+                                disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit || Number(manualAmount) >= 50000}
                                 className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${lockoutSeconds > 0
                                     ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
                                     : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
