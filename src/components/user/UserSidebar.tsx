@@ -30,7 +30,7 @@ const menuItems = [
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
   { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
-  { id: 'billavenue-payment', label: 'Bharat Connect Bill Pay', icon: Receipt, path: '/user/billavenue-payment' },
+  { id: 'billavenue-payment', label: 'Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
@@ -42,38 +42,38 @@ const menuItems = [
 ];
 
 export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebarProps) {
-  const [branding, setBranding] = useState<{logo: string, mini: string, fav: string}>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
+  const [branding, setBranding] = useState<{ logo: string, mini: string, fav: string }>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
 
   const distributorItems = (role === 'distributor' || role === 'super_distributor') ? [
-    { 
-      id: 'my-users', 
-      label: role === 'super_distributor' ? 'My Distributors' : 'My Users', 
-      icon: ClipboardList, 
-      path: '/user/my-users' 
+    {
+      id: 'my-users',
+      label: role === 'super_distributor' ? 'My Distributors' : 'My Users',
+      icon: ClipboardList,
+      path: '/user/my-users'
     },
-    { 
-      id: 'partner-fund-transfer', 
-      label: 'Fund Transfer', 
-      icon: Wallet, 
-      path: '/user/partner-fund-transfer' 
+    {
+      id: 'partner-fund-transfer',
+      label: 'Fund Transfer',
+      icon: Wallet,
+      path: '/user/partner-fund-transfer'
     },
-    { 
-      id: 'users-qr-requests', 
-      label: role === 'super_distributor' ? 'Distributors QR Requests' : 'Users QR Requests', 
-      icon: FileText, 
-      path: '/user/users-qr-requests' 
+    {
+      id: 'users-qr-requests',
+      label: role === 'super_distributor' ? 'Distributors QR Requests' : 'Users QR Requests',
+      icon: FileText,
+      path: '/user/users-qr-requests'
     },
-    { 
-      id: 'users-bill-payments', 
-      label: role === 'super_distributor' ? 'Distributors Bill Payment' : 'Users Bill Payment', 
-      icon: Receipt, 
-      path: '/user/users-bill-payments' 
+    {
+      id: 'users-bill-payments',
+      label: role === 'super_distributor' ? 'Distributors Bill Payment' : 'Users Bill Payment',
+      icon: Receipt,
+      path: '/user/users-bill-payments'
     },
-    { 
-      id: 'users-statement', 
-      label: role === 'super_distributor' ? 'Distributors Statement' : 'Users Statement', 
-      icon: FileBarChart, 
-      path: '/user/users-statement' 
+    {
+      id: 'users-statement',
+      label: role === 'super_distributor' ? 'Distributors Statement' : 'Users Statement',
+      icon: FileBarChart,
+      path: '/user/users-statement'
     },
     ...(role === 'super_distributor' ? [
       {
@@ -95,11 +95,11 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         path: '/user/dist-withdrawals'
       }
     ] : []),
-    { 
-      id: 'withdrawal', 
-      label: 'Withdraw Commission', 
-      icon: Wallet, 
-      path: '/user/withdrawal' 
+    {
+      id: 'withdrawal',
+      label: 'Withdraw Commission',
+      icon: Wallet,
+      path: '/user/withdrawal'
     },
   ] : [];
 
@@ -214,21 +214,19 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
                 to={item.path}
                 title={isCollapsed ? item.label : undefined}
                 className={({ isActive }) =>
-                  `w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${
-                    isCollapsed ? 'justify-center' : ''
-                  } ${
-                    isActive
-                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
-                      : 'hover:bg-slate-800 hover:text-white'
+                  `w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group ${isCollapsed ? 'justify-center' : ''
+                  } ${isActive
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/20'
+                    : 'hover:bg-slate-800 hover:text-white'
                   }`
                 }
               >
                 {({ isActive }) => (
                   <>
                     {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' || item.id === 'bbps-complaints' ? (
-                      <img 
-                        src="/b_mnemonic.png" 
-                        alt="" 
+                      <img
+                        src="/b_mnemonic.png"
+                        alt=""
                         className={`w-5 h-5 object-contain shrink-0 transition-all ${isActive ? 'brightness-0 invert' : 'opacity-70 group-hover:opacity-100'}`}
                       />
                     ) : (
@@ -270,9 +268,8 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         <button
           onClick={onLogout}
           title={isCollapsed ? 'Logout' : undefined}
-          className={`flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-colors ${
-            isCollapsed ? 'justify-center w-auto' : 'w-full'
-          }`}
+          className={`flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-colors ${isCollapsed ? 'justify-center w-auto' : 'w-full'
+            }`}
         >
           <LogOut size={20} className="shrink-0" />
           {!isCollapsed && <span className="font-medium text-sm">Logout</span>}
