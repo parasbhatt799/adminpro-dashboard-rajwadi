@@ -30,6 +30,7 @@ interface QRMasterItem {
   created_at: string;
   is_active: boolean;
   upi_id?: string;
+  t_plus_one?: boolean;
 }
 
 const COLOR_OPTIONS = [
@@ -63,6 +64,7 @@ export default function QRMasterManagement() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [bgColor, setBgColor] = useState('white');
+  const [tPlusOne, setTPlusOne] = useState(false);
   
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -118,6 +120,7 @@ export default function QRMasterManagement() {
     setImageFile(null);
     setImagePreview(null);
     setBgColor('white');
+    setTPlusOne(false);
     setError(null);
   };
 
@@ -169,7 +172,8 @@ export default function QRMasterManagement() {
             upi_id: upiId.trim(),
             qr_image_url: finalImageUrl,
             bg_color: bgColor,
-            profit_percentage: Number(profitPercentage)
+            profit_percentage: Number(profitPercentage),
+            t_plus_one: tPlusOne
           })
           .eq('id', editingId);
 
@@ -191,7 +195,8 @@ export default function QRMasterManagement() {
               .update({
                 qr_name: qrName.trim(),
                 qr_url: finalImageUrl,
-                upi_id: upiId.trim()
+                upi_id: upiId.trim(),
+                t_plus_one: tPlusOne
               })
               .eq('id', activeQR.id);
 
@@ -220,7 +225,8 @@ export default function QRMasterManagement() {
             qr_image_url: finalImageUrl,
             bg_color: bgColor,
             profit_percentage: Number(profitPercentage),
-            display_order: maxOrder + 1
+            display_order: maxOrder + 1,
+            t_plus_one: tPlusOne
           });
 
         if (dbError) throw dbError;
@@ -269,6 +275,7 @@ export default function QRMasterManagement() {
     setImagePreview(item.qr_image_url);
     setImageFile(null);
     setBgColor(item.bg_color || 'white');
+    setTPlusOne(!!item.t_plus_one);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -414,6 +421,19 @@ export default function QRMasterManagement() {
               </div>
             </div>
 
+            <div className="flex items-center gap-3 py-2 px-1">
+              <input
+                type="checkbox"
+                id="tPlusOne"
+                checked={tPlusOne}
+                onChange={(e) => setTPlusOne(e.target.checked)}
+                className="w-4.5 h-4.5 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 transition-colors cursor-pointer"
+              />
+              <label htmlFor="tPlusOne" className="text-xs font-bold text-slate-600 select-none cursor-pointer uppercase tracking-wider">
+                T+1 QR Code (Next Day Settlement)
+              </label>
+            </div>
+
             <div className="space-y-1">
               <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">QR Image</label>
               <div className="relative">
@@ -547,6 +567,13 @@ export default function QRMasterManagement() {
                                 : 'bg-slate-200 text-slate-500'
                             }`}>
                               {item.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                            <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-tighter ${
+                              item.t_plus_one 
+                                ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                                : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                            }`}>
+                              {item.t_plus_one ? 'T+1' : 'Normal'}
                             </span>
                           </div>
                           <p className="text-sm opacity-70 flex items-center gap-1.5 mt-1">

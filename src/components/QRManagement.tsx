@@ -90,7 +90,7 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
   const [success, setSuccess] = useState<string | null>(null);
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
   const [historyUpdateLoading, setHistoryUpdateLoading] = useState(false);
-  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number; upi_id?: string }[]>([]);
+  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number; upi_id?: string; t_plus_one?: boolean }[]>([]);
   const [selectedMasterUrl, setSelectedMasterUrl] = useState<string | null>(null);
   const [selectedMasterUpiId, setSelectedMasterUpiId] = useState<string>('');
   const [showUploadDropdown, setShowUploadDropdown] = useState(false);
@@ -578,7 +578,10 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
 
                       <div className="max-h-60 overflow-y-auto custom-scrollbar">
                         {masterList
-                          .filter(m => m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()))
+                          .filter(m => 
+                            m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()) &&
+                            (uploadT1 ? !!m.t_plus_one : !m.t_plus_one)
+                          )
                           .map((m, idx) => (
                             <button
                               key={idx}
@@ -600,7 +603,10 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
                               {m.qr_name}
                             </button>
                           ))}
-                        {masterList.filter(m => m.qr_name.toLowerCase().includes(qrSearch.toLowerCase())).length === 0 && (
+                        {masterList.filter(m => 
+                          m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()) &&
+                          (uploadT1 ? !!m.t_plus_one : !m.t_plus_one)
+                        ).length === 0 && (
                           <div className="p-8 text-center">
                             <p className="text-xs font-bold text-slate-400">No matching QRs</p>
                           </div>
@@ -1034,7 +1040,10 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
                                     </div>
                                     <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                       {masterList
-                                        .filter(m => m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()))
+                                        .filter(m => 
+                                          m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()) &&
+                                          (item.t_plus_one ? !!m.t_plus_one : !m.t_plus_one)
+                                        )
                                         .map((m, idx) => (
                                           <button
                                             key={idx}

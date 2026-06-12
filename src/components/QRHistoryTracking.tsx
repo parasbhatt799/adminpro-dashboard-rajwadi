@@ -49,6 +49,7 @@ interface QRHistoryItem {
   created_at: string;
   whatsapp_number?: string;
   profit_percentage?: number;
+  t_plus_one?: boolean;
   counts?: {
     total: number;
     pending: number;
@@ -69,7 +70,7 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
   const [success, setSuccess] = useState<string | null>(null);
   const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null);
   const [historyUpdateLoading, setHistoryUpdateLoading] = useState(false);
-  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number; upi_id?: string }[]>([]);
+  const [masterList, setMasterList] = useState<{ qr_name: string; mobile_number: string; qr_image_url: string; profit_percentage: number; upi_id?: string; t_plus_one?: boolean }[]>([]);
   const [showHistoryDropdownId, setShowHistoryDropdownId] = useState<string | null>(null);
   const [qrSearch, setQrSearch] = useState('');
 
@@ -633,7 +634,10 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
                                     </div>
                                     <div className="max-h-48 overflow-y-auto custom-scrollbar">
                                       {masterList
-                                        .filter(m => m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()))
+                                        .filter(m => 
+                                          m.qr_name.toLowerCase().includes(qrSearch.toLowerCase()) &&
+                                          (item.t_plus_one ? !!m.t_plus_one : !m.t_plus_one)
+                                        )
                                         .map((m, idx) => (
                                           <button
                                             key={idx}
@@ -693,9 +697,18 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
                             </button>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 group/name">
+                          <div className="flex items-center gap-2 group/name flex-wrap">
                             <div>
-                              <p className="text-sm font-bold text-slate-900 leading-tight uppercase">{item.qr_name}</p>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-sm font-bold text-slate-900 leading-tight uppercase">{item.qr_name}</p>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                                  item.t_plus_one 
+                                    ? 'bg-amber-100 text-amber-700 border border-amber-200' 
+                                    : 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                                }`}>
+                                  {item.t_plus_one ? 'T+1' : 'Normal'}
+                                </span>
+                              </div>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5">
                                 <p className="text-[10px] text-slate-400 font-bold whitespace-nowrap">{new Date(item.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })} at {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })}</p>
                                 {item.whatsapp_number && (
