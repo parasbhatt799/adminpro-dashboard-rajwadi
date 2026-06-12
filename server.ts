@@ -52,102 +52,105 @@ async function startServer() {
   });
 
   async function sendResendEmail(to: string, subject: string, text: string, html: string) {
-    const fromEmail = process.env.SMTP_FROM || "onboarding@resend.dev";
+    const host = process.env.SMTP_HOST;
+    const port = Number(process.env.SMTP_PORT || 465);
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const fromEmail = process.env.SMTP_FROM;
     const fromName = process.env.SMTP_FROM_NAME || "UsePay";
 
-    let apiKeys = [process.env.RESEND_API_KEY || "re_G9Ldd9PN_FUesjTAdNB2Y6gzSvtV3SoQQ"];
-    if (process.env.RESEND_API_KEY_POOL) {
-      apiKeys = process.env.RESEND_API_KEY_POOL.split(",").map(k => k.trim()).filter(Boolean);
+    // If SMTP credentials are configured, use Nodemailer SMTP as primary
+    if (host && user && pass) {
+      console.log(`[SMTP] Sending email to ${to} (Subject: ${subject}) via ${host}...`);
+      try {
+        const transporter = nodemailer.createTransport({
+          host,
+          port,
+          secure: port === 465,
+          auth: {
+            user,
+            pass
+          },
+          tls: {
+            rejectUnauthorized: false
+          }
+        });
+
+        const info = await transporter.sendMail({
+          from: `"${fromName}" <${fromEmail}>`,
+          to,
+          subject,
+          text,
+          html
+        });
+
+        console.log(`[SMTP] Email sent successfully to ${to}, MessageID: ${info.messageId}`);
+        return info;
+      } catch (smtpErr: any) {
+        console.error(`[SMTP] Failed to send email via ${host}:`, smtpErr.message);
+        console.warn("[SMTP] Falling back to Resend API...");
+      }
     }
 
-    console.log(`[Resend] Attempting to send email to ${to} (Subject: ${subject}) using pool of ${apiKeys.length} key(s)...`);
+    // Fallback to Resend API
+    const apiKey = process.env.RESEND_API_KEY || "re_G9Ldd9PN_FUesjTAdNB2Y6gzSvtV3SoQQ";
+    const resendFromEmail = process.env.SMTP_FROM || "onboarding@resend.dev";
+    const resendFromName = process.env.SMTP_FROM_NAME || "UsePay";
 
-    let lastError: any = null;
+    console.log(`[Resend] Sending email to ${to} (Subject: ${subject})...`);
 
-    for (let i = 0; i < apiKeys.length; i++) {
-      const apiKey = apiKeys[i];
-      const maskedKey = apiKey.slice(0, 7) + "..." + apiKey.slice(-5);
-      console.log(`[Resend] Trying Key index ${i} (${maskedKey})...`);
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          from: `"${resendFromName}" <${resendFromEmail}>`,
+          to,
+          subject,
+          text,
+          html
+        })
+      });
 
-      try {
-        const response = await fetch("https://api.resend.com/emails", {
+      const data: any = await response.json();
+      if (response.ok) {
+        console.log(`[Resend] Email sent successfully to ${to}, ID: ${data.id}`);
+        return data;
+      }
+      
+      const errMsg = data?.message || "";
+      if (response.status === 403 || errMsg.toLowerCase().includes("verify") || errMsg.toLowerCase().includes("domain") || errMsg.toLowerCase().includes("sender")) {
+        console.warn(`[Resend] First attempt failed (${errMsg}). Falling back to onboarding@resend.dev...`);
+        const fallbackResponse = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${apiKey}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            from: `"${fromName}" <${fromEmail}>`,
+            from: `"${resendFromName}" <onboarding@resend.dev>`,
             to,
             subject,
             text,
             html
           })
         });
-
-        const data: any = await response.json();
-        if (response.ok) {
-          console.log(`[Resend] Email sent successfully to ${to} using Key index ${i}, ID: ${data.id}`);
-          return data;
+        const fallbackData: any = await fallbackResponse.json();
+        if (fallbackResponse.ok) {
+          console.log(`[Resend] Fallback email sent successfully to ${to}, ID: ${fallbackData.id}`);
+          return fallbackData;
         }
-
-        const errMsg = data?.message || "";
-        console.warn(`[Resend] Key index ${i} failed with status ${response.status}: ${errMsg}`);
-
-        // If it's a domain verification error on custom domain, we attempt fallback to onboarding@resend.dev using the same key first
-        if (response.status === 403 || errMsg.toLowerCase().includes("verify") || errMsg.toLowerCase().includes("domain") || errMsg.toLowerCase().includes("sender")) {
-          console.warn(`[Resend] Attempting fallback to onboarding@resend.dev for Key index ${i}...`);
-          try {
-            const fallbackResponse = await fetch("https://api.resend.com/emails", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${apiKey}`,
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                from: `"${fromName}" <onboarding@resend.dev>`,
-                to,
-                subject,
-                text,
-                html
-              })
-            });
-            const fallbackData: any = await fallbackResponse.json();
-            if (fallbackResponse.ok) {
-              console.log(`[Resend] Fallback email sent successfully using Key index ${i}, ID: ${fallbackData.id}`);
-              return fallbackData;
-            }
-            console.warn(`[Resend] Fallback failed for Key index ${i}: ${fallbackData?.message || fallbackResponse.status}`);
-          } catch (fbErr: any) {
-            console.warn(`[Resend] Fallback error for Key index ${i}: ${fbErr.message}`);
-          }
-        }
-
-        // If the error indicates rate limit, quota exceeded, or unauthorized, proceed to the next key in the pool
-        const isQuotaOrRateLimit = response.status === 429 || 
-                                   response.status === 403 || 
-                                   response.status === 401 ||
-                                   errMsg.toLowerCase().includes("limit") || 
-                                   errMsg.toLowerCase().includes("quota") || 
-                                   errMsg.toLowerCase().includes("credit") ||
-                                   errMsg.toLowerCase().includes("rate");
-
-        if (isQuotaOrRateLimit && i < apiKeys.length - 1) {
-          console.warn(`[Resend] Key index ${i} seems to have hit limits/quota. Rotating to next key in pool...`);
-          continue;
-        }
-
-        throw new Error(errMsg || `HTTP error! status: ${response.status}`);
-      } catch (err: any) {
-        lastError = err;
-        console.error(`[Resend] Error with Key index ${i}:`, err.message);
-        if (i < apiKeys.length - 1) {
-          console.log("[Resend] Rotating to next key in pool...");
-        }
+        throw new Error(fallbackData?.message || `Fallback failed with status ${fallbackResponse.status}`);
       }
+      
+      throw new Error(errMsg || `HTTP error! status: ${response.status}`);
+    } catch (err: any) {
+      console.error("[Resend] Critical error sending email:", err.message);
+      throw err;
     }
-
-    throw lastError || new Error("All API keys in pool failed to send the email.");
   }
 
   app.post("/api/send-email", async (req, res) => {
