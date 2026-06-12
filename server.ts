@@ -711,14 +711,9 @@ async function startServer() {
         customerParams["Mobile"] ||
         "9999999999";
 
-      // Auto-detect if this is a Credit Card payment to pass UPI payment mode
-      const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
-                           (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
-                           (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
-      const mode = isCreditCard ? "UPI" : "Cash";
-      const paymentInfoList = mode === "UPI"
-        ? [ { "infoName": "VPA", "infoValue": `${userMobile}@upi` } ]
-        : [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
+      // Always use Cash payment mode for Agent (AGT) channel to prevent "UPI invalid for Payment Channel" error
+      const mode = "Cash";
+      const paymentInfoList = [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
 
       const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
