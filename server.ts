@@ -719,11 +719,48 @@ async function startServer() {
         customerParams["Mobile"] ||
         "9999999999";
 
-      // Auto-detect if this is a Credit Card payment to pass UPI payment mode
-      const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
-                           (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
-                           (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
-      const mode = isCreditCard ? "UPI" : "Cash";
+      // Fetch biller info to dynamically detect supported payment modes for AGT channel
+      let allowedModes: string[] = [];
+      try {
+        const infoRes = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-biller-info", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: PAYPRIME_TOKEN, biller_id })
+        });
+        const infoData = await infoRes.json();
+        if (infoData.status === 'SUCCESS' && infoData.data?.billerPaymentModes) {
+          let modesObj = infoData.data.billerPaymentModes;
+          if (typeof modesObj === 'string') {
+            try {
+              modesObj = JSON.parse(modesObj);
+            } catch (e) {
+              console.error("Error parsing billerPaymentModes string:", e);
+            }
+          }
+          if (modesObj && Array.isArray(modesObj.paymentModeList)) {
+            allowedModes = modesObj.paymentModeList.map((m: any) => String(m.paymentModeName).toUpperCase());
+          }
+        }
+      } catch (err) {
+        console.error("[BBPS Proxy] Error fetching biller info in pay-bill:", err);
+      }
+
+      // If the biller supports CASH, use Cash (standard for Agent channel).
+      // If the biller does not support CASH but supports UPI, use UPI.
+      let mode = "Cash";
+      if (allowedModes.length > 0) {
+        const supportsCash = allowedModes.includes("CASH");
+        const supportsUpi = allowedModes.includes("UPI");
+        if (!supportsCash && supportsUpi) {
+          mode = "UPI";
+        }
+      } else {
+        const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
+                             (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
+                             (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
+        mode = isCreditCard ? "UPI" : "Cash";
+      }
+
       const paymentInfoList = mode === "UPI"
         ? [ { "infoName": "VPA", "infoValue": `${userMobile}@upi` } ]
         : [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
