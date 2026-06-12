@@ -346,7 +346,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     try {
       const { data: qrData } = await supabase
         .from('qr_settings')
-        .select('qr_url, is_enabled, is_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit, upi_id, is_bill_enabled, daily_normal_bill_limit')
+        .select('qr_url, is_enabled, is_service_enabled, is_t_plus_one_enabled, is_t_plus_one_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit, upi_id, is_bill_enabled, daily_normal_bill_limit')
         .eq('id', 1)
         .single();
 
@@ -359,8 +359,11 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .maybeSingle();
 
       if (qrData) {
-        setIsQrEnabled(qrData.is_service_enabled ?? true);
-        if (qrData.is_enabled && activeQR) {
+        const qrServiceActive = isT1 ? (qrData.is_t_plus_one_service_enabled ?? true) : (qrData.is_service_enabled ?? true);
+        const qrVisible = isT1 ? (qrData.is_t_plus_one_enabled ?? true) : (qrData.is_enabled ?? true);
+
+        setIsQrEnabled(qrServiceActive);
+        if (qrVisible && activeQR) {
           setQrUrl(activeQR.qr_url || qrData.qr_url);
         } else {
           setQrUrl(null);

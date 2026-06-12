@@ -74,10 +74,19 @@ interface QRHistoryItem {
 export default function QRManagement({ adminRole, adminPermissions }: { adminRole?: string | null; adminPermissions?: string[] }) {
   const isFullAdmin = adminRole === 'full';
   const [loading, setLoading] = useState(true);
-  const [qrData, setQrData] = useState<{ qr_url: string | null; is_enabled: boolean; is_service_enabled: boolean; active_qr_id: string | null }>({
+  const [qrData, setQrData] = useState<{
+    qr_url: string | null;
+    is_enabled: boolean;
+    is_service_enabled: boolean;
+    is_t_plus_one_enabled: boolean;
+    is_t_plus_one_service_enabled: boolean;
+    active_qr_id: string | null;
+  }>({
     qr_url: null,
     is_enabled: true,
     is_service_enabled: true,
+    is_t_plus_one_enabled: true,
+    is_t_plus_one_service_enabled: true,
     active_qr_id: null
   });
   const [uploadT1, setUploadT1] = useState(false);
@@ -195,6 +204,8 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
           qr_url: settings?.qr_url || activeQR?.qr_url || null,
           is_enabled: settings?.is_enabled ?? true,
           is_service_enabled: settings?.is_service_enabled ?? true,
+          is_t_plus_one_enabled: settings?.is_t_plus_one_enabled ?? true,
+          is_t_plus_one_service_enabled: settings?.is_t_plus_one_service_enabled ?? true,
           active_qr_id: activeQR?.id || null
         });
       } else {
@@ -371,6 +382,44 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
     }
   };
 
+  const handleTPlusOneToggle = async () => {
+    const newStatus = !qrData.is_t_plus_one_enabled;
+    setQrData(prev => ({ ...prev, is_t_plus_one_enabled: newStatus }));
+
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_t_plus_one_enabled: newStatus })
+        .eq('id', 1);
+
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error toggling T+1 QR status:', err);
+      setError('Failed to update T+1 status');
+      setQrData(prev => ({ ...prev, is_t_plus_one_enabled: !newStatus }));
+    }
+  };
+
+  const handleTPlusOneServiceToggle = async () => {
+    const newStatus = !qrData.is_t_plus_one_service_enabled;
+    setQrData(prev => ({ ...prev, is_t_plus_one_service_enabled: newStatus }));
+
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_t_plus_one_service_enabled: newStatus })
+        .eq('id', 1);
+
+      if (error) throw error;
+      setSuccess(`T+1 QR Service ${newStatus ? 'Activated' : 'Deactivated'} successfully`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      console.error('Error toggling T+1 QR service status:', err);
+      setError('Failed to update T+1 service status');
+      setQrData(prev => ({ ...prev, is_t_plus_one_service_enabled: !newStatus }));
+    }
+  };
+
   const handleUpload = async () => {
     if (!selectedMasterUrl || !qrName.trim()) {
       setError('Please select a QR Name from the list.');
@@ -496,31 +545,63 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
           <h2 className="text-2xl font-bold text-slate-900">QR Code Management</h2>
           <p className="text-slate-500 mt-1">Upload and track multiple QR codes for your system.</p>
         </div>
-        <div className="flex items-center gap-6 bg-white p-2 px-4 rounded-2xl border border-slate-100 shadow-sm">
-          {/* Service Toggle */}
-          <div className="flex items-center gap-3 pr-6 border-r border-slate-100">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${qrData.is_service_enabled ? 'text-emerald-600' : 'text-rose-500'}`}>
-              Service {qrData.is_service_enabled ? 'ON' : 'OFF'}
-            </span>
-            <button
-              onClick={handleServiceToggle}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${qrData.is_service_enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${qrData.is_service_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6 bg-white p-3 px-4 rounded-3xl border border-slate-100 shadow-sm shrink-0">
+          {/* Normal QR Controls */}
+          <div className="flex items-center gap-3 pr-0 md:pr-4 border-b md:border-b-0 md:border-r border-slate-100 pb-2 md:pb-0 w-full md:w-auto">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">Normal:</span>
+            
+            <div className="flex items-center gap-2">
+              <span className={`text-[9px] font-black uppercase tracking-wider ${qrData.is_service_enabled ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {qrData.is_service_enabled ? 'ON' : 'OFF'}
+              </span>
+              <button
+                onClick={handleServiceToggle}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${qrData.is_service_enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
+              >
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${qrData.is_service_enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`text-[9px] font-black uppercase tracking-wider ${qrData.is_enabled ? 'text-indigo-600' : 'text-slate-400'}`}>
+                {qrData.is_enabled ? 'Visible' : 'Hidden'}
+              </span>
+              <button
+                onClick={handleToggle}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${qrData.is_enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
+              >
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${qrData.is_enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+              </button>
+            </div>
           </div>
 
-          {/* Visibility Toggle */}
-          <div className="flex items-center gap-3">
-            <span className={`text-[10px] font-black uppercase tracking-widest ${qrData.is_enabled ? 'text-indigo-600' : 'text-slate-400'}`}>
-              {qrData.is_enabled ? 'Visible' : 'Hidden'}
-            </span>
-            <button
-              onClick={handleToggle}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${qrData.is_enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
-            >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${qrData.is_enabled ? 'translate-x-6' : 'translate-x-1'}`} />
-            </button>
+          {/* T+1 QR Controls */}
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mr-1">T+1:</span>
+            
+            <div className="flex items-center gap-2">
+              <span className={`text-[9px] font-black uppercase tracking-wider ${qrData.is_t_plus_one_service_enabled ? 'text-emerald-600' : 'text-rose-500'}`}>
+                {qrData.is_t_plus_one_service_enabled ? 'ON' : 'OFF'}
+              </span>
+              <button
+                onClick={handleTPlusOneServiceToggle}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${qrData.is_t_plus_one_service_enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
+              >
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${qrData.is_t_plus_one_service_enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className={`text-[9px] font-black uppercase tracking-wider ${qrData.is_t_plus_one_enabled ? 'text-indigo-600' : 'text-slate-400'}`}>
+                {qrData.is_t_plus_one_enabled ? 'Visible' : 'Hidden'}
+              </span>
+              <button
+                onClick={handleTPlusOneToggle}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${qrData.is_t_plus_one_enabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
+              >
+                <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${qrData.is_t_plus_one_enabled ? 'translate-x-5' : 'translate-x-1'}`} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -754,8 +835,8 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
             </div>
 
             <div className="flex items-center gap-2">
-              <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${qrData.is_enabled ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
-                {qrData.is_enabled ? 'Live Now' : 'Currently Hidden'}
+              <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${(previewT1 ? qrData.is_t_plus_one_enabled : qrData.is_enabled) ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                {(previewT1 ? qrData.is_t_plus_one_enabled : qrData.is_enabled) ? 'Live Now' : 'Currently Hidden'}
               </span>
               <button
                 onClick={fetchQRData}
