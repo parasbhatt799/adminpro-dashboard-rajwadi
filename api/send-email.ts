@@ -28,7 +28,10 @@ export default async function handler(req: any, res: any) {
         },
         tls: {
           rejectUnauthorized: false
-        }
+        },
+        connectionTimeout: 8000,
+        greetingTimeout: 8000,
+        socketTimeout: 10000
       });
 
       const info = await transporter.sendMail({

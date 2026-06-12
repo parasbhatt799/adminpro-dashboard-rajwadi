@@ -73,7 +73,10 @@ async function startServer() {
           },
           tls: {
             rejectUnauthorized: false
-          }
+          },
+          connectionTimeout: 8000,
+          greetingTimeout: 8000,
+          socketTimeout: 10000
         });
 
         const info = await transporter.sendMail({
