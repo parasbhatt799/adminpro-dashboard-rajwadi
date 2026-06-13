@@ -249,7 +249,7 @@ const getBillerGradient = (name: string) => {
   return gradients[hash % gradients.length];
 };
 
-export default function UserBillAvenuePayment({ userId }: { userId: string }) {
+export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { userId: string; mode?: 'payment' | 'search' }) {
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -344,7 +344,12 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
   const [receipt, setReceipt] = useState<any | null>(null);
 
   // Search Transaction State
-  const [viewMode, setViewMode] = useState<'payment' | 'search'>('payment');
+  const [viewMode, setViewMode] = useState<'payment' | 'search'>(mode);
+
+  useEffect(() => {
+    setViewMode(mode);
+  }, [mode]);
+
   const [searchType, setSearchType] = useState<'txnId' | 'mobile'>('txnId');
   const [searchTxnId, setSearchTxnId] = useState<string>('');
   const [searchMobile, setSearchMobile] = useState<string>('');
@@ -1113,7 +1118,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
           <div className="flex items-center gap-4">
 
             <h2 className="text-3xl font-black text-white tracking-tight">
-              Bharat Connect Bill Payment
+              Bharat Connect
             </h2>
           </div>
           <p className="text-slate-400 max-w-md text-sm leading-relaxed">
@@ -1132,28 +1137,6 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
             </div>
           </div>
         </div>
-      </div>
-
-      {/* View Mode Toggle Tabs */}
-      <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200/80 shadow-inner w-fit">
-        <button
-          onClick={() => setViewMode('payment')}
-          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${viewMode === 'payment'
-            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
-        >
-          Pay Bills
-        </button>
-        <button
-          onClick={() => setViewMode('search')}
-          className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${viewMode === 'search'
-            ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
-            }`}
-        >
-          Search Txn
-        </button>
       </div>
 
       {/* Main Workflow container */}
@@ -1508,11 +1491,10 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
                                             setBillerDropdownOpen(false);
                                             setSearchBillerQuery('');
                                           }}
-                                          className={`px-4 py-3 text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${
-                                            selectedBiller?.billerId === b.billerId
-                                              ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-4 border-indigo-600'
-                                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent'
-                                          }`}
+                                          className={`px-4 py-3 text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${selectedBiller?.billerId === b.billerId
+                                            ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-4 border-indigo-600'
+                                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent'
+                                            }`}
                                         >
                                           <span>{b.billerName}</span>
                                           {selectedBiller?.billerId === b.billerId && (
