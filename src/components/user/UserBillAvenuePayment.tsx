@@ -719,8 +719,8 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
       filtered = MOCK_BILLERS_BY_CATEGORY[searchLower];
     }
 
-    // Always prepend UAT testing billers for easy access during validation (except prepaid)
-    if (searchLower !== 'mobile prepaid') {
+    // Prepend UAT testing billers for easy access during validation (except prepaid or in production)
+    if (searchLower !== 'mobile prepaid' && import.meta.env.MODE !== 'production') {
       const uatBillers = [
         { billerId: 'OTME00005XXZ43', billerName: 'UAT Fetch & Pay (OTME00005XXZ43)', categoryName: catName },
         { billerId: 'OTNS00005XXZ43', billerName: 'UAT Quick Pay (OTNS00005XXZ43)', categoryName: catName }
