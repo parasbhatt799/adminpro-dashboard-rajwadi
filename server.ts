@@ -1602,9 +1602,9 @@ async function startServer() {
             await supabaseAdmin.from('billavenue_billers').upsert(chunk);
           }
         } else {
-          // Single biller: Inject interchangeFeeCCF1 metadata for UAT billers if missing
+          // Single biller: Inject interchangeFeeCCF1 metadata if missing
           const b = response.json.billerInfoResponse.biller;
-          if (b && !b.interchangeFeeCCF1 && ['MAHA00000TE501', 'DELECTRICITY01', 'DAPL00000GAS01', 'OTME00005XXZ43', 'OTNS00005XXZ43'].includes(billerId as string)) {
+          if (b && !b.interchangeFeeCCF1) {
             b.interchangeFeeCCF1 = {
               feeCode: 'CCF1',
               feeDirection: 'C2B',
@@ -1633,7 +1633,7 @@ async function startServer() {
         }
 
         const metadata = { ...dbBiller.metadata };
-        if (!metadata.interchangeFeeCCF1 && ['MAHA00000TE501', 'DELECTRICITY01', 'DAPL00000GAS01', 'OTME00005XXZ43', 'OTNS00005XXZ43'].includes(billerId as string)) {
+        if (!metadata.interchangeFeeCCF1) {
           metadata.interchangeFeeCCF1 = {
             feeCode: 'CCF1',
             feeDirection: 'C2B',
