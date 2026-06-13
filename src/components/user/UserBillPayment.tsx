@@ -1497,7 +1497,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                       <span className="font-black text-emerald-600 text-sm">₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between border-t border-slate-100 pt-3">
-                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction ID</span>
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">B-Connect Transaction ID</span>
                       <span className="font-black text-slate-800 font-mono text-[10px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
                         {receipt.txnid}
                       </span>

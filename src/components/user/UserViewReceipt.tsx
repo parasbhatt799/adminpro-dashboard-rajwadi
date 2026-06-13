@@ -443,7 +443,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
                 )}
 
                 <div className="flex justify-between">
-                  <span className="text-slate-400 font-bold uppercase tracking-wider">Transaction ID</span>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider">B-Connect Transaction ID</span>
                   <span className="font-black text-slate-800 font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
                     {submission.transaction_id || 'N/A'}
                   </span>
