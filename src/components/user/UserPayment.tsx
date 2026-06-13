@@ -1100,17 +1100,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
             <QrCode size={18} />
             QR Payment
           </button>
-          
-          <button
-            onClick={() => setActiveTab('t1_qr')}
-            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 't1_qr'
-              ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600'
-              : 'text-slate-500 hover:bg-slate-50'
-              }`}
-          >
-            <QrCode size={18} />
-            T+1 QR Payment
-          </button>
 
           <button
             onClick={() => setActiveTab('bill')}
@@ -1121,6 +1110,17 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           >
             <Receipt size={18} />
             Bill Payment
+          </button>
+          
+          <button
+            onClick={() => setActiveTab('t1_qr')}
+            className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 't1_qr'
+              ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600'
+              : 'text-slate-500 hover:bg-slate-50'
+              }`}
+          >
+            <QrCode size={18} />
+            T+1 QR Payment
           </button>
 
           <button
