@@ -21,9 +21,9 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
-  
+
   const txnId = searchParams.get('id');
-  
+
   const [loading, setLoading] = useState(true);
   const [submission, setSubmission] = useState<any | null>(null);
   const [billAvenueReceipt, setBillAvenueReceipt] = useState<any | null>(null);
@@ -34,7 +34,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
       navigate('/user/bill-history');
       return;
     }
-    
+
     setLoading(true);
     try {
       // 1. Fetch submission details from bbps_submissions
@@ -241,7 +241,8 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
   return (
     <div className="space-y-6 max-w-4xl mx-auto p-4">
       {/* Print styles */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @media print {
           body * {
             visibility: hidden !important;
@@ -296,7 +297,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
               <div className="text-center border-b border-dashed border-slate-100 pb-5">
                 <div className="flex flex-col items-center justify-center gap-2">
                   <CheckCircle2 className="text-emerald-500" size={40} />
-                  <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Bharat Connect Receipt</span>
+                  <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Receipt</span>
                 </div>
                 <div className="text-2xl font-black text-slate-800 mt-4">
                   ₹{billAvenueReceipt.totalAmount.toFixed(2)}
