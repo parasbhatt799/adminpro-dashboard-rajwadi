@@ -1287,8 +1287,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                             {billDetails.fetchSupported ? (
                               <div className="space-y-4">
                                 <div className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-400 font-bold uppercase tracking-wider">Due Amount</span>
-                                  <span className="text-xl font-black text-slate-800">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Amount</span>
+                                  <span className="text-lg font-semibold text-slate-600">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                 </div>
 
                                 <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
@@ -1318,11 +1318,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                     <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
                                         <span>Bill Base Amount</span>
-                                        <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
                                         <span>Transaction Charges</span>
-                                        <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold text-indigo-500">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
                                         <span>Total Debited</span>
@@ -1334,34 +1334,34 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
                                 {billDetails.dueDate && (
                                   <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Due Date</span>
-                                    <span className="font-bold text-rose-500 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
+                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Date</span>
+                                    <span className="font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
                                   </div>
                                 )}
                                 {billDetails.billNumber && billDetails.billNumber !== "NA" && (
                                   <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Number</span>
-                                    <span className="font-bold text-slate-600">{billDetails.billNumber}</span>
+                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Number</span>
+                                    <span className="font-semibold text-slate-500">{billDetails.billNumber}</span>
                                   </div>
                                 )}
                                 {billDetails.billDate && billDetails.billDate !== "NA" && (
                                   <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Date</span>
-                                    <span className="font-bold text-slate-600">{billDetails.billDate}</span>
+                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Date</span>
+                                    <span className="font-semibold text-slate-500">{billDetails.billDate}</span>
                                   </div>
                                 )}
                                 {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
                                   <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-400 font-bold uppercase tracking-wider">Bill Period</span>
-                                    <span className="font-bold text-slate-600">{billDetails.billPeriod}</span>
+                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Period</span>
+                                    <span className="font-semibold text-slate-500">{billDetails.billPeriod}</span>
                                   </div>
                                 )}
                                 {billDetails.additionalInfo && billDetails.additionalInfo
                                   .filter((info) => info.infoName.toLowerCase() !== "maximum permissible amount")
                                   .map((info) => (
                                     <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
-                                      <span className="text-slate-400 font-bold uppercase tracking-wider">{info.infoName}</span>
-                                      <span className="font-bold text-slate-600">
+                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">{info.infoName}</span>
+                                      <span className="font-semibold text-slate-500">
                                         {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
                                           ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
                                           : info.infoValue}
@@ -1402,11 +1402,11 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                     <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
                                         <span>Bill Base Amount</span>
-                                        <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
                                         <span>Transaction Charges</span>
-                                        <span className="font-bold text-indigo-600">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <span className="font-semibold text-indigo-500">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
                                         <span>Total Debited</span>

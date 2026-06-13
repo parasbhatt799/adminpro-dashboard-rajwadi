@@ -14,7 +14,8 @@ import {
   Receipt,
   FileBarChart,
   ShieldCheck,
-  Smartphone
+  Smartphone,
+  HelpCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink, Link } from 'react-router-dom';
@@ -35,8 +36,8 @@ const menuItems = [
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
-  { id: 'bbps-complaints', label: 'Bharat Connect Complaints', icon: MessageSquare, path: '/user/bbps-complaints' },
-  { id: 'complaints', label: 'Complaints', icon: MessageSquare, path: '/user/complaints' },
+  { id: 'bbps-complaints', label: 'Complaint Center', icon: HelpCircle, path: '/user/bbps-complaints' },
+  { id: 'complaints', label: 'Admin Complaint', icon: MessageSquare, path: '/user/complaints' },
   { id: 'tpin', label: 'Create TPIN', icon: ShieldCheck, path: '/user/tpin' },
   { id: 'change-password', label: 'Security', icon: KeyRound, path: '/user/change-password' },
 ];
@@ -223,7 +224,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
               >
                 {({ isActive }) => (
                   <>
-                    {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' || item.id === 'bbps-complaints' ? (
+                    {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' ? (
                       <img
                         src="/b_mnemonic.png"
                         alt=""

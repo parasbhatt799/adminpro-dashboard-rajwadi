@@ -1604,7 +1604,7 @@ async function startServer() {
         } else {
           // Single biller: Inject interchangeFeeCCF1 metadata for UAT billers if missing
           const b = response.json.billerInfoResponse.biller;
-          if (b && !b.interchangeFeeCCF1 && ['MAHA00000TE501', 'DELECTRICITY01', 'DAPL00000GAS01'].includes(billerId as string)) {
+          if (b && !b.interchangeFeeCCF1 && ['MAHA00000TE501', 'DELECTRICITY01', 'DAPL00000GAS01', 'OTME00005XXZ43', 'OTNS00005XXZ43'].includes(billerId as string)) {
             b.interchangeFeeCCF1 = {
               feeCode: 'CCF1',
               feeDirection: 'C2B',
@@ -1633,7 +1633,7 @@ async function startServer() {
         }
 
         const metadata = { ...dbBiller.metadata };
-        if (!metadata.interchangeFeeCCF1 && ['MAHA00000TE501', 'DELECTRICITY01', 'DAPL00000GAS01'].includes(billerId as string)) {
+        if (!metadata.interchangeFeeCCF1 && ['MAHA00000TE501', 'DELECTRICITY01', 'DAPL00000GAS01', 'OTME00005XXZ43', 'OTNS00005XXZ43'].includes(billerId as string)) {
           metadata.interchangeFeeCCF1 = {
             feeCode: 'CCF1',
             feeDirection: 'C2B',
