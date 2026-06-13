@@ -181,7 +181,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
 
       const columns = ['Parameter', 'Value'];
       const rows = [
-        ['BBPD Transaction ID', receipt.bConnectTxnId || 'N/A'],
+        ['B-Connect Transaction ID', receipt.bConnectTxnId || 'N/A'],
         ['Biller ID', receipt.billerId || 'N/A'],
         ['Biller Name', receipt.billerName || 'N/A'],
         ['Customer Name', receipt.customerName || 'N/A'],
@@ -306,7 +306,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
 
               <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 text-xs font-semibold text-slate-600 mt-6 text-left">
                 <div className="flex flex-col border-b border-slate-100 pb-1.5 col-span-2">
-                  <span className="text-slate-400 uppercase tracking-wider text-[9px]">BBPD Transaction ID</span>
+                  <span className="text-slate-400 uppercase tracking-wider text-[9px]">B-Connect Transaction ID</span>
                   <span className="font-black text-slate-800 text-left font-mono mt-0.5 select-all">{billAvenueReceipt.bConnectTxnId}</span>
                 </div>
                 <div className="flex flex-col border-b border-slate-100 pb-1.5">

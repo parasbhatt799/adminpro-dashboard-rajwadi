@@ -402,7 +402,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       // Table data - all 17 fields!
       const columns = ['Parameter', 'Value'];
       const rows = [
-        ['BBPD Transaction ID', receipt.bConnectTxnId || 'N/A'],
+        ['B-Connect Transaction ID', receipt.bConnectTxnId || 'N/A'],
         ['Biller ID', receipt.billerId || 'N/A'],
         ['Biller Name', receipt.billerName || 'N/A'],
         ['Customer Name', receipt.customerName || 'N/A'],
@@ -1933,7 +1933,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
                       <div className="space-y-3.5 text-xs font-semibold text-slate-600">
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">BBPD Transaction ID</span>
+                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">B-Connect Transaction ID</span>
                           <span className="font-black text-slate-800 text-right select-all font-mono">{receipt.bConnectTxnId}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
