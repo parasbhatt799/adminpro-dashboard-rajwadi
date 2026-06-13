@@ -300,7 +300,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
           <img
             src="/bharat_connect.png"
             alt="Bharat Connect"
-            style={{ width: '83px', height: '30px', objectFit: 'contain' }}
+            style={{ width: '130px', height: 'auto', objectFit: 'contain' }}
           />
         </div>
 
@@ -348,10 +348,10 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                                 ID: {c.complaint_id}
                               </span>
                               <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${c.status === 'resolved' || c.status === 'success'
-                                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                                  : c.status === 'failed' || c.status === 'rejected'
-                                    ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                                    : 'bg-amber-50 text-amber-600 border border-amber-200'
+                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                : c.status === 'failed' || c.status === 'rejected'
+                                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                  : 'bg-amber-50 text-amber-600 border border-amber-200'
                                 }`}>
                                 {c.status}
                               </span>
@@ -399,8 +399,8 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                       setManualTrackResult(null);
                     }}
                     className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeFormTab === 'lodge'
-                        ? 'border-indigo-600 text-indigo-600'
-                        : 'border-transparent text-slate-400 hover:text-slate-600'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
                       }`}
                   >
                     Lodge Complaint
@@ -412,8 +412,8 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                       setManualTrackResult(null);
                     }}
                     className={`flex-1 pb-4 text-xs font-black uppercase tracking-widest border-b-2 transition-all ${activeFormTab === 'track'
-                        ? 'border-indigo-600 text-indigo-600'
-                        : 'border-transparent text-slate-400 hover:text-slate-600'
+                      ? 'border-indigo-600 text-indigo-600'
+                      : 'border-transparent text-slate-400 hover:text-slate-600'
                       }`}
                   >
                     Track Complaint
@@ -561,10 +561,10 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                           <div>
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Status</span>
                             <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${manualTrackResult.status === 'RESOLVED' || manualTrackResult.status === 'SUCCESS' || manualTrackResult.status?.toString().toLowerCase() === 'resolved'
-                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                                : manualTrackResult.status === 'FAILED' || manualTrackResult.status === 'REJECTED' || manualTrackResult.status?.toString().toLowerCase() === 'failed'
-                                  ? 'bg-rose-50 text-rose-600 border border-rose-200'
-                                  : 'bg-amber-50 text-amber-600 border border-amber-200'
+                              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                              : manualTrackResult.status === 'FAILED' || manualTrackResult.status === 'REJECTED' || manualTrackResult.status?.toString().toLowerCase() === 'failed'
+                                ? 'bg-rose-50 text-rose-600 border border-rose-200'
+                                : 'bg-amber-50 text-amber-600 border border-amber-200'
                               }`}>
                               {manualTrackResult.status || 'PENDING'}
                             </span>
