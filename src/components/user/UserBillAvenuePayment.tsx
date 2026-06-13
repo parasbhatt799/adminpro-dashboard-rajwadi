@@ -1923,7 +1923,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                       <div className="text-center border-b border-dashed border-slate-100 pb-5">
                         <div className="flex flex-col items-center justify-center gap-2">
                           <CheckCircle2 className="text-emerald-500" size={40} />
-                          <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Bharat Connect Receipt</span>
+                          <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Receipt</span>
                         </div>
                         <div className="text-2xl font-black text-slate-800 mt-4">
                           ₹{receipt.totalAmount.toFixed(2)}
