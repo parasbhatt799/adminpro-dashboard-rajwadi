@@ -688,6 +688,23 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
     setSelectedCategory(catName);
     setStep(2);
     setSearchBillerQuery('');
+    setSelectedBiller(null);
+    setBillDetails(null);
+    setFormInputs({});
+    setManualAmount('');
+    setSelectedPlan(null);
+    setPlans([]);
+    setCcf1Config(null);
+    setCcf1Fee(0);
+    setCustomerEmail('');
+    setBillerDropdownOpen(false);
+    setAmountOptions({
+      base: true,
+      lateFee: false,
+      additional: false,
+      fixed: false
+    });
+    setSelectedPaymentMode('UPI');
 
     const searchLower = catName.toLowerCase();
     let filtered = allBillers.filter((b: any) => {
@@ -1151,7 +1168,7 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
             {step > 1 && (
               <button
                 onClick={() => {
-                  if (step === 3) {
+                  if (step === 3 || step === 2) {
                     resetForm();
                   } else {
                     setStep(step - 1);
