@@ -259,10 +259,10 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
             Support Gateway
           </span>
           <h2 className="text-3xl font-black text-white tracking-tight">
-            Bharat Connect Complaint Center
+            Complaint Center
           </h2>
           <p className="text-slate-400 max-w-md text-sm leading-relaxed">
-            Register and track complaints for your utility bill payments securely with direct Bharat Connect settlement.
+            Register and track complaints for your utility bill payments securely.
           </p>
         </div>
 
