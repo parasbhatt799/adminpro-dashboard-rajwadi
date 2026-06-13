@@ -708,15 +708,11 @@ export default function UserBillAvenuePayment({ userId }: { userId: string }) {
 
     const searchLower = catName.toLowerCase();
     let filtered = allBillers.filter((b: any) => {
-      const catLower = b.categoryName.toLowerCase();
+      const catLower = b.categoryName.trim().toLowerCase();
       if (searchLower === 'mobile prepaid') {
-        return catLower.includes('mobile prepaid') || catLower.includes('recharge');
+        return catLower === 'mobile prepaid' || catLower.includes('recharge');
       }
-      return (
-        catLower === searchLower ||
-        catLower.includes(searchLower) ||
-        searchLower.includes(catLower)
-      );
+      return catLower === searchLower;
     });
 
     if (filtered.length === 0 && MOCK_BILLERS_BY_CATEGORY[searchLower]) {
