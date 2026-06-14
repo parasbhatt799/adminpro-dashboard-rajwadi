@@ -41,6 +41,7 @@ const menuItems = [
   { id: 'bbps-complaints', label: 'Complaint Center', icon: HelpCircle, path: '/user/bbps-complaints' },
   { id: 'complaints', label: 'Admin Complaint', icon: MessageSquare, path: '/user/complaints' },
   { id: 'tpin', label: 'Create TPIN', icon: ShieldCheck, path: '/user/tpin' },
+  { id: 'mpin', label: 'Login MPIN', icon: ShieldCheck, path: '/user/mpin' },
   { id: 'change-password', label: 'Security', icon: KeyRound, path: '/user/change-password' },
 ];
 

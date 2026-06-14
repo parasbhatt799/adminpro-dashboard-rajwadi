@@ -24,6 +24,14 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
   const [forgotError, setForgotError] = useState('');
   const [forgotMessage, setForgotMessage] = useState('');
 
+  // MPIN Login States
+  const [showMpinStep, setShowMpinStep] = useState(false);
+  const [mpinInput, setMpinInput] = useState('');
+  const [showMpin, setShowMpin] = useState(false);
+  const [tempUser, setTempUser] = useState<any>(null);
+  const [mpinForgotLoading, setMpinForgotLoading] = useState(false);
+  const [mpinForgotMsg, setMpinForgotMsg] = useState('');
+
   // Advertisement settings state
   const [adSettings, setAdSettings] = useState<{ banner_url: string; redirect_link: string; is_active: boolean } | null>(null);
 
@@ -120,7 +128,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
       // 2. Check for User in Database (Legacy Flow)
       const { data, error: dbError } = await supabase
         .from('users_profiles')
-        .select('id, mobile_number, password, status, role')
+        .select('id, mobile_number, password, status, role, mpin, email, name')
         .eq('mobile_number', id)
         .eq('password', password)
         .single();
@@ -137,6 +145,14 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
 
       if (data.status === 'Suspended') {
         setError('You panel blocked by admin');
+        return;
+      }
+
+      // Check if 6-digit MPIN is configured
+      if (data.mpin && data.mpin.trim().length === 6) {
+        setTempUser(data);
+        setShowMpinStep(true);
+        setLoading(false);
         return;
       }
 
@@ -287,6 +303,152 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
         {loading ? <Loader2 className="animate-spin" size={18} /> : 'Verify Identity'}
         {!loading && <ArrowRight size={18} />}
       </button>
+    </form>
+  );
+
+  const handleMpinSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (mpinInput.length !== 6 || !/^\d{6}$/.test(mpinInput)) {
+      setError('MPIN must be exactly 6 digits.');
+      return;
+    }
+    
+    if (mpinInput === tempUser.mpin) {
+      onLogin(tempUser.id, 'user');
+      navigate('/user/dashboard');
+    } else {
+      setError('Invalid 6-Digit MPIN. Please try again.');
+      setMpinInput('');
+    }
+  };
+
+  const handleMpinForgot = async () => {
+    if (!tempUser?.email) {
+      setError('No email address registered with this account.');
+      return;
+    }
+    
+    setMpinForgotLoading(true);
+    setMpinForgotMsg('');
+    setError('');
+    
+    try {
+      const emailResponse = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: tempUser.email,
+          subject: 'Login PIN (MPIN) Recovery - UsePay',
+          text: `Hello ${tempUser.name},\n\nWe received a request to recover your Login MPIN. Please find it below:\n\nYour 6-Digit MPIN: ${tempUser.mpin}\n\nIf you did not request this, please contact support immediately.\n\nThis is an automated message from UsePay.`,
+          html: `
+            <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e2e8f0; border-radius: 16px;">
+              <h2 style="color: #4f46e5; margin-bottom: 24px;">Login MPIN Recovery</h2>
+              <p style="font-size: 16px; line-height: 1.6;">Hello ${tempUser.name},</p>
+              <p style="font-size: 16px; line-height: 1.6;">We received a request to recover your Login MPIN. Please find it below:</p>
+              
+              <div style="background: #f8fafc; padding: 24px; border-radius: 12px; margin: 24px 0; border: 1px solid #f1f5f9; text-align: center;">
+                <p style="margin: 8px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; color: #4f46e5; font-weight: bold;">Your 6-Digit MPIN</p>
+                <p style="margin: 0; font-size: 36px; font-weight: 900; letter-spacing: 0.3em; color: #1e1b4b; font-family: monospace;">${tempUser.mpin}</p>
+              </div>
+              
+              <p style="font-size: 14px; color: #64748b; margin-top: 24px;">If you did not request this, please contact support immediately.</p>
+              
+              <hr style="border: 0; border-top: 1px solid #e2e8f0; margin: 32px 0;" />
+              <p style="font-size: 12px; color: #94a3b8; text-align: center;">This is an automated message from UsePay.</p>
+            </div>
+          `
+        })
+      });
+      
+      if (!emailResponse.ok) throw new Error('Failed to send recovery email.');
+      setMpinForgotMsg('Your MPIN has been sent to your registered email.');
+    } catch (err: any) {
+      console.error(err);
+      setError('Failed to send recovery mail. Please try again.');
+    } finally {
+      setMpinForgotLoading(false);
+    }
+  };
+
+  const renderMpinForm = () => (
+    <form onSubmit={handleMpinSubmit} className="space-y-6">
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">
+            Enter 6-Digit MPIN
+          </label>
+          <button
+            type="button"
+            onClick={handleMpinForgot}
+            disabled={mpinForgotLoading}
+            className="text-xs font-bold text-indigo-400 hover:text-indigo-300 transition-colors disabled:opacity-50"
+          >
+            {mpinForgotLoading ? 'Sending...' : 'Forgot MPIN?'}
+          </button>
+        </div>
+        <div className="relative">
+          <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+          <input
+            type={showMpin ? "text" : "password"}
+            value={mpinInput}
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/\D/g, '').slice(0, 6);
+              setMpinInput(cleaned);
+              setError('');
+            }}
+            placeholder="••••••"
+            className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-12 pr-12 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all font-mono tracking-[0.3em] text-center"
+          />
+          <button
+            type="button"
+            onClick={() => setShowMpin(!showMpin)}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+          >
+            {showMpin ? <EyeOff size={18} /> : <Eye size={18} />}
+          </button>
+        </div>
+        {error && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-rose-500 text-xs font-bold mt-2 ml-1"
+          >
+            {error}
+          </motion.p>
+        )}
+        {mpinForgotMsg && (
+          <motion.p
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-emerald-500 text-xs font-bold mt-2 ml-1"
+          >
+            {mpinForgotMsg}
+          </motion.p>
+        )}
+      </div>
+
+      <div className="flex gap-4">
+        <button
+          type="button"
+          onClick={() => {
+            setShowMpinStep(false);
+            setTempUser(null);
+            setMpinInput('');
+            setError('');
+          }}
+          className="flex-1 py-4 bg-white/10 hover:bg-white/15 text-white rounded-2xl font-bold transition-all border border-white/5 text-sm uppercase tracking-wider text-center"
+        >
+          Back
+        </button>
+
+        <button
+          type="submit"
+          className="flex-[2] bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-600/20 active:scale-[0.98]"
+        >
+          Verify MPIN
+          <ArrowRight size={18} />
+        </button>
+      </div>
     </form>
   );
 
@@ -599,7 +761,7 @@ export default function Login({ onLogin, isAdminMode = false }: LoginProps) {
               </div>
             </div>
 
-            {renderLoginForm()}
+            {showMpinStep ? renderMpinForm() : renderLoginForm()}
 
             <div className="mt-8 pt-6 border-t border-white/5 text-center">
               <p className="text-xs text-slate-500">

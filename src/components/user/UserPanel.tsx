@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
+import UserCreateMPIN from './UserCreateMPIN';
 import ChangePassword from './ChangePassword';
 import ErrorBoundary from '../ErrorBoundary';
 import { Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock } from 'lucide-react';
@@ -361,6 +362,17 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
           <UserKYC userId={userId} onStatusChange={fetchProfile} />
         </div>
       </div>
+    );
+  }
+
+  // Mandatory MPIN Configuration
+  if (!userProfile?.mpin || userProfile.mpin.trim().length !== 6) {
+    return (
+      <UserCreateMPIN
+        userId={userId}
+        onSuccess={fetchProfile}
+        onLogout={onLogout}
+      />
     );
   }
 
