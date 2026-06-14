@@ -4,7 +4,7 @@ import UserKYC from './UserKYC';
 import UserCreateMPIN from './UserCreateMPIN';
 import ChangePassword from './ChangePassword';
 import ErrorBoundary from '../ErrorBoundary';
-import { Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock } from 'lucide-react';
+import { Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock, KeyRound, Smartphone, ShieldCheck, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -55,6 +55,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showCoins, setShowCoins] = useState(false);
   const [coinDirection, setCoinDirection] = useState<'add' | 'deduct'>('add');
   const [targetEntryId, setTargetEntryId] = useState<string | null>(null);
@@ -651,24 +652,97 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
               </AnimatePresence>
             </div>
             <div className="h-8 w-px bg-slate-200 mx-2"></div>
-            <div className="flex items-center gap-3 pl-2">
-              <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">{userProfile?.firm_name || userProfile?.name}</p>
-                <p className="text-xs text-slate-500 mt-1">
-                  {userProfile?.name ? (
-                    userProfile.name.split(' ').length > 2
-                      ? `${userProfile.name.split(' ')[0]} ${userProfile.name.split(' ').pop()}`
-                      : userProfile.name
-                  ) : ''}
-                </p>
-              </div>
-              <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 border border-emerald-200 overflow-hidden">
-                {userProfile?.profile_photo_url ? (
-                  <img src={userProfile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <User size={20} />
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center gap-3 pl-2 cursor-pointer hover:opacity-80 transition-opacity focus:outline-none"
+              >
+                <div className="text-right hidden sm:block">
+                  <p className="text-sm font-bold text-slate-900 leading-none">{userProfile?.firm_name || userProfile?.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">
+                    {userProfile?.name ? (
+                      userProfile.name.split(' ').length > 2
+                        ? `${userProfile.name.split(' ')[0]} ${userProfile.name.split(' ').pop()}`
+                        : userProfile.name
+                    ) : ''}
+                  </p>
+                </div>
+                <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600 border border-emerald-200 overflow-hidden">
+                  {userProfile?.profile_photo_url ? (
+                    <img src={userProfile.profile_photo_url} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  ) : (
+                    <User size={20} />
+                  )}
+                </div>
+              </button>
+
+              <AnimatePresence>
+                {showProfileDropdown && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setShowProfileDropdown(false)}
+                    ></div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      className="absolute right-0 mt-3 w-56 bg-white rounded-3xl shadow-2xl border border-slate-100 z-20 overflow-hidden p-2"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileDropdown(false);
+                          navigate('/user/tpin');
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors text-sm font-bold text-left cursor-pointer"
+                      >
+                        <ShieldCheck size={18} className="text-emerald-500" />
+                        Create TPIN
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileDropdown(false);
+                          navigate('/user/mpin');
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors text-sm font-bold text-left cursor-pointer"
+                      >
+                        <Smartphone size={18} className="text-indigo-500" />
+                        Login MPIN
+                      </button>
+                      
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileDropdown(false);
+                          navigate('/user/change-password');
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors text-sm font-bold text-left cursor-pointer"
+                      >
+                        <KeyRound size={18} className="text-amber-500" />
+                        Security
+                      </button>
+
+                      <div className="h-px bg-slate-100 my-1"></div>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileDropdown(false);
+                          onLogout();
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-rose-50 text-rose-600 transition-colors text-sm font-bold text-left cursor-pointer"
+                      >
+                        <LogOut size={18} />
+                        Logout
+                      </button>
+                    </motion.div>
+                  </>
                 )}
-              </div>
+              </AnimatePresence>
             </div>
           </div>
         </header>
