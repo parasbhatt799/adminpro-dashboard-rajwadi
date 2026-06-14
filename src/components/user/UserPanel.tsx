@@ -694,6 +694,18 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                         type="button"
                         onClick={() => {
                           setShowProfileDropdown(false);
+                          navigate('/user/profile');
+                        }}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors text-sm font-bold text-left cursor-pointer"
+                      >
+                        <User size={18} className="text-emerald-500" />
+                        My Profile
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProfileDropdown(false);
                           navigate('/user/tpin');
                         }}
                         className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors text-sm font-bold text-left cursor-pointer"
