@@ -25,8 +25,12 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     console.error('[ErrorBoundary] Uncaught error:', error, errorInfo);
 
     // Auto-reload on chunk load/dynamic import failure to fetch fresh build assets
+    const errorMsg = error.message?.toLowerCase() || '';
     const isChunkError = 
-      error.message?.includes('Failed to fetch dynamically imported module') || 
+      errorMsg.includes('failed to fetch dynamically imported module') || 
+      errorMsg.includes('is not a valid javascript mime type') ||
+      errorMsg.includes('unexpected token \'<\'') ||
+      errorMsg.includes('chunkloaderror') ||
       error.name === 'ChunkLoadError';
 
     if (isChunkError) {
