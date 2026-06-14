@@ -265,17 +265,6 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         </div>
       )}
 
-      <div className={`p-4 border-t border-slate-800 ${isCollapsed ? 'flex justify-center' : ''}`}>
-        <button
-          onClick={onLogout}
-          title={isCollapsed ? 'Logout' : undefined}
-          className={`flex items-center gap-3 px-3 py-3 rounded-xl text-slate-400 hover:bg-red-500/10 hover:text-red-500 transition-colors ${isCollapsed ? 'justify-center w-auto' : 'w-full'
-            }`}
-        >
-          <LogOut size={20} className="shrink-0" />
-          {!isCollapsed && <span className="font-medium text-sm">Logout</span>}
-        </button>
-      </div>
     </motion.div>
   );
 }
