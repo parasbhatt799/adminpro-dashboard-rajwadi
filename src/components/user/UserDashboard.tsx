@@ -22,6 +22,7 @@ import {
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import UserChatWidget from './UserChatWidget';
+import DashboardIllustration from './DashboardIllustration';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
 
@@ -45,6 +46,13 @@ export default function UserDashboard({ userId }: { userId: string }) {
     '30days': 'Last 30 Days',
     all: 'All Time',
     custom: 'Custom Range'
+  };
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
   };
 
   useEffect(() => {
@@ -245,8 +253,13 @@ export default function UserDashboard({ userId }: { userId: string }) {
     );
   }
 
+  const firstName = userProfile?.name ? userProfile.name.trim().split(/\s+/)[0] : 'User';
+
   return (
     <div className="space-y-8 relative min-h-[70vh]">
+      {/* Background Animated Circles */}
+      <DashboardIllustration />
+
       {/* Dashboard Watermark */}
       {watermark.enabled && watermark.logo && (
         <div
@@ -266,7 +279,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             <div>
               <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-bold text-slate-900">Dashboard</h2>
+                <h2 className="text-2xl font-extrabold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent uppercase tracking-wider pb-1">
+                  {getGreeting()}, {firstName}
+                </h2>
                 {(userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') && (
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-indigo-200">
@@ -278,7 +293,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   </div>
                 )}
               </div>
-              <p className="text-slate-500 mt-1">Welcome back, {userProfile?.name || 'User'}! Here's your business overview.</p>
+
               {distributor && userProfile?.role !== 'distributor' && (
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Managed By:</span>
