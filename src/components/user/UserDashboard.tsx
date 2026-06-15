@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { 
-  Wallet, 
-  Clock, 
-  QrCode, 
-  CreditCard, 
-  Loader2, 
+import {
+  Wallet,
+  Clock,
+  QrCode,
+  CreditCard,
+  Loader2,
   Lock,
   Filter,
   Calendar,
@@ -13,12 +13,12 @@ import {
 import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { 
-  startOfDay, 
-  endOfDay, 
-  subDays, 
-  startOfToday, 
-  format 
+import {
+  startOfDay,
+  endOfDay,
+  subDays,
+  startOfToday,
+  format
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import UserChatWidget from './UserChatWidget';
@@ -33,9 +33,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
   const [distributor, setDistributor] = useState<any>(null);
   const [watermark, setWatermark] = useState<{ enabled: boolean; logo: string | null }>({ enabled: false, logo: null });
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
-  const [customRange, setCustomRange] = useState({ 
-    start: format(new Date(), 'yyyy-MM-dd'), 
-    end: format(new Date(), 'yyyy-MM-dd') 
+  const [customRange, setCustomRange] = useState({
+    start: format(new Date(), 'yyyy-MM-dd'),
+    end: format(new Date(), 'yyyy-MM-dd')
   });
   const [showFilter, setShowFilter] = useState(false);
 
@@ -159,7 +159,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
         const qrTotal = qrRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0;
         const billTotal = (billRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0) +
-                          (bbpsRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0);
+          (bbpsRes.data?.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0) || 0);
         const totalPending = (pendingQrRes.count || 0) + (pendingBillRes.count || 0) + (pendingBbpsRes.count || 0);
 
         setStats([
@@ -225,16 +225,16 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
     // Listener for User Profile (Wallet Balance)
     const profileChannel = supabase.channel(`profile_dashboard_${userId}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'users_profiles', 
-        filter: `id=eq.${userId}` 
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'users_profiles',
+        filter: `id=eq.${userId}`
       }, (payload) => {
         if (payload.new) {
           setUserProfile(payload.new);
           // Stats will re-calculate because userProfile is a dependency or we force a refresh
-          fetchStats(); 
+          fetchStats();
         }
       })
       .subscribe();
@@ -279,7 +279,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             <div>
               <div className="flex items-center gap-3">
-                <h2 className="text-2xl font-extrabold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent uppercase tracking-wider pb-1">
+                <h2 className="text-2xl font-extrabold uppercase tracking-wider pb-1 animate-text-gradient">
                   {getGreeting()}, {firstName}
                 </h2>
                 {(userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') && (
@@ -308,15 +308,15 @@ export default function UserDashboard({ userId }: { userId: string }) {
           <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
             {dateFilter === 'custom' && (
               <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={customRange.start}
                   onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
                   className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
                 />
                 <span className="text-slate-300 text-xs">to</span>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   value={customRange.end}
                   onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
                   className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
@@ -325,7 +325,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
             )}
 
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowFilter(!showFilter)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:border-indigo-300 transition-all shadow-sm"
               >
@@ -338,7 +338,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                 {showFilter && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setShowFilter(false)}></div>
-                    <motion.div 
+                    <motion.div
                       initial={{ opacity: 0, y: 10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
@@ -351,9 +351,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
                             setDateFilter(range);
                             setShowFilter(false);
                           }}
-                          className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 ${
-                            dateFilter === range ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'
-                          }`}
+                          className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 ${dateFilter === range ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'
+                            }`}
                         >
                           {rangeLabels[range]}
                         </button>

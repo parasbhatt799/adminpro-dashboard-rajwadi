@@ -34,3 +34,32 @@
     background: #cbd5e1;
   }
 }
+
+@keyframes gradient-text {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-text-gradient {
+  background: linear-gradient(
+    to right, 
+    #2563eb, 
+    #7c3aed, 
+    #db2777,
+    #7c3aed,
+    #2563eb
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: gradient-text 4s linear infinite;
+}
+
