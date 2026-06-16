@@ -459,12 +459,23 @@ export default function Settings() {
 
         if (perm !== 'granted') {
           toast.info("Requesting notification permission... Please click 'Allow' on the browser prompt.");
-          await OneSignal.Notifications.requestPermission();
+          
+          try {
+            // Add a 10-second timeout to requestPermission to prevent hanging if browser silences it
+            await Promise.race([
+              OneSignal.Notifications.requestPermission(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timed out. Please check browser permissions.")), 10000))
+            ]);
+          } catch (e: any) {
+            console.warn("Permission request failed or timed out:", e);
+          }
           
           // Refresh permission state
           perm = OneSignal.Notifications.permission;
           if (perm !== 'granted') {
-            toast.error("Notification permission was not granted.");
+            const errorMsg = "Notification permission was not granted. Please check if notifications are blocked in your browser's address bar (lock/bell icon) or phone settings.";
+            toast.error(errorMsg);
+            setError(errorMsg);
             setSubscribing(false);
             return;
           }
@@ -544,10 +555,20 @@ export default function Settings() {
 
           if (perm !== 'granted') {
             toast.info("Requesting permission...");
-            await OS.Notifications.requestPermission();
+            try {
+              await Promise.race([
+                OS.Notifications.requestPermission(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timed out")), 10000))
+              ]);
+            } catch (e: any) {
+              console.warn("Deferred permission request failed or timed out:", e);
+            }
+            
             perm = OS.Notifications.permission;
             if (perm !== 'granted') {
-              toast.error("Notification permission was not granted.");
+              const errorMsg = "Notification permission was not granted. Please check if notifications are blocked in your browser's address bar (lock/bell icon) or phone settings.";
+              toast.error(errorMsg);
+              setError(errorMsg);
               setSubscribing(false);
               return;
             }
