@@ -328,6 +328,10 @@ CREATE POLICY "whatsapp_settings_all" ON public.whatsapp_api_settings FOR ALL US
 ALTER TABLE public.complaints DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.complaint_messages DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;
+
+-- Also add a policy allowing all access just in case RLS is forced on by the system
+DROP POLICY IF EXISTS "Enable all access for notifications" ON public.notifications;
+CREATE POLICY "Enable all access for notifications" ON public.notifications FOR ALL USING (true) WITH CHECK (true);
  
 -- 4. STORAGE BUCKETS
 INSERT INTO storage.buckets (id, name, public)

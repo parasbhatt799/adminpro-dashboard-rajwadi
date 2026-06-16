@@ -13,6 +13,10 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 -- Disable RLS for compatibility with custom auth
 ALTER TABLE public.notifications DISABLE ROW LEVEL SECURITY;
 
+-- Also add a policy allowing all access just in case RLS is forced on by the system
+DROP POLICY IF EXISTS "Enable all access for notifications" ON public.notifications;
+CREATE POLICY "Enable all access for notifications" ON public.notifications FOR ALL USING (true) WITH CHECK (true);
+
 -- Grant permissions for anon access
 GRANT ALL ON public.notifications TO anon;
 GRANT ALL ON public.notifications TO authenticated;

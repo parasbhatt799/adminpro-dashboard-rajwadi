@@ -107,7 +107,7 @@ const initOneSignal = async () => {
             allowLocalhostAsSecureOrigin: true,
             notifyButton: { enable: false },
             serviceWorkerParam: { scope: '/' },
-            serviceWorkerPath: 'OneSignalSDKWorker.js',
+            serviceWorkerPath: '/OneSignalSDKWorker.js',
           });
           console.log('OneSignal Web SDK Initialized successfully');
         }
