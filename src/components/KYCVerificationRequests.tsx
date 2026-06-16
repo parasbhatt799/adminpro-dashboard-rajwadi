@@ -131,14 +131,12 @@ export default function KYCVerificationRequests() {
 
       // 3.5 Trigger Push Notification
       try {
-        const { data: userProfile } = await supabase
-          .from('users_profiles')
-          .select('onesignal_id')
-          .eq('id', userId)
-          .single();
+        const targetSubmission = submissions.find(s => s.id === submissionId);
+        const userDisplayName = targetSubmission?.users_profiles?.name || 'User';
 
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
+          // Send to user
           await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -155,6 +153,22 @@ export default function KYCVerificationRequests() {
               }
             })
           });
+
+          // Send to all admins
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: `KYC Verification ${newStatus === 'approved' ? 'Approved' : 'Rejected'}`,
+              message: `${userDisplayName}'s KYC request has been ${newStatus === 'approved' ? 'approved' : 'rejected'}${newStatus === 'rejected' ? ' due to: ' + rejectionReason : ''}.`,
+              target: 'admins',
+              link: '/kyc-verification-requests',
+              credentials: {
+                app_id: osSettings.app_id,
+                rest_api_key: osSettings.rest_api_key
+              }
+            })
+          }).catch(err => console.error('Admin push notification fetch error:', err));
         }
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);

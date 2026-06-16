@@ -195,8 +195,10 @@ export default function PayoutManagement() {
 
         // Trigger Push Notification
         try {
+          const userDisplayName = req.users_profiles?.firm_name || req.users_profiles?.name || 'User';
           const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
           if (osSettings?.app_id && osSettings?.rest_api_key) {
+            // Send to user
             await fetch('/api/send-push-notification', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -211,6 +213,22 @@ export default function PayoutManagement() {
                 }
               })
             });
+
+            // Send to admins
+            await fetch('/api/send-push-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                title: 'Payout Processing Started',
+                message: `${userDisplayName}'s payout request of ₹${req.amount.toLocaleString()} is now being processed.`,
+                target: 'admins',
+                link: '/payout-requests',
+                credentials: {
+                  app_id: osSettings.app_id,
+                  rest_api_key: osSettings.rest_api_key
+                }
+              })
+            }).catch(err => console.error('Admin push notification fetch error:', err));
           }
         } catch (pushErr) {
           console.error('Push Notification Error:', pushErr);
@@ -252,8 +270,10 @@ export default function PayoutManagement() {
 
       // Trigger Push Notification
       try {
+        const userDisplayName = req.users_profiles?.firm_name || req.users_profiles?.name || 'User';
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
+          // Send to user
           await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -268,6 +288,22 @@ export default function PayoutManagement() {
               }
             })
           });
+
+          // Send to admins
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: 'Payout Rejected',
+              message: `${userDisplayName}'s payout request of ₹${req.amount.toLocaleString()} has been rejected. Reason: ${rejectReason}`,
+              target: 'admins',
+              link: '/payout-requests',
+              credentials: {
+                app_id: osSettings.app_id,
+                rest_api_key: osSettings.rest_api_key
+              }
+            })
+          }).catch(err => console.error('Admin push notification fetch error:', err));
         }
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);
@@ -332,8 +368,10 @@ export default function PayoutManagement() {
 
       // Trigger Push Notification
       try {
+        const userDisplayName = req.users_profiles?.firm_name || req.users_profiles?.name || 'User';
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
+          // Send to user
           await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -348,6 +386,22 @@ export default function PayoutManagement() {
               }
             })
           });
+
+          // Send to admins
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: 'Payout Completed',
+              message: `${userDisplayName}'s payout request of ₹${req.amount.toLocaleString()} has been completed.`,
+              target: 'admins',
+              link: '/payout-requests',
+              credentials: {
+                app_id: osSettings.app_id,
+                rest_api_key: osSettings.rest_api_key
+              }
+            })
+          }).catch(err => console.error('Admin push notification fetch error:', err));
         }
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);

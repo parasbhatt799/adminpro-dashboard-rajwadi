@@ -448,7 +448,7 @@ export default function QRPaymentRequests() {
     try {
       const { data: currentReq, error: fetchError } = await supabase
         .from('payment_submissions')
-        .select('status, amount, user_id, proof_url')
+        .select('status, amount, user_id, proof_url, users_profiles(name, firm_name)')
         .eq('id', targetId)
         .single();
 
@@ -504,14 +504,12 @@ export default function QRPaymentRequests() {
 
       // 3.5 Trigger Push Notification
       try {
-        const { data: userProfile } = await supabase
-          .from('users_profiles')
-          .select('onesignal_id')
-          .eq('id', currentReq.user_id)
-          .single();
+        const userDetails = (currentReq as any)?.users_profiles;
+        const userDisplayName = userDetails?.firm_name || userDetails?.name || 'User';
 
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
+          // Send to the user
           await fetch('/api/send-push-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -528,6 +526,22 @@ export default function QRPaymentRequests() {
               }
             })
           });
+
+          // Send to all admins
+          await fetch('/api/send-push-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: `QR Payment ${targetType === 'approved' ? 'Approved' : 'Rejected'}`,
+              message: `${userDisplayName}'s QR payment of ₹${amount.toLocaleString()} has been ${targetType === 'approved' ? 'approved' : 'rejected'}${targetType === 'rejected' ? ' due to: ' + targetReason : ''}.`,
+              target: 'admins',
+              link: '/qr-payment-requests',
+              credentials: {
+                app_id: osSettings.app_id,
+                rest_api_key: osSettings.rest_api_key
+              }
+            })
+          }).catch(err => console.error('Admin push notification fetch error:', err));
         }
       } catch (pushErr) {
         console.error('Push Notification Error:', pushErr);
