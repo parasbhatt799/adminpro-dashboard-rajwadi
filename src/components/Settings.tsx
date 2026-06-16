@@ -90,6 +90,44 @@ export default function Settings() {
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [subscribing, setSubscribing] = useState(false);
   const [permissionState, setPermissionState] = useState<string>('Detecting...');
+  const [diagnostics, setDiagnostics] = useState<{
+    secureContext: boolean;
+    notificationSupported: boolean;
+    oneSignalLoaded: boolean;
+    oneSignalInitialized: boolean;
+    currentPermission: string;
+    serviceWorkers: string[];
+    appIdInDatabase: string;
+  } | null>(null);
+
+  const runDiagnostics = async () => {
+    try {
+      const isSecure = window.isSecureContext;
+      const isNotifSupported = 'Notification' in window;
+      const OneSignal = (window as any).OneSignal;
+      const isLoaded = !!OneSignal;
+      const isInitialized = isLoaded && !!OneSignal.initialized;
+      const perm = isNotifSupported ? (OneSignal?.Notifications?.permission || Notification.permission) : 'not-supported';
+      
+      let workers: string[] = [];
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        workers = regs.map(r => `${r.active?.scriptURL || 'inactive'} (${r.scope})`);
+      }
+
+      setDiagnostics({
+        secureContext: isSecure,
+        notificationSupported: isNotifSupported,
+        oneSignalLoaded: isLoaded,
+        oneSignalInitialized: isInitialized,
+        currentPermission: perm,
+        serviceWorkers: workers,
+        appIdInDatabase: oneSignalSettings?.app_id || 'Not set'
+      });
+    } catch (e) {
+      console.error("Diagnostics error:", e);
+    }
+  };
   const [testLoading, setTestLoading] = useState(false);
   const [whatsappTestLoading, setWhatsappTestLoading] = useState(false);
   const [testWA, setTestWA] = useState('');
@@ -218,9 +256,13 @@ export default function Settings() {
     };
 
     checkStatus();
-    const interval = setInterval(checkStatus, 3000);
+    runDiagnostics();
+    const interval = setInterval(() => {
+      checkStatus();
+      runDiagnostics();
+    }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [oneSignalSettings.app_id]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -968,6 +1010,35 @@ export default function Settings() {
                   {isSubscribed ? 'Sync Device ID' : 'Subscribe Now'}
                 </button>
               </div>
+
+              {/* Diagnostics Box */}
+              {diagnostics && (
+                <div className="md:col-span-2 border border-slate-200 bg-slate-50/50 rounded-2xl p-4 text-xs font-mono space-y-1.5">
+                  <div className="flex items-center justify-between pb-1 border-b border-slate-200 font-bold text-slate-700 mb-2">
+                    <span>🛠️ OneSignal Diagnostics (ડીબગ સ્ટેટસ)</span>
+                    <button 
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        await runDiagnostics();
+                      }}
+                      className="text-[10px] text-indigo-600 font-bold hover:underline"
+                    >
+                      Refresh
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-y-1 gap-x-4">
+                    <div>Secure Context (HTTPS): <span className={diagnostics.secureContext ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{diagnostics.secureContext ? "YES" : "NO"}</span></div>
+                    <div>Notification Support: <span className={diagnostics.notificationSupported ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{diagnostics.notificationSupported ? "YES" : "NO"}</span></div>
+                    <div>OneSignal SDK Loaded: <span className={diagnostics.oneSignalLoaded ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{diagnostics.oneSignalLoaded ? "YES" : "NO"}</span></div>
+                    <div>OneSignal Init State: <span className={diagnostics.oneSignalInitialized ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{diagnostics.oneSignalInitialized ? "YES" : "NO"}</span></div>
+                    <div className="md:col-span-2 font-semibold truncate">Permission State: <span className="text-indigo-600 font-bold">{diagnostics.currentPermission}</span></div>
+                    <div className="md:col-span-2 text-[10px] text-slate-500 truncate">App ID in DB: {diagnostics.appIdInDatabase}</div>
+                    <div className="md:col-span-2 text-[10px] text-slate-500">
+                      Active Workers: {diagnostics.serviceWorkers.length === 0 ? "None registered" : diagnostics.serviceWorkers.join(', ')}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="md:col-span-2 flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
                 <div className="flex items-center gap-3">
