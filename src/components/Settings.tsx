@@ -88,6 +88,7 @@ export default function Settings() {
 
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const [subscribing, setSubscribing] = useState(false);
   const [permissionState, setPermissionState] = useState<string>('Detecting...');
   const [testLoading, setTestLoading] = useState(false);
   const [whatsappTestLoading, setWhatsappTestLoading] = useState(false);
@@ -419,73 +420,185 @@ export default function Settings() {
   };
 
   const handleSubscribe = async () => {
-    const OneSignal = (window as any).OneSignal;
-    
-    // Attempt direct synchronous call to satisfy Safari user-gesture policy
-    if (OneSignal && OneSignal.Notifications) {
-      try {
-        const perm = OneSignal.Notifications.permission;
-        if (perm === 'granted') {
-          if (OneSignal.User?.PushSubscription) {
-            await OneSignal.User.PushSubscription.optIn();
-            const pushId = OneSignal.User.PushSubscription.id;
+    if (subscribing) return;
+    setSubscribing(true);
+    setError(null);
+
+    // 1. Insecure context check (push requires HTTPS or localhost)
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      const errorMsg = "Push Notifications require HTTPS. Mobile devices cannot subscribe over HTTP. Please use HTTPS.";
+      toast.error(errorMsg);
+      setError(errorMsg);
+      setSubscribing(false);
+      return;
+    }
+
+    // 2. Browser compatibility check
+    if (!('Notification' in window)) {
+      const errorMsg = "This browser does not support desktop notifications.";
+      toast.error(errorMsg);
+      setError(errorMsg);
+      setSubscribing(false);
+      return;
+    }
+
+    try {
+      const OneSignal = (window as any).OneSignal;
+      
+      // Attempt direct synchronous flow (essential for Safari/iOS)
+      if (OneSignal && OneSignal.Notifications) {
+        let perm = OneSignal.Notifications.permission;
+        
+        if (perm === 'denied') {
+          const errorMsg = "Notification permission is blocked. Please reset site permissions in your browser settings to allow notifications.";
+          toast.error(errorMsg);
+          setError(errorMsg);
+          setSubscribing(false);
+          return;
+        }
+
+        if (perm !== 'granted') {
+          toast.info("Requesting notification permission... Please click 'Allow' on the browser prompt.");
+          await OneSignal.Notifications.requestPermission();
+          
+          // Refresh permission state
+          perm = OneSignal.Notifications.permission;
+          if (perm !== 'granted') {
+            toast.error("Notification permission was not granted.");
+            setSubscribing(false);
+            return;
+          }
+        }
+
+        // Now permission is granted. Opt-in and sync device push ID.
+        if (OneSignal.User?.PushSubscription) {
+          toast.info("Registering device with OneSignal...");
+          await OneSignal.User.PushSubscription.optIn();
+          
+          // Poll for the OneSignal Player ID to resolve
+          let pushId = OneSignal.User.PushSubscription.id;
+          let attempts = 0;
+          while (!pushId && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            pushId = OneSignal.User.PushSubscription.id;
+            attempts++;
+          }
+
+          if (!pushId) {
+            toast.error("OneSignal ID registration is pending. Please click 'Subscribe Now' again in a few seconds.");
+            setSubscribing(false);
+            return;
+          }
+
+          const currentUserId = localStorage.getItem('userId');
+          if (currentUserId && pushId) {
+            const userType = localStorage.getItem('userType') as 'admin' | 'user';
+            await addDevicePushId(currentUserId, userType, pushId);
+            toast.success('Successfully subscribed to notifications!');
+            setIsSubscribed(true);
+            setPlayerId(pushId);
+          } else {
+            toast.error("Could not sync subscription: userId is missing in local storage.");
+          }
+        } else {
+          toast.error("OneSignal PushSubscription API is not ready.");
+        }
+        setSubscribing(false);
+        return;
+      }
+
+      // If window.OneSignal isn't loaded synchronously, fall back to OneSignalDeferred queue
+      const OneSignalDeferred = (window as any).OneSignalDeferred;
+      if (!OneSignalDeferred) {
+        const errorMsg = 'OneSignal SDK not loaded. Please check your internet connection and refresh the page.';
+        toast.error(errorMsg);
+        setError(errorMsg);
+        setSubscribing(false);
+        return;
+      }
+
+      toast.info("Initializing OneSignal Subscription flow...");
+      OneSignalDeferred.push(async (OS: any) => {
+        try {
+          if (!OS.Notifications) {
+            if (typeof OS.showNativePrompt === 'function') {
+              await OS.showNativePrompt();
+              setSubscribing(false);
+              return;
+            }
+            const errorMsg = 'OneSignal is still initializing. Please wait a moment and try again.';
+            toast.error(errorMsg);
+            setError(errorMsg);
+            setSubscribing(false);
+            return;
+          }
+
+          let perm = OS.Notifications.permission;
+          if (perm === 'denied') {
+            const errorMsg = "Notification permission is blocked. Please reset site permissions in your browser settings to allow notifications.";
+            toast.error(errorMsg);
+            setError(errorMsg);
+            setSubscribing(false);
+            return;
+          }
+
+          if (perm !== 'granted') {
+            toast.info("Requesting permission...");
+            await OS.Notifications.requestPermission();
+            perm = OS.Notifications.permission;
+            if (perm !== 'granted') {
+              toast.error("Notification permission was not granted.");
+              setSubscribing(false);
+              return;
+            }
+          }
+
+          if (OS.User?.PushSubscription) {
+            toast.info("Registering device...");
+            await OS.User.PushSubscription.optIn();
+            
+            let pushId = OS.User.PushSubscription.id;
+            let attempts = 0;
+            while (!pushId && attempts < 10) {
+              await new Promise(resolve => setTimeout(resolve, 500));
+              pushId = OS.User.PushSubscription.id;
+              attempts++;
+            }
+
+            if (!pushId) {
+              toast.error("OneSignal registration is pending. Please try again.");
+              setSubscribing(false);
+              return;
+            }
+
             const currentUserId = localStorage.getItem('userId');
             if (currentUserId && pushId) {
               const userType = localStorage.getItem('userType') as 'admin' | 'user';
               await addDevicePushId(currentUserId, userType, pushId);
               toast.success('Successfully subscribed to notifications!');
-            }
-          }
-        } else {
-          console.log('Requesting permission synchronously via global OneSignal...');
-          await OneSignal.Notifications.requestPermission();
-        }
-        return;
-      } catch (err: any) {
-        console.error('Direct subscription permission request error:', err);
-      }
-    }
-
-    const OneSignalDeferred = (window as any).OneSignalDeferred;
-    if (!OneSignalDeferred) {
-      setError('OneSignal SDK not loaded. Please check your internet and refresh.');
-      return;
-    }
-
-    OneSignalDeferred.push(async (OS: any) => {
-      try {
-        if (OS.Notifications) {
-          const perm = OS.Notifications.permission;
-          if (perm === 'granted') {
-            if (OS.User?.PushSubscription) {
-              await OS.User.PushSubscription.optIn();
-              console.log('Successfully opted-in to push subscription');
-              
-              const pushId = OS.User.PushSubscription.id;
-              const currentUserId = localStorage.getItem('userId');
-              if (currentUserId && pushId) {
-                const userType = localStorage.getItem('userType') as 'admin' | 'user';
-                await addDevicePushId(currentUserId, userType, pushId);
-                console.log('Database synced manually with push ID:', pushId);
-                toast.success('Successfully subscribed to notifications!');
-              }
+              setIsSubscribed(true);
+              setPlayerId(pushId);
+            } else {
+              toast.error("Could not sync: Session not found.");
             }
           } else {
-            console.log('Opening subscription prompt (v16)...');
-            await OS.Notifications.requestPermission();
+            toast.error("PushSubscription object not found.");
           }
-        } else if (typeof OS.showNativePrompt === 'function') {
-          console.log('Opening subscription prompt (Legacy)...');
-          await OS.showNativePrompt();
-        } else {
-          setError('OneSignal is still initializing. Please wait a moment and try again.');
-          console.warn('OneSignal Notifications namespace not found yet:', OS);
+        } catch (deferredErr: any) {
+          console.error('Deferred subscription error:', deferredErr);
+          toast.error(deferredErr.message || 'Subscription failed');
+          setError(deferredErr.message || 'Subscription failed');
+        } finally {
+          setSubscribing(false);
         }
-      } catch (err: any) {
-        console.error('Subscription error:', err);
-        setError(err.message || 'Failed to open subscription prompt');
-      }
-    });
+      });
+
+    } catch (err: any) {
+      console.error('Subscription error:', err);
+      toast.error(err.message || 'Failed to open subscription prompt');
+      setError(err.message || 'Failed to open subscription prompt');
+      setSubscribing(false);
+    }
   };
 
   const handleTestWhatsApp = async () => {
@@ -823,12 +936,14 @@ export default function Settings() {
                 </div>
                 <button
                   onClick={handleSubscribe}
-                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 ${
+                  disabled={subscribing}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-md active:scale-95 flex items-center gap-2 ${
                     isSubscribed 
                       ? 'bg-emerald-600 text-white hover:bg-emerald-700' 
                       : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                  }`}
+                  } disabled:opacity-50`}
                 >
+                  {subscribing && <Loader2 className="animate-spin" size={16} />}
                   {isSubscribed ? 'Sync Device ID' : 'Subscribe Now'}
                 </button>
               </div>
