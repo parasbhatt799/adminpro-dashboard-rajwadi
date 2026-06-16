@@ -107,7 +107,7 @@ export default function Settings() {
       const isNotifSupported = 'Notification' in window;
       const OneSignal = (window as any).OneSignal;
       const isLoaded = !!OneSignal;
-      const isInitialized = isLoaded && !!OneSignal.initialized;
+      const isInitialized = isLoaded && (!!OneSignal.initialized || !!(window as any).__oneSignalInitialized);
       const perm = isNotifSupported ? (OneSignal?.Notifications?.permission || Notification.permission) : 'not-supported';
       const initError = (window as any).__oneSignalInitError || null;
       

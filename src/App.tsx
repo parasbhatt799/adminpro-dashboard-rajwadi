@@ -101,7 +101,7 @@ const initOneSignal = async () => {
     // 2. Initialize via Deferred Queue
     OneSignalDeferred.push(async (OneSignal: any) => {
       try {
-        if (!OneSignal.initialized) {
+        if (!(window as any).__oneSignalInitialized) {
           await OneSignal.init({
             appId: settings.app_id,
             allowLocalhostAsSecureOrigin: true,
@@ -109,6 +109,7 @@ const initOneSignal = async () => {
             serviceWorkerParam: { scope: '/' },
             serviceWorkerPath: '/OneSignalSDKWorker.js',
           });
+          (window as any).__oneSignalInitialized = true;
           console.log('OneSignal Web SDK Initialized successfully');
         }
 
