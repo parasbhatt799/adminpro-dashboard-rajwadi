@@ -448,7 +448,7 @@ export default function QRPaymentRequests() {
     try {
       const { data: currentReq, error: fetchError } = await supabase
         .from('payment_submissions')
-        .select('status, amount, user_id, proof_url, users_profiles(name, firm_name)')
+        .select('status, amount, user_id, proof_url')
         .eq('id', targetId)
         .single();
 
@@ -504,8 +504,13 @@ export default function QRPaymentRequests() {
 
       // 3.5 Trigger Push Notification
       try {
-        const userDetails = (currentReq as any)?.users_profiles;
-        const userDisplayName = userDetails?.firm_name || userDetails?.name || 'User';
+        const { data: userProfile } = await supabase
+          .from('users_profiles')
+          .select('onesignal_id, name, firm_name')
+          .eq('id', currentReq.user_id)
+          .single();
+
+        const userDisplayName = userProfile?.firm_name || userProfile?.name || 'User';
 
         const { data: osSettings } = await supabase.from('onesignal_settings').select('app_id, rest_api_key').eq('id', 1).single();
         if (osSettings?.app_id && osSettings?.rest_api_key) {
