@@ -8,7 +8,9 @@ import {
   Lock,
   Filter,
   Calendar,
-  ChevronDown
+  ChevronDown,
+  Bell,
+  AlertTriangle
 } from 'lucide-react';
 import { LogoLoader } from '../shared/LoadingSpinner';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,13 +22,15 @@ import {
   startOfToday,
   format
 } from 'date-fns';
-import { supabase } from '../../lib/supabase';
+import { supabase, addDevicePushId } from '../../lib/supabase';
 import UserChatWidget from './UserChatWidget';
 import DashboardIllustration from './DashboardIllustration';
+import { useToast } from '../../context/ToastContext';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
 
 export default function UserDashboard({ userId }: { userId: string }) {
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -38,6 +42,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
     end: format(new Date(), 'yyyy-MM-dd')
   });
   const [showFilter, setShowFilter] = useState(false);
+  const [showPushBanner, setShowPushBanner] = useState(false);
+  const [showPushDeniedBanner, setShowPushDeniedBanner] = useState(false);
+  const [subscribingPush, setSubscribingPush] = useState(false);
 
   const rangeLabels: Record<DateFilter, string> = {
     today: 'Today',
@@ -245,6 +252,148 @@ export default function UserDashboard({ userId }: { userId: string }) {
     };
   }, [dateFilter, customRange]);
 
+  useEffect(() => {
+    const checkPushPermission = () => {
+      if (!('Notification' in window)) return;
+      
+      const perm = Notification.permission;
+      if (perm === 'denied') {
+        setShowPushDeniedBanner(true);
+        setShowPushBanner(false);
+      } else if (perm === 'default') {
+        setShowPushBanner(true);
+        setShowPushDeniedBanner(false);
+      } else if (perm === 'granted') {
+        if (userProfile && !userProfile.onesignal_id) {
+          setShowPushBanner(true);
+          setShowPushDeniedBanner(false);
+        } else {
+          setShowPushBanner(false);
+          setShowPushDeniedBanner(false);
+        }
+      }
+    };
+
+    checkPushPermission();
+  }, [userProfile]);
+
+  const handleSubscribePush = async () => {
+    setSubscribingPush(true);
+    try {
+      const OneSignal = (window as any).OneSignal;
+      if (OneSignal) {
+        let perm = OneSignal.Notifications?.permission || Notification.permission;
+        
+        if (perm !== 'granted') {
+          try {
+            await Promise.race([
+              OneSignal.Notifications.requestPermission(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timed out")), 10000))
+            ]);
+          } catch (e) {
+            console.warn("Permission request failed or timed out:", e);
+          }
+          
+          perm = OneSignal.Notifications?.permission || Notification.permission;
+          if (perm !== 'granted') {
+            toast.error("નમસ્તે! નોટિફિકેશન પરમિશન મંજૂર નથી થઈ. કૃપા કરીને બ્રાઉઝર પરમિશન સેટિંગ્સ ચેક કરો.");
+            setSubscribingPush(false);
+            if (perm === 'denied') {
+              setShowPushDeniedBanner(true);
+              setShowPushBanner(false);
+            }
+            return;
+          }
+        }
+
+        if (OneSignal.User?.PushSubscription) {
+          await OneSignal.User.PushSubscription.optIn();
+          
+          let pushId = OneSignal.User.PushSubscription.id;
+          let attempts = 0;
+          while (!pushId && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            pushId = OneSignal.User.PushSubscription.id;
+            attempts++;
+          }
+
+          if (pushId) {
+            await addDevicePushId(userId, 'user', pushId);
+            toast.success("તમારું ડિવાઇસ સફળતાપૂર્વક સબસ્ક્રાઇબ થઈ ગયું છે!");
+            const { data: updatedProfile } = await supabase
+              .from('users_profiles')
+              .select('*')
+              .eq('id', userId)
+              .single();
+            if (updatedProfile) {
+              setUserProfile(updatedProfile);
+            }
+            setShowPushBanner(false);
+          } else {
+            toast.error("OneSignal ID હજી મળ્યો નથી. કૃપા કરીને ફરી ટ્રાય કરો.");
+          }
+        } else {
+          toast.error("OneSignal API રેડી નથી. મહેરબાની કરીને થોડી સેકન્ડ પછી ટ્રાય કરો.");
+        }
+      } else {
+        const OneSignalDeferred = (window as any).OneSignalDeferred;
+        if (OneSignalDeferred) {
+          OneSignalDeferred.push(async (OS: any) => {
+            let perm = OS.Notifications?.permission || Notification.permission;
+            if (perm !== 'granted') {
+              try {
+                await Promise.race([
+                  OS.Notifications.requestPermission(),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timed out")), 10000))
+                ]);
+              } catch (e) {
+                console.warn("Deferred permission request failed:", e);
+              }
+              perm = OS.Notifications?.permission || Notification.permission;
+            }
+
+            if (perm === 'granted' && OS.User?.PushSubscription) {
+              await OS.User.PushSubscription.optIn();
+              let pushId = OS.User.PushSubscription.id;
+              let attempts = 0;
+              while (!pushId && attempts < 10) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                pushId = OS.User.PushSubscription.id;
+                attempts++;
+              }
+              if (pushId) {
+                await addDevicePushId(userId, 'user', pushId);
+                toast.success("ડિવાઇસ સબસ્ક્રાઇબ થઈ ગયું છે!");
+                const { data: updatedProfile } = await supabase
+                  .from('users_profiles')
+                  .select('*')
+                  .eq('id', userId)
+                  .single();
+                if (updatedProfile) {
+                  setUserProfile(updatedProfile);
+                }
+                setShowPushBanner(false);
+              }
+            } else {
+              toast.error("નોટિફિકેશન પરમિશન મંજૂર કરવામાં આવી નથી.");
+              if (perm === 'denied') {
+                setShowPushDeniedBanner(true);
+                setShowPushBanner(false);
+              }
+            }
+          });
+        } else {
+          toast.error("OneSignal SDK લોડ થયો નથી. કૃપા કરીને ઇન્ટરનેટ ચેક કરો.");
+        }
+      }
+    } catch (err: any) {
+      console.error("Subscription error:", err);
+      toast.error("સબસ્ક્રિપ્શનમાં ખામી આવી: " + (err.message || err));
+    } finally {
+      setSubscribingPush(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="h-[60vh] flex items-center justify-center">
@@ -274,7 +423,64 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
       )}
 
-      <div className="relative z-10 space-y-8">
+      <div className="relative z-10 space-y-6">
+        {/* Push Notification Banner */}
+        {showPushBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-indigo-800 text-white rounded-[24px] p-5 shadow-lg relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-500/20"
+          >
+            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-white/10 rounded-xl shrink-0 text-white flex items-center justify-center">
+                <Bell size={24} className="animate-bounce" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm uppercase tracking-wider text-indigo-100">પ્રોસેસ અપડેટ્સ મેળવો (Get Alerts)</h3>
+                <p className="text-xs text-white/90 mt-1 max-w-xl font-medium">
+                  તમારી Payment અને Bill Requests Approve કે Reject થાય ત્યારે ત્વરિત નોટિફિકેશન મેળવવા માટે સબસ્ક્રાઇબ કરો.
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleSubscribePush}
+              disabled={subscribingPush}
+              className="px-5 py-2.5 bg-white text-indigo-700 font-extrabold rounded-xl text-xs transition-all hover:bg-indigo-50 active:scale-95 shadow-md shadow-indigo-950/20 flex items-center gap-2 shrink-0 self-end md:self-center"
+            >
+              {subscribingPush ? (
+                <>
+                  <Loader2 className="animate-spin" size={14} />
+                  <span>Subscribing...</span>
+                </>
+              ) : (
+                "Subscribe Now"
+              )}
+            </button>
+          </motion.div>
+        )}
+
+        {/* Push Notification Denied Banner */}
+        {showPushDeniedBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-rose-50 border border-rose-100 text-rose-800 rounded-[24px] p-5 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4"
+          >
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-rose-100 rounded-xl shrink-0 text-rose-600 flex items-center justify-center">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm uppercase tracking-wider text-rose-900">નોટિફિકેશન બ્લોક છે! (Notifications Blocked)</h3>
+                <p className="text-xs text-rose-700 mt-1 max-w-xl font-medium">
+                  બ્રાઉઝર કે ફોન સેટિંગ્સમાં જઈને આ વેબસાઈટ માટે નોટિફિકેશન પરમિશન **Allow** કરો જેથી તમને પેમેન્ટ એપ્રૂવલ/રિજેક્શનની અપડેટ્સ મળી શકે.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-6">
             <div>
