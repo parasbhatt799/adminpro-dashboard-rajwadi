@@ -98,6 +98,7 @@ export default function Settings() {
     currentPermission: string;
     serviceWorkers: string[];
     appIdInDatabase: string;
+    initError: string | null;
   } | null>(null);
 
   const runDiagnostics = async () => {
@@ -108,6 +109,7 @@ export default function Settings() {
       const isLoaded = !!OneSignal;
       const isInitialized = isLoaded && !!OneSignal.initialized;
       const perm = isNotifSupported ? (OneSignal?.Notifications?.permission || Notification.permission) : 'not-supported';
+      const initError = (window as any).__oneSignalInitError || null;
       
       let workers: string[] = [];
       if ('serviceWorker' in navigator) {
@@ -122,7 +124,8 @@ export default function Settings() {
         oneSignalInitialized: isInitialized,
         currentPermission: perm,
         serviceWorkers: workers,
-        appIdInDatabase: oneSignalSettings?.app_id || 'Not set'
+        appIdInDatabase: oneSignalSettings?.app_id || 'Not set',
+        initError
       });
     } catch (e) {
       console.error("Diagnostics error:", e);
@@ -1031,6 +1034,11 @@ export default function Settings() {
                     <div>Notification Support: <span className={diagnostics.notificationSupported ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{diagnostics.notificationSupported ? "YES" : "NO"}</span></div>
                     <div>OneSignal SDK Loaded: <span className={diagnostics.oneSignalLoaded ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{diagnostics.oneSignalLoaded ? "YES" : "NO"}</span></div>
                     <div>OneSignal Init State: <span className={diagnostics.oneSignalInitialized ? "text-emerald-600 font-bold" : "text-rose-600 font-bold"}>{diagnostics.oneSignalInitialized ? "YES" : "NO"}</span></div>
+                    {diagnostics.initError && (
+                      <div className="md:col-span-2 text-rose-600 font-bold break-all bg-rose-50 p-2 rounded-xl border border-rose-100 mt-1">
+                        Init Error: {diagnostics.initError}
+                      </div>
+                    )}
                     <div className="md:col-span-2 font-semibold truncate">Permission State: <span className="text-indigo-600 font-bold">{diagnostics.currentPermission}</span></div>
                     <div className="md:col-span-2 text-[10px] text-slate-500 truncate">App ID in DB: {diagnostics.appIdInDatabase}</div>
                     <div className="md:col-span-2 text-[10px] text-slate-500">

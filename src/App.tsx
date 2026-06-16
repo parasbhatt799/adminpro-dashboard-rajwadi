@@ -174,13 +174,15 @@ const initOneSignal = async () => {
             }
           }, 1000);
         }
-      } catch (innerErr) {
+      } catch (innerErr: any) {
         console.error('Error inside OneSignalDeferred initialization queue:', innerErr);
+        (window as any).__oneSignalInitError = innerErr?.message || String(innerErr);
       }
     });
 
-  } catch (err) {
+  } catch (err: any) {
     console.error('OneSignal Setup Error:', err);
+    (window as any).__oneSignalInitError = err?.message || String(err);
   }
 };
 
