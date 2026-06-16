@@ -7,6 +7,12 @@
     <link rel="apple-touch-icon" href="/fav.png" />
     <link rel="manifest" href="/manifest.json">
     <title>Usepay</title>
+    <script>
+      // Redirect from non-www (usepay.in) to www (www.usepay.in) for OneSignal compatibility
+      if (window.location.hostname === 'usepay.in') {
+        window.location.replace('https://www.usepay.in' + window.location.pathname + window.location.search + window.location.hash);
+      }
+    </script>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
