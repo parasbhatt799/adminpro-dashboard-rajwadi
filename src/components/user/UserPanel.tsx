@@ -4,9 +4,9 @@ import UserKYC from './UserKYC';
 import UserCreateMPIN from './UserCreateMPIN';
 import ChangePassword from './ChangePassword';
 import ErrorBoundary from '../ErrorBoundary';
-import { Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock, KeyRound, Smartphone, ShieldCheck, LogOut } from 'lucide-react';
+import { Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock, KeyRound, Smartphone, ShieldCheck, LogOut, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../../lib/supabase';
+import { supabase, addDevicePushId } from '../../lib/supabase';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { LogoLoader } from '../shared/LoadingSpinner';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -63,6 +63,138 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const isAnimationEnabledRef = useRef(true);
   const walletRef = useRef<HTMLDivElement>(null);
+
+  const [showPushBanner, setShowPushBanner] = useState(false);
+  const [showPushDeniedBanner, setShowPushDeniedBanner] = useState(false);
+  const [subscribingPush, setSubscribingPush] = useState(false);
+
+  useEffect(() => {
+    const checkPushPermission = () => {
+      if (!('Notification' in window)) return;
+      
+      const perm = Notification.permission;
+      if (perm === 'denied') {
+        setShowPushDeniedBanner(true);
+        setShowPushBanner(false);
+      } else if (perm === 'default') {
+        setShowPushBanner(true);
+        setShowPushDeniedBanner(false);
+      } else if (perm === 'granted') {
+        if (userProfile && !userProfile.onesignal_id) {
+          setShowPushBanner(true);
+          setShowPushDeniedBanner(false);
+        } else {
+          setShowPushBanner(false);
+          setShowPushDeniedBanner(false);
+        }
+      }
+    };
+
+    checkPushPermission();
+  }, [userProfile]);
+
+  const handleSubscribePush = async () => {
+    setSubscribingPush(true);
+    try {
+      const OneSignal = (window as any).OneSignal;
+      if (OneSignal) {
+        let perm = OneSignal.Notifications?.permission || Notification.permission;
+        
+        if (perm !== 'granted') {
+          try {
+            await Promise.race([
+              OneSignal.Notifications.requestPermission(),
+              new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timed out")), 10000))
+            ]);
+          } catch (e) {
+            console.warn("Permission request failed or timed out:", e);
+          }
+          
+          perm = OneSignal.Notifications?.permission || Notification.permission;
+          if (perm !== 'granted') {
+            toast.error("નમસ્તે! નોટિફિકેશન પરમિશન મંજૂર નથી થઈ. કૃપા કરીને બ્રાઉઝર પરમિશન સેટિંગ્સ ચેક કરો.");
+            setSubscribingPush(false);
+            if (perm === 'denied') {
+              setShowPushDeniedBanner(true);
+              setShowPushBanner(false);
+            }
+            return;
+          }
+        }
+
+        if (OneSignal.User?.PushSubscription) {
+          await OneSignal.User.PushSubscription.optIn();
+          
+          let pushId = OneSignal.User.PushSubscription.id;
+          let attempts = 0;
+          while (!pushId && attempts < 10) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            pushId = OneSignal.User.PushSubscription.id;
+            attempts++;
+          }
+
+          if (pushId) {
+            await addDevicePushId(userId, 'user', pushId);
+            toast.success("તમારું ડિવાઇસ સફળતાપૂર્વક સબસ્ક્રાઇબ થઈ ગયું છે!");
+            await fetchProfile();
+            setShowPushBanner(false);
+          } else {
+            toast.error("OneSignal ID હજી મળ્યો નથી. કૃપા કરીને ફરી ટ્રાય કરો.");
+          }
+        } else {
+          toast.error("OneSignal API રેડી નથી. મહેરબાની કરીને થોડી સેકન્ડ પછી ટ્રાય કરો.");
+        }
+      } else {
+        const OneSignalDeferred = (window as any).OneSignalDeferred;
+        if (OneSignalDeferred) {
+          OneSignalDeferred.push(async (OS: any) => {
+            let perm = OS.Notifications?.permission || Notification.permission;
+            if (perm !== 'granted') {
+              try {
+                await Promise.race([
+                  OS.Notifications.requestPermission(),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error("Permission request timed out")), 10000))
+                ]);
+              } catch (e) {
+                console.warn("Deferred permission request failed:", e);
+              }
+              perm = OS.Notifications?.permission || Notification.permission;
+            }
+
+            if (perm === 'granted' && OS.User?.PushSubscription) {
+              await OS.User.PushSubscription.optIn();
+              let pushId = OS.User.PushSubscription.id;
+              let attempts = 0;
+              while (!pushId && attempts < 10) {
+                await new Promise(resolve => setTimeout(resolve, 500));
+                pushId = OS.User.PushSubscription.id;
+                attempts++;
+              }
+              if (pushId) {
+                await addDevicePushId(userId, 'user', pushId);
+                toast.success("ડિવાઇસ સબસ્ક્રાઇબ થઈ ગયું છે!");
+                await fetchProfile();
+                setShowPushBanner(false);
+              }
+            } else {
+              toast.error("નોટિફિકેશન પરમિશન મંજૂર કરવામાં આવી નથી.");
+              if (perm === 'denied') {
+                setShowPushDeniedBanner(true);
+                setShowPushBanner(false);
+              }
+            }
+          });
+        } else {
+          toast.error("OneSignal SDK લોડ થયો નથી. કૃપા કરીને ઇન્ટરનેટ ચેક કરો.");
+        }
+      }
+    } catch (err: any) {
+      console.error("Subscription error:", err);
+      toast.error("સબસ્ક્રિપ્શનમાં ખામી આવી: " + (err.message || err));
+    } finally {
+      setSubscribingPush(false);
+    }
+  };
 
   const fetchProfile = async () => {
     try {
@@ -507,6 +639,36 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
             <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 select-all font-mono">
               ID: {userId}
             </span>
+
+            {showPushBanner && (
+              <button
+                onClick={handleSubscribePush}
+                disabled={subscribingPush}
+                className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100/50 text-indigo-700 font-bold rounded-lg text-xs transition-all active:scale-95 shadow-sm"
+              >
+                {subscribingPush ? (
+                  <>
+                    <Loader2 className="animate-spin" size={12} />
+                    <span>Subscribing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Bell size={12} className="animate-bounce" />
+                    <span>Get Alerts</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {showPushDeniedBanner && (
+              <div
+                className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 border border-rose-100 text-rose-700 font-bold rounded-lg text-xs"
+                title="નોટિફિકેશન બ્લોક છે! સેટિંગ્સમાં જઈને Allow કરો."
+              >
+                <AlertTriangle size={12} className="text-rose-500" />
+                <span>Alerts Blocked</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-4">
