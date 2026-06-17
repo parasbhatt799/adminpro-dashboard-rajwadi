@@ -1092,7 +1092,7 @@ export default function App() {
   // Session Inactivity Timeout Logic
   const toast = useToast();
   useEffect(() => {
-    if (!isAdmin && !isUser) return;
+    if (!isUser) return;
 
     let timeoutId: NodeJS.Timeout;
 
@@ -1122,7 +1122,7 @@ export default function App() {
         window.removeEventListener(event, resetTimer);
       });
     };
-  }, [isAdmin, isUser, userId]);
+  }, [isUser, userId]);
 
   if (isStatusLoading) {
     return (
