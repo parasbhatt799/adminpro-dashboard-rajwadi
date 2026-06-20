@@ -204,6 +204,7 @@ export default function UsersList({ adminRole }: UsersListProps) {
         'Join Date': format(new Date(u.created_at), 'dd-MM-yyyy'),
         'User Name': u.name,
         'Firm Name': u.firm_name || 'N/A',
+        'Firm Address': u.firm_address || 'N/A',
         'Mobile': u.mobile_number,
         'Email': u.email,
         'Role': u.role,
