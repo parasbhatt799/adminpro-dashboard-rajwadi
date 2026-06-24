@@ -145,3 +145,102 @@ export async function removeDevicePushId(userId: string, userType: 'admin' | 'us
     console.error('Error removing device push ID:', err);
   }
 }
+
+function normalizeDateToISO(dateStr: string | undefined): string | null {
+  if (!dateStr || dateStr === 'NA' || dateStr.trim() === '') return null;
+  
+  const cleanStr = dateStr.trim();
+  
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) {
+    return cleanStr;
+  }
+  
+  const dmyMatch = cleanStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmyMatch) {
+    const day = dmyMatch[1].padStart(2, '0');
+    const month = dmyMatch[2].padStart(2, '0');
+    const year = dmyMatch[3];
+    return `${year}-${month}-${day}`;
+  }
+  
+  try {
+    const parsed = new Date(cleanStr);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+  } catch (e) {
+    // Ignore
+  }
+  
+  return null;
+}
+
+export async function upsertBillReminder(reminder: {
+  userId: string;
+  customerName: string;
+  cardNumber: string;
+  bankName: string;
+  dueAmount: number;
+  dueDate?: string;
+  billDate?: string;
+}) {
+  const normDueDate = normalizeDateToISO(reminder.dueDate);
+  const normBillDate = normalizeDateToISO(reminder.billDate);
+  
+  if (!normDueDate || !normBillDate) {
+    console.warn("Skipping reminder upsert: due_date or bill_date is invalid", reminder);
+    return;
+  }
+  
+  try {
+    const { data: existing } = await supabase
+      .from('bill_reminders')
+      .select('id')
+      .eq('user_id', reminder.userId)
+      .eq('card_number', reminder.cardNumber)
+      .eq('bank_name', reminder.bankName)
+      .eq('is_paid', false)
+      .maybeSingle();
+      
+    if (existing?.id) {
+      await supabase
+        .from('bill_reminders')
+        .update({
+          customer_name: reminder.customerName,
+          due_amount: reminder.dueAmount,
+          due_date: normDueDate,
+          bill_date: normBillDate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+    } else {
+      await supabase
+        .from('bill_reminders')
+        .insert({
+          user_id: reminder.userId,
+          customer_name: reminder.customerName,
+          card_number: reminder.cardNumber,
+          bank_name: reminder.bankName,
+          due_amount: reminder.dueAmount,
+          due_date: normDueDate,
+          bill_date: normBillDate,
+          is_paid: false
+        });
+    }
+  } catch (err) {
+    console.error("Error upserting bill reminder:", err);
+  }
+}
+
+export async function markBillAsPaid(userId: string, cardNumber: string) {
+  try {
+    await supabase
+      .from('bill_reminders')
+      .update({ is_paid: true, updated_at: new Date().toISOString() })
+      .eq('user_id', userId)
+      .eq('card_number', cardNumber)
+      .eq('is_paid', false);
+  } catch (err) {
+    console.error("Error marking bill as paid:", err);
+  }
+}

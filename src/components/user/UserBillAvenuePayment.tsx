@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import {
@@ -252,6 +252,15 @@ const getBillerGradient = (name: string) => {
 export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { userId: string; mode?: 'payment' | 'search' }) {
   const toast = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefilledCardNumber = location.state?.prefilledCardNumber;
+  const prefilledBillerName = location.state?.prefilledBillerName;
+
+  useEffect(() => {
+    if (prefilledCardNumber) {
+      toast.info(`Paying bill for card/account number: ${prefilledCardNumber}. Please select Biller Category.`);
+    }
+  }, [prefilledCardNumber]);
 
   // Wallet & Profile State
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -759,13 +768,17 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
     // Check UAT Special Billers
     if (biller.billerId === 'OTME00005XXZ43' || biller.billerId === 'OTNS00005XXZ43') {
-      setInputParams([
+      const finalParams = [
         { paramName: 'a', dataType: 'NUMERIC' },
         { paramName: 'a b', dataType: 'NUMERIC' },
         { paramName: 'a b c', dataType: 'NUMERIC' },
         { paramName: 'a b c d', dataType: 'NUMERIC' },
         { paramName: 'a b c d e', dataType: 'NUMERIC' }
-      ]);
+      ];
+      setInputParams(finalParams);
+      if (prefilledCardNumber) {
+        setFormInputs({ [finalParams[0].paramName]: prefilledCardNumber });
+      }
       const initialParams = {
         'a': '10',
         'a b': '20',
@@ -822,8 +835,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         }
       });
 
-      // Default fallback parameter if none returned
-      setInputParams(paramsList.length > 0 ? paramsList : [{ paramName: 'Consumer / Subscriber Number', dataType: 'ALPHANUMERIC' }]);
+      const finalParams = paramsList.length > 0 ? paramsList : [{ paramName: 'Consumer / Subscriber Number', dataType: 'ALPHANUMERIC' }];
+      setInputParams(finalParams);
+      if (prefilledCardNumber) {
+        setFormInputs({ [finalParams[0].paramName]: prefilledCardNumber });
+      }
 
       // If Prepaid Mobile, fetch recharge plans
       if (selectedCategory === 'Mobile Prepaid') {
@@ -831,7 +847,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       }
     } catch (err) {
       // Fallback parameters
-      setInputParams([{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC' }]);
+      const finalParams = [{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC' }];
+      setInputParams(finalParams);
+      if (prefilledCardNumber) {
+        setFormInputs({ [finalParams[0].paramName]: prefilledCardNumber });
+      }
     } finally {
       setBillerParamsLoading(false);
     }
@@ -897,6 +917,17 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           fetchSupported: true
         });
         setManualAmount(billAmount.toString());
+
+        const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
+        upsertBillReminder({
+          userId,
+          customerName: response.customerName || 'Valued Customer',
+          cardNumber: consumerNumber,
+          bankName: selectedBiller.billerName || selectedBiller.billerId,
+          dueAmount: billAmount,
+          dueDate: response.dueDate,
+          billDate: response.billDate
+        });
       } else {
         // Fallback for billers without fetch support (QuickPay / adhoc)
         setBillDetails({
@@ -1038,6 +1069,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
       if (data.status === 'SUCCESS') {
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
+        const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
+        markBillAsPaid(userId, consumerNumber);
         const cleanTxnRefId = data.data?.txnRefId && data.data.txnRefId.startsWith("CC01")
           ? data.data.txnRefId
           : 'CC01' + Math.floor(1000000000000000 + Math.random() * 9000000000000000).toString().substring(0, 16);

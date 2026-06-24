@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS public.qr_history (id UUID PRIMARY KEY DEFAULT gen_ra
 CREATE TABLE IF NOT EXISTS public.bank_details (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id TEXT, bank_name TEXT, account_number TEXT, ifsc_code TEXT, account_holder TEXT);
 CREATE TABLE IF NOT EXISTS public.complaints (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id TEXT, subject TEXT, description TEXT, status TEXT DEFAULT 'open', created_at TIMESTAMPTZ DEFAULT NOW());
 CREATE TABLE IF NOT EXISTS public.complaint_messages (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), complaint_id UUID REFERENCES public.complaints(id) ON DELETE CASCADE, sender_id TEXT, message TEXT, created_at TIMESTAMPTZ DEFAULT NOW());
+CREATE TABLE IF NOT EXISTS public.bill_reminders (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id TEXT REFERENCES public.users_profiles(id) ON DELETE CASCADE, customer_name TEXT NOT NULL, card_number TEXT NOT NULL, bank_name TEXT NOT NULL, due_amount NUMERIC NOT NULL, due_date DATE NOT NULL, bill_date DATE NOT NULL, is_paid BOOLEAN DEFAULT FALSE, created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW());
 
 -- 3. RLS POLICIES (Ultimate Fix)
 ALTER TABLE public.users_profiles ENABLE ROW LEVEL SECURITY;
@@ -113,10 +114,13 @@ ALTER TABLE public.admin_withdrawals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.kyc_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.complaints ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.complaint_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.bill_reminders ENABLE ROW LEVEL SECURITY;
 
 -- Allow everything for authenticated admins (using email check if profile doesn't exist yet)
 CREATE POLICY "Admins full power" ON public.users_profiles FOR ALL USING (auth.jwt() ->> 'email' LIKE '%admin%');
 CREATE POLICY "Admins full power payments" ON public.payment_submissions FOR ALL USING (auth.jwt() ->> 'email' LIKE '%admin%');
+CREATE POLICY "Admins full power bill_reminders" ON public.bill_reminders FOR ALL USING (auth.jwt() ->> 'email' LIKE '%admin%');
+CREATE POLICY "Users can manage their own bill reminders" ON public.bill_reminders FOR ALL USING (auth.uid()::text = user_id);
 -- (Repeat for all tables as needed...)
 
 -- 4. STORAGE SETUP

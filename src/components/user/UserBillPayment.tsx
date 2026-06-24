@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../lib/supabase';
+import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
 import {
   Receipt,
   Search,
@@ -586,6 +586,17 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           additionalInfo: additionalInfoList,
           fetchSupported: true
         });
+
+        const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
+        upsertBillReminder({
+          userId,
+          customerName: responseData.customerName || "Valued Customer",
+          cardNumber: consumerNumber,
+          bankName: selectedBiller?.biller_name || "Utility Biller",
+          dueAmount: amountInRupees,
+          dueDate: responseData.dueDate || undefined,
+          billDate: responseData.billDate || undefined
+        });
       } else {
         // Fetch failed
         const msg = data.message || "Failed to fetch bill. Please verify entered details.";
@@ -897,6 +908,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
       if (data.status === 'SUCCESS') {
         toast.success("Bill Paid successfully!");
+        markBillAsPaid(userId, consumerNumber);
         setWalletBalance(data.new_balance);
 
         // Save receipt with charges
