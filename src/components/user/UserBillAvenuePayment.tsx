@@ -1821,6 +1821,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                                       required
                                       value={manualAmount}
                                       onChange={(e) => setManualAmount(e.target.value)}
+                                      onWheel={(e) => e.currentTarget.blur()}
                                       placeholder="Enter exact amount to pay"
                                       className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
                                     />
@@ -1860,6 +1861,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                                     required
                                     value={manualAmount}
                                     onChange={(e) => setManualAmount(e.target.value)}
+                                    onWheel={(e) => e.currentTarget.blur()}
                                     placeholder="Enter amount to recharge"
                                     disabled={selectedPlan !== null}
                                     className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"

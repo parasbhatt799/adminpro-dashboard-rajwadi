@@ -197,8 +197,12 @@ export default function AddUser({
       const fullName = [formData.firstName, formData.middleName, formData.lastName].filter(Boolean).join(' ');
       
       let finalRole = formData.role;
-      if (isDistributorView) finalRole = 'user';
-      if (isSuperDistributorView) finalRole = 'distributor';
+      if (initialData?.id) {
+        finalRole = initialData.role || formData.role;
+      } else {
+        if (isDistributorView) finalRole = 'user';
+        if (isSuperDistributorView) finalRole = 'distributor';
+      }
 
       const userData: any = {
         name: fullName,
@@ -215,12 +219,12 @@ export default function AddUser({
         admin_base_qr_charge: (finalRole === 'distributor' || finalRole === 'super_distributor')
           ? (parseFloat(formData.admin_base_qr_charge) || 0)
           : 0,
-        distributor_id: isDistributorView 
-          ? (initialData?.distributor_id || null) 
-          : (finalRole === 'user' ? (formData.distributor_id || null) : null),
-        super_distributor_id: isSuperDistributorView 
-          ? (initialData?.super_distributor_id || null) 
-          : (finalRole === 'distributor' ? (formData.super_distributor_id || null) : null),
+        distributor_id: finalRole === 'user'
+          ? (isDistributorView ? (initialData?.distributor_id || null) : (formData.distributor_id || null))
+          : null,
+        super_distributor_id: finalRole === 'distributor'
+          ? (isSuperDistributorView ? (initialData?.super_distributor_id || null) : (formData.super_distributor_id || null))
+          : null,
         service_charge_enabled: (isDistributorView || isSuperDistributorView) ? false : formData.service_charge_enabled,
         custom_service_charge: (isDistributorView || isSuperDistributorView) ? 0 : (parseFloat(formData.custom_service_charge) || 0),
         custom_daily_live_bbps_limit: (!isDistributorView && !isSuperDistributorView) ? (parseFloat(formData.custom_daily_live_bbps_limit) || 0) : 0,

@@ -368,7 +368,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         } else {
           setQrUrl(null);
         }
-        
+
         if (activeQR) {
           setActiveQrId(activeQR.id);
           setQrName(activeQR.qr_name);
@@ -766,8 +766,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
     // Enforce daily normal bill limit
     try {
-      const userLimit = Number(userProfile?.custom_daily_normal_bill_limit) > 0 
-        ? Number(userProfile.custom_daily_normal_bill_limit) 
+      const userLimit = Number(userProfile?.custom_daily_normal_bill_limit) > 0
+        ? Number(userProfile.custom_daily_normal_bill_limit)
         : (Number(globalNormalBillLimit) || 500000);
 
       // Find start of today in IST, converted to UTC timezone
@@ -1111,7 +1111,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
             <Receipt size={18} />
             Bill Payment
           </button>
-          
+
           <button
             onClick={() => setActiveTab('t1_qr')}
             className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 't1_qr'
@@ -1228,7 +1228,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           </div>
                         )}
                         {upiId && (
-                          <div 
+                          <div
                             onClick={() => {
                               navigator.clipboard.writeText(upiId);
                               setSuccess('UPI ID Copied: ' + upiId);
@@ -1306,7 +1306,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 const parts = val.split('.');
                                 if (parts.length > 2) return;
                                 setAmount(val);
-                                
+
                                 const amountNum = parseFloat(val);
                                 if (!isNaN(amountNum) && amountNum > (tPlusOneLimit - todayT1Amount)) {
                                   setTPlusOne(false);
@@ -1657,15 +1657,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 </div>
                                 <div className="flex justify-center">
                                   <div className="flex flex-col gap-1 items-center justify-center">
-                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${
-                                      req.status === 'approved' 
-                                        ? 'bg-emerald-50 text-emerald-500' 
+                                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full ${req.status === 'approved'
+                                        ? 'bg-emerald-50 text-emerald-500'
                                         : req.status === 'T+1 Approved'
                                           ? 'bg-indigo-50 text-indigo-500'
-                                          : req.status === 'rejected' 
-                                            ? 'bg-rose-50 text-rose-500' 
+                                          : req.status === 'rejected'
+                                            ? 'bg-rose-50 text-rose-500'
                                             : 'bg-amber-50 text-amber-600'
-                                    }`}>
+                                      }`}>
                                       {req.status}
                                     </span>
                                     {req.t_plus_one && (
@@ -2287,6 +2286,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           type="number"
                           value={payoutForm.amount}
                           onChange={(e) => setPayoutForm({ ...payoutForm, amount: e.target.value })}
+                          onWheel={(e) => e.currentTarget.blur()}
                           placeholder="0.00"
                           className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all font-bold"
                           required

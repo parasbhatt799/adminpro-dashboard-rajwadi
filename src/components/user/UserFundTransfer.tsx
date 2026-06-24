@@ -492,6 +492,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
                       step="any"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-slate-800"
                     />
                   </div>

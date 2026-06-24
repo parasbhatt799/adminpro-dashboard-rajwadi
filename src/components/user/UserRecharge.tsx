@@ -635,6 +635,7 @@ export default function UserRecharge({ userId }: { userId: string }) {
                         setSelectedPlan(null);
                         setManualAmount(e.target.value);
                       }}
+                      onWheel={(e) => e.currentTarget.blur()}
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 outline-none text-xs font-black text-slate-800 focus:border-emerald-500 transition-all bg-white"
                       placeholder="Enter amount manually"
                     />

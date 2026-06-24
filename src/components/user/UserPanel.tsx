@@ -63,6 +63,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const isAnimationEnabledRef = useRef(true);
   const walletRef = useRef<HTMLDivElement>(null);
+  const processedToastsRef = useRef<Set<string>>(new Set());
 
   const [showPushBanner, setShowPushBanner] = useState(false);
   const [showPushDeniedBanner, setShowPushDeniedBanner] = useState(false);
@@ -344,16 +345,24 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
       }, async (payload: any) => {
         // Play coin animation if approved
         if (payload.new.status === 'approved' && payload.old?.status !== 'approved') {
-          if (isAnimationEnabledRef.current) {
-            setTargetEntryId(`qr-row-${payload.new.id}`);
-            setCoinDirection('add');
-            setShowCoins(true);
+          const animKey = `qr_anim_${payload.new.id}`;
+          if (!processedToastsRef.current.has(animKey)) {
+            processedToastsRef.current.add(animKey);
+            if (isAnimationEnabledRef.current) {
+              setTargetEntryId(`qr-row-${payload.new.id}`);
+              setCoinDirection('add');
+              setShowCoins(true);
+            }
           }
         }
 
         // Show live toast if status changed from pending (tolerates default replica identity where payload.old only contains id)
         const isStatusTransition = !payload.old || !('status' in payload.old) || (payload.old.status === 'pending');
         if (isStatusTransition && payload.new.status !== 'pending') {
+          const toastKey = `qr_${payload.new.id}_${payload.new.status}`;
+          if (processedToastsRef.current.has(toastKey)) return;
+          processedToastsRef.current.add(toastKey);
+
           const adminName = await getAdminName(payload.new.actioned_by);
           const amount = Number(payload.new.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
           
@@ -396,6 +405,10 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         // Show live toast if status changed from pending (tolerates default replica identity where payload.old only contains id)
         const isStatusTransition = !payload.old || !('status' in payload.old) || (payload.old.status === 'pending');
         if (isStatusTransition && payload.new.status !== 'pending') {
+          const toastKey = `bill_${payload.new.id}_${payload.new.status}`;
+          if (processedToastsRef.current.has(toastKey)) return;
+          processedToastsRef.current.add(toastKey);
+
           const adminName = await getAdminName(payload.new.actioned_by);
           const amount = Number(payload.new.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 });
 
