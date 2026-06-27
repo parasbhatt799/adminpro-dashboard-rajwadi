@@ -434,7 +434,7 @@ export default function AdminChatWidget() {
                         key={msg.id}
                         className={`flex flex-col max-w-[75%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}
                       >
-                        <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed ${
+                        <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed whitespace-pre-line ${
                           isMe 
                             ? 'bg-indigo-600 text-white rounded-br-none' 
                             : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none shadow-sm'

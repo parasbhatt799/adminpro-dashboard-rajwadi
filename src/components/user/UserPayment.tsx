@@ -3,7 +3,7 @@ import {
   QrCode, Receipt, IndianRupee, ArrowRight, ShieldCheck, CreditCard,
   Upload, Loader2, CheckCircle2, AlertCircle, FileText, Hash,
   ExternalLink, X, ChevronUp, ChevronDown, Search, RotateCcw, Clock, XCircle,
-  Building2, User, History
+  Building2, User, History, MessageSquare
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
@@ -63,6 +63,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [showChargeErrorModal, setShowChargeErrorModal] = useState(false);
 
   // Auto-clear banners after 6 seconds
   useEffect(() => {
@@ -974,8 +975,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     const isT1Request = activeTab === 't1_qr';
 
     if (isT1Request) {
-      if (Number(userProfile?.t_plus_one_charge) <= 0) {
-        setError('T+1 settlement is not enabled for your account.');
+      const t1Charge = Number(userProfile?.t_plus_one_charge);
+      if (isNaN(t1Charge) || t1Charge <= 0) {
+        setShowChargeErrorModal(true);
         setSubmitting(false);
         return;
       }
@@ -2478,6 +2480,76 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                   className="px-6 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-800 transition-colors"
                 >
                   Close Preview
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* T+1 Charge Error Modal */}
+      <AnimatePresence>
+        {showChargeErrorModal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl border border-rose-100 text-center relative overflow-hidden"
+            >
+              {/* Animated Icon */}
+              <div className="flex justify-center mb-6">
+                <motion.div
+                  animate={{ 
+                    scale: [1, 1.15, 1],
+                    rotate: [0, 8, -8, 0]
+                  }}
+                  transition={{ 
+                    duration: 2.5, 
+                    repeat: Infinity,
+                    ease: "easeInOut"
+                  }}
+                  className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 shadow-lg shadow-rose-100"
+                >
+                  <AlertCircle size={40} />
+                </motion.div>
+              </div>
+
+              {/* Heading */}
+              <h3 className="text-2xl font-black text-slate-900 mb-3 tracking-tight">
+                T+1 Charge Not Configured
+              </h3>
+              
+              {/* Message */}
+              <div className="space-y-2 mb-8 text-center bg-rose-50/40 p-5 rounded-2xl border border-rose-100/60 w-full inline-block">
+                <p className="text-rose-700 font-bold text-sm leading-normal">
+                  please contect to admin and set charge
+                </p>
+                <p className="text-slate-500 font-medium text-xs leading-normal">
+                  Your T+1 QR Charge (%) has not been set. Please contact admin support to configure it.
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowChargeErrorModal(false);
+                    window.dispatchEvent(new CustomEvent('open-support-chat'));
+                  }}
+                  className="w-full py-4 bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-rose-500/20 active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer border-none outline-none"
+                >
+                  <MessageSquare size={18} />
+                  Contact Support
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setShowChargeErrorModal(false)}
+                  className="w-full py-4 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-2xl font-bold transition-all border border-slate-200 active:scale-[0.98] cursor-pointer"
+                >
+                  Cancel
                 </button>
               </div>
             </motion.div>

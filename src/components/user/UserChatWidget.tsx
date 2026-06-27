@@ -31,6 +31,7 @@ export default function UserChatWidget({ userId }: UserChatWidgetProps) {
   const [chatTarget, setChatTarget] = useState<any>({ name: 'Admin Support', id: 'admin', role: 'admin' });
   const [messages, setMessages] = useState<any[]>([]);
   const [messageText, setMessageText] = useState('');
+  const [supportDraftMessage, setSupportDraftMessage] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [fileUploading, setFileUploading] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -165,6 +166,36 @@ export default function UserChatWidget({ userId }: UserChatWidgetProps) {
       }
     }
   }, [threads, currentThread]);
+
+  // Listen for global custom event to trigger support chat
+  useEffect(() => {
+    const handleOpenSupport = () => {
+      setIsOpen(true);
+      handleOpenChat('admin', 'Admin Support', '', 'admin');
+
+      const uId = userProfile?.id || userId;
+      const name = userProfile?.name || 'N/A';
+      const firm = userProfile?.firm_name || 'N/A';
+      const mobile = userProfile?.mobile_number || 'N/A';
+      const defaultMsg = `Dear Admin,
+
+I would like to activate and start using the T+1 QR Settlement feature on my account. Please configure the T+1 QR Charge (%) for my account and let me know.
+
+My Details:
+- User ID: ${uId}
+- Name: ${name}
+- Firm Name: ${firm}
+- Mobile: ${mobile}
+
+Thank you.`;
+      setSupportDraftMessage(defaultMsg);
+    };
+
+    window.addEventListener('open-support-chat', handleOpenSupport);
+    return () => {
+      window.removeEventListener('open-support-chat', handleOpenSupport);
+    };
+  }, [userId, userProfile]);
 
   // Open or Create a chat thread
   const handleOpenChat = async (targetId: string, targetName: string, targetFirm: string, targetRole: string) => {
@@ -346,6 +377,61 @@ export default function UserChatWidget({ userId }: UserChatWidgetProps) {
     } finally {
       setSending(false);
       setFileUploading(false);
+    }
+  };
+
+  const handleSendDraftSupport = async () => {
+    if (!supportDraftMessage || !currentThread) return;
+
+    setSending(true);
+    try {
+      const isUserA = userId === currentThread.user_a_id;
+      
+      // 1. Insert message
+      const { error: insertErr } = await supabase
+        .from('chat_messages')
+        .insert([{
+          thread_id: currentThread.id,
+          sender_id: userId,
+          sender_role: 'user',
+          message: supportDraftMessage,
+          file_url: null,
+          file_type: null
+        }]);
+
+      if (insertErr) throw insertErr;
+
+      // 2. Update thread last message and unread count
+      await supabase
+        .from('chat_threads')
+        .update({
+          last_message: supportDraftMessage.substring(0, 100),
+          user_a_unread: isUserA ? currentThread.user_a_unread : currentThread.user_a_unread + 1,
+          user_b_unread: isUserA ? currentThread.user_b_unread + 1 : currentThread.user_b_unread,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentThread.id);
+
+      // Reset state
+      setSupportDraftMessage(null);
+
+      // Refresh threads list & messages list
+      fetchThreads();
+      
+      // Refresh current thread messages
+      const { data: msgData } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('thread_id', currentThread.id)
+        .order('created_at', { ascending: true });
+
+      setMessages(msgData || []);
+
+    } catch (err) {
+      console.error('Error sending draft:', err);
+      toast.error('Failed to send request.');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -591,7 +677,7 @@ export default function UserChatWidget({ userId }: UserChatWidgetProps) {
                             key={msg.id}
                             className={`flex flex-col max-w-[75%] ${isMe ? 'self-end items-end' : 'self-start items-start'}`}
                           >
-                            <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed ${
+                            <div className={`p-3 rounded-2xl text-xs font-medium leading-relaxed whitespace-pre-line ${
                               isMe 
                                 ? 'bg-indigo-600 text-white rounded-br-none' 
                                 : 'bg-white text-slate-800 border border-slate-100 rounded-bl-none shadow-sm'
@@ -620,6 +706,43 @@ export default function UserChatWidget({ userId }: UserChatWidgetProps) {
                         );
                       })
                     )}
+                    
+                    {supportDraftMessage && chatTarget.id === 'admin' && (
+                      <div className="bg-gradient-to-br from-indigo-50/90 to-indigo-100/50 border border-indigo-200/80 rounded-2xl p-4 shadow-sm space-y-4 max-w-[90%] self-end animate-in fade-in slide-in-from-bottom-4 duration-300">
+                        <div className="flex items-center gap-2 border-b border-indigo-200/50 pb-2">
+                          <HelpCircle size={16} className="text-indigo-600 shrink-0" />
+                          <span className="text-[10px] font-black text-indigo-700 uppercase tracking-wider">T+1 Settlement Activation Request</span>
+                        </div>
+                        <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-line font-mono select-all bg-white/60 p-3 rounded-xl border border-indigo-200/30">
+                          {supportDraftMessage}
+                        </div>
+                        <div className="flex gap-2 justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setSupportDraftMessage(null)}
+                            className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-slate-500 rounded-xl text-[10px] font-bold border border-slate-200/80 transition-all active:scale-95 cursor-pointer"
+                          >
+                            Dismiss
+                          </button>
+                          <button
+                            type="button"
+                            disabled={sending}
+                            onClick={handleSendDraftSupport}
+                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-bold shadow-md shadow-indigo-600/10 transition-all active:scale-95 flex items-center gap-1.5 cursor-pointer border-none"
+                          >
+                            {sending ? (
+                              <Loader2 className="animate-spin" size={12} />
+                            ) : (
+                              <>
+                                Send Request
+                                <Send size={10} />
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     <div ref={messagesEndRef} />
                   </div>
 

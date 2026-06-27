@@ -3,6 +3,7 @@ import UserSidebar from './UserSidebar';
 import UserKYC from './UserKYC';
 import UserCreateMPIN from './UserCreateMPIN';
 import ChangePassword from './ChangePassword';
+import UserChatWidget from './UserChatWidget';
 import ErrorBoundary from '../ErrorBoundary';
 import { Bell, User, Wallet, Loader2, CheckCircle2, X, MessageSquare, Clock, Trash2, Menu, Lock, KeyRound, Smartphone, ShieldCheck, LogOut, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -980,6 +981,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         direction={coinDirection}
         entryId={targetEntryId}
       />
+      <UserChatWidget userId={userId} />
     </div>
   );
 }

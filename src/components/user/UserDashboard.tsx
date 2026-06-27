@@ -21,7 +21,6 @@ import {
   format
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
-import UserChatWidget from './UserChatWidget';
 import DashboardIllustration from './DashboardIllustration';
 import { useToast } from '../../context/ToastContext';
 
@@ -515,7 +514,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <UserChatWidget userId={userId} />
     </div>
   );
 }
