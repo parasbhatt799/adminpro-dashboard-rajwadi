@@ -1372,10 +1372,15 @@ async function startServer() {
         billerAdhoc = true;
       } else {
         const fetchedRawAmount = Number(fetchResponse.data.billerResponse.billAmount) || 0;
+        // Heuristic to detect if fetchedRawAmount is in Rupees or Paise:
+        let fetchedAmountInPaisa = fetchedRawAmount;
+        if (Math.abs(fetchedRawAmount - paymentAmount) < Math.abs(fetchedRawAmount - amountInPaisa)) {
+          fetchedAmountInPaisa = fetchedRawAmount * 100;
+        }
         // If the payment amount in paisa does not match the fetched billAmount,
         // it is a custom/partial payment on a fetched bill. We set quickPay = "Y" and billerAdhoc = true.
-        if (amountInPaisa !== fetchedRawAmount) {
-          console.log(`[BBPS Proxy] Custom amount specified (${amountInPaisa} vs fetched ${fetchedRawAmount}). Setting quickPay = "Y" (Adhoc/Partial).`);
+        if (amountInPaisa !== Math.round(fetchedAmountInPaisa)) {
+          console.log(`[BBPS Proxy] Custom amount specified (${amountInPaisa} vs fetched ${fetchedAmountInPaisa}). Setting quickPay = "Y" (Adhoc/Partial).`);
           quickPay = "Y";
           billerAdhoc = true;
         }
@@ -1459,7 +1464,7 @@ async function startServer() {
       // Always pass request_id, billerResponse, and additionalInfo if a fetch was performed first,
       // regardless of whether we are paying custom amount (quickPay = "Y") or exact amount (quickPay = "N").
       if (fetchResponse && fetchResponse.data?.billerResponse) {
-        payPrimePayload.request_id = fetchResponse.request_id;
+        payPrimePayload.request_id = fetchResponse.request_id || fetchResponse.data?.request_id;
         payPrimePayload.billerResponse = fetchResponse.data.billerResponse;
         if (fetchResponse.data.additionalInfo) {
           payPrimePayload.additionalInfo = fetchResponse.data.additionalInfo;

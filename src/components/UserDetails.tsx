@@ -24,6 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { LogoLoader } from './shared/LoadingSpinner';
+import { useToast } from '../context/ToastContext';
 
 interface UserDetailsProps {
   user: any;
@@ -34,6 +35,7 @@ interface UserDetailsProps {
 }
 
 export default function UserDetails({ user, onBack, onEdit, onDelete, isDistributorView }: UserDetailsProps) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<string>('firm');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -393,7 +395,7 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
             const currentAdminId = localStorage.getItem('userId');
             const canSeePassword = currentAdminId === GOD_ADMIN_MOBILE || currentAdminId === DEVELOPER_MOBILE;
             
-            if (canSeePassword && user.password) {
+            if (canSeePassword && (user.password || user.mpin)) {
               return (
                 <div className="bg-emerald-50 rounded-3xl p-6 border border-emerald-100 shadow-sm">
                   <div className="flex items-center gap-3 mb-4">
@@ -405,24 +407,49 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                       <p className="text-[8px] text-emerald-500 font-medium uppercase tracking-tighter">Visible to God/Developer Only</p>
                     </div>
                   </div>
-                  <div className="bg-white rounded-2xl p-4 border border-emerald-100 flex items-center justify-between group">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Stored Password</p>
-                      <p className="text-xl font-mono font-bold text-emerald-700 tracking-wider">{user.password}</p>
+                  
+                  <div className="space-y-3">
+                    {user.password && (
+                      <div className="bg-white rounded-2xl p-4 border border-emerald-100 flex items-center justify-between group">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Stored Password</p>
+                          <p className="text-xl font-mono font-bold text-emerald-700 tracking-wider">{user.password}</p>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(user.password);
+                            toast.success('Password copied to clipboard');
+                          }}
+                          className="p-2 hover:bg-emerald-50 rounded-xl transition-colors text-emerald-400 hover:text-emerald-600"
+                          title="Copy Password"
+                        >
+                          <Download size={18} />
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="bg-white rounded-2xl p-4 border border-emerald-100 flex items-center justify-between group">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Stored MPIN</p>
+                        <p className="text-xl font-mono font-bold text-emerald-700 tracking-wider">{user.mpin || 'Not Set'}</p>
+                      </div>
+                      {user.mpin && (
+                        <button 
+                          onClick={() => {
+                            navigator.clipboard.writeText(user.mpin);
+                            toast.success('MPIN copied to clipboard');
+                          }}
+                          className="p-2 hover:bg-emerald-50 rounded-xl transition-colors text-emerald-400 hover:text-emerald-600"
+                          title="Copy MPIN"
+                        >
+                          <Download size={18} />
+                        </button>
+                      )}
                     </div>
-                    <button 
-                      onClick={() => {
-                        navigator.clipboard.writeText(user.password);
-                        // Trigger a small toast if possible, but simplicity is key
-                      }}
-                      className="p-2 hover:bg-emerald-50 rounded-xl transition-colors text-emerald-400 hover:text-emerald-600"
-                      title="Copy Password"
-                    >
-                      <Download size={18} />
-                    </button>
                   </div>
+
                   <p className="text-[9px] text-emerald-600 mt-3 font-medium text-center italic">
-                    Note: This is the current password stored in the database.
+                    Note: Stored password and login MPIN visible only to authorized admin.
                   </p>
                 </div>
               );
