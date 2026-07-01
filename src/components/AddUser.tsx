@@ -198,7 +198,9 @@ export default function AddUser({
       
       let finalRole = formData.role;
       if (initialData?.id) {
-        finalRole = initialData.role || formData.role;
+        finalRole = (isDistributorView || isSuperDistributorView)
+          ? (initialData.role || formData.role)
+          : formData.role;
       } else {
         if (isDistributorView) finalRole = 'user';
         if (isSuperDistributorView) finalRole = 'distributor';
@@ -558,7 +560,7 @@ export default function AddUser({
                     <select
                       className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all appearance-none"
                       value={formData.role}
-                      disabled={!!initialData?.id}
+                      disabled={!!initialData?.id && (isDistributorView || isSuperDistributorView)}
                       onChange={(e) => {
                         const newRole = e.target.value;
                         setFormData(prev => ({
