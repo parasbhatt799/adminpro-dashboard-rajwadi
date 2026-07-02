@@ -1505,12 +1505,12 @@ async function startServer() {
       if (allowedModes.length > 0) {
         if (allowedModes.includes("CASH")) {
           mode = "Cash";
-        } else if (allowedModes.includes("UPI")) {
-          mode = "UPI";
         } else if (allowedModes.includes("DEBIT CARD") || allowedModes.includes("DEBITCARD")) {
           mode = "Debit Card";
         } else if (allowedModes.includes("INTERNET BANKING") || allowedModes.includes("INTERNETBANKING") || allowedModes.includes("NETBANKING") || allowedModes.includes("NET BANKING")) {
           mode = "Internet Banking";
+        } else if (allowedModes.includes("UPI")) {
+          mode = "UPI";
         } else if (allowedModes.includes("IMPS")) {
           mode = "IMPS";
         } else if (allowedModes.includes("NEFT")) {
@@ -1525,8 +1525,8 @@ async function startServer() {
           mode = firstMode.charAt(0).toUpperCase() + firstMode.slice(1).toLowerCase();
         }
       } else {
-        // Safe fallback if allowedModes is empty
-        mode = isCreditCard ? "UPI" : "Cash";
+        // Safe fallback if allowedModes is empty (AGT channel supports Debit Card for cards, Cash for others)
+        mode = isCreditCard ? "Debit Card" : "Cash";
       }
 
       // Map paymentInfo dynamically based on the selected mode
