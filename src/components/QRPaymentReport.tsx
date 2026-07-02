@@ -42,6 +42,7 @@ interface QRPaymentRequest {
   qr_history?: {
     qr_name: string;
   };
+  t_plus_one?: boolean;
 }
 
 export default function QRPaymentReport() {
@@ -70,6 +71,7 @@ export default function QRPaymentReport() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [tPlusOneFilter, setTPlusOneFilter] = useState<'all' | 'normal' | 't1'>('all');
 
   const fetchFirmNames = async () => {
     try {
@@ -169,6 +171,11 @@ export default function QRPaymentReport() {
       if (endDate) {
         query = query.lte('created_at', `${endDate}T23:59:59`);
       }
+      if (tPlusOneFilter === 't1') {
+        query = query.eq('t_plus_one', true);
+      } else if (tPlusOneFilter === 'normal') {
+        query = query.eq('t_plus_one', false);
+      }
 
       const currentOffset = isLoadMore ? offset + limit : 0;
       const { data, error } = await query.range(currentOffset, currentOffset + limit - 1);
@@ -214,6 +221,11 @@ export default function QRPaymentReport() {
       if (exactAmount) query = query.eq('amount', Number(exactAmount));
       if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
       if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+      if (tPlusOneFilter === 't1') {
+        query = query.eq('t_plus_one', true);
+      } else if (tPlusOneFilter === 'normal') {
+        query = query.eq('t_plus_one', false);
+      }
 
       // Handle pagination for totals (Supabase 1000 row limit bypass)
       let allData: any[] = [];
@@ -256,7 +268,7 @@ export default function QRPaymentReport() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [statusFilter, startDate, endDate, firmName, qrNameFilter, exactAmount]);
+  }, [statusFilter, startDate, endDate, firmName, qrNameFilter, exactAmount, tPlusOneFilter]);
 
   const handleSearch = () => {
     fetchRequests();
@@ -270,6 +282,7 @@ export default function QRPaymentReport() {
     setStatusFilter('all');
     setStartDate('');
     setEndDate('');
+    setTPlusOneFilter('all');
     fetchRequests();
   };
 
@@ -297,6 +310,11 @@ export default function QRPaymentReport() {
       if (exactAmount) query = query.eq('amount', Number(exactAmount));
       if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
       if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+      if (tPlusOneFilter === 't1') {
+        query = query.eq('t_plus_one', true);
+      } else if (tPlusOneFilter === 'normal') {
+        query = query.eq('t_plus_one', false);
+      }
 
       // Reuse pagination logic for export
       let allData: any[] = [];
@@ -381,6 +399,11 @@ export default function QRPaymentReport() {
       if (exactAmount) query = query.eq('amount', Number(exactAmount));
       if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
       if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+      if (tPlusOneFilter === 't1') {
+        query = query.eq('t_plus_one', true);
+      } else if (tPlusOneFilter === 'normal') {
+        query = query.eq('t_plus_one', false);
+      }
 
       let allData: any[] = [];
       let from = 0;
@@ -481,7 +504,7 @@ export default function QRPaymentReport() {
 
       {/* Filter Bar */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div className="space-y-1.5 relative">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Firm Name</label>
             <div className="relative">
@@ -614,6 +637,19 @@ export default function QRPaymentReport() {
           </div>
 
           <div className="space-y-1.5">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Payment Type</label>
+            <select
+              value={tPlusOneFilter}
+              onChange={(e) => setTPlusOneFilter(e.target.value as any)}
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+            >
+              <option value="all">All QR</option>
+              <option value="normal">Normal QR</option>
+              <option value="t1">T+1 QR</option>
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest px-1">Status</label>
             <select
               value={statusFilter}
@@ -725,9 +761,16 @@ export default function QRPaymentReport() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg flex items-center justify-center">
-                          {req.qr_history?.qr_name || 'Legacy'}
-                        </span>
+                        <div className="flex flex-col gap-1 items-center justify-center">
+                          <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg flex items-center justify-center">
+                            {req.qr_history?.qr_name || 'Legacy'}
+                          </span>
+                          {req.t_plus_one && (
+                            <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 uppercase tracking-wider">
+                              T+1
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <span className="text-sm font-bold text-slate-900">
