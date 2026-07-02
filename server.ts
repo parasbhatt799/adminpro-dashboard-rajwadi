@@ -1297,7 +1297,7 @@ async function startServer() {
 
   app.post("/api/bbps/pay-bill", async (req, res) => {
     try {
-      const { userId, biller_id, amount, customerParams, fetchResponse, service_type, provider, consumer_number } = req.body;
+      const { userId, biller_id, amount, customerParams, fetchResponse, service_type, provider, consumer_number, billerPaymentModes } = req.body;
 
       if (!userId || !biller_id || !amount) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
@@ -1438,28 +1438,47 @@ async function startServer() {
 
       // Fetch biller info to dynamically detect supported payment modes for AGT channel
       let allowedModes: string[] = [];
-      try {
-        const infoRes = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-biller-info", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ token: PAYPRIME_TOKEN, biller_id })
-        });
-        const infoData = await infoRes.json();
-        if (infoData.status === 'SUCCESS' && infoData.data?.billerPaymentModes) {
-          let modesObj = infoData.data.billerPaymentModes;
-          if (typeof modesObj === 'string') {
-            try {
-              modesObj = JSON.parse(modesObj);
-            } catch (e) {
-              console.error("Error parsing billerPaymentModes string:", e);
-            }
-          }
-          if (modesObj && Array.isArray(modesObj.paymentModeList)) {
-            allowedModes = modesObj.paymentModeList.map((m: any) => String(m.paymentModeName).toUpperCase());
+
+      // If billerPaymentModes is passed from frontend, use it directly (saves API call and works for Credit Cards)
+      if (billerPaymentModes) {
+        let modesObj = billerPaymentModes;
+        if (typeof modesObj === 'string') {
+          try {
+            modesObj = JSON.parse(modesObj);
+          } catch (e) {
+            console.error("Error parsing billerPaymentModes from request body:", e);
           }
         }
-      } catch (err) {
-        console.error("[BBPS Proxy] Error fetching biller info in pay-bill:", err);
+        if (modesObj && Array.isArray(modesObj.paymentModeList)) {
+          allowedModes = modesObj.paymentModeList.map((m: any) => String(m.paymentModeName).toUpperCase());
+        }
+      }
+
+      // If allowedModes is still empty, query PayPrime's fetch-biller-info (for standard utility bills)
+      if (allowedModes.length === 0) {
+        try {
+          const infoRes = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-biller-info", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token: PAYPRIME_TOKEN, biller_id })
+          });
+          const infoData = await infoRes.json();
+          if (infoData.status === 'SUCCESS' && infoData.data?.billerPaymentModes) {
+            let modesObj = infoData.data.billerPaymentModes;
+            if (typeof modesObj === 'string') {
+              try {
+                modesObj = JSON.parse(modesObj);
+              } catch (e) {
+                console.error("Error parsing billerPaymentModes string:", e);
+              }
+            }
+            if (modesObj && Array.isArray(modesObj.paymentModeList)) {
+              allowedModes = modesObj.paymentModeList.map((m: any) => String(m.paymentModeName).toUpperCase());
+            }
+          }
+        } catch (err) {
+          console.error("[BBPS Proxy] Error fetching biller info in pay-bill:", err);
+        }
       }
 
       const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
@@ -1468,9 +1487,7 @@ async function startServer() {
 
       // Determine the best payment mode supported by the biller
       let mode = "Cash";
-      if (isCreditCard) {
-        mode = "Cash";
-      } else if (allowedModes.length > 0) {
+      if (allowedModes.length > 0) {
         if (allowedModes.includes("CASH")) {
           mode = "Cash";
         } else if (allowedModes.includes("UPI")) {
@@ -1492,6 +1509,9 @@ async function startServer() {
           const firstMode = allowedModes[0];
           mode = firstMode.charAt(0).toUpperCase() + firstMode.slice(1).toLowerCase();
         }
+      } else {
+        // Safe fallback if allowedModes is empty
+        mode = isCreditCard ? "UPI" : "Cash";
       }
 
       // Map paymentInfo dynamically based on the selected mode

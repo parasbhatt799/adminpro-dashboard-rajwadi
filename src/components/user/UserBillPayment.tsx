@@ -954,7 +954,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           fetchResponse,
           service_type: selectedCategory?.cat_name || "BBPS Utility",
           provider: selectedBiller?.biller_name || selectedBiller?.biller_id,
-          consumer_number: consumerNumber
+          consumer_number: consumerNumber,
+          billerPaymentModes: (selectedBiller as any).billerPaymentModes
         })
       });
       const data = await response.json();
