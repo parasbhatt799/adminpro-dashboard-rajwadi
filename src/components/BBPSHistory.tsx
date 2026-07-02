@@ -67,6 +67,7 @@ export default function BBPSHistory() {
   const [endDate, setEndDate] = useState(getTodayStr());
   const [selectedReceipt, setSelectedReceipt] = useState<BBPSTransaction | null>(null);
   const [adminMap, setAdminMap] = useState<Record<string, string>>({});
+  const [currentPage, setCurrentPage] = useState(1);
 
   const getConsumerDetailsList = (item: BBPSTransaction) => {
     if (item.metadata?.consumerDetails && typeof item.metadata.consumerDetails === 'object') {
@@ -326,6 +327,10 @@ export default function BBPSHistory() {
     };
   }, [filter, searchQuery, startDate, endDate]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchQuery, startDate, endDate]);
+
   const handlePrint = () => {
     window.print();
   };
@@ -432,6 +437,10 @@ export default function BBPSHistory() {
       console.error('PDF Export Error:', err);
     }
   };
+
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(transactions.length / itemsPerPage);
+  const paginatedTransactions = transactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   return (
     <div className="space-y-8">
@@ -705,7 +714,7 @@ export default function BBPSHistory() {
                   </td>
                 </tr>
               ) : (
-                transactions.map((item) => (
+                paginatedTransactions.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
                     {/* User Profile / Date */}
                     <td className="px-6 py-4">
@@ -806,6 +815,31 @@ export default function BBPSHistory() {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-slate-100 mt-0">
+            <p className="text-xs text-slate-500 font-medium">
+              Showing <span className="text-slate-900 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-900 font-bold">{Math.min(currentPage * itemsPerPage, transactions.length)}</span> of <span className="text-slate-900 font-bold">{transactions.length}</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-xs font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* POPUP RECEIPT OVERLAY MODAL */}
