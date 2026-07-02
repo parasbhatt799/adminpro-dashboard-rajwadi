@@ -1184,6 +1184,21 @@ async function startServer() {
     }
   });
 
+  app.post("/api/bbps/card/get-biller", async (req, res) => {
+    try {
+      const response = await fetch("https://b2b.payprime.in/api/v1/card/get-biller", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: PAYPRIME_TOKEN })
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BBPS Proxy] Card Get Biller Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
   app.post("/api/bbps/biller", async (req, res) => {
     try {
       const { cat_id } = req.body;
@@ -1226,7 +1241,7 @@ async function startServer() {
 
   app.post("/api/bbps/fetch-bill", async (req, res) => {
     try {
-      const { biller_id, customerParams } = req.body;
+      const { biller_id, customerParams, service_type } = req.body;
       if (!biller_id || !customerParams) {
         return res.status(400).json({ status: "ERROR", message: "Biller ID and customer parameters are required." });
       }
@@ -1237,7 +1252,16 @@ async function startServer() {
         paramValue: String(paramValue)
       }));
 
-      const response = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-bill", {
+      const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
+                           (biller_id && typeof biller_id === 'string' && (biller_id.toLowerCase().includes("card") || biller_id.toLowerCase().endsWith("cc")));
+
+      const targetUrl = isCreditCard
+        ? "https://b2b.payprime.in/api/v1/card/fetch-bill"
+        : "https://b2b.payprime.in/api/v1/bbps/fetch-bill";
+
+      console.log(`[BBPS Proxy] Fetching bill from ${targetUrl} for biller: ${biller_id}`);
+
+      const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
