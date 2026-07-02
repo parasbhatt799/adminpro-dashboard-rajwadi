@@ -1466,22 +1466,51 @@ async function startServer() {
                            (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
                            (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
 
-      // If the biller supports CASH, use Cash (standard for Agent channel).
-      // If the biller does not support CASH but supports UPI, use UPI.
+      // Determine the best payment mode supported by the biller
       let mode = "Cash";
       if (isCreditCard) {
         mode = "Cash";
       } else if (allowedModes.length > 0) {
-        const supportsCash = allowedModes.includes("CASH");
-        const supportsUpi = allowedModes.includes("UPI");
-        if (!supportsCash && supportsUpi) {
+        if (allowedModes.includes("CASH")) {
+          mode = "Cash";
+        } else if (allowedModes.includes("UPI")) {
           mode = "UPI";
+        } else if (allowedModes.includes("DEBIT CARD") || allowedModes.includes("DEBITCARD")) {
+          mode = "Debit Card";
+        } else if (allowedModes.includes("INTERNET BANKING") || allowedModes.includes("INTERNETBANKING") || allowedModes.includes("NETBANKING") || allowedModes.includes("NET BANKING")) {
+          mode = "Internet Banking";
+        } else if (allowedModes.includes("IMPS")) {
+          mode = "IMPS";
+        } else if (allowedModes.includes("NEFT")) {
+          mode = "NEFT";
+        } else if (allowedModes.includes("CREDIT CARD") || allowedModes.includes("CREDITCARD")) {
+          mode = "Credit Card";
+        } else if (allowedModes.includes("WALLET")) {
+          mode = "Wallet";
+        } else {
+          // Fallback to the first allowed mode in proper casing
+          const firstMode = allowedModes[0];
+          mode = firstMode.charAt(0).toUpperCase() + firstMode.slice(1).toLowerCase();
         }
       }
 
-      const paymentInfoList = mode === "UPI"
-        ? [ { "infoName": "VPA", "infoValue": `${userMobile}@upi` } ]
-        : [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
+      // Map paymentInfo dynamically based on the selected mode
+      let paymentInfoList: any[] = [];
+      const modeLower = mode.toLowerCase();
+      if (modeLower === "upi") {
+        paymentInfoList = [ { "infoName": "VPA", "infoValue": `${userMobile}@upi` } ];
+      } else if (modeLower === "debit card") {
+        const lastDigits = customerParams["Last 4 digits of Primary Credit Card Number"] ||
+                           customerParams["Last 4 Digits of Credit Card"] ||
+                           customerParams["Last 4 digits of Credit Card Number"] ||
+                           "9999";
+        paymentInfoList = [ { "infoName": "Card Ending digits", "infoValue": lastDigits } ];
+      } else if (modeLower === "internet banking") {
+        paymentInfoList = [ { "infoName": "Bank Name", "infoValue": provider || "Internet Banking" } ];
+      } else {
+        // Default (Cash / IMPS / NEFT / others)
+        paymentInfoList = [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
+      }
 
       const payPrimePayload: any = {
         token: PAYPRIME_TOKEN,
