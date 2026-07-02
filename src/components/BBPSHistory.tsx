@@ -198,7 +198,7 @@ export default function BBPSHistory() {
           totalBase: acc.totalBase + amt,
           totalCharges: acc.totalCharges + chg,
           totalDebited: acc.totalDebited + (amt + chg),
-          totalBbpsCommission: acc.totalBbpsCommission + 1.95
+          totalBbpsCommission: acc.totalBbpsCommission + 0
         };
       }, { count: 0, totalBase: 0, totalCharges: 0, totalDebited: 0, totalBbpsCommission: 0 });
 
@@ -349,7 +349,7 @@ export default function BBPSHistory() {
         'Transaction UTR': item.transaction_id || 'N/A',
         'Base Amount': Number(item.amount),
         'Service Charge': Number(item.charges),
-        'BBPS Commission': 1.95,
+        'BBPS Commission': 0,
         'Debited Total': Number(item.amount) + Number(item.charges),
         'Status': item.status.toUpperCase()
       }));
@@ -404,7 +404,7 @@ export default function BBPSHistory() {
         item.status.toUpperCase(),
         Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
         Number(item.charges).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
-        '1.95',
+        '0.00',
         (Number(item.amount) + Number(item.charges)).toLocaleString('en-IN', { minimumFractionDigits: 2 })
       ]);
 
@@ -781,7 +781,7 @@ export default function BBPSHistory() {
                     </td>
 
                     <td className="px-6 py-4 text-center">
-                      <p className="text-xs font-bold text-indigo-600">₹1.95</p>
+                      <p className="text-xs font-bold text-indigo-600">₹0.00</p>
                     </td>
 
                     <td className="px-6 py-4 text-center">
