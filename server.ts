@@ -1216,9 +1216,7 @@ async function startServer() {
 
   app.get("/api/bbps/card/view-pay-log", async (req, res) => {
     try {
-      const fs = require('fs');
-      const path = require('path');
-      const logFilePath = path.join(__dirname, 'pay_bill_log.json');
+      const logFilePath = path.join(process.cwd(), 'pay_bill_log.json');
       if (fs.existsSync(logFilePath)) {
         const logContent = fs.readFileSync(logFilePath, 'utf8');
         res.json(JSON.parse(logContent));
@@ -1593,9 +1591,7 @@ async function startServer() {
 
       // Diagnostics file logging
       try {
-        const fs = require('fs');
-        const path = require('path');
-        const logFilePath = path.join(__dirname, 'pay_bill_log.json');
+        const logFilePath = path.join(process.cwd(), 'pay_bill_log.json');
         const logData = {
           timestamp: new Date().toISOString(),
           targetUrl,
