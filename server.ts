@@ -1454,14 +1454,14 @@ async function startServer() {
       // If the biller supports CASH, use Cash (standard for Agent channel).
       // If the biller does not support CASH but supports UPI, use UPI.
       let mode = "Cash";
-      if (allowedModes.length > 0) {
+      if (isCreditCard) {
+        mode = "Cash";
+      } else if (allowedModes.length > 0) {
         const supportsCash = allowedModes.includes("CASH");
         const supportsUpi = allowedModes.includes("UPI");
         if (!supportsCash && supportsUpi) {
           mode = "UPI";
         }
-      } else {
-        mode = isCreditCard ? "UPI" : "Cash";
       }
 
       const paymentInfoList = mode === "UPI"
