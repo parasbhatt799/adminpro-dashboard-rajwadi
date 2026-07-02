@@ -364,6 +364,15 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           return allowedCategories.some(allowed => nameLower.includes(allowed));
         });
 
+        // Add Credit Card statically if it is not returned by the API (PayPrime separates card endpoints)
+        const hasCreditCard = filtered.some((cat: any) => cat.cat_name.toLowerCase().includes("credit card"));
+        if (!hasCreditCard) {
+          filtered.push({
+            cat_id: "C05",
+            cat_name: "Credit Card"
+          });
+        }
+
         // Sort dynamically into exact layout requested: Electricity, Mobile Postpaid, Credit Card, Broadband, Gas
         const orderMap: Record<string, number> = {
           "electricity": 1,
@@ -406,17 +415,28 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     setApiError(null);
     setSearchBillerQuery('');
     try {
-      const response = await fetch('/api/bbps/biller', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cat_id: category.cat_id })
-      });
-      const data = await response.json();
-      if (data.status === 'SUCCESS' && data.data?.billers) {
-        setBillers(data.data.billers);
-        setFilteredBillers(data.data.billers);
+      if (category.cat_name.toLowerCase().includes("credit card")) {
+        const ccBillers = [
+          { biller_id: "SBIC000000CC", biller_name: "SBI Card" },
+          { biller_id: "HDFC000000CC", biller_name: "HDFC Bank Credit Card" },
+          { biller_id: "ICIC000000CC", biller_name: "ICICI Bank Credit Card" },
+          { biller_id: "AXIS000000CC", biller_name: "Axis Bank Credit Card" }
+        ];
+        setBillers(ccBillers);
+        setFilteredBillers(ccBillers);
       } else {
-        throw new Error(data.message || "Failed to fetch billers");
+        const response = await fetch('/api/bbps/biller', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cat_id: category.cat_id })
+        });
+        const data = await response.json();
+        if (data.status === 'SUCCESS' && data.data?.billers) {
+          setBillers(data.data.billers);
+          setFilteredBillers(data.data.billers);
+        } else {
+          throw new Error(data.message || "Failed to fetch billers");
+        }
       }
     } catch (err: any) {
       console.error("Biller Fetch Error:", err);
@@ -436,41 +456,49 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     setManualAmount('');
     setBillDetails(null);
     try {
-      const response = await fetch('/api/bbps/fetch-biller-info', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ biller_id: biller.biller_id })
-      });
-      const data = await response.json();
-      if (data.status === 'SUCCESS' && data.data?.billerInputParams) {
-        // Flatten params list from API structure
-        const list: BillerInputParam[] = [];
-        let paramsData = data.data.billerInputParams;
-        if (typeof paramsData === 'string') {
-          try {
-            paramsData = JSON.parse(paramsData);
-          } catch (e) {
-            console.error("Failed to parse billerInputParams string:", e);
-          }
-        }
-
-        if (Array.isArray(paramsData)) {
-          paramsData.forEach((paramGroup: any) => {
-            if (paramGroup.paramsList) {
-              paramGroup.paramsList.forEach((p: any) => {
-                list.push({
-                  paramName: p.paramName,
-                  dataType: p.dataType,
-                  optional: p.optional === "true" || p.optional === true || p.isOptional === "true" || p.isOptional === true
-                });
-              });
-            }
-          });
-        }
-        setInputParams(list.length > 0 ? list : [{ paramName: "Account / Consumer Number", dataType: "ALPHANUMERIC" }]);
+      if (selectedCategory?.cat_name.toLowerCase().includes("credit card")) {
+        const ccParams: BillerInputParam[] = [
+          { paramName: "Last 4 digits of Primary Credit Card Number", dataType: "NUMERIC", optional: false },
+          { paramName: "Registered Mobile Number", dataType: "NUMERIC", optional: false }
+        ];
+        setInputParams(ccParams);
       } else {
-        // If parameters call fails, supply a default Consumer Number input
-        setInputParams([{ paramName: "Account / Consumer Number", dataType: "ALPHANUMERIC" }]);
+        const response = await fetch('/api/bbps/fetch-biller-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ biller_id: biller.biller_id })
+        });
+        const data = await response.json();
+        if (data.status === 'SUCCESS' && data.data?.billerInputParams) {
+          // Flatten params list from API structure
+          const list: BillerInputParam[] = [];
+          let paramsData = data.data.billerInputParams;
+          if (typeof paramsData === 'string') {
+            try {
+              paramsData = JSON.parse(paramsData);
+            } catch (e) {
+              console.error("Failed to parse billerInputParams string:", e);
+            }
+          }
+
+          if (Array.isArray(paramsData)) {
+            paramsData.forEach((paramGroup: any) => {
+              if (paramGroup.paramsList) {
+                paramGroup.paramsList.forEach((p: any) => {
+                  list.push({
+                    paramName: p.paramName,
+                    dataType: p.dataType,
+                    optional: p.optional === "true" || p.optional === true || p.isOptional === "true" || p.isOptional === true
+                  });
+                });
+              }
+            });
+          }
+          setInputParams(list.length > 0 ? list : [{ paramName: "Account / Consumer Number", dataType: "ALPHANUMERIC" }]);
+        } else {
+          // If parameters call fails, supply a default Consumer Number input
+          setInputParams([{ paramName: "Account / Consumer Number", dataType: "ALPHANUMERIC" }]);
+        }
       }
     } catch (err: any) {
       console.error("Biller Input Fetch Error:", err);

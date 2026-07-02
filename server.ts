@@ -1423,6 +1423,10 @@ async function startServer() {
         console.error("[BBPS Proxy] Error fetching biller info in pay-bill:", err);
       }
 
+      const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
+                           (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
+                           (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
+
       // If the biller supports CASH, use Cash (standard for Agent channel).
       // If the biller does not support CASH but supports UPI, use UPI.
       let mode = "Cash";
@@ -1433,9 +1437,6 @@ async function startServer() {
           mode = "UPI";
         }
       } else {
-        const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
-                             (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
-                             (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
         mode = isCreditCard ? "UPI" : "Cash";
       }
 
@@ -1471,9 +1472,13 @@ async function startServer() {
         }
       }
 
-      console.log("[BBPS Proxy] Outgoing PayPrime Payload:", JSON.stringify(payPrimePayload, null, 2));
+      const targetUrl = isCreditCard
+        ? "https://b2b.payprime.in/api/v1/card/pay-bill"
+        : "https://b2b.payprime.in/api/v1/bbps/pay-bill";
 
-      const response = await fetch("https://b2b.payprime.in/api/v1/bbps/pay-bill", {
+      console.log(`[BBPS Proxy] Outgoing PayPrime Payload to ${targetUrl}:`, JSON.stringify(payPrimePayload, null, 2));
+
+      const response = await fetch(targetUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payPrimePayload)
