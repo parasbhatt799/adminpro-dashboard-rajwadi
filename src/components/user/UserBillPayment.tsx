@@ -954,8 +954,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
           fetchResponse,
           service_type: selectedCategory?.cat_name || "BBPS Utility",
           provider: selectedBiller?.biller_name || selectedBiller?.biller_id,
-          consumer_number: consumerNumber,
-          billerPaymentModes: (selectedBiller as any).billerPaymentModes
+          consumer_number: consumerNumber
         })
       });
       const data = await response.json();
@@ -1492,8 +1491,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 onClick={handlePrePayCheck}
                                 disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit || Number(manualAmount) >= 50000}
                                 className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${lockoutSeconds > 0
-                                    ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
-                                    : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
+                                  ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
+                                  : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
                                   }`}
                               >
                                 {loading ? (

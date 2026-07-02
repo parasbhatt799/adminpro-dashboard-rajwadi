@@ -123,7 +123,7 @@ async function startServer() {
         console.log(`[Resend] Email sent successfully to ${to}, ID: ${data.id}`);
         return data;
       }
-      
+
       const errMsg = data?.message || "";
       if (response.status === 403 || errMsg.toLowerCase().includes("verify") || errMsg.toLowerCase().includes("domain") || errMsg.toLowerCase().includes("sender")) {
         console.warn(`[Resend] First attempt failed (${errMsg}). Falling back to onboarding@resend.dev...`);
@@ -148,7 +148,7 @@ async function startServer() {
         }
         throw new Error(fallbackData?.message || `Fallback failed with status ${fallbackResponse.status}`);
       }
-      
+
       throw new Error(errMsg || `HTTP error! status: ${response.status}`);
     } catch (err: any) {
       console.error("[Resend] Critical error sending email:", err.message);
@@ -757,7 +757,7 @@ async function startServer() {
 
       if (status === 'approved') {
         subject = `🟢 [UsePay] Bill Payment Successful - ₹${amountVal.toLocaleString('en-IN')}`;
-        
+
         html = BILL_APPROVED_EMAIL_TEMPLATE
           .replace(/\{\{logoUrl\}\}/g, logoUrl)
           .replace(/\{\{amount\}\}/g, amountVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }))
@@ -1214,21 +1214,6 @@ async function startServer() {
     }
   });
 
-  app.get("/api/bbps/card/view-pay-log", async (req, res) => {
-    try {
-      const logFilePath = path.join(process.cwd(), 'pay_bill_log.json');
-      if (fs.existsSync(logFilePath)) {
-        const logContent = fs.readFileSync(logFilePath, 'utf8');
-        res.json(JSON.parse(logContent));
-      } else {
-        res.status(404).json({ status: "ERROR", message: "No pay-bill logs found yet." });
-      }
-    } catch (error: any) {
-      console.error("[BBPS Proxy] GET View Pay Log Error:", error);
-      res.status(500).json({ status: "ERROR", message: error.message });
-    }
-  });
-
   app.post("/api/bbps/biller", async (req, res) => {
     try {
       const { cat_id } = req.body;
@@ -1283,7 +1268,7 @@ async function startServer() {
       }));
 
       const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
-                           (biller_id && typeof biller_id === 'string' && (biller_id.toLowerCase().includes("card") || biller_id.toLowerCase().endsWith("cc")));
+        (biller_id && typeof biller_id === 'string' && (biller_id.toLowerCase().includes("card") || biller_id.toLowerCase().endsWith("cc")));
 
       const targetUrl = isCreditCard
         ? "https://b2b.payprime.in/api/v1/card/fetch-bill"
@@ -1312,7 +1297,7 @@ async function startServer() {
 
   app.post("/api/bbps/pay-bill", async (req, res) => {
     try {
-      const { userId, biller_id, amount, customerParams, fetchResponse, service_type, provider, consumer_number, billerPaymentModes } = req.body;
+      const { userId, biller_id, amount, customerParams, fetchResponse, service_type, provider, consumer_number } = req.body;
 
       if (!userId || !biller_id || !amount) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
@@ -1453,64 +1438,47 @@ async function startServer() {
 
       // Fetch biller info to dynamically detect supported payment modes for AGT channel
       let allowedModes: string[] = [];
-
-      // If billerPaymentModes is passed from frontend, use it directly (saves API call and works for Credit Cards)
-      if (billerPaymentModes) {
-        let modesObj = billerPaymentModes;
-        if (typeof modesObj === 'string') {
-          try {
-            modesObj = JSON.parse(modesObj);
-          } catch (e) {
-            console.error("Error parsing billerPaymentModes from request body:", e);
-          }
-        }
-        if (modesObj && Array.isArray(modesObj.paymentModeList)) {
-          allowedModes = modesObj.paymentModeList.map((m: any) => String(m.paymentModeName).toUpperCase());
-        }
-      }
-
-      // If allowedModes is still empty, query PayPrime's fetch-biller-info (for standard utility bills)
-      if (allowedModes.length === 0) {
-        try {
-          const infoRes = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-biller-info", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token: PAYPRIME_TOKEN, biller_id })
-          });
-          const infoData = await infoRes.json();
-          if (infoData.status === 'SUCCESS' && infoData.data?.billerPaymentModes) {
-            let modesObj = infoData.data.billerPaymentModes;
-            if (typeof modesObj === 'string') {
-              try {
-                modesObj = JSON.parse(modesObj);
-              } catch (e) {
-                console.error("Error parsing billerPaymentModes string:", e);
-              }
-            }
-            if (modesObj && Array.isArray(modesObj.paymentModeList)) {
-              allowedModes = modesObj.paymentModeList.map((m: any) => String(m.paymentModeName).toUpperCase());
+      try {
+        const infoRes = await fetch("https://b2b.payprime.in/api/v1/bbps/fetch-biller-info", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: PAYPRIME_TOKEN, biller_id })
+        });
+        const infoData = await infoRes.json();
+        if (infoData.status === 'SUCCESS' && infoData.data?.billerPaymentModes) {
+          let modesObj = infoData.data.billerPaymentModes;
+          if (typeof modesObj === 'string') {
+            try {
+              modesObj = JSON.parse(modesObj);
+            } catch (e) {
+              console.error("Error parsing billerPaymentModes string:", e);
             }
           }
-        } catch (err) {
-          console.error("[BBPS Proxy] Error fetching biller info in pay-bill:", err);
+          if (modesObj && Array.isArray(modesObj.paymentModeList)) {
+            allowedModes = modesObj.paymentModeList.map((m: any) => String(m.paymentModeName).toUpperCase());
+          }
         }
+      } catch (err) {
+        console.error("[BBPS Proxy] Error fetching biller info in pay-bill:", err);
       }
 
       const isCreditCard = (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("credit card")) ||
-                           (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
-                           (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
+        (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
+        (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
 
       // Determine the best payment mode supported by the biller
       let mode = "Cash";
-      if (allowedModes.length > 0) {
+      if (isCreditCard) {
+        mode = "Cash";
+      } else if (allowedModes.length > 0) {
         if (allowedModes.includes("CASH")) {
           mode = "Cash";
+        } else if (allowedModes.includes("UPI")) {
+          mode = "UPI";
         } else if (allowedModes.includes("DEBIT CARD") || allowedModes.includes("DEBITCARD")) {
           mode = "Debit Card";
         } else if (allowedModes.includes("INTERNET BANKING") || allowedModes.includes("INTERNETBANKING") || allowedModes.includes("NETBANKING") || allowedModes.includes("NET BANKING")) {
           mode = "Internet Banking";
-        } else if (allowedModes.includes("UPI")) {
-          mode = "UPI";
         } else if (allowedModes.includes("IMPS")) {
           mode = "IMPS";
         } else if (allowedModes.includes("NEFT")) {
@@ -1524,27 +1492,24 @@ async function startServer() {
           const firstMode = allowedModes[0];
           mode = firstMode.charAt(0).toUpperCase() + firstMode.slice(1).toLowerCase();
         }
-      } else {
-        // Safe fallback if allowedModes is empty (AGT channel supports Debit Card for cards, Cash for others)
-        mode = isCreditCard ? "Debit Card" : "Cash";
       }
 
       // Map paymentInfo dynamically based on the selected mode
       let paymentInfoList: any[] = [];
       const modeLower = mode.toLowerCase();
       if (modeLower === "upi") {
-        paymentInfoList = [ { "infoName": "VPA", "infoValue": `${userMobile}@upi` } ];
+        paymentInfoList = [{ "infoName": "VPA", "infoValue": `${userMobile}@upi` }];
       } else if (modeLower === "debit card") {
         const lastDigits = customerParams["Last 4 digits of Primary Credit Card Number"] ||
-                           customerParams["Last 4 Digits of Credit Card"] ||
-                           customerParams["Last 4 digits of Credit Card Number"] ||
-                           "9999";
-        paymentInfoList = [ { "infoName": "Card Ending digits", "infoValue": lastDigits } ];
+          customerParams["Last 4 Digits of Credit Card"] ||
+          customerParams["Last 4 digits of Credit Card Number"] ||
+          "9999";
+        paymentInfoList = [{ "infoName": "Card Ending digits", "infoValue": lastDigits }];
       } else if (modeLower === "internet banking") {
-        paymentInfoList = [ { "infoName": "Bank Name", "infoValue": provider || "Internet Banking" } ];
+        paymentInfoList = [{ "infoName": "Bank Name", "infoValue": provider || "Internet Banking" }];
       } else {
         // Default (Cash / IMPS / NEFT / others)
-        paymentInfoList = [ { "infoName": "Cash Payment", "infoValue": "Cash Payment" } ];
+        paymentInfoList = [{ "infoName": "Cash Payment", "infoValue": "Cash Payment" }];
       }
 
       const payPrimePayload: any = {
@@ -1588,21 +1553,6 @@ async function startServer() {
       });
 
       const responseText = await response.text();
-
-      // Diagnostics file logging
-      try {
-        const logFilePath = path.join(process.cwd(), 'pay_bill_log.json');
-        const logData = {
-          timestamp: new Date().toISOString(),
-          targetUrl,
-          outgoingPayload: payPrimePayload,
-          gatewayResponse: responseText
-        };
-        fs.writeFileSync(logFilePath, JSON.stringify(logData, null, 2));
-        console.log(`[BBPS Proxy Diagnostics] Written pay-bill log to: ${logFilePath}`);
-      } catch (logErr) {
-        console.error("[BBPS Proxy Diagnostics] Failed to write pay-bill log:", logErr);
-      }
       console.log("[BBPS Proxy] Raw Response from PayPrime Gateway:", responseText);
 
       let data: any;
@@ -1716,7 +1666,7 @@ async function startServer() {
           const billerList = Array.isArray(response.json.billerInfoResponse.biller)
             ? response.json.billerInfoResponse.biller
             : [response.json.billerInfoResponse.biller];
-            
+
           const mapped = billerList.map((b: any) => ({
             biller_id: b.billerId,
             biller_name: b.billerName,
@@ -2061,7 +2011,7 @@ async function startServer() {
 
       // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
-         .from("users_profiles")
+        .from("users_profiles")
         .select("wallet_balance, service_charge_enabled, custom_service_charge, email, name")
         .eq("id", userId)
         .single();
@@ -2149,7 +2099,7 @@ async function startServer() {
       let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
       let responseCode = payResponse?.responseCode;
       let txnRefId = payResponse?.txnRefId;
-      
+
       let isSuccess = responseCode === '0000' || responseCode === '000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
 
       if (!isSuccess && isStaging) {
@@ -2234,7 +2184,7 @@ async function startServer() {
 
             const subject = `Payment Successful - B-Connect Txn Ref ID: ${txnRefId || apiResponse.requestId}`;
             const text = `Thank you for payment of ₹${paymentAmount} against ${billerName}, Consumer no ${consumerNo}, B-connect Txn Ref ID ${txnRefId || apiResponse.requestId} on ${dateTime} vide ${paymentChannel}.`;
-            
+
             const html = `<!DOCTYPE html>
 <html>
 <head>
@@ -2447,7 +2397,7 @@ async function startServer() {
         return res.status(400).json({ status: "ERROR", message: "requestId parameter is required." });
       }
       const response = await billAvenue.getTransactionStatus(requestId as string, trackType as string);
-      
+
       const statusResponse = response.json?.transactionStatusResp || response.json?.transactionStatusResponse;
       if (statusResponse) {
         const txnStatus = statusResponse.status?.toLowerCase();
@@ -3181,7 +3131,7 @@ async function startServer() {
         console.log("[Recharge API] UAT Staging Fallback: Simulating successful recharge response.");
         const mockTxnRefId = `TXN${Math.floor(100000000000000 + Math.random() * 900000000000000)}`;
         const mockRequestId = `REQ${Math.floor(100000 + Math.random() * 900000)}`;
-        
+
         responseJson = {
           billPayResponse: {
             responseCode: "0000",
