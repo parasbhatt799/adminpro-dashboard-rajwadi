@@ -1214,6 +1214,23 @@ async function startServer() {
     }
   });
 
+  app.get("/api/bbps/card/view-pay-log", async (req, res) => {
+    try {
+      const fs = require('fs');
+      const path = require('path');
+      const logFilePath = path.join(__dirname, 'pay_bill_log.json');
+      if (fs.existsSync(logFilePath)) {
+        const logContent = fs.readFileSync(logFilePath, 'utf8');
+        res.json(JSON.parse(logContent));
+      } else {
+        res.status(404).json({ status: "ERROR", message: "No pay-bill logs found yet." });
+      }
+    } catch (error: any) {
+      console.error("[BBPS Proxy] GET View Pay Log Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
   app.post("/api/bbps/biller", async (req, res) => {
     try {
       const { cat_id } = req.body;
@@ -1573,6 +1590,23 @@ async function startServer() {
       });
 
       const responseText = await response.text();
+
+      // Diagnostics file logging
+      try {
+        const fs = require('fs');
+        const path = require('path');
+        const logFilePath = path.join(__dirname, 'pay_bill_log.json');
+        const logData = {
+          timestamp: new Date().toISOString(),
+          targetUrl,
+          outgoingPayload: payPrimePayload,
+          gatewayResponse: responseText
+        };
+        fs.writeFileSync(logFilePath, JSON.stringify(logData, null, 2));
+        console.log(`[BBPS Proxy Diagnostics] Written pay-bill log to: ${logFilePath}`);
+      } catch (logErr) {
+        console.error("[BBPS Proxy Diagnostics] Failed to write pay-bill log:", logErr);
+      }
       console.log("[BBPS Proxy] Raw Response from PayPrime Gateway:", responseText);
 
       let data: any;
