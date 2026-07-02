@@ -1199,6 +1199,21 @@ async function startServer() {
     }
   });
 
+  app.get("/api/bbps/card/list-all-billers", async (req, res) => {
+    try {
+      const response = await fetch("https://b2b.payprime.in/api/v1/card/get-biller", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: PAYPRIME_TOKEN })
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (error: any) {
+      console.error("[BBPS Proxy] Card Get Biller GET Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
   app.post("/api/bbps/biller", async (req, res) => {
     try {
       const { cat_id } = req.body;
