@@ -703,7 +703,7 @@ export default function BillPaymentRequests() {
                         <div className="space-y-1">
                           <p className="text-[11px] font-bold text-slate-900 flex items-center justify-center gap-1.5">
                             <CreditCard size={12} className="text-slate-400" />
-                            {(req.card_number || '').slice(-4) || '****'}
+                            {req.card_number ? req.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****'}
                           </p>
                           <p className="text-[11px] font-mono text-indigo-600 font-bold">{req.card_bank}</p>
                         </div>

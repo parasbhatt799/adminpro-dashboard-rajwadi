@@ -613,7 +613,7 @@ export default function BillDistributorReport({ userId }: BillDistributorReportP
                         ) : (
                           <CreditCard size={12} className="text-slate-400" />
                         )}
-                        {req.is_bbps ? req.card_number : (req.card_number || '').slice(-4)}
+                        {req.is_bbps ? req.card_number : (req.card_number ? req.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****')}
                       </p>
                       <p className="text-[10px] text-slate-500">{req.card_bank}</p>
                     </td>

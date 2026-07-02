@@ -728,7 +728,7 @@ export default function BillPaymentReport() {
                             <CreditCard size={10} className="text-slate-300" />
                           )}
                           <span className="text-xs font-bold text-slate-700">
-                            {req.is_bbps ? (req.card_number || 'N/A') : (req.card_number || '').slice(-4)}
+                            {req.is_bbps ? (req.card_number || 'N/A') : (req.card_number ? req.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****')}
                           </span>
                         </div>
                         <p className="text-[10px] text-slate-400 mt-0.5">{req.card_bank}</p>

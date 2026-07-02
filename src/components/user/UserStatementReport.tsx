@@ -500,14 +500,14 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                         ? r.raw_data?.account_number
                         : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT')
                           ? r.reference
-                          : (r.raw_data?.card_number || '****')}
+                          : (r.raw_data?.card_number ? r.raw_data.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****')}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
                         r.raw_data?.is_bbps ? (
                           r.raw_data?.service_type === 'Credit Card' ? (
                             <>
-                              <div>BBPS CreditCard Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
+                               <div>BBPS CreditCard Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number ? r.raw_data.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '0000'}</span></div>
                               <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
                               <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
                             </>
@@ -520,7 +520,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                           )
                         ) : (
                           <>
-                            <div>CCBILLPAY Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number || '0000'}</span></div>
+                             <div>CCBILLPAY Mobile: <span className='text-amber-600 font-bold'>{r.reference}</span> CardNo: <span className='text-amber-600 font-bold'>{r.raw_data?.card_number ? r.raw_data.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '0000'}</span></div>
                             <div>Credit Card BILL ({r.amount} + {r.charges} Txn Charge)</div>
                             <div className={`text-[10px] font-bold uppercase ${r.status === 'rejected' ? 'text-rose-500' : r.status === 'pending' ? 'text-amber-500' : 'text-emerald-500'}`}>Status: {r.status}</div>
                           </>

@@ -589,7 +589,7 @@ export default function UserReports({ userId }: UserReportsProps) {
                           <p className="text-xs font-bold text-slate-600">{item.qr_name}</p>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <p className="text-xs font-bold text-slate-600">{item.card_number || '****'}</p>
+                          <p className="text-xs font-bold text-slate-600">{item.card_number ? item.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****'}</p>
                         </td>
                         <td className="px-6 py-4 text-center">
                           <p className="text-xs font-bold text-slate-900">₹{Number(item.amount).toFixed(2)}</p>

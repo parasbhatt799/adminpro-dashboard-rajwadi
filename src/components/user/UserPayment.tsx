@@ -736,8 +736,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       return;
     }
 
-    if (billForm.cardNumber.length !== 4) {
-      setError('Card number must be exactly 4 digits.');
+    if (billForm.cardNumber.replace(/\s/g, '').length !== 16) {
+      setError('Card number must be exactly 16 digits.');
       return;
     }
 
@@ -1824,16 +1824,18 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                           {/* Card Number */}
                           <div className="space-y-2">
-                            <label className="text-sm font-bold text-slate-700">Card Number (Last 4 Digits):</label>
+                            <label className="text-sm font-bold text-slate-700">Card Number (16 Digits):</label>
                             <input
                               type="text"
                               inputMode="numeric"
                               value={billForm.cardNumber}
                               onChange={(e) => {
-                                const val = e.target.value.replace(/\D/g, '').slice(0, 4);
-                                setBillForm({ ...billForm, cardNumber: val });
+                                const clean = e.target.value.replace(/\D/g, '').slice(0, 16);
+                                const formatted = clean.replace(/(\d{4})(?=\d)/g, '$1 ');
+                                setBillForm({ ...billForm, cardNumber: formatted });
                               }}
-                              placeholder="Last 4 Digits"
+                              maxLength={19}
+                              placeholder="4242 4242 4242 4242"
                               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                               required
                             />
@@ -2079,7 +2081,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 <div className="text-center">
                                   <p className="text-[11px] font-bold text-slate-900 flex items-center justify-center gap-1.5">
                                     <CreditCard size={12} className="text-slate-400" />
-                                    {req.card_number}
+                                    {req.card_number ? req.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****'}
                                   </p>
                                   <p className="text-[10px] text-slate-500 font-medium truncate">{req.card_owner_name}</p>
                                 </div>
