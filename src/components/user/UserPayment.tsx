@@ -736,7 +736,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       return;
     }
 
-    if (billForm.cardNumber.replace(/\s/g, '').length !== 16) {
+    if (billForm.cardNumber.replace(/\D/g, '').length !== 16) {
       setError('Card number must be exactly 16 digits.');
       return;
     }
@@ -821,7 +821,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         p_user_id: userId,
         p_customer_mobile: billForm.customerMobile,
         p_card_bank: billForm.cardBank,
-        p_card_number: billForm.cardNumber,
+        p_card_number: billForm.cardNumber.replace(/\D/g, ''),
         p_card_owner_name: billForm.cardOwnerName,
         p_amount: billAmountNum,
         p_charges: serviceCharge
@@ -1835,6 +1835,8 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                                 setBillForm({ ...billForm, cardNumber: formatted });
                               }}
                               maxLength={19}
+                              minLength={19}
+                              pattern="\d{4} \d{4} \d{4} \d{4}"
                               placeholder="4242 4242 4242 4242"
                               className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                               required

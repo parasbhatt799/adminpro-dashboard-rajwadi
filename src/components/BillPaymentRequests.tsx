@@ -14,7 +14,8 @@ import {
   AlertCircle,
   ChevronUp,
   RotateCcw,
-  Shield
+  Shield,
+  Copy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
@@ -701,10 +702,23 @@ export default function BillPaymentRequests() {
                       </td>
                       <td className="px-3 py-4 text-center">
                         <div className="space-y-1">
-                          <p className="text-[11px] font-bold text-slate-900 flex items-center justify-center gap-1.5">
+                          <div className="text-[11px] font-bold text-slate-900 flex items-center justify-center gap-1.5">
                             <CreditCard size={12} className="text-slate-400" />
-                            {req.card_number ? req.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****'}
-                          </p>
+                            <span>{req.card_number ? req.card_number.replace(/\D/g, '') : '****'}</span>
+                            {req.card_number && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigator.clipboard.writeText(req.card_number.replace(/\D/g, ''));
+                                  toast.success('Card number copied to clipboard');
+                                }}
+                                className="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-indigo-600 transition-colors"
+                                title="Copy Card Number"
+                              >
+                                <Copy size={12} />
+                              </button>
+                            )}
+                          </div>
                           <p className="text-[11px] font-mono text-indigo-600 font-bold">{req.card_bank}</p>
                         </div>
                       </td>
