@@ -216,3 +216,14 @@
 .star-6 { top: 20%; left: 50%; animation-delay: 2.2s; }
 .star-7 { top: 35%; left: 20%; animation-delay: 1.7s; }
 .star-8 { top: 40%; left: 90%; animation-delay: 0.6s; }
+
+/* Dark storm clouds style */
+.rainy-clouds {
+  opacity: 0.6 !important;
+}
+
+.rainy-clouds .weather-cloud {
+  background: radial-gradient(circle at 30% 30%, rgba(30, 41, 59, 0.45) 0%, rgba(15, 23, 42, 0.2) 70%) !important;
+  filter: blur(25px) !important;
+}
+

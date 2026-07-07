@@ -27,8 +27,36 @@ import { useToast } from '../../context/ToastContext';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
 
+const WMO_CODES: Record<number, { text: string; emoji: string }> = {
+  0: { text: "Clear Sky", emoji: "☀️" },
+  1: { text: "Partly Cloudy", emoji: "🌤️" },
+  2: { text: "Partly Cloudy", emoji: "⛅" },
+  3: { text: "Overcast", emoji: "☁️" },
+  45: { text: "Foggy", emoji: "🌫️" },
+  48: { text: "Foggy", emoji: "🌫️" },
+  51: { text: "Light Drizzle", emoji: "🌦️" },
+  53: { text: "Drizzle", emoji: "🌧️" },
+  55: { text: "Heavy Drizzle", emoji: "🌧️" },
+  61: { text: "Light Rain", emoji: "🌦️" },
+  63: { text: "Rain", emoji: "🌧️" },
+  65: { text: "Heavy Rain", emoji: "🌧️" },
+  71: { text: "Light Snow", emoji: "🌨️" },
+  73: { text: "Snow", emoji: "🌨️" },
+  75: { text: "Heavy Snow", emoji: "🌨️" },
+  77: { text: "Snow Grains", emoji: "🌨️" },
+  80: { text: "Light Showers", emoji: "🌦️" },
+  81: { text: "Rain Showers", emoji: "🌧️" },
+  82: { text: "Heavy Showers", emoji: "🌧️" },
+  85: { text: "Snow Showers", emoji: "🌨️" },
+  86: { text: "Snow Showers", emoji: "🌨️" },
+  95: { text: "Thunderstorm", emoji: "⛈️" },
+  96: { text: "Thunderstorm", emoji: "⛈️" },
+  99: { text: "Severe Storm", emoji: "⛈️" }
+};
+
 export default function UserDashboard({ userId }: { userId: string }) {
   const toast = useToast();
+  const [weatherInfo, setWeatherInfo] = useState<{ city: string; temp: number; text: string; emoji: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -270,6 +298,59 @@ export default function UserDashboard({ userId }: { userId: string }) {
     };
   }, [dateFilter, customRange]);
 
+  useEffect(() => {
+    const getLocalWeather = async (lat: number, lng: number) => {
+      try {
+        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code`;
+        const weatherRes = await fetch(weatherUrl);
+        if (!weatherRes.ok) throw new Error("Weather fetch failed");
+        const weatherData = await weatherRes.json();
+        const code = weatherData?.current?.weather_code ?? 0;
+        const temp = Math.round(weatherData?.current?.temperature_2m ?? 27);
+        const mapped = WMO_CODES[code] || { text: "Clear Sky", emoji: "☀️" };
+
+        let city = "Surat";
+        try {
+          const geoRes = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+            {
+              headers: {
+                'Accept': 'application/json',
+                'User-Agent': 'UsePay-Dashboard'
+              }
+            }
+          );
+          if (geoRes.ok) {
+            const geoData = await geoRes.ok ? await geoRes.json() : null;
+            if (geoData && geoData.address) {
+              city = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.suburb || geoData.address.county || "Surat";
+            }
+          }
+        } catch (e) {
+          console.warn("Reverse geocoding failed, using default city:", e);
+        }
+
+        setWeatherInfo({
+          city,
+          temp,
+          text: mapped.text,
+          emoji: mapped.emoji
+        });
+      } catch (err) {
+        console.error("Error loading weather details:", err);
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => getLocalWeather(pos.coords.latitude, pos.coords.longitude),
+        () => getLocalWeather(21.1702, 72.8311)
+      );
+    } else {
+      getLocalWeather(21.1702, 72.8311);
+    }
+  }, []);
+
   if (loading) {
     return (
       <div className="h-[60vh] flex items-center justify-center">
@@ -320,10 +401,19 @@ export default function UserDashboard({ userId }: { userId: string }) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center gap-6">
               <div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <h2 className="text-2xl font-extrabold uppercase tracking-wider pb-1 animate-text-gradient">
                     {getGreeting()}, {userProfile?.firm_name || firstName}
                   </h2>
+                  {weatherInfo && (
+                    <div className="flex items-center gap-2 px-3.5 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[11px] font-bold text-white shadow-sm select-none animate-in fade-in zoom-in duration-300">
+                      <span>📍 {weatherInfo.city}</span>
+                      <span className="h-3 w-px bg-white/20"></span>
+                      <span>{weatherInfo.emoji} {weatherInfo.text}</span>
+                      <span className="h-3 w-px bg-white/20"></span>
+                      <span className="text-amber-300">{weatherInfo.temp}°C</span>
+                    </div>
+                  )}
                   {(userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') && (
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-indigo-200">

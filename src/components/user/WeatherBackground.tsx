@@ -126,15 +126,27 @@ export default function WeatherBackground() {
 
       {/* 3. Rainy Effects */}
       {weatherState === 'rainy' && (
-        <div className="weather-rain-wrapper">
-          {renderRainDrops()}
-        </div>
+        <>
+          <div className="weather-clouds-wrapper rainy-clouds">
+            <div className="weather-cloud cloud-1" />
+            <div className="weather-cloud cloud-2" />
+            <div className="weather-cloud cloud-3" />
+          </div>
+          <div className="weather-rain-wrapper">
+            {renderRainDrops()}
+          </div>
+        </>
       )}
 
       {/* 4. Thunderstorm Effects */}
       {weatherState === 'thunderstorm' && (
         <>
           <div className="weather-thunder-flash" />
+          <div className="weather-clouds-wrapper rainy-clouds">
+            <div className="weather-cloud cloud-1" />
+            <div className="weather-cloud cloud-2" />
+            <div className="weather-cloud cloud-3" />
+          </div>
           <div className="weather-rain-wrapper">
             {renderRainDrops()}
           </div>
