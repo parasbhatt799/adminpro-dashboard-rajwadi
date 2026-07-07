@@ -24,11 +24,11 @@
 }
 
 .weather-bg-container.rainy {
-  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.9) 0%, #070a10 100%);
+  background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%);
 }
 
 .weather-bg-container.thunderstorm {
-  background: radial-gradient(circle at top, rgba(15, 23, 42, 0.95) 0%, #030508 100%);
+  background: linear-gradient(to bottom, #1e1b4b 0%, #080710 100%);
 }
 
 .weather-bg-container.night {
@@ -233,11 +233,11 @@
 
 /* Dark storm clouds style */
 .rainy-clouds {
-  opacity: 0.85 !important;
+  opacity: 0.65 !important;
 }
 
 .rainy-clouds .weather-cloud {
-  background: radial-gradient(circle at 40% 40%, rgba(15, 23, 42, 0.7) 0%, rgba(30, 41, 59, 0.45) 60%, rgba(15, 23, 42, 0) 85%) !important;
-  filter: blur(35px) !important;
+  background: radial-gradient(circle at 30% 30%, rgba(203, 213, 225, 0.18) 0%, rgba(100, 116, 139, 0.08) 60%, rgba(15, 23, 42, 0) 80%) !important;
+  filter: blur(25px) !important;
 }
 
