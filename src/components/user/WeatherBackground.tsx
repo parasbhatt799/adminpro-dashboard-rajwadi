@@ -6,7 +6,9 @@ import './WeatherBackground.css';
 type WeatherState = 'sunny' | 'cloudy' | 'rainy' | 'thunderstorm' | 'night' | 'cloudy_night';
 
 export default function WeatherBackground() {
-  const [weatherState, setWeatherState] = useState<WeatherState>('sunny');
+  const [weatherState, setWeatherState] = useState<WeatherState>(
+    (sessionStorage.getItem('dashboard_weather_state') as WeatherState) || 'sunny'
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,12 +51,15 @@ export default function WeatherBackground() {
         }
 
         setWeatherState(state);
+        sessionStorage.setItem('dashboard_weather_state', state);
       } catch (err) {
         console.warn('Weather detection failed, applying daytime/nighttime defaults:', err);
         // Fallback to time of day default
         const hour = new Date().getHours();
         const isNightTime = hour >= 19 || hour < 6;
-        setWeatherState(isNightTime ? 'night' : 'sunny');
+        const fallbackState = isNightTime ? 'night' : 'sunny';
+        setWeatherState(fallbackState);
+        sessionStorage.setItem('dashboard_weather_state', fallbackState);
       } finally {
         setLoading(false);
       }

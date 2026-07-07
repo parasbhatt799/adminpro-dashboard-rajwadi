@@ -330,6 +330,20 @@ export default function UserDashboard({ userId }: { userId: string }) {
           console.warn("Reverse geocoding failed, using default city:", e);
         }
 
+        const mapCodeToWeatherState = (wmoCode: number): string => {
+          const hr = new Date().getHours();
+          const isNight = hr >= 19 || hr < 6;
+          if (wmoCode === 0) return isNight ? 'night' : 'sunny';
+          if (wmoCode >= 1 && wmoCode <= 3) return isNight ? 'cloudy_night' : 'cloudy';
+          if ((wmoCode >= 51 && wmoCode <= 82) || (wmoCode >= 45 && wmoCode <= 48)) return 'rainy';
+          if (wmoCode >= 95 && wmoCode <= 99) return 'thunderstorm';
+          return isNight ? 'night' : 'sunny';
+        };
+
+        const weatherState = mapCodeToWeatherState(code);
+        sessionStorage.setItem('dashboard_weather_state', weatherState);
+        window.dispatchEvent(new CustomEvent('change-weather', { detail: weatherState }));
+
         setWeatherInfo({
           city,
           temp,
