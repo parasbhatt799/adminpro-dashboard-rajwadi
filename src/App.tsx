@@ -72,6 +72,7 @@ const HomePage = lazy(() => import('./components/HomePage'));
 const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
 const RechargeDashboard = lazy(() => import('./components/RechargeDashboard'));
 const UserRecharge = lazy(() => import('./components/user/UserRecharge'));
+const UserAeps = lazy(() => import('./components/user/UserAeps'));
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase, addDevicePushId, removeDevicePushId } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -1259,6 +1260,7 @@ export default function App() {
           <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} mode="payment" />} />
           <Route path="billavenue-search" element={<UserBillAvenuePayment userId={userId} mode="search" />} />
           <Route path="recharge" element={<UserRecharge userId={userId} />} />
+          <Route path="aeps" element={<UserAeps userId={userId} />} />
           <Route path="bill-history" element={<UserBillHistory userId={userId} />} />
           <Route path="view-receipt" element={<UserViewReceipt userId={userId} />} />
           <Route path="reports" element={<UserReports userId={userId} />} />

@@ -16,7 +16,8 @@ import {
   ShieldCheck,
   Smartphone,
   HelpCircle,
-  Search
+  Search,
+  Fingerprint
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink, Link } from 'react-router-dom';
@@ -35,6 +36,7 @@ const menuItems = [
   { id: 'billavenue-payment', label: 'Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'billavenue-search', label: 'Search TXN', icon: Search, path: '/user/billavenue-search' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
+  { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
@@ -118,7 +120,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       return true;
     }),
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'mobile-recharge' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment') {

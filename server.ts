@@ -12,6 +12,8 @@ import os from "os";
 import ws from "ws";
 import * as billAvenue from "./services/billavenue.js";
 import * as recharge from "./services/recharge.js";
+import * as camlenioAeps from "./services/camlenio_aeps.js";
+
 
 dotenv.config();
 
@@ -1647,8 +1649,396 @@ async function startServer() {
   });
 
   // ==========================================
+  // CAMLENIO AEPS API ROUTES
+  // ==========================================
+
+  // Check agent onboarding & KYC/Login status
+  app.get("/api/aeps/agent-status", async (req, res) => {
+    try {
+      const { userId } = req.query;
+      if (!userId) {
+        return res.status(400).json({ error: "User ID is required" });
+      }
+
+      const { data: agent, error } = await supabaseAdmin
+        .from("aeps_agents")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) {
+        throw error;
+      }
+
+      if (!agent) {
+        return res.json({ status: "not_registered" });
+      }
+
+      const todayDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+      const dailyLoginDone = agent.daily_login_date === todayDate;
+
+      res.json({
+        status: "registered",
+        referenceKey: agent.reference_key,
+        kycStatus: agent.kyc_status,
+        dailyLoginDone,
+        registrationData: agent.registration_data
+      });
+    } catch (err: any) {
+      console.error("[AEPS Server] Fetch Agent Status Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Onboard outlet/agent
+  app.post("/api/aeps/register", async (req, res) => {
+    try {
+      const { userId, name, email, mobile, aadhaar, pan, dateOfBirth, gender, latitude, longitude, address } = req.body;
+
+      if (!userId || !name || !email || !mobile || !aadhaar || !pan || !dateOfBirth || !gender || !address) {
+        return res.status(400).json({ error: "Missing required onboarding fields" });
+      }
+
+      const referenceKey = "AEPS" + Math.floor(1000000000 + Math.random() * 9000000000);
+
+      const payload = {
+        name,
+        email,
+        mobile,
+        aadhaar,
+        pan,
+        dateOfBirth,
+        gender,
+        latitude: Number(latitude) || 26.9124,
+        longitude: Number(longitude) || 75.7873,
+        address
+      };
+
+      const apiResponse = await camlenioAeps.registerOutlet(payload);
+
+      const { error: dbError } = await supabaseAdmin
+        .from("aeps_agents")
+        .upsert({
+          user_id: userId,
+          reference_key: referenceKey,
+          kyc_status: "pending",
+          registration_data: payload,
+          kyc_response: apiResponse,
+          updated_at: new Date().toISOString()
+        });
+
+      if (dbError) {
+        console.error("[AEPS Server] Database save error:", dbError);
+      }
+
+      res.json({
+        success: true,
+        referenceKey,
+        apiResponse
+      });
+    } catch (err: any) {
+      console.error("[AEPS Server] Outlet Register Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Query Biometric KYC Status
+  app.post("/api/aeps/kyc-status", async (req, res) => {
+    try {
+      const { userId, referenceKey, spkey, txnRef } = req.body;
+      if (!userId || !spkey || !txnRef) {
+        return res.status(400).json({ error: "Missing fields to check KYC status" });
+      }
+
+      const apiResponse = await camlenioAeps.getKycStatus(spkey, txnRef);
+
+      const isVerified = apiResponse.status === "success" || apiResponse.kycStatus === "verified" || apiResponse.data?.kycStatus === "verified" || apiResponse.success === true;
+      
+      if (isVerified) {
+        const { error: dbError } = await supabaseAdmin
+          .from("aeps_agents")
+          .update({
+            kyc_status: "verified",
+            kyc_response: apiResponse,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", userId);
+
+        if (dbError) {
+          console.error("[AEPS Server] Database update error:", dbError);
+        }
+      }
+
+      res.json(apiResponse);
+    } catch (err: any) {
+      console.error("[AEPS Server] KYC Status Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Submit Biometric KYC Data
+  app.post("/api/aeps/biometric-kyc", async (req, res) => {
+    try {
+      const { userId, referenceKey, latitude, longitude, externalRef, captureType, biometricData } = req.body;
+
+      if (!userId || !referenceKey || !biometricData) {
+        return res.status(400).json({ error: "Missing biometric KYC parameters" });
+      }
+
+      const payload = {
+        referenceKey,
+        latitude: latitude || "26.9124",
+        longitude: longitude || "75.7873",
+        externalRef: externalRef || ("KYC" + Date.now()),
+        captureType: captureType || "finger",
+        biometricData
+      };
+
+      const apiResponse = await camlenioAeps.submitKyc(payload);
+
+      await supabaseAdmin
+        .from("aeps_agents")
+        .update({
+          kyc_status: "submitted",
+          kyc_response: apiResponse,
+          updated_at: new Date().toISOString()
+        })
+        .eq("user_id", userId);
+
+      res.json(apiResponse);
+    } catch (err: any) {
+      console.error("[AEPS Server] Biometric KYC Submission Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Daily Login (Biometric Agent Authentication)
+  app.post("/api/aeps/daily-login", async (req, res) => {
+    try {
+      const { userId, referenceKey, latitude, longitude, externalRef, captureType, biometricData } = req.body;
+
+      if (!userId || !referenceKey || !biometricData) {
+        return res.status(400).json({ error: "Missing daily login parameters" });
+      }
+
+      const payload = {
+        referenceKey,
+        latitude: latitude || "26.9124",
+        longitude: longitude || "75.7873",
+        externalRef: externalRef || ("LGN" + Date.now()),
+        captureType: captureType || "finger",
+        biometricData
+      };
+
+      const apiResponse = await camlenioAeps.dailyLogin(payload);
+      
+      const isSuccess = apiResponse.status === "success" || apiResponse.responseCode === "0000" || apiResponse.responseCode === "00" || apiResponse.success === true;
+
+      if (isSuccess) {
+        const todayDate = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+        await supabaseAdmin
+          .from("aeps_agents")
+          .update({
+            daily_login_date: todayDate,
+            updated_at: new Date().toISOString()
+          })
+          .eq("user_id", userId);
+      }
+
+      res.json(apiResponse);
+    } catch (err: any) {
+      console.error("[AEPS Server] Daily Login Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Balance Enquiry
+  app.post("/api/aeps/balance-enquiry", async (req, res) => {
+    try {
+      const { userId, mobile, bankiin, externalRef, latitude, longitude, captureType, biometricData } = req.body;
+
+      if (!userId || !mobile || !bankiin || !biometricData) {
+        return res.status(400).json({ error: "Missing balance enquiry parameters" });
+      }
+
+      const extRef = externalRef || ("BAL" + Date.now());
+      const payload = {
+        mobile,
+        bankiin,
+        externalRef: extRef,
+        latitude: latitude || "26.9124",
+        longitude: longitude || "75.7873",
+        captureType: captureType || "finger",
+        biometricData
+      };
+
+      const apiResponse = await camlenioAeps.balanceEnquiry(payload);
+      const isSuccess = apiResponse.status === "success" || apiResponse.responseCode === "0000" || apiResponse.responseCode === "00" || apiResponse.success === true;
+
+      await supabaseAdmin
+        .from("aeps_transactions")
+        .insert({
+          user_id: userId,
+          transaction_type: "balance_enquiry",
+          customer_mobile: mobile,
+          bank_iin: bankiin,
+          amount: 0,
+          status: isSuccess ? "success" : "failed",
+          external_ref: extRef,
+          api_response: apiResponse
+        });
+
+      res.json(apiResponse);
+    } catch (err: any) {
+      console.error("[AEPS Server] Balance Enquiry Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Mini Statement
+  app.post("/api/aeps/mini-statement", async (req, res) => {
+    try {
+      const { userId, mobile, bankiin, externalRef, latitude, longitude, captureType, biometricData } = req.body;
+
+      if (!userId || !mobile || !bankiin || !biometricData) {
+        return res.status(400).json({ error: "Missing mini statement parameters" });
+      }
+
+      const extRef = externalRef || ("MIN" + Date.now());
+      const payload = {
+        mobile,
+        bankiin,
+        externalRef: extRef,
+        latitude: latitude || "26.9124",
+        longitude: longitude || "75.7873",
+        captureType: captureType || "finger",
+        biometricData
+      };
+
+      const apiResponse = await camlenioAeps.miniStatement(payload);
+      const isSuccess = apiResponse.status === "success" || apiResponse.responseCode === "0000" || apiResponse.responseCode === "00" || apiResponse.success === true;
+
+      await supabaseAdmin
+        .from("aeps_transactions")
+        .insert({
+          user_id: userId,
+          transaction_type: "mini_statement",
+          customer_mobile: mobile,
+          bank_iin: bankiin,
+          amount: 0,
+          status: isSuccess ? "success" : "failed",
+          external_ref: extRef,
+          api_response: apiResponse
+        });
+
+      res.json(apiResponse);
+    } catch (err: any) {
+      console.error("[AEPS Server] Mini Statement Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Cash Withdrawal (Credits the Agent's Wallet)
+  app.post("/api/aeps/cash-withdrawal", async (req, res) => {
+    try {
+      const { userId, mobile, bankiin, externalRef, latitude, longitude, captureType, amount, biometricData } = req.body;
+
+      if (!userId || !mobile || !bankiin || !amount || !biometricData) {
+        return res.status(400).json({ error: "Missing cash withdrawal parameters" });
+      }
+
+      const parsedAmount = Number(amount);
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        return res.status(400).json({ error: "Invalid withdrawal amount" });
+      }
+
+      const extRef = externalRef || ("WTH" + Date.now());
+      const payload = {
+        mobile,
+        bankiin,
+        externalRef: extRef,
+        latitude: latitude || "26.9124",
+        longitude: longitude || "75.7873",
+        captureType: captureType || "finger",
+        amount: String(parsedAmount),
+        biometricData
+      };
+
+      const apiResponse = await camlenioAeps.cashWithdrawal(payload);
+      const isSuccess = apiResponse.status === "success" || apiResponse.responseCode === "0000" || apiResponse.responseCode === "00" || apiResponse.success === true;
+
+      if (isSuccess) {
+        const { data: user, error: userError } = await supabaseAdmin
+          .from("users_profiles")
+          .select("wallet_balance")
+          .eq("id", userId)
+          .single();
+
+        if (userError || !user) {
+          throw new Error("User profile not found for credit");
+        }
+
+        const currentBalance = Number(user.wallet_balance) || 0;
+        const newBalance = currentBalance + parsedAmount;
+
+        const { error: updateError } = await supabaseAdmin
+          .from("users_profiles")
+          .update({ wallet_balance: newBalance })
+          .eq("id", userId);
+
+        if (updateError) {
+          console.error("[AEPS Server] WALLET UPDATE ERROR FOR AEPS WITHDRAWAL:", updateError);
+        }
+
+        await supabaseAdmin
+          .from("aeps_transactions")
+          .insert({
+            user_id: userId,
+            transaction_type: "cash_withdrawal",
+            customer_mobile: mobile,
+            bank_iin: bankiin,
+            amount: parsedAmount,
+            status: "success",
+            external_ref: extRef,
+            api_response: apiResponse
+          });
+
+        await supabaseAdmin
+          .from("payment_submissions")
+          .insert({
+            user_id: userId,
+            utr_id: extRef,
+            amount: parsedAmount,
+            proof_url: "AEPS_CASH_WITHDRAWAL",
+            status: "approved",
+            charges: 0
+          });
+      } else {
+        await supabaseAdmin
+          .from("aeps_transactions")
+          .insert({
+            user_id: userId,
+            transaction_type: "cash_withdrawal",
+            customer_mobile: mobile,
+            bank_iin: bankiin,
+            amount: parsedAmount,
+            status: "failed",
+            external_ref: extRef,
+            api_response: apiResponse
+          });
+      }
+
+      res.json(apiResponse);
+    } catch (err: any) {
+      console.error("[AEPS Server] Cash Withdrawal Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ==========================================
   // BILLAVENUE BBPS API ROUTES
   // ==========================================
+
 
   app.get("/api/bbps/billers", async (req, res) => {
     try {
