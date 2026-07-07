@@ -377,6 +377,20 @@ export default function UserDashboard({ userId }: { userId: string }) {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  const changePreviewWeather = (state: string) => {
+    window.dispatchEvent(new CustomEvent('change-weather', { detail: state }));
+    const mockInfos: Record<string, any> = {
+      sunny: { city: weatherInfo?.city || "Surat", temp: 32, text: "Sunny Day", emoji: "☀️" },
+      cloudy: { city: weatherInfo?.city || "Surat", temp: 26, text: "Overcast", emoji: "☁️" },
+      rainy: { city: weatherInfo?.city || "Surat", temp: 24, text: "Heavy Rain", emoji: "🌧️" },
+      thunderstorm: { city: weatherInfo?.city || "Surat", temp: 22, text: "Stormy", emoji: "⛈️" },
+      night: { city: weatherInfo?.city || "Surat", temp: 25, text: "Clear Night", emoji: "🌌" }
+    };
+    if (mockInfos[state]) {
+      setWeatherInfo(mockInfos[state]);
+    }
+  };
+
   return (
     <div className="space-y-8 relative min-h-[70vh]">
       {/* Dashboard Watermark */}
@@ -406,12 +420,42 @@ export default function UserDashboard({ userId }: { userId: string }) {
                     {getGreeting()}, {userProfile?.firm_name || firstName}
                   </h2>
                   {weatherInfo && (
-                    <div className="flex items-center gap-2 px-3.5 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[11px] font-bold text-white shadow-sm select-none animate-in fade-in zoom-in duration-300">
-                      <span>📍 {weatherInfo.city}</span>
-                      <span className="h-3 w-px bg-white/20"></span>
-                      <span>{weatherInfo.emoji} {weatherInfo.text}</span>
-                      <span className="h-3 w-px bg-white/20"></span>
-                      <span className="text-amber-300">{weatherInfo.temp}°C</span>
+                    <div className="flex items-center gap-3 px-3.5 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[11px] font-bold text-white shadow-sm select-none animate-in fade-in zoom-in duration-300 flex-wrap">
+                      <div className="flex items-center gap-1.5">
+                        <span>📍 {weatherInfo.city}</span>
+                        <span className="h-3 w-px bg-white/20"></span>
+                        <span>{weatherInfo.emoji} {weatherInfo.text}</span>
+                        <span className="h-3 w-px bg-white/20"></span>
+                        <span className="text-amber-300">{weatherInfo.temp}°C</span>
+                      </div>
+                      <span className="h-3 w-px bg-white/25 hidden sm:inline"></span>
+                      <div className="flex items-center gap-1.5" title="Simulation Controls">
+                        <button
+                          onClick={() => changePreviewWeather('sunny')}
+                          className="w-5 h-5 hover:bg-white/25 active:scale-90 rounded-full flex items-center justify-center transition-all text-[10px] border border-white/10 cursor-pointer"
+                          title="Sunny Simulator"
+                        >☀️</button>
+                        <button
+                          onClick={() => changePreviewWeather('cloudy')}
+                          className="w-5 h-5 hover:bg-white/25 active:scale-90 rounded-full flex items-center justify-center transition-all text-[10px] border border-white/10 cursor-pointer"
+                          title="Cloudy Simulator"
+                        >☁️</button>
+                        <button
+                          onClick={() => changePreviewWeather('rainy')}
+                          className="w-5 h-5 hover:bg-white/25 active:scale-90 rounded-full flex items-center justify-center transition-all text-[10px] border border-white/10 cursor-pointer animate-pulse"
+                          title="Rainy Simulator"
+                        >🌧️</button>
+                        <button
+                          onClick={() => changePreviewWeather('thunderstorm')}
+                          className="w-5 h-5 hover:bg-white/25 active:scale-90 rounded-full flex items-center justify-center transition-all text-[10px] border border-white/10 cursor-pointer"
+                          title="Storm Simulator"
+                        >⛈️</button>
+                        <button
+                          onClick={() => changePreviewWeather('night')}
+                          className="w-5 h-5 hover:bg-white/25 active:scale-90 rounded-full flex items-center justify-center transition-all text-[10px] border border-white/10 cursor-pointer"
+                          title="Night Simulator"
+                        >🌌</button>
+                      </div>
                     </div>
                   )}
                   {(userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') && (

@@ -77,9 +77,20 @@ export default function WeatherBackground() {
     }
   }, []);
 
-  // Generate 35 rain drops
+  useEffect(() => {
+    const handleWeatherOverride = (e: Event) => {
+      const customState = (e as CustomEvent).detail as WeatherState;
+      if (customState) {
+        setWeatherState(customState);
+      }
+    };
+    window.addEventListener('change-weather', handleWeatherOverride);
+    return () => window.removeEventListener('change-weather', handleWeatherOverride);
+  }, []);
+
+  // Generate 80 rain drops
   const renderRainDrops = () => {
-    return Array.from({ length: 35 }).map((_, index) => {
+    return Array.from({ length: 80 }).map((_, index) => {
       const left = `${Math.random() * 100}%`;
       const delay = `${Math.random() * 2}s`;
       const duration = `${0.8 + Math.random() * 0.7}s`;
@@ -121,6 +132,8 @@ export default function WeatherBackground() {
           <div className="weather-cloud cloud-1" />
           <div className="weather-cloud cloud-2" />
           <div className="weather-cloud cloud-3" />
+          <div className="weather-cloud cloud-4" />
+          <div className="weather-cloud cloud-5" />
         </div>
       )}
 
@@ -131,6 +144,8 @@ export default function WeatherBackground() {
             <div className="weather-cloud cloud-1" />
             <div className="weather-cloud cloud-2" />
             <div className="weather-cloud cloud-3" />
+            <div className="weather-cloud cloud-4" />
+            <div className="weather-cloud cloud-5" />
           </div>
           <div className="weather-rain-wrapper">
             {renderRainDrops()}
@@ -146,6 +161,8 @@ export default function WeatherBackground() {
             <div className="weather-cloud cloud-1" />
             <div className="weather-cloud cloud-2" />
             <div className="weather-cloud cloud-3" />
+            <div className="weather-cloud cloud-4" />
+            <div className="weather-cloud cloud-5" />
           </div>
           <div className="weather-rain-wrapper">
             {renderRainDrops()}
