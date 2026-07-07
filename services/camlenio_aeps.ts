@@ -39,7 +39,11 @@ export async function callAepsApi(endpoint: string, payload: any): Promise<any> 
     });
 
     if (!response.ok) {
-      throw new Error(`HTTP Error Status: ${response.status}`);
+      let errorBody = "";
+      try {
+        errorBody = await response.text();
+      } catch (_) {}
+      throw new Error(`HTTP Error Status: ${response.status}${errorBody ? ` (${errorBody})` : ''}`);
     }
 
     const data = await response.json();
