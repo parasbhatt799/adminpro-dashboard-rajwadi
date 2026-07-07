@@ -88,9 +88,9 @@ export default function WeatherBackground() {
     return () => window.removeEventListener('change-weather', handleWeatherOverride);
   }, []);
 
-  // Generate 80 rain drops
+  // Generate 35 rain drops
   const renderRainDrops = () => {
-    return Array.from({ length: 80 }).map((_, index) => {
+    return Array.from({ length: 35 }).map((_, index) => {
       const left = `${Math.random() * 100}%`;
       const delay = `${Math.random() * 2}s`;
       const duration = `${0.8 + Math.random() * 0.7}s`;
