@@ -22,6 +22,7 @@ import {
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import DashboardIllustration from './DashboardIllustration';
+import WeatherBackground from './WeatherBackground';
 import { useToast } from '../../context/ToastContext';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
@@ -297,8 +298,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
   return (
     <div className="space-y-8 relative min-h-[70vh]">
-      {/* Background Animated Circles */}
-      <DashboardIllustration />
+      {/* Background Animated Circles with Live Weather */}
+      <WeatherBackground>
+        <DashboardIllustration />
+      </WeatherBackground>
 
       {/* Dashboard Watermark */}
       {watermark.enabled && watermark.logo && (
