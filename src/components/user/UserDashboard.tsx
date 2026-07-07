@@ -441,19 +441,19 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
             <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
               {dateFilter === 'custom' && (
-                <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
+                <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md p-1.5 rounded-xl border border-white/15 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
                   <input
                     type="date"
                     value={customRange.start}
                     onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
-                    className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
+                    className="text-xs font-bold text-white px-2 py-1 outline-none rounded bg-white/5"
                   />
-                  <span className="text-slate-300 text-xs">to</span>
+                  <span className="text-white/60 text-xs">to</span>
                   <input
                     type="date"
                     value={customRange.end}
                     onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
-                    className="text-xs font-bold text-slate-600 px-2 py-1 outline-none rounded bg-slate-50"
+                    className="text-xs font-bold text-white px-2 py-1 outline-none rounded bg-white/5"
                   />
                 </div>
               )}
@@ -461,11 +461,11 @@ export default function UserDashboard({ userId }: { userId: string }) {
               <div className="relative">
                 <button
                   onClick={() => setShowFilter(!showFilter)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:border-indigo-300 transition-all shadow-sm"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/10 backdrop-blur-md border border-white/15 rounded-xl text-sm font-bold text-white hover:bg-white/15 transition-all shadow-sm cursor-pointer"
                 >
-                  <Calendar size={18} className="text-indigo-500" />
+                  <Calendar size={18} className="text-white/80" />
                   {rangeLabels[dateFilter]}
-                  <ChevronDown size={16} className={`text-slate-400 transition-transform ${showFilter ? 'rotate-180' : ''}`} />
+                  <ChevronDown size={16} className={`text-white/60 transition-transform ${showFilter ? 'rotate-180' : ''}`} />
                 </button>
 
                 <AnimatePresence>
@@ -476,7 +476,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                         initial={{ opacity: 0, y: 10, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                        className="absolute right-0 mt-2 w-48 bg-white rounded-2xl border border-slate-100 shadow-xl z-20 py-2"
+                        className="absolute right-0 mt-2 w-48 bg-slate-900/95 backdrop-blur-md rounded-2xl border border-white/10 shadow-xl z-20 py-2"
                       >
                         {(Object.keys(rangeLabels) as DateFilter[]).map((range) => (
                           <button
@@ -485,7 +485,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                               setDateFilter(range);
                               setShowFilter(false);
                             }}
-                            className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-slate-50 ${dateFilter === range ? 'text-indigo-600 bg-indigo-50/50' : 'text-slate-600'
+                            className={`w-full text-left px-4 py-2 text-sm font-medium transition-colors hover:bg-white/5 ${dateFilter === range ? 'text-white bg-white/10 font-bold' : 'text-slate-300'
                               }`}
                           >
                             {rangeLabels[range]}
@@ -508,7 +508,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group"
+                  className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/15 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] hover:bg-white/15 transition-all relative overflow-hidden group"
                 >
                   {stat.title === "Hold Balance" && (
                     <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full flex items-center justify-center translate-x-4 -translate-y-4 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform">
@@ -520,10 +520,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
                       <Icon size={24} />
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-slate-500">{stat.title}</p>
-                  <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
+                  <p className="text-sm font-bold text-slate-200">{stat.title}</p>
+                  <h3 className="text-2xl font-black text-white mt-1">{stat.value}</h3>
                   {stat.subtitle && (
-                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-2">{stat.subtitle}</p>
+                    <p className="text-[10px] font-bold text-amber-400 uppercase tracking-widest mt-2">{stat.subtitle}</p>
                   )}
                 </motion.div>
               );
@@ -533,14 +533,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
         {/* Side Reminders Widget */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                <Clock className="text-indigo-500" size={16} />
+          <div className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/15 p-6 shadow-[0_8px_32px_0_rgba(0,0,0,0.15)] space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
+                <Clock className="text-indigo-400" size={16} />
                 Bill Reminders
               </h3>
               {activeReminders.length > 0 && (
-                <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-100 animate-pulse">
+                <span className="bg-indigo-500/20 text-indigo-300 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-500/30 animate-pulse">
                   {activeReminders.length} Active
                 </span>
               )}
@@ -548,33 +548,33 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
             {activeReminders.length === 0 ? (
               <div className="py-12 text-center space-y-2">
-                <p className="text-xs font-bold text-slate-400">No active bill reminders</p>
+                <p className="text-xs font-bold text-slate-300">No active bill reminders</p>
                 <p className="text-[10px] text-slate-400 leading-relaxed px-4">Fetched bills will automatically show alerts here starting the day after bill date.</p>
               </div>
             ) : (
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
                 {activeReminders.map((reminder) => {
                   const daysLeft = getDaysRemaining(reminder.due_date);
-                  let urgencyColor = "text-emerald-600 bg-emerald-50 border-emerald-100";
-                  let cardBorder = "border-slate-100";
+                  let urgencyColor = "text-emerald-400 bg-emerald-500/20 border-emerald-500/30";
+                  let cardBorder = "border-white/10 hover:border-white/20";
                   
                   if (daysLeft <= 0) {
-                    urgencyColor = "text-rose-600 bg-rose-50 border-rose-100 animate-pulse font-black";
-                    cardBorder = "border-rose-200 shadow-sm bg-rose-50/10";
+                    urgencyColor = "text-rose-400 bg-rose-500/20 border-rose-500/30 animate-pulse font-black";
+                    cardBorder = "border-rose-500/40 shadow-sm bg-rose-500/5";
                   } else if (daysLeft === 1) {
-                    urgencyColor = "text-amber-600 bg-amber-50 border-amber-100 font-bold";
-                    cardBorder = "border-amber-200 bg-amber-50/5";
+                    urgencyColor = "text-amber-400 bg-amber-500/20 border-amber-500/30 font-bold";
+                    cardBorder = "border-amber-500/40 bg-amber-500/5";
                   }
 
                   return (
                     <div 
                       key={reminder.id}
-                      className={`p-4 bg-white border ${cardBorder} rounded-2xl space-y-3 hover:border-indigo-200 transition-colors shadow-sm`}
+                      className={`p-4 bg-white/5 border ${cardBorder} rounded-2xl space-y-3 hover:bg-white/10 transition-all shadow-sm`}
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div className="space-y-0.5">
-                          <h4 className="text-xs font-black text-slate-800 line-clamp-1">{reminder.bank_name}</h4>
-                          <p className="text-[10px] font-bold text-slate-400 line-clamp-1">Name: {reminder.customer_name}</p>
+                          <h4 className="text-xs font-black text-white line-clamp-1">{reminder.bank_name}</h4>
+                          <p className="text-[10px] font-bold text-slate-300 line-clamp-1">Name: {reminder.customer_name}</p>
                           <p className="text-[10px] font-mono text-slate-400">No: ****{reminder.card_number.slice(-4)}</p>
                         </div>
                         <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${urgencyColor} whitespace-nowrap`}>
@@ -582,10 +582,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center border-t border-slate-100 pt-2.5 mt-2">
+                      <div className="flex justify-between items-center border-t border-white/10 pt-2.5 mt-2">
                         <div>
                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Due Amount</p>
-                          <p className="text-xs font-black text-slate-800">₹{Number(reminder.due_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-xs font-black text-white">₹{Number(reminder.due_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                         </div>
                         <Link 
                           to="/user/bill-payment" 
