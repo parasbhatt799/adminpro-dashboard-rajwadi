@@ -21,7 +21,6 @@ import {
   format
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
-import DashboardIllustration from './DashboardIllustration';
 import WeatherBackground from './WeatherBackground';
 import { useToast } from '../../context/ToastContext';
 
@@ -297,28 +296,27 @@ export default function UserDashboard({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="space-y-8 relative min-h-[70vh]">
-      {/* Background Animated Circles with Live Weather */}
-      <WeatherBackground>
-        <DashboardIllustration />
-      </WeatherBackground>
+    <div className="relative min-h-[85vh] -m-8 p-8 overflow-hidden">
+      {/* Live Weather Background */}
+      <WeatherBackground />
 
-      {/* Dashboard Watermark */}
-      {watermark.enabled && watermark.logo && (
-        <div
-          className="fixed inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0"
-          style={{ opacity: 0.04 }}
-        >
-          <img
-            src={watermark.logo}
-            alt="Watermark"
-            className="w-[1100px] h-auto object-contain transform -rotate-[30deg] translate-y-10 -translate-x-5"
-          />
-        </div>
-      )}
+      <div className="relative z-10 space-y-8">
+        {/* Dashboard Watermark */}
+        {watermark.enabled && watermark.logo && (
+          <div
+            className="fixed inset-0 pointer-events-none flex items-center justify-center overflow-hidden z-0"
+            style={{ opacity: 0.04 }}
+          >
+            <img
+              src={watermark.logo}
+              alt="Watermark"
+              className="w-[1100px] h-auto object-contain transform -rotate-[30deg] translate-y-10 -translate-x-5"
+            />
+          </div>
+        )}
 
-      {/* Grid Layout for dashboard elements and sidebar */}
-      <div className="relative z-10 grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Grid Layout for dashboard elements and sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* Main Content (left) */}
         <div className="lg:col-span-3 space-y-6">
@@ -517,6 +515,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
       </div>
 
+      </div>
     </div>
   );
 }
