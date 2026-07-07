@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import './WeatherBackground.css';
 
-interface WeatherBackgroundProps {
-  children?: React.ReactNode;
-}
+// WeatherBackground is now a standalone background container
 
 type WeatherState = 'sunny' | 'cloudy' | 'rainy' | 'thunderstorm' | 'night' | 'cloudy_night';
 
-export default function WeatherBackground({ children }: WeatherBackgroundProps) {
+export default function WeatherBackground() {
   const [weatherState, setWeatherState] = useState<WeatherState>('sunny');
   const [loading, setLoading] = useState(true);
 
@@ -150,10 +148,6 @@ export default function WeatherBackground({ children }: WeatherBackgroundProps) 
         </div>
       )}
 
-      {/* Main dashboard content layer */}
-      <div className="relative z-10 w-full h-full">
-        {children}
-      </div>
     </div>
   );
 }

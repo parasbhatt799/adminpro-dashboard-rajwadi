@@ -187,7 +187,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
     <motion.div
       initial={false}
       animate={{ width: isCollapsed ? 80 : 256 }}
-      className="bg-slate-900 text-slate-300 h-screen flex flex-col border-r border-slate-800 overflow-hidden shrink-0 relative"
+      className="bg-slate-900 text-slate-300 h-screen flex flex-col border-r border-slate-800 overflow-hidden shrink-0 relative z-20"
     >
       {/* Header */}
       <div className="px-4 h-20 flex items-center justify-between border-b border-slate-800 shrink-0">

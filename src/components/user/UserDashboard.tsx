@@ -296,11 +296,9 @@ export default function UserDashboard({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="relative min-h-[85vh] -m-8 p-8 overflow-hidden">
+    <div className="space-y-8 relative min-h-[70vh]">
       {/* Live Weather Background */}
       <WeatherBackground />
-
-      <div className="relative z-10 space-y-8">
         {/* Dashboard Watermark */}
         {watermark.enabled && watermark.logo && (
           <div
@@ -515,7 +513,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
       </div>
 
-      </div>
     </div>
   );
 }
