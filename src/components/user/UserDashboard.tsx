@@ -22,6 +22,7 @@ import {
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import WeatherBackground from './WeatherBackground';
+import UserChatWidget from './UserChatWidget';
 import { useToast } from '../../context/ToastContext';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
@@ -323,7 +324,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
               <div>
                 <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-extrabold uppercase tracking-wider pb-1 animate-text-gradient">
-                    {getGreeting()}, {firstName}
+                    {getGreeting()}, {userProfile?.firm_name || firstName}
                   </h2>
                   {(userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') && (
                     <div className="flex items-center gap-2">
@@ -513,6 +514,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
       </div>
 
+      <UserChatWidget userId={userId} />
     </div>
   );
 }
