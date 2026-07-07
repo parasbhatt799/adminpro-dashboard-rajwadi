@@ -10,10 +10,13 @@ import archiver from "archiver";
 import fs from "fs-extra";
 import os from "os";
 import ws from "ws";
+import dns from "dns";
 import * as billAvenue from "./services/billavenue.js";
 import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
 
+// Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
+dns.setDefaultResultOrder("ipv4first");
 
 dotenv.config();
 
