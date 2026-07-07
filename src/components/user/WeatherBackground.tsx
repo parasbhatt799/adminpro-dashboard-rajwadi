@@ -66,19 +66,36 @@ export default function WeatherBackground() {
     };
 
     // Get user geolocation
+    const getIPLocationAndWeather = async () => {
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/");
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          if (ipData.latitude && ipData.longitude) {
+            fetchWeather(ipData.latitude, ipData.longitude);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("IP Geolocation failed:", e);
+      }
+      fetchWeather(21.1702, 72.8311);
+    };
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           fetchWeather(position.coords.latitude, position.coords.longitude);
         },
-        () => {
-          // Geolocation rejected / failed: Fallback to Surat, Gujarat coordinates
-          fetchWeather(21.1702, 72.8311);
+        () => getIPLocationAndWeather(),
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
         }
       );
     } else {
-      // Geolocation not supported: Fallback to Surat coordinates
-      fetchWeather(21.1702, 72.8311);
+      getIPLocationAndWeather();
     }
   }, []);
 

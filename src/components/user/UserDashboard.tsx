@@ -355,13 +355,34 @@ export default function UserDashboard({ userId }: { userId: string }) {
       }
     };
 
+    const getIPLocationAndWeather = async () => {
+      try {
+        const ipRes = await fetch("https://ipapi.co/json/");
+        if (ipRes.ok) {
+          const ipData = await ipRes.json();
+          if (ipData.latitude && ipData.longitude) {
+            getLocalWeather(ipData.latitude, ipData.longitude);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn("IP Geolocation failed:", e);
+      }
+      getLocalWeather(21.1702, 72.8311);
+    };
+
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => getLocalWeather(pos.coords.latitude, pos.coords.longitude),
-        () => getLocalWeather(21.1702, 72.8311)
+        () => getIPLocationAndWeather(),
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
       );
     } else {
-      getLocalWeather(21.1702, 72.8311);
+      getIPLocationAndWeather();
     }
   }, []);
 
