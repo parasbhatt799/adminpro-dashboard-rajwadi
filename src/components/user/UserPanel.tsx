@@ -15,7 +15,6 @@ import NewsTicker from './NewsTicker';
 import FlyingCoins from './FlyingCoins';
 import { useRef } from 'react';
 import { useToast } from '../../context/ToastContext';
-import WeatherBackground from './WeatherBackground';
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
   const [now, setNow] = useState(new Date());
@@ -591,8 +590,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
   };
 
   return (
-    <div className="flex min-h-screen font-sans text-slate-900 transition-colors duration-500 bg-[#0f172a] weather-theme-active">
-      <WeatherBackground />
+    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
       <AnimatePresence>
         {showWelcome && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -641,18 +639,18 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
 
       <UserSidebar onLogout={onLogout} isCollapsed={isSidebarCollapsed} role={userProfile?.role} />
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}
-        <header className="h-16 border-b flex items-center justify-between px-8 shrink-0 relative z-20 transition-colors duration-500 bg-slate-900/40 border-slate-800/40 backdrop-blur text-white">
+        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-2 rounded-lg transition-colors hover:bg-slate-800/50 text-slate-300"
+              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
             >
               <Menu size={20} />
             </button>
-            <span className="text-xs font-bold px-2.5 py-1 rounded-lg border select-all font-mono transition-colors text-slate-400 bg-slate-800/50 border-slate-700/60">
+            <span className="text-xs font-bold text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 select-all font-mono">
               ID: {userId}
             </span>
 
@@ -688,7 +686,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <LiveClock colorClass="text-emerald-400" />
+            <LiveClock colorClass="text-emerald-700" />
             {userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor' ? (
               <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="Commission Wallet">
                 <Wallet className="text-indigo-600" size={18} />
@@ -729,11 +727,8 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
               <button
                 type="button"
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-2 rounded-lg transition-all relative ${
-                  showNotifications 
-                    ? 'bg-emerald-500/20 text-emerald-300' 
-                    : 'text-slate-300 hover:text-emerald-400 hover:bg-slate-800/50'
-                }`}
+                className={`p-2 rounded-lg transition-all relative ${showNotifications ? 'bg-emerald-100 text-emerald-600' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                  }`}
               >
                 <Bell size={20} />
                 {unreadCount > 0 && (
@@ -832,7 +827,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                 )}
               </AnimatePresence>
             </div>
-            <div className="h-8 w-px bg-slate-800/60 mx-2"></div>
+            <div className="h-8 w-px bg-slate-200 mx-2"></div>
             <div className="relative">
               <button
                 type="button"
@@ -840,8 +835,8 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                 className="flex items-center gap-3 pl-2 cursor-pointer hover:opacity-80 transition-opacity focus:outline-none"
               >
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold leading-none text-white">{userProfile?.firm_name || userProfile?.name}</p>
-                  <p className="text-xs mt-1 text-slate-400">
+                  <p className="text-sm font-bold text-slate-900 leading-none">{userProfile?.firm_name || userProfile?.name}</p>
+                  <p className="text-xs text-slate-500 mt-1">
                     {userProfile?.name ? (
                       userProfile.name.split(' ').length > 2
                         ? `${userProfile.name.split(' ')[0]} ${userProfile.name.split(' ').pop()}`
@@ -943,7 +938,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         <NewsTicker />
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-8 relative z-10">
+        <div className="flex-1 overflow-y-auto p-8">
           <div className="max-w-7xl mx-auto">
             <React.Suspense fallback={<div className="flex items-center justify-center p-12"><LogoLoader size="md" /></div>}>
               <ErrorBoundary>

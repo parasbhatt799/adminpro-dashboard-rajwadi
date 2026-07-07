@@ -122,7 +122,7 @@ export default function UserChatWidget({ userId }: UserChatWidgetProps) {
 
       // Subscribe to thread updates in real-time
       const threadChannel = supabase
-        .channel(`user_threads_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`)
+        .channel(`user_threads_${userId}`)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -134,7 +134,7 @@ export default function UserChatWidget({ userId }: UserChatWidgetProps) {
 
       // Subscribe to message inserts to double-insure realtime badge updates
       const messagesChannel = supabase
-        .channel(`user_messages_global_${userId}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`)
+        .channel(`user_messages_global_${userId}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
@@ -265,7 +265,7 @@ Thank you.`;
   useEffect(() => {
     if (currentThread && view === 'chat') {
       const msgChannel = supabase
-        .channel(`chat_messages_${currentThread.id}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`)
+        .channel(`chat_messages_${currentThread.id}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',

@@ -21,42 +21,13 @@ import {
   format
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
-import WeatherBackground from './WeatherBackground';
-import UserChatWidget from './UserChatWidget';
+import DashboardIllustration from './DashboardIllustration';
 import { useToast } from '../../context/ToastContext';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
 
-const WMO_CODES: Record<number, { text: string; emoji: string }> = {
-  0: { text: "Clear Sky", emoji: "☀️" },
-  1: { text: "Partly Cloudy", emoji: "🌤️" },
-  2: { text: "Partly Cloudy", emoji: "⛅" },
-  3: { text: "Overcast", emoji: "☁️" },
-  45: { text: "Foggy", emoji: "🌫️" },
-  48: { text: "Foggy", emoji: "🌫️" },
-  51: { text: "Light Drizzle", emoji: "🌦️" },
-  53: { text: "Drizzle", emoji: "🌧️" },
-  55: { text: "Heavy Drizzle", emoji: "🌧️" },
-  61: { text: "Light Rain", emoji: "🌦️" },
-  63: { text: "Rain", emoji: "🌧️" },
-  65: { text: "Heavy Rain", emoji: "🌧️" },
-  71: { text: "Light Snow", emoji: "🌨️" },
-  73: { text: "Snow", emoji: "🌨️" },
-  75: { text: "Heavy Snow", emoji: "🌨️" },
-  77: { text: "Snow Grains", emoji: "🌨️" },
-  80: { text: "Light Showers", emoji: "🌦️" },
-  81: { text: "Rain Showers", emoji: "🌧️" },
-  82: { text: "Heavy Showers", emoji: "🌧️" },
-  85: { text: "Snow Showers", emoji: "🌨️" },
-  86: { text: "Snow Showers", emoji: "🌨️" },
-  95: { text: "Thunderstorm", emoji: "⛈️" },
-  96: { text: "Thunderstorm", emoji: "⛈️" },
-  99: { text: "Severe Storm", emoji: "⛈️" }
-};
-
 export default function UserDashboard({ userId }: { userId: string }) {
   const toast = useToast();
-  const [weatherInfo, setWeatherInfo] = useState<{ city: string; temp: number; text: string; emoji: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -298,59 +269,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
     };
   }, [dateFilter, customRange]);
 
-  useEffect(() => {
-    const getLocalWeather = async (lat: number, lng: number) => {
-      try {
-        const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code`;
-        const weatherRes = await fetch(weatherUrl);
-        if (!weatherRes.ok) throw new Error("Weather fetch failed");
-        const weatherData = await weatherRes.json();
-        const code = weatherData?.current?.weather_code ?? 0;
-        const temp = Math.round(weatherData?.current?.temperature_2m ?? 27);
-        const mapped = WMO_CODES[code] || { text: "Clear Sky", emoji: "☀️" };
-
-        let city = "Surat";
-        try {
-          const geoRes = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
-            {
-              headers: {
-                'Accept': 'application/json',
-                'User-Agent': 'UsePay-Dashboard'
-              }
-            }
-          );
-          if (geoRes.ok) {
-            const geoData = await geoRes.ok ? await geoRes.json() : null;
-            if (geoData && geoData.address) {
-              city = geoData.address.city || geoData.address.town || geoData.address.village || geoData.address.suburb || geoData.address.county || "Surat";
-            }
-          }
-        } catch (e) {
-          console.warn("Reverse geocoding failed, using default city:", e);
-        }
-
-        setWeatherInfo({
-          city,
-          temp,
-          text: mapped.text,
-          emoji: mapped.emoji
-        });
-      } catch (err) {
-        console.error("Error loading weather details:", err);
-      }
-    };
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => getLocalWeather(pos.coords.latitude, pos.coords.longitude),
-        () => getLocalWeather(21.1702, 72.8311)
-      );
-    } else {
-      getLocalWeather(21.1702, 72.8311);
-    }
-  }, []);
-
   if (loading) {
     return (
       <div className="h-[60vh] flex items-center justify-center">
@@ -377,10 +295,11 @@ export default function UserDashboard({ userId }: { userId: string }) {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
-  // Reverted simulation custom override function
-
   return (
     <div className="space-y-8 relative min-h-[70vh]">
+      {/* Background Animated Circles */}
+      <DashboardIllustration />
+
       {/* Dashboard Watermark */}
       {watermark.enabled && watermark.logo && (
         <div
@@ -403,19 +322,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center gap-6">
               <div>
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
                   <h2 className="text-2xl font-extrabold uppercase tracking-wider pb-1 animate-text-gradient">
-                    {getGreeting()}, {userProfile?.firm_name || firstName}
+                    {getGreeting()}, {firstName}
                   </h2>
-                  {weatherInfo && (
-                    <div className="flex items-center gap-2 px-3.5 py-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-full text-[11px] font-bold text-white shadow-sm select-none animate-in fade-in zoom-in duration-300">
-                      <span>📍 {weatherInfo.city}</span>
-                      <span className="h-3 w-px bg-white/20"></span>
-                      <span>{weatherInfo.emoji} {weatherInfo.text}</span>
-                      <span className="h-3 w-px bg-white/20"></span>
-                      <span className="text-amber-300">{weatherInfo.temp}°C</span>
-                    </div>
-                  )}
                   {(userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor') && (
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 bg-indigo-100 text-indigo-600 text-[10px] font-black uppercase tracking-widest rounded-md border border-indigo-200">
@@ -508,7 +418,7 @@ export default function UserDashboard({ userId }: { userId: string }) {
                   initial={{ opacity: 0, scale: 0.9, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="bg-white/10 backdrop-blur-md p-6 rounded-3xl border border-white/20 shadow-lg hover:shadow-xl hover:bg-white/15 transition-all relative overflow-hidden group"
+                  className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group"
                 >
                   {stat.title === "Hold Balance" && (
                     <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 rounded-bl-full flex items-center justify-center translate-x-4 -translate-y-4 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform">
@@ -520,10 +430,10 @@ export default function UserDashboard({ userId }: { userId: string }) {
                       <Icon size={24} />
                     </div>
                   </div>
-                  <p className="text-sm font-bold text-slate-300">{stat.title}</p>
-                  <h3 className="text-2xl font-black text-white mt-1 tracking-wide">{stat.value}</h3>
+                  <p className="text-sm font-medium text-slate-500">{stat.title}</p>
+                  <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
                   {stat.subtitle && (
-                    <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest mt-2">{stat.subtitle}</p>
+                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest mt-2">{stat.subtitle}</p>
                   )}
                 </motion.div>
               );
@@ -533,14 +443,14 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
         {/* Side Reminders Widget */}
         <div className="lg:col-span-1 space-y-6">
-          <div className="bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 p-6 shadow-lg space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <h3 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-2">
-                <Clock className="text-indigo-300" size={16} />
+          <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                <Clock className="text-indigo-500" size={16} />
                 Bill Reminders
               </h3>
               {activeReminders.length > 0 && (
-                <span className="bg-indigo-500/20 text-indigo-200 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-500/30 animate-pulse">
+                <span className="bg-indigo-50 text-indigo-600 text-[10px] font-black px-2.5 py-0.5 rounded-full border border-indigo-100 animate-pulse">
                   {activeReminders.length} Active
                 </span>
               )}
@@ -548,49 +458,49 @@ export default function UserDashboard({ userId }: { userId: string }) {
 
             {activeReminders.length === 0 ? (
               <div className="py-12 text-center space-y-2">
-                <p className="text-xs font-bold text-slate-300">No active bill reminders</p>
+                <p className="text-xs font-bold text-slate-400">No active bill reminders</p>
                 <p className="text-[10px] text-slate-400 leading-relaxed px-4">Fetched bills will automatically show alerts here starting the day after bill date.</p>
               </div>
             ) : (
               <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
                 {activeReminders.map((reminder) => {
                   const daysLeft = getDaysRemaining(reminder.due_date);
-                  let urgencyColor = "text-emerald-300 bg-emerald-500/20 border-emerald-500/35";
-                  let cardBorder = "border-white/10";
+                  let urgencyColor = "text-emerald-600 bg-emerald-50 border-emerald-100";
+                  let cardBorder = "border-slate-100";
                   
                   if (daysLeft <= 0) {
-                    urgencyColor = "text-rose-300 bg-rose-500/30 border-rose-500/40 animate-pulse font-black";
-                    cardBorder = "border-rose-500/40 bg-rose-500/10";
+                    urgencyColor = "text-rose-600 bg-rose-50 border-rose-100 animate-pulse font-black";
+                    cardBorder = "border-rose-200 shadow-sm bg-rose-50/10";
                   } else if (daysLeft === 1) {
-                    urgencyColor = "text-amber-300 bg-amber-500/25 border-amber-500/35 font-bold";
-                    cardBorder = "border-amber-500/30 bg-amber-500/5";
+                    urgencyColor = "text-amber-600 bg-amber-50 border-amber-100 font-bold";
+                    cardBorder = "border-amber-200 bg-amber-50/5";
                   }
 
                   return (
                     <div 
                       key={reminder.id}
-                      className={`p-4 bg-white/5 border ${cardBorder} rounded-2xl space-y-3 hover:border-indigo-400/50 hover:bg-white/10 transition-colors shadow-inner`}
+                      className={`p-4 bg-white border ${cardBorder} rounded-2xl space-y-3 hover:border-indigo-200 transition-colors shadow-sm`}
                     >
                       <div className="flex justify-between items-start gap-2">
                         <div className="space-y-0.5">
-                          <h4 className="text-xs font-black text-white line-clamp-1">{reminder.bank_name}</h4>
-                          <p className="text-[10px] font-bold text-slate-300 line-clamp-1">Name: {reminder.customer_name}</p>
-                          <p className="text-[10px] font-mono text-slate-300">No: ****{reminder.card_number.slice(-4)}</p>
+                          <h4 className="text-xs font-black text-slate-800 line-clamp-1">{reminder.bank_name}</h4>
+                          <p className="text-[10px] font-bold text-slate-400 line-clamp-1">Name: {reminder.customer_name}</p>
+                          <p className="text-[10px] font-mono text-slate-400">No: ****{reminder.card_number.slice(-4)}</p>
                         </div>
                         <span className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${urgencyColor} whitespace-nowrap`}>
                           {daysLeft <= 0 ? "Due Today" : daysLeft === 1 ? "1 Day Left" : `${daysLeft} Days Left`}
                         </span>
                       </div>
 
-                      <div className="flex justify-between items-center border-t border-white/10 pt-2.5 mt-2">
+                      <div className="flex justify-between items-center border-t border-slate-100 pt-2.5 mt-2">
                         <div>
-                          <p className="text-[9px] font-bold text-slate-300 uppercase tracking-wider">Due Amount</p>
-                          <p className="text-xs font-black text-white">₹{Number(reminder.due_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Due Amount</p>
+                          <p className="text-xs font-black text-slate-800">₹{Number(reminder.due_amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
                         </div>
                         <Link 
                           to="/user/bill-payment" 
                           state={{ prefilledCardNumber: reminder.card_number, prefilledBillerName: reminder.bank_name }}
-                          className="px-3.5 py-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-[10px] font-black rounded-xl transition-colors shadow-md uppercase tracking-wider"
+                          className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black rounded-xl transition-colors shadow-sm shadow-indigo-100 uppercase tracking-wider"
                         >
                           Pay
                         </Link>
@@ -604,7 +514,6 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
       </div>
 
-      <UserChatWidget userId={userId} />
     </div>
   );
 }
