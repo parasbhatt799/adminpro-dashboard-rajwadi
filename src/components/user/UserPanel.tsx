@@ -590,10 +590,9 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
     }
   };
 
-  const isDashboard = activeTab === 'dashboard';
   return (
-    <div className={`flex min-h-screen font-sans text-slate-900 transition-colors duration-500 ${isDashboard ? 'bg-[#0f172a]' : 'bg-slate-50'}`}>
-      {isDashboard && <WeatherBackground />}
+    <div className="flex min-h-screen font-sans text-slate-900 transition-colors duration-500 bg-[#0f172a] weather-theme-active">
+      <WeatherBackground />
       <AnimatePresence>
         {showWelcome && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
@@ -644,22 +643,16 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden relative">
         {/* Top Header */}
-        <header className={`h-16 border-b flex items-center justify-between px-8 shrink-0 relative z-20 transition-colors duration-500 ${
-          isDashboard ? 'bg-slate-900/80 border-slate-800 backdrop-blur text-white' : 'bg-white border-slate-200 text-slate-900'
-        }`}>
+        <header className="h-16 border-b flex items-center justify-between px-8 shrink-0 relative z-20 transition-colors duration-500 bg-slate-900/40 border-slate-800/40 backdrop-blur text-white">
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className={`p-2 rounded-lg transition-colors ${
-                isDashboard ? 'hover:bg-slate-800 text-slate-300' : 'hover:bg-slate-100 text-slate-500'
-              }`}
+              className="p-2 rounded-lg transition-colors hover:bg-slate-800/50 text-slate-300"
             >
               <Menu size={20} />
             </button>
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border select-all font-mono transition-colors ${
-              isDashboard ? 'text-slate-400 bg-slate-800/50 border-slate-700' : 'text-slate-500 bg-slate-50 border-slate-200'
-            }`}>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-lg border select-all font-mono transition-colors text-slate-400 bg-slate-800/50 border-slate-700/60">
               ID: {userId}
             </span>
 
@@ -695,7 +688,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
           </div>
 
           <div className="flex items-center gap-4">
-            <LiveClock colorClass={isDashboard ? "text-emerald-400" : "text-emerald-700"} />
+            <LiveClock colorClass="text-emerald-400" />
             {userProfile?.role === 'distributor' || userProfile?.role === 'super_distributor' ? (
               <div ref={walletRef} className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="Commission Wallet">
                 <Wallet className="text-indigo-600" size={18} />
@@ -738,10 +731,8 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                 onClick={() => setShowNotifications(!showNotifications)}
                 className={`p-2 rounded-lg transition-all relative ${
                   showNotifications 
-                    ? 'bg-emerald-100 text-emerald-600' 
-                    : isDashboard 
-                      ? 'text-slate-300 hover:text-emerald-400 hover:bg-slate-800' 
-                      : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'
+                    ? 'bg-emerald-500/20 text-emerald-300' 
+                    : 'text-slate-300 hover:text-emerald-400 hover:bg-slate-800/50'
                 }`}
               >
                 <Bell size={20} />
@@ -841,7 +832,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                 )}
               </AnimatePresence>
             </div>
-            <div className="h-8 w-px bg-slate-200 mx-2"></div>
+            <div className="h-8 w-px bg-slate-800/60 mx-2"></div>
             <div className="relative">
               <button
                 type="button"
@@ -849,8 +840,8 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                 className="flex items-center gap-3 pl-2 cursor-pointer hover:opacity-80 transition-opacity focus:outline-none"
               >
                 <div className="text-right hidden sm:block">
-                  <p className={`text-sm font-bold leading-none ${isDashboard ? 'text-white' : 'text-slate-900'}`}>{userProfile?.firm_name || userProfile?.name}</p>
-                  <p className={`text-xs mt-1 ${isDashboard ? 'text-slate-400' : 'text-slate-500'}`}>
+                  <p className="text-sm font-bold leading-none text-white">{userProfile?.firm_name || userProfile?.name}</p>
+                  <p className="text-xs mt-1 text-slate-400">
                     {userProfile?.name ? (
                       userProfile.name.split(' ').length > 2
                         ? `${userProfile.name.split(' ')[0]} ${userProfile.name.split(' ').pop()}`
