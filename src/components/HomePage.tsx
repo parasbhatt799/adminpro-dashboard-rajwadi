@@ -376,7 +376,7 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                   <div>
                     <h4 className="text-white font-black text-xs uppercase tracking-widest mb-1 opacity-60">Company Address</h4>
                     <p className="text-white font-bold leading-relaxed">
-                      G-13,Hans Avenue,Behind Cancer Hospital Near Suayu Sircle,Dabholi <br />Surat Gujarat 395004
+                      413,AR mall opp.panvel point Motavarachha<br />Surat Gujarat 394101
                     </p>
                   </div>
                 </div>
