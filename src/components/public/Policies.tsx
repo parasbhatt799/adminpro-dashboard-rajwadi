@@ -219,7 +219,7 @@ export const TermsAndConditions = () => {
         </p>
         <ul className="list-disc pl-6 space-y-2">
           <li><strong>Fees and Charges:</strong> Transaction fees, daily limits, and service charges (including T+1 QR charges) will apply to your account based on your selected slab or configured profile settings.</li>
-          <li><strong>T+1 QR Settlements:</strong> T+1 QR settlements will be processed and credited to the user's main wallet on the next day at 11:30 AM IST, subject to limit availability and verification.</li>
+          <li><strong>T+1 QR Settlements:</strong> T+1 QR settlements will be processed and credited to the user's main wallet on the next day at 11:00 AM IST, subject to limit availability and verification.</li>
           <li><strong>Fund Transfers:</strong> All fund transfers between users, distributors, and admins are governed by internal wallet balance guidelines. We are not responsible for delays caused by banking networks or gateway timeouts.</li>
         </ul>
       </section>

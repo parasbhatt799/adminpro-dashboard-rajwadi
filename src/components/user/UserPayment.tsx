@@ -1249,7 +1249,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           <div className="bg-amber-50 border border-amber-200 px-4 py-2.5 rounded-xl flex items-center gap-3 w-full max-w-md mt-4 text-left shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
                             <Clock className="text-amber-500 shrink-0 animate-pulse" size={16} />
                             <div className="leading-tight">
-                              <span className="block text-[10px] font-black text-amber-800 uppercase tracking-wider">T+1 Settlement (Next Day 11:30 AM)</span>
+                              <span className="block text-[10px] font-black text-amber-800 uppercase tracking-wider">T+1 Settlement (Next Day 11:00 AM)</span>
                               <span className="block text-[10px] text-amber-600 font-bold mt-0.5">
                                 Charge: {userProfile?.t_plus_one_charge ?? 0}% | Limit: ₹{Math.max(0, tPlusOneLimit - todayT1Amount).toLocaleString()}
                               </span>

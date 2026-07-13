@@ -3966,7 +3966,7 @@ async function startServer() {
       const minutes = istTime.getUTCMinutes();
       const todayStr = istTime.toISOString().split("T")[0]; // YYYY-MM-DD
 
-      if (hours === 11 && minutes === 30) {
+      if (hours === 11 && minutes === 0) {
         if (lastSettleDate !== todayStr) {
           console.log(`[T+1 Settlement] Starting automated next-day settlement for ${todayStr}...`);
           const { data, error } = await supabaseAdmin.rpc("settle_t_plus_one_payments");

@@ -189,7 +189,7 @@ BEGIN
         v_payment.user_id, 
         'user', 
         CASE WHEN v_payment.t_plus_one THEN 'QR Payment T+1 Approved' ELSE 'QR Payment Approved' END, 
-        CASE WHEN v_payment.t_plus_one THEN 'Your QR payment of ₹' || v_payment.amount::TEXT || ' has been approved for T+1 settlement! Balance will credit tomorrow at 11:30 AM.' ELSE 'Your QR payment of ₹' || v_payment.amount::TEXT || ' has been approved!' END, 
+        CASE WHEN v_payment.t_plus_one THEN 'Your QR payment of ₹' || v_payment.amount::TEXT || ' has been approved for T+1 settlement! Balance will credit tomorrow at 11:00 AM.' ELSE 'Your QR payment of ₹' || v_payment.amount::TEXT || ' has been approved!' END, 
         '/user/payment'
     );
 

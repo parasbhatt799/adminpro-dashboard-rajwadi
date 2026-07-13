@@ -704,7 +704,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
                     <span className="text-sm font-bold text-emerald-700 leading-none">₹{(Number(userProfile?.wallet_balance) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="T+1 Wallet Balance (Settles tomorrow at 11:30 AM)">
+                <div className="flex items-center gap-2 px-4 py-2 bg-indigo-50 border border-indigo-100 rounded-xl" title="T+1 Wallet Balance (Settles tomorrow at 11:00 AM)">
                   <Clock className="text-indigo-600" size={18} />
                   <div className="flex flex-col">
                     <span className="text-[10px] font-black text-indigo-500 uppercase tracking-wider leading-none mb-0.5">T+1 Wallet</span>
