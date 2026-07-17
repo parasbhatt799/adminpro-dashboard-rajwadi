@@ -194,8 +194,8 @@ export async function callBillAvenueApi(url: string, xmlPayload: string): Promis
  */
 export async function getBillers(billerId?: string): Promise<any> {
   const xml = billerId 
-    ? `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n    <billerId>${billerId}</billerId>\n</billerInfoRequest>`
-    : `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest></billerInfoRequest>`;
+    ? `<?xml version="1.0" encoding="UTF-8"?>\r\n<billerInfoRequest>\r\n <billerId>${billerId}</billerId>\r\n</billerInfoRequest>`
+    : `<?xml version="1.0" encoding="UTF-8"?>\r\n<billerInfoRequest></billerInfoRequest>`;
   return callBillAvenueApi(ENDPOINTS.billers, xml);
 }
 
