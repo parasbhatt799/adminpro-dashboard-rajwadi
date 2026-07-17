@@ -81,9 +81,9 @@ export function decryptResponse(encText: string): string {
     let decrypted = decipher.update(encText, encoding, 'utf8');
     decrypted += decipher.final('utf8');
     return decrypted;
-  } catch (error) {
-    console.error('[BillAvenue Crypto] Decryption failed:', error);
-    throw new Error('Decryption failed');
+  } catch (error: any) {
+    console.error('[BillAvenue Crypto] Decryption failed for text:', encText, error);
+    throw new Error(`Decryption failed. Raw response: ${encText.substring(0, 200)}`);
   }
 }
 
