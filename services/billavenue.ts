@@ -61,7 +61,7 @@ export function encryptRequest(plainText: string): string {
     const cipher = crypto.createCipheriv('aes-128-cbc', key, IV);
     let encrypted = cipher.update(plainText, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    return encrypted.toUpperCase();
+    return encrypted;
   } catch (error) {
     console.error('[BillAvenue Crypto] Encryption failed:', error);
     throw new Error('Encryption failed');
@@ -130,27 +130,31 @@ export function xmlToJson(xml: string): any {
   return parseNode(cleanXml);
 }
 
-/**
- * Call the BillAvenue API endpoint with encrypted XML payload
- */
 export async function callBillAvenueApi(url: string, xmlPayload: string): Promise<any> {
   const requestId = generateRequestId();
   console.log(`[BillAvenue Service] Outgoing Request [${requestId}] to URL: ${url}`);
   console.log('[BillAvenue Service] Plain Payload:', xmlPayload);
 
-  const encRequest = encryptRequest(xmlPayload);
+  // BillAvenue support advised sending the encrypted string in lowercase
+  const encRequest = encryptRequest(xmlPayload).toLowerCase();
+
+  const queryParams = new URLSearchParams();
+  queryParams.append('accessCode', ACCESS_CODE);
+  queryParams.append('requestId', requestId);
+  queryParams.append('ver', '1.0');
+  queryParams.append('instituteId', INSTITUTE_ID);
+
+  const requestUrl = `${url}?${queryParams.toString()}`;
+
   const postParams = new URLSearchParams();
-  postParams.append('accessCode', ACCESS_CODE);
-  postParams.append('requestId', requestId);
   postParams.append('encRequest', encRequest);
-  postParams.append('ver', '1.0');
-  postParams.append('instituteId', INSTITUTE_ID);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/xml, text/xml, */*'
       },
       body: postParams.toString()
     });
