@@ -76,6 +76,18 @@ async function importBillers() {
 
     console.log(`Successfully mapped ${mapped.length} valid billers.`);
     console.log("Starting database synchronization (this may take a few minutes)...");
+    
+    console.log("Clearing old billers from the database...");
+    const { error: deleteError } = await supabase
+      .from('billavenue_billers')
+      .delete()
+      .neq('biller_id', 'NON_EXISTENT_DUMMY_ID_123'); // Deletes all rows
+
+    if (deleteError) {
+      console.warn("Could not clear old billers automatically:", deleteError.message);
+    } else {
+      console.log("Old billers successfully removed.");
+    }
 
     const BATCH_SIZE = 500;
     let successCount = 0;
