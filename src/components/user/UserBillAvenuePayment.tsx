@@ -268,6 +268,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   const [slabs, setSlabs] = useState<any[]>([]);
 
   // CCF1 Convenience Fee Configuration
+  const [billerConfig, setBillerConfig] = useState<any>(null);
   const [ccf1Config, setCcf1Config] = useState<{ flatFee: number; percentFee: number } | null>(null);
   const [ccf1Fee, setCcf1Fee] = useState<number>(0); // in Rupees
 
@@ -820,6 +821,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         setCcf1Config(null);
       }
 
+      setBillerConfig({
+        billerAcceptsAdhoc: bDetail?.billerAcceptsAdhoc === 'true' || bDetail?.billerAcceptsAdhoc === true,
+        fetchRequirement: bDetail?.fetchRequirement || 'OPTIONAL'
+      });
+
       // Map parameters
       const paramsList: BillerInputParam[] = [];
       const inputParamsData = bDetail?.inputParams?.input || [];
@@ -899,6 +905,26 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       });
 
       const data = await res.json();
+      
+      if (!res.ok || data.status === 'ERROR') {
+        const errorMsg = data.message || 'Error fetching bill. Please check your details.';
+        if (billerConfig?.fetchRequirement === 'MANDATORY') {
+          toast.error(errorMsg);
+          return;
+        } else if (billerConfig?.billerAcceptsAdhoc) {
+          toast.info(`${errorMsg}. Proceeding with QuickPay.`);
+          setBillDetails({
+            customerName: 'QuickPay / Adhoc Payment',
+            billAmount: 0,
+            fetchSupported: false
+          });
+          return;
+        } else {
+          toast.error(errorMsg);
+          return;
+        }
+      }
+
       const response = data?.billFetchResponse;
 
       if (response && (response.responseCode === '0000' || response.status?.toLowerCase() === 'success')) {
@@ -928,22 +954,43 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           dueDate: response.dueDate,
           billDate: response.billDate
         });
+      } else if (response && response.responseCode) {
+        const errorMsg = response.responseReason || `Failed to fetch bill (Code: ${response.responseCode})`;
+        if (billerConfig?.fetchRequirement === 'MANDATORY') {
+          toast.error(errorMsg);
+        } else if (billerConfig?.billerAcceptsAdhoc) {
+          toast.info(`${errorMsg}. Proceeding with QuickPay.`);
+          setBillDetails({
+            customerName: 'QuickPay / Adhoc Payment',
+            billAmount: 0,
+            fetchSupported: false
+          });
+        } else {
+          toast.error(errorMsg);
+        }
       } else {
-        // Fallback for billers without fetch support (QuickPay / adhoc)
+        if (billerConfig?.billerAcceptsAdhoc) {
+          setBillDetails({
+            customerName: 'QuickPay / Adhoc Payment',
+            billAmount: 0,
+            fetchSupported: false
+          });
+          toast.info('Biller does not support direct bill fetching. Proceeding with QuickPay manual entry.');
+        } else {
+          toast.error('Unable to fetch bill for this provider.');
+        }
+      }
+    } catch (err) {
+      if (billerConfig?.billerAcceptsAdhoc && billerConfig?.fetchRequirement !== 'MANDATORY') {
         setBillDetails({
           customerName: 'QuickPay / Adhoc Payment',
           billAmount: 0,
           fetchSupported: false
         });
-        toast.info('Biller does not support direct bill fetching. Proceeding with QuickPay manual entry.');
+        toast.info('Unable to fetch bill. Proceeding with manual input.');
+      } else {
+        toast.error('Unable to fetch bill. Please verify your details.');
       }
-    } catch (err) {
-      setBillDetails({
-        customerName: 'QuickPay / Adhoc Payment',
-        billAmount: 0,
-        fetchSupported: false
-      });
-      toast.info('Unable to fetch bill. Proceeding with manual input.');
     } finally {
       setLoading(false);
     }
