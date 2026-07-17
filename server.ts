@@ -2122,11 +2122,22 @@ async function startServer() {
           }
         });
       } else {
-        const { data: dbBillers, error: dbError } = await supabaseAdmin
-          .from('billavenue_billers')
-          .select('*');
-
-        if (dbError) throw dbError;
+        let dbBillers: any[] = [];
+        let from = 0;
+        const limit = 1000;
+        while (true) {
+          const { data, error: dbError } = await supabaseAdmin
+            .from('billavenue_billers')
+            .select('*')
+            .range(from, from + limit - 1);
+          
+          if (dbError) throw dbError;
+          if (!data || data.length === 0) break;
+          
+          dbBillers.push(...data);
+          if (data.length < limit) break;
+          from += limit;
+        }
         return res.json({
           billerInfoResponse: {
             responseCode: '0000',
