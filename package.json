@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "sync-billers": "tsx scripts/sync-billers.ts"
+    "sync-billers": "tsx scripts/sync-billers.ts",
+    "import-billers": "tsx scripts/import-excel-billers.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
