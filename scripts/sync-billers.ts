@@ -24,7 +24,8 @@ async function syncBillers() {
   console.log("Fetching all billers from BillAvenue API. This may take a minute...");
   
   try {
-    const response = await getBillers();
+    console.log("Testing with a single biller (TORR00000ELE) to verify connectivity...");
+    const response = await getBillers("TORR00000ELE");
     
     if (!response || !response.json || !response.json.billerInfoResponse || !response.json.billerInfoResponse.biller) {
       console.error("Failed to parse biller data from response.");
