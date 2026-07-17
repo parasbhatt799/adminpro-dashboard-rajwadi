@@ -21,10 +21,10 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 async function syncBillers() {
   console.log("==================================================");
   console.log("Starting BillAvenue Master Biller Sync...");
-  console.log("Fetching all billers from BillAvenue API. This may take a minute...");
   
   try {
-    const response = await getBillers();
+    console.log("Testing with a single biller (BKESL0000RAJ02) to verify connectivity...");
+    const response = await getBillers('BKESL0000RAJ02');
     
     if (!response || !response.json || !response.json.billerInfoResponse || !response.json.billerInfoResponse.biller) {
       console.error("Failed to parse biller data from response.");
