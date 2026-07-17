@@ -896,7 +896,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       const cleanedParams: Record<string, string> = {};
       for (const param of inputParams) {
         if (formInputs[param.paramName]) {
-          cleanedParams[param.paramName.trim()] = formInputs[param.paramName].trim();
+          cleanedParams[param.paramName] = formInputs[param.paramName].trim();
         }
       }
 

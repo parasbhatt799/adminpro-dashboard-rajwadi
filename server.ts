@@ -2253,6 +2253,28 @@ async function startServer() {
     }
   });
 
+  app.get("/api/bbps/test-sbi", async (req, res) => {
+    try {
+      const { ca, mobile } = req.query;
+      if (!ca || !mobile) {
+         return res.json({ error: "Missing ?ca= or ?mobile=" });
+      }
+      const params = {
+         "CA number": String(ca),
+         "Mobile number": String(mobile)
+      };
+      const response = await billAvenue.fetchBill("SBIC00000NATDN", params, String(mobile));
+      res.json({
+        rawXml: response.rawXml,
+        json: response.json,
+        sentParams: params
+      });
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Test SBI Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/bbps/test-multiple-fetches", async (req, res) => {
     const billersToTest = [
       { id: 'TORR00000ELE', params: { 'Service Number': '100000001' }, mobile: '9998120909' },
