@@ -926,19 +926,22 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       }
 
       const response = data?.billFetchResponse;
-
-      if (response && (response.responseCode === '0000' || response.status?.toLowerCase() === 'success')) {
-        const billAmount = Number(response.billAmount) ? Number(response.billAmount) / 100 : 0; // Convert paise to Rs
-        const addInfo = response.additionalInfo?.info || [];
+      const billerResp = response?.billerResponse || response; // Sometimes nested under billerResponse
+      const respCode = billerResp?.responseCode || response?.responseCode;
+      
+      if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success') {
+        const billAmountStr = billerResp?.billAmount || response?.billAmount;
+        const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs
+        const addInfo = billerResp?.additionalInfo?.info || response?.additionalInfo?.info || [];
         const additionalInfoArray = Array.isArray(addInfo) ? addInfo : [addInfo].filter((i: any) => i && i.infoName);
 
         setBillDetails({
-          customerName: response.customerName || 'Valued Customer',
+          customerName: billerResp?.customerName || response?.customerName || 'Valued Customer',
           billAmount: billAmount,
-          dueDate: response.dueDate,
-          billNumber: response.billNumber,
-          billDate: response.billDate,
-          billPeriod: response.billPeriod,
+          dueDate: billerResp?.dueDate || response?.dueDate,
+          billNumber: billerResp?.billNumber || response?.billNumber,
+          billDate: billerResp?.billDate || response?.billDate,
+          billPeriod: billerResp?.billPeriod || response?.billPeriod,
           additionalInfo: additionalInfoArray,
           fetchSupported: true
         });
@@ -947,15 +950,15 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         upsertBillReminder({
           userId,
-          customerName: response.customerName || 'Valued Customer',
+          customerName: billerResp?.customerName || response?.customerName || 'Valued Customer',
           cardNumber: consumerNumber,
           bankName: selectedBiller.billerName || selectedBiller.billerId,
           dueAmount: billAmount,
-          dueDate: response.dueDate,
-          billDate: response.billDate
+          dueDate: billerResp?.dueDate || response?.dueDate,
+          billDate: billerResp?.billDate || response?.billDate
         });
-      } else if (response && response.responseCode) {
-        const errorMsg = response.responseReason || `Failed to fetch bill (Code: ${response.responseCode})`;
+      } else if (respCode) {
+        const errorMsg = billerResp?.responseReason || response?.errorInfo?.error?.errorMessage || `Failed to fetch bill (Code: ${respCode})`;
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
         } else if (billerConfig?.billerAcceptsAdhoc) {
@@ -980,6 +983,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           toast.error('Unable to fetch bill for this provider.');
         }
       }
+
     } catch (err) {
       if (billerConfig?.billerAcceptsAdhoc && billerConfig?.fetchRequirement !== 'MANDATORY') {
         setBillDetails({
