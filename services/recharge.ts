@@ -9,7 +9,9 @@ const BASE_URL = IS_PROD ? 'https://api.billavenue.com' : 'https://stgapi.billav
 
 const RECHARGE_ENDPOINTS = {
   mnp: `${BASE_URL}/billpay/extMnp/mnpRequest/xml`,
-  deposit: `${BASE_URL}/billpay/extDeposit/enquiry/xml`,
+  deposit: IS_PROD
+    ? `${BASE_URL}/billpay/enquireDeposit/fetchDetails/xml`
+    : `${BASE_URL}/billpay/extDeposit/enquiry/xml`,
   plans: `${BASE_URL}/billpay/extFetchPlans/fetchPlansRequest/xml`,
   validate: `${BASE_URL}/billpay/extBillValCntrl/billValidationRequest/xml`,
   pay: `${BASE_URL}/billpay/extBillPayCntrl/billPayRequest/xml`,
@@ -62,9 +64,9 @@ export async function detectOperatorMNP(mobile: string): Promise<any> {
     if (mnpResponse && (mnpResponse.responseCode === '000' || mnpResponse.responseCode === '0000' || mnpResponse.status === 'SUCCESS')) {
       const detectedOp = mnpResponse.currentOperator || mnpResponse.operator || fallback.operator;
       const detectedLoc = mnpResponse.currentLocation || mnpResponse.circle || fallback.circle;
-      
-      const matchingBiller = OPERATORS.find(op => 
-        op.billerName.toLowerCase().includes(detectedOp.toLowerCase()) || 
+
+      const matchingBiller = OPERATORS.find(op =>
+        op.billerName.toLowerCase().includes(detectedOp.toLowerCase()) ||
         detectedOp.toLowerCase().includes(op.billerName.split(' ')[0].toLowerCase())
       ) || OPERATORS[1]; // Fallback to Jio
 
