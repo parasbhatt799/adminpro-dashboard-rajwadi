@@ -893,12 +893,19 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     setBillDetails(null);
 
     try {
+      const cleanedParams: Record<string, string> = {};
+      for (const param of inputParams) {
+        if (formInputs[param.paramName]) {
+          cleanedParams[param.paramName.trim()] = formInputs[param.paramName].trim();
+        }
+      }
+
       const res = await fetch('/api/bbps/fetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           billerId: selectedBiller.billerId,
-          customerParams: formInputs,
+          customerParams: cleanedParams,
           customerMobile,
           customerEmail
         })
