@@ -3,6 +3,10 @@ dotenv.config();
 
 import { getBillers } from '../services/billavenue.js';
 import { createClient } from '@supabase/supabase-js';
+import WebSocket from 'ws';
+
+// Polyfill WebSocket for Node 18
+(global as any).WebSocket = WebSocket;
 
 const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || '';
