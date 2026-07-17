@@ -61,7 +61,7 @@ export function encryptRequest(plainText: string): string {
     const cipher = crypto.createCipheriv('aes-128-cbc', key, IV);
     let encrypted = cipher.update(plainText, 'utf8', 'hex');
     encrypted += cipher.final('hex');
-    return encrypted;
+    return encrypted.toUpperCase();
   } catch (error) {
     console.error('[BillAvenue Crypto] Encryption failed:', error);
     throw new Error('Encryption failed');
