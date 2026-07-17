@@ -2275,6 +2275,21 @@ async function startServer() {
     }
   });
 
+  app.get("/api/bbps/test-mdm", async (req, res) => {
+    try {
+      const { id } = req.query;
+      const billerId = String(id || "SBIC00000NATDN");
+      const response = await billAvenue.getBillers(billerId);
+      res.json({
+        rawXml: response.rawXml,
+        json: response.json
+      });
+    } catch (error: any) {
+      console.error("[BillAvenue Server] Test MDM Error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   app.get("/api/bbps/test-multiple-fetches", async (req, res) => {
     const billersToTest = [
       { id: 'TORR00000ELE', params: { 'Service Number': '100000001' }, mobile: '9998120909' },
