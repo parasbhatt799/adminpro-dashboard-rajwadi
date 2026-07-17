@@ -648,7 +648,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       const mappedBillers: BillerInfo[] = billersArray.map((b: any) => ({
         billerId: b.billerId,
         billerName: b.billerName,
-        categoryName: b.category || 'Other'
+        categoryName: b.category || b.billerCategoryName || 'Other'
       }));
 
       setAllBillers(mappedBillers);
