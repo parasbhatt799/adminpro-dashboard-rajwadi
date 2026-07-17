@@ -2,7 +2,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { createClient } from '@supabase/supabase-js';
-import * as xlsx from 'xlsx';
+import xlsx from 'xlsx';
 import path from 'path';
 import fs from 'fs';
 import WebSocket from 'ws';
