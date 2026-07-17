@@ -189,10 +189,9 @@ export async function callBillAvenueApi(url: string, xmlPayload: string): Promis
  * Fetch Biller List
  */
 export async function getBillers(billerId?: string): Promise<any> {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<billerInfoRequest>
-    ${billerId ? `<billerId>${billerId}</billerId>` : ''}
-</billerInfoRequest>`;
+  const xml = billerId 
+    ? `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n    <billerId>${billerId}</billerId>\n</billerInfoRequest>`
+    : `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest></billerInfoRequest>`;
   return callBillAvenueApi(ENDPOINTS.billers, xml);
 }
 
