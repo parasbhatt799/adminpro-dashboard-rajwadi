@@ -112,6 +112,8 @@ export default function Dashboard() {
   const [payprimeBalance, setPayprimeBalance] = useState<number | null>(null);
   const [payprimeUsername, setPayprimeUsername] = useState<string>('');
   const [billAvenueBalance, setBillAvenueBalance] = useState<number | null>(null);
+  const [billAvenueLoading, setBillAvenueLoading] = useState<boolean>(false);
+  const [billAvenueError, setBillAvenueError] = useState<string | null>(null);
 
   const fetchPayprimeBalance = useCallback(async () => {
     try {
@@ -130,17 +132,29 @@ export default function Dashboard() {
   }, []);
 
   const fetchBillAvenueBalance = useCallback(async () => {
+    setBillAvenueLoading(true);
+    setBillAvenueError(null);
     try {
       const res = await fetch("/api/recharge/deposit");
       const data = await res.json();
-      if (data && data.depositEnquiryResponse) {
+      if (data && data.status === "ERROR") {
+        setBillAvenueError(data.message || "Failed to fetch balance");
+        setBillAvenueBalance(null);
+      } else if (data && data.depositEnquiryResponse) {
         const bal = Number(data.depositEnquiryResponse.balance) || 0;
         setBillAvenueBalance(bal);
       } else if (data && typeof data.balance !== 'undefined') {
         setBillAvenueBalance(Number(data.balance));
+      } else {
+        setBillAvenueError("Failed to fetch balance");
+        setBillAvenueBalance(null);
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to fetch BillAvenue balance:", e);
+      setBillAvenueError(e.message || "Connection error");
+      setBillAvenueBalance(null);
+    } finally {
+      setBillAvenueLoading(false);
     }
   }, []);
 
@@ -692,15 +706,30 @@ export default function Dashboard() {
               </div>
             )}
 
-            {billAvenueBalance !== null && (
-              <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/80 px-3.5 py-1.5 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300">
-                <Wallet size={14} className="text-emerald-600 animate-pulse" />
-                <span className="text-[10px] font-black text-emerald-700 tracking-wider uppercase">billavenue blance:</span>
-                <span className="text-sm font-extrabold text-teal-900 font-mono">
-                  ₹{billAvenueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            )}
+            <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/80 px-3.5 py-1.5 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300">
+              <Wallet size={14} className="text-emerald-600 animate-pulse" />
+              <span className="text-[10px] font-black text-emerald-700 tracking-wider uppercase">billavenue balance:</span>
+              <span className="text-sm font-extrabold text-teal-900 font-mono flex items-center">
+                {billAvenueLoading ? (
+                  <span className="text-[10px] font-bold text-slate-400">Loading...</span>
+                ) : billAvenueError ? (
+                  <span className="text-[10px] font-bold text-rose-500 cursor-help" title={billAvenueError}>Error</span>
+                ) : billAvenueBalance !== null ? (
+                  `₹${billAvenueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400">N/A</span>
+                )}
+              </span>
+              {!billAvenueLoading && (
+                <button
+                  onClick={fetchBillAvenueBalance}
+                  className="text-[8px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer ml-1"
+                  title="Reload BillAvenue Balance"
+                >
+                  Fetch
+                </button>
+              )}
+            </div>
           </div>
           <p className="text-slate-500 mt-1">Real-time statistics for your platform.</p>
         </div>
