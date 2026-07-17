@@ -146,17 +146,14 @@ export async function callBillAvenueApi(url: string, xmlPayload: string): Promis
 
   const requestUrl = `${url}?${queryParams.toString()}`;
 
-  const postParams = new URLSearchParams();
-  postParams.append('encRequest', encRequest);
-
   try {
     const response = await fetch(requestUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'text/plain',
         'Accept': 'application/xml, text/xml, */*'
       },
-      body: postParams.toString()
+      body: encRequest
     });
 
     if (!response.ok) {
