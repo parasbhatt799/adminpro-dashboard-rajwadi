@@ -9,7 +9,9 @@ const BASE_URL = IS_PROD ? 'https://api.billavenue.com' : 'https://stgapi.billav
 
 const RECHARGE_ENDPOINTS = {
   mnp: `${BASE_URL}/billpay/extMnp/mnpRequest/xml`,
-  deposit: `${BASE_URL}/billpay/extDeposit/enquiry/xml`,
+  deposit: IS_PROD
+    ? `${BASE_URL}/billpay/enquireDeposit/fetchDetails/xml`
+    : `${BASE_URL}/billpay/extDeposit/enquiry/xml`,
   plans: `${BASE_URL}/billpay/extFetchPlans/fetchPlansRequest/xml`,
   validate: `${BASE_URL}/billpay/extBillValCntrl/billValidationRequest/xml`,
   pay: `${BASE_URL}/billpay/extBillPayCntrl/billPayRequest/xml`,

@@ -111,6 +111,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [payprimeBalance, setPayprimeBalance] = useState<number | null>(null);
   const [payprimeUsername, setPayprimeUsername] = useState<string>('');
+  const [billAvenueBalance, setBillAvenueBalance] = useState<number | null>(null);
 
   const fetchPayprimeBalance = useCallback(async () => {
     try {
@@ -125,6 +126,21 @@ export default function Dashboard() {
       }
     } catch (e) {
       console.error("Failed to fetch PayPrime balance:", e);
+    }
+  }, []);
+
+  const fetchBillAvenueBalance = useCallback(async () => {
+    try {
+      const res = await fetch("/api/recharge/deposit");
+      const data = await res.json();
+      if (data && data.depositEnquiryResponse) {
+        const bal = Number(data.depositEnquiryResponse.balance) || 0;
+        setBillAvenueBalance(bal);
+      } else if (data && typeof data.balance !== 'undefined') {
+        setBillAvenueBalance(Number(data.balance));
+      }
+    } catch (e) {
+      console.error("Failed to fetch BillAvenue balance:", e);
     }
   }, []);
 
@@ -616,6 +632,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchStats();
     fetchPayprimeBalance();
+    fetchBillAvenueBalance();
     fetchRefundedRequests();
     fetchReasons();
 
@@ -633,7 +650,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(statsChannel);
     };
-  }, [fetchStats, fetchPayprimeBalance, fetchRefundedRequests, fetchReasons]);
+  }, [fetchStats, fetchPayprimeBalance, fetchBillAvenueBalance, fetchRefundedRequests, fetchReasons]);
 
   const rangeLabels: Record<TimeRange, string> = {
     today: 'Today',
@@ -672,6 +689,16 @@ export default function Dashboard() {
                     {payprimeUsername}
                   </span>
                 )}
+              </div>
+            )}
+
+            {billAvenueBalance !== null && (
+              <div className="flex items-center gap-2 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/80 px-3.5 py-1.5 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300">
+                <Wallet size={14} className="text-emerald-600 animate-pulse" />
+                <span className="text-[10px] font-black text-emerald-700 tracking-wider uppercase">billavenue blance:</span>
+                <span className="text-sm font-extrabold text-teal-900 font-mono">
+                  ₹{billAvenueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
               </div>
             )}
           </div>
