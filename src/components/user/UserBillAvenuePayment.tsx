@@ -84,6 +84,7 @@ interface BillerInfo {
   billerId: string;
   billerName: string;
   categoryName: string;
+  metadata?: any;
 }
 
 function getCategoryDetails(name: string) {
@@ -641,20 +642,19 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   const fetchBillersAndCategories = async () => {
     setCategoriesLoading(true);
     try {
-      const res = await fetch(`/api/bbps/billers`);
-      const data = await res.json();
-      const list = data?.billerInfoResponse?.biller || [];
-      const billersArray = Array.isArray(list) ? list : [list];
-
-      const mappedBillers: BillerInfo[] = billersArray.map((b: any) => ({
-        billerId: b.billerId,
-        billerName: b.billerName,
-        categoryName: b.category || b.billerCategoryName || 'Other'
+      const { data: dbBillers, error } = await supabase.from('billavenue_billers').select('*');
+      if (error) throw error;
+      
+      const mappedBillers: BillerInfo[] = (dbBillers || []).map((b: any) => ({
+        billerId: b.biller_id,
+        billerName: b.biller_name,
+        categoryName: b.category || 'Other',
+        metadata: b.metadata
       }));
 
       setAllBillers(mappedBillers);
 
-      // Extract unique categories from the API
+      // Extract unique categories from the database
       const apiCategoryNames = Array.from(
         new Set(mappedBillers.map(b => b.categoryName))
       ).filter(Boolean);
@@ -806,10 +806,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     }
 
     try {
-      // Fetch details of specific biller to inspect parameters
-      const res = await fetch(`/api/bbps/billers?billerId=${biller.billerId}`);
-      const data = await res.json();
-      const bDetail = data?.billerInfoResponse?.biller;
+      // Use metadata from DB instead of API call
+      const bDetail = biller.metadata;
 
       const ccf1FeeInfo = bDetail?.interchangeFeeCCF1;
       if (ccf1FeeInfo) {
