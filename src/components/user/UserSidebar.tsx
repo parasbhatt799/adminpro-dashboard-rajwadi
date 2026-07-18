@@ -35,6 +35,8 @@ const menuItems = [
   { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
   { id: 'billavenue-payment', label: 'Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'billavenue-search', label: 'Search TXN', icon: Search, path: '/user/billavenue-search' },
+  { id: 'cspl-payment', label: 'CsplPayment', icon: Receipt, path: '/user/cspl-payment' },
+  { id: 'cspl-search', label: 'Cspl Search', icon: Search, path: '/user/cspl-search' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
@@ -120,7 +122,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       return true;
     }),
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment') {
@@ -226,7 +228,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
               >
                 {({ isActive }) => (
                   <>
-                    {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'users-bill-payments' ? (
+                    {item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'cspl-payment' || item.id === 'users-bill-payments' ? (
                       <img
                         src="/b_mnemonic.png"
                         alt=""

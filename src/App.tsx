@@ -41,6 +41,7 @@ const UserPanel = lazy(() => import('./components/user/UserPanel'));
 const UserPayment = lazy(() => import('./components/user/UserPayment'));
 const UserBillPayment = lazy(() => import('./components/user/UserBillPayment'));
 const UserBillAvenuePayment = lazy(() => import('./components/user/UserBillAvenuePayment'));
+const UserCsplPayment = lazy(() => import('./components/user/UserCsplPayment'));
 const UserBillHistory = lazy(() => import('./components/user/UserBillHistory'));
 const UserViewReceipt = lazy(() => import('./components/user/UserViewReceipt'));
 const UserReports = lazy(() => import('./components/user/UserReports'));
@@ -1259,6 +1260,8 @@ export default function App() {
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />
           <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} mode="payment" />} />
           <Route path="billavenue-search" element={<UserBillAvenuePayment userId={userId} mode="search" />} />
+          <Route path="cspl-payment" element={<UserCsplPayment userId={userId} mode="payment" />} />
+          <Route path="cspl-search" element={<UserCsplPayment userId={userId} mode="search" />} />
           <Route path="recharge" element={<UserRecharge userId={userId} />} />
           <Route path="aeps" element={<UserAeps userId={userId} />} />
           <Route path="bill-history" element={<UserBillHistory userId={userId} />} />
