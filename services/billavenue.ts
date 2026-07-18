@@ -201,13 +201,14 @@ export async function getBillers(billerId?: string): Promise<any> {
 export async function fetchBill(
   billerId: string,
   customerParams: Record<string, string>,
-  customerMobile: string
+  customerMobile: string,
+  initChannel: string = 'AGT'
 ): Promise<any> {
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billFetchRequest>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
+        <initChannel>${initChannel}</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
@@ -236,13 +237,14 @@ export async function fetchBill(
 export async function validateBill(
   billerId: string,
   customerParams: Record<string, string>,
-  customerMobile: string
+  customerMobile: string,
+  initChannel: string = 'AGT'
 ): Promise<any> {
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billValidationRequest>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
+        <initChannel>${initChannel}</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
@@ -277,7 +279,8 @@ export async function payBill(
   quickPay: string = 'N',
   ccf1?: number, // CCF1 + GST in paisa
   billDetails?: any,
-  remitterName?: string
+  remitterName?: string,
+  initChannel: string = 'AGT'
 ): Promise<any> {
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
@@ -349,7 +352,7 @@ export async function payBill(
     </paymentInfo>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
+        <initChannel>${initChannel}</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>`;

@@ -2422,8 +2422,11 @@ async function startServer() {
         }
       });
 
+      const isCreditCard = billerCategory === 'Credit Card' || billerCategory?.toLowerCase()?.includes('card');
+      const initChannel = isCreditCard ? 'INT' : 'AGT';
+
       try {
-        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile);
+        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
         const responseCode = response.json?.billFetchResponse?.responseCode;
         if (isStaging && responseCode !== '0000') {
           console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
@@ -2521,6 +2524,21 @@ async function startServer() {
         });
       }
 
+      // Look up biller category to determine channel (Credit Card uses INT, others use AGT)
+      let initChannel = 'AGT';
+      try {
+        const { data: dbBiller } = await supabaseAdmin
+          .from('billavenue_billers')
+          .select('category')
+          .eq('biller_id', billerId)
+          .maybeSingle();
+        if (dbBiller && (dbBiller.category === 'Credit Card' || dbBiller.category?.toLowerCase()?.includes('card'))) {
+          initChannel = 'INT';
+        }
+      } catch (dbErr) {
+        console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
+      }
+
       // 3. Call BillAvenue pay API
       let apiResponse;
       try {
@@ -2533,7 +2551,8 @@ async function startServer() {
           quickPay || 'N',
           ccf1 !== undefined ? Number(ccf1) : undefined,
           billDetails,
-          user.name || 'Valued Customer'
+          user.name || 'Valued Customer',
+          initChannel
         );
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);
