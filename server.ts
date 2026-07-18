@@ -1806,7 +1806,14 @@ async function startServer() {
 
       if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
       if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
-      if (billDetails?.billerResponse) payload.billerResponse = billDetails.billerResponse;
+      
+      if (billDetails?.billerResponse) {
+        let safeBillerResp = { ...billDetails.billerResponse };
+        if (safeBillerResp.billPeriod) {
+          safeBillerResp.billPeriod = safeBillerResp.billPeriod.replace(/,/g, '');
+        }
+        payload.billerResponse = safeBillerResp;
+      }
 
       if (additionalInfo && additionalInfo.length > 0) {
         payload.additionalInfo = additionalInfo;
