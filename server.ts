@@ -1788,6 +1788,8 @@ async function startServer() {
 
 
 
+      const isAdhoc = billDetails?.billerAdhoc === true || billDetails?.billerFetchRequirement === "NOT_SUPPORTED";
+
       const payload: any = {
         requestId,
         billerId,
@@ -1796,14 +1798,22 @@ async function startServer() {
         billamount: Math.round(Number(amount) * 100), // Convert to Paise
         client_referenceId: "REF-" + requestId,
         paymentMode: "UPI",
-        paymentChannel: "AGT"
+        paymentChannel: "AGT",
+        billerAdhoc: isAdhoc ? true : false,
       };
 
       payload.placeholderValue = firstParamName;
       payload.paramValue = paramValue;
 
-      if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
-      if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
+      if (inputParams && inputParams.length > 0) {
+        payload.inputParams = {
+          input: inputParams
+        };
+      }
+
+      if (billDetails?.billerResponse) {
+        payload.billerResponse = billDetails.billerResponse;
+      }
 
       if (additionalInfo && additionalInfo.length > 0) {
         payload.additionalInfo = additionalInfo;
