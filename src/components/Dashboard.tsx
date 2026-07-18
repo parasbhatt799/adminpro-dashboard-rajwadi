@@ -864,7 +864,6 @@ export default function Dashboard() {
           </div>
           </div>
         </div>
-      </div>
       
       <p className="text-slate-500 mt-1 -translate-y-4">Real-time statistics for your platform.</p>
 
