@@ -1327,7 +1327,9 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         setWalletBalance(data.new_balance);
         setStep(3);
       } else {
-        toast.error(data.message || 'Payment execution failed.');
+        console.error("CSPL Payment Error:", data);
+        const errMsg = data.message || data.reason || data.error || data.responseMessage || (data.responseCode ? `Error Code: ${data.responseCode}` : JSON.stringify(data));
+        toast.error(errMsg || 'Payment execution failed.');
       }
     } catch (err) {
       toast.error('An error occurred during payment processing.');
