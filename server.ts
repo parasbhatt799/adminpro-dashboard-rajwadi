@@ -1810,9 +1810,10 @@ async function startServer() {
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
-      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - " + JSON.stringify(payload) + "\n");
+      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - REQUEST: " + JSON.stringify(payload) + "\n");
       
       const data = await camlenioBbps.payBill(payload);
+      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - RESPONSE: " + JSON.stringify(data) + "\n\n");
       
       if (data.responseCode === '000' || data.status === 'SUCCESS') {
         const newBalance = user.wallet_balance - totalDeduction;
