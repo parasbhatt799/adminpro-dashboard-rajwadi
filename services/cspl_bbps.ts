@@ -58,7 +58,7 @@ export async function callCsplApi(endpoint: string, payload: any): Promise<any> 
 
 // 1. Fetch Biller Info
 export async function getBillerInfo(billerId: string) {
-  return callCsplApi('/bbps/billerinfo', { billerId });
+  return callCsplApi('/api/v1/bbps/billerinfo', { billerId });
 }
 
 // 2. Fetch Bill
@@ -68,7 +68,7 @@ export async function fetchBill(
   customerEmail: string,
   inputParams: { paramName: string; paramValue: string }[]
 ) {
-  return callCsplApi('/bbps/billfetch', {
+  return callCsplApi('/api/v1/bbps/billfetch', {
     billerId,
     customerMobile,
     customerEmail,
@@ -90,7 +90,7 @@ export async function payBill(
   clientReferenceId: string,
   additionalInfo: { infoName: string; infoValue: string }[]
 ) {
-  return callCsplApi('/bbps/billPay', {
+  return callCsplApi('/api/v1/bbps/billPay', {
     requestId,
     billerId,
     customerName,
