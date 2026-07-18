@@ -2256,10 +2256,17 @@ async function startServer() {
 
   app.get("/api/bbps/test-fetch", async (req, res) => {
     try {
-      const response = await billAvenue.fetchBill("TORR00000ELE", { "Service Number": "100000001" }, "9998120909");
+      const { id, param, val, mobile } = req.query;
+      const billerId = String(id || "TORR00000NATLX");
+      const key = String(param || "Service Number");
+      const value = String(val || "100000001");
+      const mob = String(mobile || "9998120909");
+      const response = await billAvenue.fetchBill(billerId, { [key]: value }, mob);
       res.json({
         rawXml: response.rawXml,
-        json: response.json
+        json: response.json,
+        sentBillerId: billerId,
+        sentParams: { [key]: value }
       });
     } catch (error: any) {
       console.error("[BillAvenue Server] Test Fetch Error:", error);
