@@ -642,42 +642,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   const fetchBillersAndCategories = async () => {
     setCategoriesLoading(true);
     try {
-      const { data: dbBillers, error } = await supabase.from('billavenue_billers').select('*');
-      if (error) throw error;
-      
-      const mappedBillers: BillerInfo[] = (dbBillers || []).map((b: any) => ({
-        billerId: b.biller_id,
-        billerName: b.biller_name,
-        categoryName: b.category || 'Other',
-        metadata: b.metadata
-      }));
-
-      setAllBillers(mappedBillers);
-
-      // Extract unique categories from the database
-      const apiCategoryNames = Array.from(
-        new Set(mappedBillers.map(b => b.categoryName))
-      ).filter(Boolean);
-
       // Start with our comprehensive standard categories list
       const mergedCats = [...STANDARD_CATEGORIES];
-
-      // Add any additional category returned by the API that isn't already present
-      apiCategoryNames.forEach(apiCatName => {
-        const exists = mergedCats.some(c => c.name.toLowerCase() === apiCatName.toLowerCase());
-        if (!exists) {
-          const details = getCategoryDetails(apiCatName);
-          mergedCats.push({
-            name: apiCatName,
-            ...details
-          });
-        }
-      });
-
-      // Sort categories alphabetically
       mergedCats.sort((a, b) => a.name.localeCompare(b.name));
-
       setCategories(mergedCats);
+      setAllBillers([]); // Clear memory, we will fetch on demand per category
     } catch (err) {
       console.error('Error fetching categories:', err);
       toast.error('Failed to load billers and categories.');
@@ -699,9 +668,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   };
 
   // Filter cached billers for selected category in-memory
-  const selectCategory = (catName: string) => {
+  const selectCategory = async (catName: string) => {
     setSelectedCategory(catName);
-    setStep(2);
     setSearchBillerQuery('');
     setSelectedBiller(null);
     setBillDetails(null);
@@ -721,31 +689,55 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     });
     setSelectedPaymentMode('UPI');
 
-    const searchLower = catName.toLowerCase();
-    let filtered = allBillers.filter((b: any) => {
-      const catLower = b.categoryName.trim().toLowerCase();
+    setCategoriesLoading(true);
+
+    try {
+      const searchLower = catName.toLowerCase();
+      
+      let query = supabase.from('billavenue_billers').select('*').limit(10000);
+      
       if (searchLower === 'mobile prepaid') {
-        return catLower === 'mobile prepaid' || catLower.includes('recharge');
+        query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
+      } else {
+        query = query.ilike('category', `%${catName}%`);
       }
-      return catLower === searchLower;
-    });
 
-    if (filtered.length === 0 && MOCK_BILLERS_BY_CATEGORY[searchLower]) {
-      filtered = MOCK_BILLERS_BY_CATEGORY[searchLower];
+      const { data: dbBillers, error } = await query;
+      if (error) throw error;
+
+      let filtered: BillerInfo[] = (dbBillers || []).map((b: any) => ({
+        billerId: b.biller_id,
+        billerName: b.biller_name,
+        categoryName: b.category || catName,
+        metadata: b.metadata
+      }));
+
+      // Sort alphabetically
+      filtered.sort((a, b) => a.billerName.localeCompare(b.billerName));
+
+      if (filtered.length === 0 && MOCK_BILLERS_BY_CATEGORY[searchLower]) {
+        filtered = MOCK_BILLERS_BY_CATEGORY[searchLower];
+      }
+
+      // Prepend UAT testing billers for easy access during validation (except prepaid or in production)
+      if (searchLower !== 'mobile prepaid' && import.meta.env.MODE !== 'production') {
+        const uatBillers = [
+          { billerId: 'OTME00005XXZ43', billerName: 'UAT Fetch & Pay (OTME00005XXZ43)', categoryName: catName },
+          { billerId: 'OTNS00005XXZ43', billerName: 'UAT Quick Pay (OTNS00005XXZ43)', categoryName: catName }
+        ];
+        const cleanFiltered = filtered.filter(b => b.billerId !== 'OTME00005XXZ43' && b.billerId !== 'OTNS00005XXZ43');
+        filtered = [...uatBillers, ...cleanFiltered];
+      }
+
+      setBillers(filtered);
+      setFilteredBillers(filtered);
+      setStep(2); // Only move to step 2 after fetching successfully
+    } catch (err) {
+      console.error('Error fetching category billers:', err);
+      toast.error('Failed to load billers for this category.');
+    } finally {
+      setCategoriesLoading(false);
     }
-
-    // Prepend UAT testing billers for easy access during validation (except prepaid or in production)
-    if (searchLower !== 'mobile prepaid' && import.meta.env.MODE !== 'production') {
-      const uatBillers = [
-        { billerId: 'OTME00005XXZ43', billerName: 'UAT Fetch & Pay (OTME00005XXZ43)', categoryName: catName },
-        { billerId: 'OTNS00005XXZ43', billerName: 'UAT Quick Pay (OTNS00005XXZ43)', categoryName: catName }
-      ];
-      const cleanFiltered = filtered.filter(b => b.billerId !== 'OTME00005XXZ43' && b.billerId !== 'OTNS00005XXZ43');
-      filtered = [...uatBillers, ...cleanFiltered];
-    }
-
-    setBillers(filtered);
-    setFilteredBillers(filtered);
   };
 
   // Select Biller and determine input parameters
