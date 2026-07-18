@@ -1795,7 +1795,7 @@ async function startServer() {
         customerMobile: customerMobile || "9999999999",
         billamount: Math.round(Number(amount) * 100), // Convert to Paise
         client_referenceId: "REF-" + requestId,
-        paymentMode: "Wallet",
+        paymentMode: "UPI",
         paymentChannel: "AGT"
       };
 
