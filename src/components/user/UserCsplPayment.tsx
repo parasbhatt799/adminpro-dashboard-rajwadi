@@ -37,7 +37,8 @@ import {
   FileText,
   GraduationCap,
   Activity,
-  Home
+  Home,
+  Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
