@@ -1819,6 +1819,9 @@ async function startServer() {
         };
       }
 
+      if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
+      if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
+
       if (billDetails?.billerResponse) {
         payload.billerResponse = billDetails.billerResponse;
       }
