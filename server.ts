@@ -1767,19 +1767,30 @@ async function startServer() {
       if (userError || !user || user.wallet_balance < totalDeduction) {
         return res.json({ status: "ERROR", message: "Insufficient balance or user not found." });
       }
-      
+
+      const inputParams = Object.keys(customerParams || {}).map(key => ({
+        paramName: key,
+        paramValue: customerParams[key]
+      }));
+
+      // Fallback variables that might be needed if they are not in req.body
+      const customerEmail = req.body.customerEmail || "test@test.com";
+
       const payload = {
         requestId,
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
         customerMobile: customerMobile || "9999999999",
-        billamount: amount,
+        customerEmail: customerEmail,
+        inputParams,
+        amount: amount,
+        billAmount: amount, // Sending both to be safe
+        paymentMode: paymentMode || "Wallet",
         billPeriod: billDetails?.billPeriod || "N/A",
         billNumber: billDetails?.billNumber || "N/A",
-        placeholderValue: firstParamName,
-        paramValue: paramValue,
         client_referenceId: "REF-" + requestId,
-        additionalInfo
+        additionalInfo,
+        billerResponse: billDetails?.billerResponse || billDetails
       };
       
       const data = await camlenioBbps.payBill(payload);
