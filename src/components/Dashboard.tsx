@@ -798,6 +798,7 @@ export default function Dashboard() {
         </div>
 
         {/* Right side: Date Filter */}
+        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
           {timeRange === 'custom' && (
             <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
               <input
