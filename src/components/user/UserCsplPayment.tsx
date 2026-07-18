@@ -642,14 +642,52 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   const fetchBillersAndCategories = async () => {
     setCategoriesLoading(true);
     try {
-      // Start with our comprehensive standard categories list
-      const mergedCats = [...STANDARD_CATEGORIES];
-      mergedCats.sort((a, b) => a.name.localeCompare(b.name));
-      setCategories(mergedCats);
-      setAllBillers([]); // Clear memory, we will fetch on demand per category
+      const response = await fetch('/api/bbps/category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const data = await response.json();
+      if (data.status === 'SUCCESS' && data.data?.bbps) {
+        const allowedCategories = ["electricity", "mobile postpaid", "credit card", "broadband", "gas"];
+        let filtered = data.data.bbps.filter((cat: any) => {
+          const nameLower = cat.cat_name.toLowerCase();
+          if (nameLower.includes("lpg gas")) return false;
+          return allowedCategories.some(allowed => nameLower.includes(allowed));
+        });
+        const hasCreditCard = filtered.some((cat: any) => cat.cat_name.toLowerCase().includes("credit card"));
+        if (!hasCreditCard) {
+          filtered.push({ cat_id: "C05", cat_name: "Credit Card" });
+        }
+        
+        // Map to expected Category UI format
+        const mappedCats = filtered.map((c: any) => {
+          let icon = Zap;
+          let gradient = 'from-amber-400 to-orange-500';
+          let desc = 'Pay power bill';
+          const nameStr = c.cat_name.toLowerCase();
+          
+          if (nameStr.includes('postpaid')) { icon = Smartphone; gradient = 'from-violet-500 to-purple-600'; desc = 'Mobile bill'; }
+          else if (nameStr.includes('credit card')) { icon = CreditCard; gradient = 'from-indigo-500 to-blue-600'; desc = 'Pay CC bill'; }
+          else if (nameStr.includes('broadband')) { icon = Wifi; gradient = 'from-cyan-500 to-blue-500'; desc = 'Internet bill'; }
+          else if (nameStr.includes('gas')) { icon = Flame; gradient = 'from-rose-500 to-red-600'; desc = 'Piped gas bill'; }
+          
+          return { name: c.cat_name, id: c.cat_id, icon, gradient, desc };
+        });
+
+        // Sort dynamically
+        const orderMap: Record<string, number> = { "electricity": 1, "mobile postpaid": 2, "credit card": 3, "broadband": 4, "gas": 5 };
+        mappedCats.sort((a, b) => {
+           const getOrder = (n: string) => orderMap[Object.keys(orderMap).find(k => n.toLowerCase().includes(k)) || ""] || 99;
+           return getOrder(a.name) - getOrder(b.name);
+        });
+        setCategories(mappedCats);
+      } else {
+        throw new Error("Failed to load categories");
+      }
+      setAllBillers([]); // Clear memory
     } catch (err) {
       console.error('Error fetching categories:', err);
-      toast.error('Failed to load billers and categories.');
+      toast.error('Failed to load categories from PayPrime proxy.');
     } finally {
       setCategoriesLoading(false);
     }
@@ -681,35 +719,41 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     setCcf1Fee(0);
     setCustomerEmail('');
     setBillerDropdownOpen(false);
-    setAmountOptions({
-      base: true,
-      lateFee: false,
-      additional: false,
-      fixed: false
-    });
+    setAmountOptions({ base: true, lateFee: false, additional: false, fixed: false });
     setSelectedPaymentMode('UPI');
-
     setCategoriesLoading(true);
 
     try {
       const searchLower = catName.toLowerCase();
-      
-      let query = supabase.from('billavenue_billers').select('*').limit(10000);
-      
-      if (searchLower === 'mobile prepaid') {
-        query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
+      let resData: any = null;
+
+      if (searchLower.includes("credit card")) {
+        const response = await fetch('/api/bbps/card/get-biller', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+        const data = await response.json();
+        if (data.status === 'SUCCESS' && data.data?.billers) {
+          resData = data.data.billers;
+        } else throw new Error(data.message || "Failed to fetch credit card billers");
       } else {
-        query = query.ilike('category', `%${catName}%`);
+        // find category object to get cat_id
+        const catObj = categories.find((c: any) => c.name === catName);
+        const catId = (catObj as any)?.id || "C01"; // Fallback to electricity if not found
+
+        const response = await fetch('/api/bbps/biller', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cat_id: catId })
+        });
+        const data = await response.json();
+        if (data.status === 'SUCCESS' && data.data) {
+          resData = data.data;
+        } else throw new Error(data.message || "Failed to fetch billers");
       }
 
-      const { data: dbBillers, error } = await query;
-      if (error) throw error;
-
-      let filtered: BillerInfo[] = (dbBillers || []).map((b: any) => ({
+      let filtered: BillerInfo[] = (resData || []).map((b: any) => ({
         billerId: b.biller_id,
         billerName: b.biller_name,
-        categoryName: b.category || catName,
-        metadata: b.metadata
+        categoryName: catName,
+        metadata: b
       }));
 
       // Sort alphabetically
@@ -717,16 +761,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
       if (filtered.length === 0 && MOCK_BILLERS_BY_CATEGORY[searchLower]) {
         filtered = MOCK_BILLERS_BY_CATEGORY[searchLower];
-      }
-
-      // Prepend UAT testing billers for easy access during validation (except prepaid or in production)
-      if (searchLower !== 'mobile prepaid' && import.meta.env.MODE !== 'production') {
-        const uatBillers = [
-          { billerId: 'OTME00005XXZ43', billerName: 'UAT Fetch & Pay (OTME00005XXZ43)', categoryName: catName },
-          { billerId: 'OTNS00005XXZ43', billerName: 'UAT Quick Pay (OTNS00005XXZ43)', categoryName: catName }
-        ];
-        const cleanFiltered = filtered.filter(b => b.billerId !== 'OTME00005XXZ43' && b.billerId !== 'OTNS00005XXZ43');
-        filtered = [...uatBillers, ...cleanFiltered];
       }
 
       setBillers(filtered);
