@@ -89,3 +89,8 @@ export async function cashWithdrawal(withdrawalData: any) {
 export async function miniStatement(statementData: any) {
   return callAepsApi('/api/v1/aeps/miniStatement', statementData);
 }
+
+// 8. Wallet Balance API
+export async function getWalletBalance() {
+  return callAepsApi('/api/v1/wallet/balance', {});
+}

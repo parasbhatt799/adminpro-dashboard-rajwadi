@@ -114,6 +114,9 @@ export default function Dashboard() {
   const [billAvenueBalance, setBillAvenueBalance] = useState<number | null>(null);
   const [billAvenueLoading, setBillAvenueLoading] = useState<boolean>(false);
   const [billAvenueError, setBillAvenueError] = useState<string | null>(null);
+  const [csplBalance, setCsplBalance] = useState<number | null>(null);
+  const [csplLoading, setCsplLoading] = useState<boolean>(false);
+  const [csplError, setCsplError] = useState<string | null>(null);
 
   const fetchPayprimeBalance = useCallback(async () => {
     try {
@@ -155,6 +158,33 @@ export default function Dashboard() {
       setBillAvenueBalance(null);
     } finally {
       setBillAvenueLoading(false);
+    }
+  }, []);
+
+  const fetchCsplBalance = useCallback(async () => {
+    setCsplLoading(true);
+    setCsplError(null);
+    try {
+      const res = await fetch("/api/cspl-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      if (data && data.error) {
+        setCsplError(data.error);
+        setCsplBalance(null);
+      } else if (data && typeof data.balance !== 'undefined') {
+        setCsplBalance(Number(data.balance));
+      } else {
+        setCsplError("Failed to fetch CSPL balance");
+        setCsplBalance(null);
+      }
+    } catch (e: any) {
+      console.error("Failed to fetch CSPL balance:", e);
+      setCsplError(e.message || "Connection error");
+      setCsplBalance(null);
+    } finally {
+      setCsplLoading(false);
     }
   }, []);
 
@@ -647,6 +677,7 @@ export default function Dashboard() {
     fetchStats();
     fetchPayprimeBalance();
     fetchBillAvenueBalance();
+    fetchCsplBalance();
     fetchRefundedRequests();
     fetchReasons();
 
@@ -664,7 +695,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(statsChannel);
     };
-  }, [fetchStats, fetchPayprimeBalance, fetchBillAvenueBalance, fetchRefundedRequests, fetchReasons]);
+  }, [fetchStats, fetchPayprimeBalance, fetchBillAvenueBalance, fetchCsplBalance, fetchRefundedRequests, fetchReasons]);
 
   const rangeLabels: Record<TimeRange, string> = {
     today: 'Today',
@@ -725,6 +756,31 @@ export default function Dashboard() {
                   onClick={fetchBillAvenueBalance}
                   className="text-[8px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer ml-1"
                   title="Reload BillAvenue Balance"
+                >
+                  Fetch
+                </button>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100/80 px-3.5 py-1.5 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300">
+              <Wallet size={14} className="text-orange-600 animate-pulse" />
+              <span className="text-[10px] font-black text-orange-700 tracking-wider uppercase">cspl balance:</span>
+              <span className="text-sm font-extrabold text-amber-900 font-mono flex items-center">
+                {csplLoading ? (
+                  <span className="text-[10px] font-bold text-slate-400">Loading...</span>
+                ) : csplError ? (
+                  <span className="text-[10px] font-bold text-rose-500 cursor-help" title={csplError}>Error</span>
+                ) : csplBalance !== null ? (
+                  `₹${csplBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400">N/A</span>
+                )}
+              </span>
+              {!csplLoading && (
+                <button
+                  onClick={fetchCsplBalance}
+                  className="text-[8px] bg-orange-100 hover:bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer ml-1"
+                  title="Reload CSPL Balance"
                 >
                   Fetch
                 </button>

@@ -1652,6 +1652,23 @@ async function startServer() {
     }
   });
 
+  app.post("/api/cspl-balance", async (req, res) => {
+    try {
+      const data = await camlenioAeps.getWalletBalance();
+      if (data.status === 'SUCCESS' || data.balance !== undefined || data.status === true) {
+        res.json({ balance: Number(data.balance || data.walletBalance || data.amount) || 0, username: data.username || "CSPL Wallet" });
+      } else {
+        res.json({ balance: 0, error: data.message || "Failed to fetch CSPL balance" });
+      }
+    } catch (err: any) {
+      console.error("[CSPL] Fetch Balance Error:", err);
+      if (err.message && err.message.includes("IPv4")) {
+        return res.json({ balance: 0, error: "API IP whitelist error (Only IPv4 allowed)" });
+      }
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // ==========================================
   // CAMLENIO BBPS API ROUTES
   // ==========================================
