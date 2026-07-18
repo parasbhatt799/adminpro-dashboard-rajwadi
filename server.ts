@@ -14,6 +14,7 @@ import dns from "dns";
 import * as billAvenue from "./services/billavenue.js";
 import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
+import * as camlenioBbps from "./services/camlenio_bbps.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -1647,6 +1648,117 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error("[PayPrime] Fetch Balance Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ==========================================
+  // CAMLENIO BBPS API ROUTES
+  // ==========================================
+
+  app.post("/api/cspl/billerinfo", async (req, res) => {
+    try {
+      const { billerId } = req.body;
+      if (!billerId) return res.status(400).json({ error: "billerId is required" });
+      const data = await camlenioBbps.getBillerInfo(billerId);
+      res.json(data);
+    } catch (err: any) {
+      console.error("[CSPL BBPS] Biller Info Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/cspl/billfetch", async (req, res) => {
+    try {
+      const { billerId, customerParams, customerMobile, customerEmail } = req.body;
+      const inputParams = Object.keys(customerParams || {}).map((key) => ({
+        paramName: key,
+        paramValue: customerParams[key]
+      }));
+      
+      const payload = {
+        billerId,
+        customerMobile,
+        customerEmail,
+        inputParams
+      };
+      
+      const data = await camlenioBbps.fetchBill(payload);
+      res.json(data);
+    } catch (err: any) {
+      console.error("[CSPL BBPS] Bill Fetch Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/cspl/billpay", async (req, res) => {
+    try {
+      const { userId, billerId, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
+      
+      const paramKeys = Object.keys(customerParams || {});
+      const firstParamName = paramKeys[0] || "Consumer Number";
+      const paramValue = customerParams[firstParamName] || "";
+      
+      const requestId = "CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString();
+      
+      let additionalInfo: any[] = [];
+      if (billDetails && billDetails.additionalInfo) {
+         additionalInfo = billDetails.additionalInfo;
+      }
+      
+      const totalDeduction = Number(amount) + Number(serviceCharge || 0) + Number(ccf1Fee || 0);
+
+      // Verify balance first
+      const { data: user, error: userError } = await supabaseAdmin
+        .from("users_profiles")
+        .select("wallet_balance")
+        .eq("id", userId)
+        .single();
+        
+      if (userError || !user || user.wallet_balance < totalDeduction) {
+        return res.json({ status: "ERROR", message: "Insufficient balance or user not found." });
+      }
+      
+      const payload = {
+        requestId,
+        billerId,
+        customerName: billDetails?.customerName || "BBPS Customer",
+        customerMobile: customerMobile || "9999999999",
+        billamount: amount,
+        billPeriod: billDetails?.billPeriod || "N/A",
+        billNumber: billDetails?.billNumber || "N/A",
+        placeholderValue: firstParamName,
+        paramValue: paramValue,
+        client_referenceId: "REF-" + requestId,
+        additionalInfo
+      };
+      
+      const data = await camlenioBbps.payBill(payload);
+      
+      if (data.responseCode === '000' || data.status === 'SUCCESS') {
+        const newBalance = user.wallet_balance - totalDeduction;
+        await supabaseAdmin.from("users_profiles").update({ wallet_balance: newBalance }).eq("id", userId);
+        data.new_balance = newBalance;
+        
+        const txnRefId = data.txnRefId || data.refid || requestId;
+        await supabaseAdmin.from("billavenue_transactions").insert({
+          user_id: userId,
+          txn_ref_id: txnRefId,
+          biller_id: billerId,
+          amount: amount,
+          status: "SUCCESS",
+          payment_mode: paymentMode || "WALLET",
+          response: data
+        });
+        
+        data.status = 'SUCCESS'; // Ensure frontend gets SUCCESS
+      } else {
+         data.status = 'ERROR';
+      }
+      
+      res.json(data);
+    } catch (err: any) {
+      console.error("[CSPL BBPS] Bill Pay Error:", err);
       res.status(500).json({ error: err.message });
     }
   });

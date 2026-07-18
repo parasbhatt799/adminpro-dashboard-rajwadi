@@ -808,7 +808,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         if (!response.ok) throw new Error('Failed to fetch biller details from API');
         
         const data = await response.json();
-        const apiBiller = Array.isArray(data.biller) ? data.biller[0] : data.biller;
+        const apiBiller = data?.data?.biller || (Array.isArray(data.biller) ? data.biller[0] : data.biller);
         
         if (apiBiller) {
           bDetail = apiBiller;
@@ -1033,14 +1033,14 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         }
       }
 
-      const response = data?.billFetchResponse;
+      const response = data?.data?.billerResponse || data?.data || data?.billFetchResponse;
       const billerResp = response?.billerResponse || response; // Sometimes nested under billerResponse
-      const respCode = billerResp?.responseCode || response?.responseCode;
+      const respCode = billerResp?.responseCode || response?.responseCode || data?.data?.responseCode;
       
-      if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success') {
-        const billAmountStr = billerResp?.billAmount || response?.billAmount;
+      if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success' || data?.status === 'SUCCESS') {
+        const billAmountStr = billerResp?.billAmount || response?.billAmount || data?.data?.billerResponse?.billAmount;
         const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs
-        const addInfo = billerResp?.additionalInfo?.info || response?.additionalInfo?.info || [];
+        const addInfo = billerResp?.additionalInfo?.info || response?.additionalInfo?.info || data?.data?.billerResponse?.additionalInfo || [];
         const additionalInfoArray = Array.isArray(addInfo) ? addInfo : [addInfo].filter((i: any) => i && i.infoName);
 
         setBillDetails({
@@ -1221,7 +1221,9 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           paymentMode: selectedPaymentMode,
           quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
           ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined,
-          billDetails: billDetails
+          billDetails: billDetails,
+          serviceCharge: calculateServiceCharge(amt),
+          ccf1Fee: ccf1Fee
         })
       });
 
