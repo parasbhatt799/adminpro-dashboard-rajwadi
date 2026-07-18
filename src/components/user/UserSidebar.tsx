@@ -110,6 +110,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
 
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const [isBillAvenueEnabled, setIsBillAvenueEnabled] = useState(true);
+  const [isCsplEnabled, setIsCsplEnabled] = useState(false);
   const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
   const [isFundTransferEnabled, setIsFundTransferEnabled] = useState(true);
 
@@ -131,6 +132,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       if (!isBillAvenueEnabled && (item.id === 'billavenue-payment' || item.id === 'billavenue-search')) {
         return false;
       }
+      if (!isCsplEnabled && (item.id === 'cspl-payment' || item.id === 'cspl-search')) {
+        return false;
+      }
       if (!isRechargeEnabled && item.id === 'mobile-recharge') {
         return false;
       }
@@ -143,7 +147,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
 
   useEffect(() => {
     const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_recharge_enabled, is_fund_transfer_enabled').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled').eq('id', 1).single();
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
@@ -152,6 +156,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         });
         setIsBbpsEnabled(data.is_bbps_enabled ?? true);
         setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
+        setIsCsplEnabled(data.is_cspl_enabled ?? false);
         setIsRechargeEnabled(data.is_recharge_enabled ?? true);
         setIsFundTransferEnabled(data.is_fund_transfer_enabled ?? true);
       }
@@ -171,6 +176,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
           }
           if ('is_billavenue_enabled' in payload.new) {
             setIsBillAvenueEnabled(payload.new.is_billavenue_enabled ?? true);
+          }
+          if ('is_cspl_enabled' in payload.new) {
+            setIsCsplEnabled(payload.new.is_cspl_enabled ?? false);
           }
           if ('is_recharge_enabled' in payload.new) {
             setIsRechargeEnabled(payload.new.is_recharge_enabled ?? true);
