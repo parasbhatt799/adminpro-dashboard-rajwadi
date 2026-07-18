@@ -171,7 +171,11 @@ export default function Dashboard() {
       });
       const data = await res.json();
       if (data && data.error) {
-        setCsplError(data.error);
+        let errMsg = data.error;
+        if (data.debug) {
+           errMsg += ` | Debug: ${JSON.stringify(data.debug)}`;
+        }
+        setCsplError(errMsg);
         setCsplBalance(null);
       } else if (data && typeof data.balance !== 'undefined') {
         setCsplBalance(Number(data.balance));
