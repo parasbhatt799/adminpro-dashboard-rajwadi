@@ -1697,8 +1697,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                           selectedBiller && (
                             <form onSubmit={handleFetchBill} className="space-y-4 border-t border-slate-100/80 pt-4 animate-in fade-in duration-300">
                               {inputParams.map((param, idx) => {
-                                const isUat = selectedBiller.billerId === 'OTME00005XXZ43' || selectedBiller.billerId === 'OTNS00005XXZ43';
-                                const labelText = getFieldLabel(param.paramName, isUat);
+                                const labelText = param.paramName;
                                 return (
                                   <div key={idx} className="space-y-1.5">
                                     <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
