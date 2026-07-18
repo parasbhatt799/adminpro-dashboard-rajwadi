@@ -1657,8 +1657,18 @@ async function startServer() {
       const data = await camlenioAeps.getWalletBalance();
       console.log("[CSPL] Balance API Full Response:", JSON.stringify(data));
       
-      if (data.status === 'SUCCESS' || data.responseCode === '000' || data.balance !== undefined || data.status === true || data.walletBalance !== undefined || data.amount !== undefined) {
-        res.json({ balance: Number(data.balance || data.walletBalance || data.amount) || 0, username: data.username || "CSPL Wallet" });
+      const isSuccess = data.status === 'SUCCESS' || data.status === 'success' || data.status_code === 200 || data.responseCode === '000' || data.status === true;
+      
+      if (isSuccess) {
+        // Handle out_wallet and wallet fields from CSPL
+        let balance = 0;
+        if (data.out_wallet !== undefined) balance = Number(data.out_wallet);
+        else if (data.wallet !== undefined) balance = Number(data.wallet);
+        else if (data.walletBalance !== undefined) balance = Number(data.walletBalance);
+        else if (data.balance !== undefined) balance = Number(data.balance);
+        else if (data.amount !== undefined) balance = Number(data.amount);
+        
+        res.json({ balance, username: data.username || "CSPL Wallet" });
       } else {
         res.json({ balance: 0, error: data.message || "Failed to fetch CSPL balance", debug: data });
       }
