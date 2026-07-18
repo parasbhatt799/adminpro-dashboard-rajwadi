@@ -1744,9 +1744,7 @@ async function startServer() {
     try {
       const { userId, billerId, billerName, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
       
-      const paramKeys = Object.keys(customerParams || {});
-      const firstParamName = paramKeys[0] || "Consumer Number";
-      const paramValue = customerParams[firstParamName] || "";
+
       
       const requestId = "CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString();
       
@@ -1783,8 +1781,6 @@ async function startServer() {
         billamount: Number(amount),
         billPeriod: billDetails?.billPeriod || "N/A",
         billNumber: billDetails?.billNumber || "N/A",
-        placeholderValue: firstParamName,
-        paramValue: paramValue,
         client_referenceId: "REF-" + requestId,
         inputParams
       };
