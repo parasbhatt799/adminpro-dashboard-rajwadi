@@ -714,92 +714,90 @@ export default function Dashboard() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div className="space-y-2">
-          <div className="flex flex-col 2xl:flex-row 2xl:items-center gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
-          <motion.button
-            whileHover={{ rotate: 360 }}
-            transition={{ duration: 0.5 }}
-            onClick={() => window.location.reload()}
-            className="p-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100 flex items-center justify-center group"
-            title="Reload Page"
-          >
-            <RefreshCw size={18} className="group-active:scale-90 transition-transform" />
-          </motion.button>
-        </div>
+        {/* Left side: Title and Wallets */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-4 overflow-hidden">
+          <div className="flex items-center gap-3 shrink-0">
+            <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
+            <motion.button
+              whileHover={{ rotate: 360 }}
+              transition={{ duration: 0.5 }}
+              onClick={() => window.location.reload()}
+              className="p-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl transition-all shadow-lg shadow-indigo-100 flex items-center justify-center group"
+              title="Reload Page"
+            >
+              <RefreshCw size={18} className="group-active:scale-90 transition-transform" />
+            </motion.button>
+          </div>
 
-        <div className="flex items-center gap-2 flex-nowrap overflow-x-auto hide-scrollbar pb-1">
-          {payprimeBalance !== null && (
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100/80 px-2.5 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-              <Wallet size={13} className="text-blue-600 animate-pulse" />
-              <span className="text-[9px] font-black text-blue-700 tracking-wider uppercase">payprime:</span>
-              <span className="text-xs font-extrabold text-indigo-900 font-mono">
-                ₹{payprimeBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-              {payprimeUsername && (
-                <span className="hidden sm:inline-block text-[8px] font-bold text-blue-500 bg-blue-100/50 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">
-                  {payprimeUsername}
+          <div className="flex items-center gap-2 flex-nowrap overflow-x-auto hide-scrollbar pb-1">
+            {payprimeBalance !== null && (
+              <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+                <Wallet size={12} className="text-blue-600 animate-pulse" />
+                <span className="text-[9px] font-black text-blue-700 tracking-wider uppercase">PP:</span>
+                <span className="text-xs font-extrabold text-indigo-900 font-mono">
+                  ₹{payprimeBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
+                {payprimeUsername && (
+                  <span className="hidden sm:inline-block text-[8px] font-bold text-blue-500 bg-blue-100/50 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">
+                    {payprimeUsername}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+              <Wallet size={12} className="text-emerald-600 animate-pulse" />
+              <span className="text-[9px] font-black text-emerald-700 tracking-wider uppercase">BA:</span>
+              <span className="text-xs font-extrabold text-teal-900 font-mono flex items-center">
+                {billAvenueLoading ? (
+                  <span className="text-[9px] font-bold text-slate-400">...</span>
+                ) : billAvenueError ? (
+                  <span className="text-[9px] font-bold text-rose-500 cursor-help" title={billAvenueError}>Err</span>
+                ) : billAvenueBalance !== null ? (
+                  `₹${billAvenueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ) : (
+                  <span className="text-[9px] font-bold text-slate-400">N/A</span>
+                )}
+              </span>
+              {!billAvenueLoading && (
+                <button
+                  onClick={fetchBillAvenueBalance}
+                  className="text-[8px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-1 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
+                  title="Reload BillAvenue Balance"
+                >
+                  <RefreshCw size={8} />
+                </button>
               )}
             </div>
-          )}
 
-          <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/80 px-2.5 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-            <Wallet size={13} className="text-emerald-600 animate-pulse" />
-            <span className="text-[9px] font-black text-emerald-700 tracking-wider uppercase">billavenue:</span>
-            <span className="text-xs font-extrabold text-teal-900 font-mono flex items-center">
-              {billAvenueLoading ? (
-                <span className="text-[9px] font-bold text-slate-400">Loading...</span>
-              ) : billAvenueError ? (
-                <span className="text-[9px] font-bold text-rose-500 cursor-help" title={billAvenueError}>Error</span>
-              ) : billAvenueBalance !== null ? (
-                `₹${billAvenueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              ) : (
-                <span className="text-[9px] font-bold text-slate-400">N/A</span>
+            <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+              <Wallet size={12} className="text-orange-600 animate-pulse" />
+              <span className="text-[9px] font-black text-orange-700 tracking-wider uppercase">CSPL:</span>
+              <span className="text-xs font-extrabold text-amber-900 font-mono flex items-center">
+                {csplLoading ? (
+                  <span className="text-[9px] font-bold text-slate-400">...</span>
+                ) : csplError ? (
+                  <span className="text-[9px] font-bold text-rose-500 cursor-help" title={csplError}>Err</span>
+                ) : csplBalance !== null ? (
+                  `₹${csplBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                ) : (
+                  <span className="text-[9px] font-bold text-slate-400">N/A</span>
+                )}
+              </span>
+              {!csplLoading && (
+                <button
+                  onClick={fetchCsplBalance}
+                  className="text-[8px] bg-orange-100 hover:bg-orange-200 text-orange-800 px-1 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
+                  title="Reload CSPL Balance"
+                >
+                  <RefreshCw size={8} />
+                </button>
               )}
-            </span>
-            {!billAvenueLoading && (
-              <button
-                onClick={fetchBillAvenueBalance}
-                className="text-[8px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
-                title="Reload BillAvenue Balance"
-              >
-                Fetch
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100/80 px-2.5 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-            <Wallet size={13} className="text-orange-600 animate-pulse" />
-            <span className="text-[9px] font-black text-orange-700 tracking-wider uppercase">cspl:</span>
-            <span className="text-xs font-extrabold text-amber-900 font-mono flex items-center">
-              {csplLoading ? (
-                <span className="text-[9px] font-bold text-slate-400">Loading...</span>
-              ) : csplError ? (
-                <span className="text-[9px] font-bold text-rose-500 cursor-help" title={csplError}>Error</span>
-              ) : csplBalance !== null ? (
-                `₹${csplBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              ) : (
-                <span className="text-[9px] font-bold text-slate-400">N/A</span>
-              )}
-            </span>
-            {!csplLoading && (
-              <button
-                onClick={fetchCsplBalance}
-                className="text-[8px] bg-orange-100 hover:bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
-                title="Reload CSPL Balance"
-              >
-                Fetch
-              </button>
-            )}
+            </div>
           </div>
         </div>
-      </div>
 
-      <p className="text-slate-500 mt-1">Real-time statistics for your platform.</p>
-
-        <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+        {/* Right side: Date Filter */}
           {timeRange === 'custom' && (
             <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-slate-200 animate-in fade-in slide-in-from-right-4 duration-300 shadow-sm">
               <input
@@ -866,6 +864,8 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      
+      <p className="text-slate-500 mt-1 -translate-y-4">Real-time statistics for your platform.</p>
 
       {error && (
         <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-bold flex items-center gap-3">
