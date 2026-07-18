@@ -203,10 +203,18 @@ export async function fetchBill(
   customerParams: Record<string, string>,
   customerMobile: string
 ): Promise<any> {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billFetchRequest>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>INT</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
     <billerId>${billerId}</billerId>
+    <customerInfo>
+        <customerMobile>${customerMobile}</customerMobile>
+    </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
           .map(
@@ -218,15 +226,6 @@ export async function fetchBill(
           )
           .join('')}
     </inputParams>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>INT</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>
-    </customerInfo>
-    <billerAdhoc>false</billerAdhoc>
 </billFetchRequest>`;
   return callBillAvenueApi(ENDPOINTS.fetch, xml);
 }
@@ -239,10 +238,18 @@ export async function validateBill(
   customerParams: Record<string, string>,
   customerMobile: string
 ): Promise<any> {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billValidationRequest>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>INT</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
     <billerId>${billerId}</billerId>
+    <customerInfo>
+        <customerMobile>${customerMobile}</customerMobile>
+    </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
           .map(
@@ -254,14 +261,6 @@ export async function validateBill(
           )
           .join('')}
     </inputParams>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>INT</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>
-    </customerInfo>
 </billValidationRequest>`;
   return callBillAvenueApi(ENDPOINTS.validate, xml);
 }
