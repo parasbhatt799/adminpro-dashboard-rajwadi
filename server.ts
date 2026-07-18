@@ -1742,7 +1742,7 @@ async function startServer() {
 
   app.get("/api/cspl/logs", (req, res) => {
     try {
-      const logs = require('fs').readFileSync('cspl_payload_logs.txt', 'utf-8');
+      const logs = fs.readFileSync('cspl_payload_logs.txt', 'utf-8');
       res.type('text/plain').send(logs);
     } catch (err) {
       res.status(404).send("Logs not found or not created yet.");
@@ -1808,7 +1808,7 @@ async function startServer() {
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
-      require('fs').appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - " + JSON.stringify(payload) + "\n");
+      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - " + JSON.stringify(payload) + "\n");
       
       const data = await camlenioBbps.payBill(payload);
       
