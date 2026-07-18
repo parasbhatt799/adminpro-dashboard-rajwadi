@@ -828,15 +828,34 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
       // Map parameters
       const paramsList: BillerInputParam[] = [];
-      const inputParamsData = bDetail?.inputParams?.input || [];
-      const inputParamsArray = Array.isArray(inputParamsData) ? inputParamsData : [inputParamsData];
+      let rawParams: any[] = [];
+      
+      if (bDetail?.billerInputParams) {
+        // BillAvenue XML parsed format: billerInputParams.paramInfo
+        if (bDetail.billerInputParams.paramInfo) {
+          const info = bDetail.billerInputParams.paramInfo;
+          rawParams = Array.isArray(info) ? info : [info];
+        } 
+        // BillAvenue JSON format: billerInputParams[0].paramsList or billerInputParams.paramsList
+        else if (Array.isArray(bDetail.billerInputParams) && bDetail.billerInputParams[0]?.paramsList) {
+          rawParams = bDetail.billerInputParams[0].paramsList;
+        } else if (bDetail.billerInputParams.paramsList) {
+          const list = bDetail.billerInputParams.paramsList;
+          rawParams = Array.isArray(list) ? list : [list];
+        }
+      } else if (bDetail?.inputParams?.input) {
+        // PayPrime format
+        const input = bDetail.inputParams.input;
+        rawParams = Array.isArray(input) ? input : [input];
+      }
 
-      inputParamsArray.forEach((p: any) => {
-        if (p.paramName) {
+      rawParams.forEach((p: any) => {
+        const pName = p.paramName || p.parameterName;
+        if (pName) {
           paramsList.push({
-            paramName: p.paramName,
+            paramName: pName,
             dataType: p.dataType || 'ALPHANUMERIC',
-            optional: p.optional === 'true' || p.optional === true
+            optional: p.isOptional === 'true' || p.isOptional === true || p.optional === 'true' || p.optional === true
           });
         }
       });
