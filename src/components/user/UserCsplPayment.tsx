@@ -322,6 +322,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     dueDate?: string;
     billNumber?: string;
     billDate?: string;
+    billerResponse?: any;
     billPeriod?: string;
     additionalInfo?: { infoName: string; infoValue: string }[];
     fetchSupported: boolean;
