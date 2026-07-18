@@ -37,8 +37,7 @@ import {
   FileText,
   GraduationCap,
   Activity,
-  Home,
-  Zap
+  Home
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
@@ -643,52 +642,14 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   const fetchBillersAndCategories = async () => {
     setCategoriesLoading(true);
     try {
-      const response = await fetch('/api/bbps/category', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data = await response.json();
-      if (data.status === 'SUCCESS' && data.data?.bbps) {
-        const allowedCategories = ["electricity", "mobile postpaid", "credit card", "broadband", "gas"];
-        let filtered = data.data.bbps.filter((cat: any) => {
-          const nameLower = cat.cat_name.toLowerCase();
-          if (nameLower.includes("lpg gas")) return false;
-          return allowedCategories.some(allowed => nameLower.includes(allowed));
-        });
-        const hasCreditCard = filtered.some((cat: any) => cat.cat_name.toLowerCase().includes("credit card"));
-        if (!hasCreditCard) {
-          filtered.push({ cat_id: "C05", cat_name: "Credit Card" });
-        }
-        
-        // Map to expected Category UI format
-        const mappedCats = filtered.map((c: any) => {
-          let icon = Zap;
-          let gradient = 'from-amber-400 to-orange-500';
-          let desc = 'Pay power bill';
-          const nameStr = c.cat_name.toLowerCase();
-          
-          if (nameStr.includes('postpaid')) { icon = Smartphone; gradient = 'from-violet-500 to-purple-600'; desc = 'Mobile bill'; }
-          else if (nameStr.includes('credit card')) { icon = CreditCard; gradient = 'from-indigo-500 to-blue-600'; desc = 'Pay CC bill'; }
-          else if (nameStr.includes('broadband')) { icon = Wifi; gradient = 'from-cyan-500 to-blue-500'; desc = 'Internet bill'; }
-          else if (nameStr.includes('gas')) { icon = Flame; gradient = 'from-rose-500 to-red-600'; desc = 'Piped gas bill'; }
-          
-          return { name: c.cat_name, id: c.cat_id, icon, gradient, desc };
-        });
-
-        // Sort dynamically
-        const orderMap: Record<string, number> = { "electricity": 1, "mobile postpaid": 2, "credit card": 3, "broadband": 4, "gas": 5 };
-        mappedCats.sort((a, b) => {
-           const getOrder = (n: string) => orderMap[Object.keys(orderMap).find(k => n.toLowerCase().includes(k)) || ""] || 99;
-           return getOrder(a.name) - getOrder(b.name);
-        });
-        setCategories(mappedCats);
-      } else {
-        throw new Error("Failed to load categories");
-      }
-      setAllBillers([]); // Clear memory
+      // Start with our comprehensive standard categories list
+      const mergedCats = [...STANDARD_CATEGORIES];
+      mergedCats.sort((a, b) => a.name.localeCompare(b.name));
+      setCategories(mergedCats);
+      setAllBillers([]); // Clear memory, we will fetch on demand per category
     } catch (err) {
       console.error('Error fetching categories:', err);
-      toast.error('Failed to load categories from PayPrime proxy.');
+      toast.error('Failed to load billers and categories.');
     } finally {
       setCategoriesLoading(false);
     }
@@ -720,41 +681,35 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     setCcf1Fee(0);
     setCustomerEmail('');
     setBillerDropdownOpen(false);
-    setAmountOptions({ base: true, lateFee: false, additional: false, fixed: false });
+    setAmountOptions({
+      base: true,
+      lateFee: false,
+      additional: false,
+      fixed: false
+    });
     setSelectedPaymentMode('UPI');
+
     setCategoriesLoading(true);
 
     try {
       const searchLower = catName.toLowerCase();
-      let resData: any = null;
 
-      if (searchLower.includes("credit card")) {
-        const response = await fetch('/api/bbps/card/get-biller', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-        const data = await response.json();
-        if (data.status === 'SUCCESS' && data.data?.billers) {
-          resData = data.data.billers;
-        } else throw new Error(data.message || "Failed to fetch credit card billers");
+      let query = supabase.from('billavenue_billers').select('*').limit(10000);
+
+      if (searchLower === 'mobile prepaid') {
+        query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
       } else {
-        // find category object to get cat_id
-        const catObj = categories.find((c: any) => c.name === catName);
-        const catId = (catObj as any)?.id || "C01"; // Fallback to electricity if not found
-
-        const response = await fetch('/api/bbps/biller', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ cat_id: catId })
-        });
-        const data = await response.json();
-        if (data.status === 'SUCCESS' && data.data) {
-          resData = data.data;
-        } else throw new Error(data.message || "Failed to fetch billers");
+        query = query.ilike('category', `%${catName}%`);
       }
 
-      let filtered: BillerInfo[] = (resData || []).map((b: any) => ({
+      const { data: dbBillers, error } = await query;
+      if (error) throw error;
+
+      let filtered: BillerInfo[] = (dbBillers || []).map((b: any) => ({
         billerId: b.biller_id,
         billerName: b.biller_name,
-        categoryName: catName,
-        metadata: b
+        categoryName: b.category || catName,
+        metadata: b.metadata
       }));
 
       // Sort alphabetically
@@ -762,6 +717,16 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
       if (filtered.length === 0 && MOCK_BILLERS_BY_CATEGORY[searchLower]) {
         filtered = MOCK_BILLERS_BY_CATEGORY[searchLower];
+      }
+
+      // Prepend UAT testing billers for easy access during validation (except prepaid or in production)
+      if (searchLower !== 'mobile prepaid' && import.meta.env.MODE !== 'production') {
+        const uatBillers = [
+          { billerId: 'OTME00005XXZ43', billerName: 'UAT Fetch & Pay (OTME00005XXZ43)', categoryName: catName },
+          { billerId: 'OTNS00005XXZ43', billerName: 'UAT Quick Pay (OTNS00005XXZ43)', categoryName: catName }
+        ];
+        const cleanFiltered = filtered.filter(b => b.billerId !== 'OTME00005XXZ43' && b.billerId !== 'OTNS00005XXZ43');
+        filtered = [...uatBillers, ...cleanFiltered];
       }
 
       setBillers(filtered);
@@ -839,15 +804,15 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       // FALLBACK: If the DB doesn't have billerInputParams, fetch from live API
       if (!bDetail?.billerInputParams && !bDetail?.inputParams) {
         console.log('Parameters missing in DB, fetching from live API...');
-        const response = await fetch('/api/cspl/billerinfo', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ billerId: biller.billerId }) });
+        const response = await fetch('/api/cspl/billerinfo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billerId: biller.billerId }) });
         if (!response.ok) throw new Error('Failed to fetch biller details from API');
-        
+
         const data = await response.json();
         const apiBiller = Array.isArray(data.biller) ? data.biller[0] : data.biller;
-        
+
         if (apiBiller) {
           bDetail = apiBiller;
-          
+
           // Silently update the database so we don't have to fetch it again next time
           supabase.from('billavenue_billers').update({
             metadata: {
@@ -880,13 +845,13 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       // Map parameters
       const paramsList: BillerInputParam[] = [];
       let rawParams: any[] = [];
-      
+
       if (bDetail?.billerInputParams) {
         // BillAvenue XML parsed format: billerInputParams.paramInfo
         if (bDetail.billerInputParams.paramInfo) {
           const info = bDetail.billerInputParams.paramInfo;
           rawParams = Array.isArray(info) ? info : [info];
-        } 
+        }
         // BillAvenue JSON format: billerInputParams[0].paramsList or billerInputParams.paramsList
         else if (Array.isArray(bDetail.billerInputParams) && bDetail.billerInputParams[0]?.paramsList) {
           rawParams = bDetail.billerInputParams[0].paramsList;
@@ -936,7 +901,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         ) {
           fallbackParams = [{ paramName: 'Consumer Number', dataType: 'NUMERIC', optional: false }];
         } else if (
-          nameStr.toLowerCase().includes('torrent') || 
+          nameStr.toLowerCase().includes('torrent') ||
           bIdStr.toUpperCase().startsWith('TORR')
         ) {
           fallbackParams = [{ paramName: 'Service Number', dataType: 'NUMERIC', optional: false }];
@@ -1041,18 +1006,15 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           billerId: selectedBiller.billerId,
+          customerParams: cleanedParams,
           customerMobile: validCustomerMobile,
-          customerEmail,
-          inputParams: Object.keys(cleanedParams).map(k => ({
-            paramName: k,
-            paramValue: cleanedParams[k]
-          }))
+          customerEmail
         })
       });
 
       const data = await res.json();
-      
-      if (!res.ok || data.status === 'ERROR' || data.status === 'FAILED') {
+
+      if (!res.ok || data.status === 'ERROR') {
         const errorMsg = data.message || 'Error fetching bill. Please check your details.';
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
@@ -1074,7 +1036,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       const response = data?.billFetchResponse;
       const billerResp = response?.billerResponse || response; // Sometimes nested under billerResponse
       const respCode = billerResp?.responseCode || response?.responseCode;
-      
+
       if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success') {
         const billAmountStr = billerResp?.billAmount || response?.billAmount;
         const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs
@@ -1246,29 +1208,20 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
 
     try {
-      const primaryParamName = Object.keys(formInputs)[0] || "Account Number";
-      const primaryParamValue = Object.values(formInputs)[0] || "";
-      const additionalInfo = Object.keys(formInputs).map(key => ({
-        infoName: key,
-        infoValue: formInputs[key]
-      }));
-
       const res = await fetch('/api/cspl/billpay', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId,
-          requestId: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
           billerId: selectedBiller.billerId,
-          customerName: billDetails?.customerName || "Customer",
-          customerMobile: customerMobile || '9898989898',
-          billAmount: amt,
-          billPeriod: billDetails?.billPeriod || "N/A",
-          billNumber: billDetails?.billNumber || "N/A",
-          placeholderValue: primaryParamName,
-          paramValue: primaryParamValue,
-          clientReferenceId: "REF-" + Math.floor(Math.random() * 1000000000),
-          additionalInfo
+          customerParams: formInputs,
+          customerMobile,
+          customerEmail,
+          amount: amt,
+          paymentMode: selectedPaymentMode,
+          quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
+          ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined,
+          billDetails: billDetails
         })
       });
 
