@@ -1693,7 +1693,7 @@ async function startServer() {
 
   app.post("/api/cspl/billpay", async (req, res) => {
     try {
-      const { userId, billerId, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
+      const { userId, billerId, billerName, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
       
       const paramKeys = Object.keys(customerParams || {});
       const firstParamName = paramKeys[0] || "Consumer Number";
@@ -1741,15 +1741,28 @@ async function startServer() {
         data.new_balance = newBalance;
         
         const txnRefId = data.txnRefId || data.refid || requestId;
-        await supabaseAdmin.from("billavenue_transactions").insert({
+        
+        const { error: insertError } = await supabaseAdmin.from("bbps_submissions").insert({
           user_id: userId,
-          txn_ref_id: txnRefId,
-          biller_id: billerId,
-          amount: amount,
-          status: "SUCCESS",
-          payment_mode: paymentMode || "WALLET",
-          response: data
+          service_type: "BBPS Bill Pay",
+          provider: billerId,
+          consumer_number: paramValue || "BBPS Account",
+          amount: Number(amount),
+          charges: Number(serviceCharge || 0) + Number(ccf1Fee || 0),
+          status: "approved",
+          rejection_reason: txnRefId,
+          metadata: {
+            billerName: billerName || billDetails?.billerName || billDetails?.customerName || billerId,
+            date: new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
+            consumerDetails: customerParams,
+            paymentMode: paymentMode || "WALLET",
+            csplResponse: data
+          }
         });
+
+        if (insertError) {
+          console.error("[CSPL BBPS] Failed to log transaction in bbps_submissions:", insertError);
+        }
         
         data.status = 'SUCCESS'; // Ensure frontend gets SUCCESS
       } else {

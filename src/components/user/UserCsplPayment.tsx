@@ -1275,6 +1275,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         body: JSON.stringify({
           userId,
           billerId: selectedBiller.billerId,
+          billerName: selectedBiller.billerName,
           customerParams: formInputs,
           customerMobile,
           customerEmail,
