@@ -267,6 +267,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
+  const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
+  const [globalLiveBbpsLimit, setGlobalLiveBbpsLimit] = useState<number>(500000);
 
   // CCF1 Convenience Fee Configuration
   const [billerConfig, setBillerConfig] = useState<any>(null);
@@ -610,7 +612,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until, mobile_number')
+        .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until, mobile_number, custom_daily_live_bbps_limit')
         .eq('id', userId)
         .single();
       if (!error && data) {
@@ -634,6 +636,17 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         .eq('is_active', true)
         .order('min_amount', { ascending: true });
       if (slabData) setSlabs(slabData);
+
+      // Fetch BBPS max limit from qr_settings
+      const { data: settingsData } = await supabase
+        .from('qr_settings')
+        .select('bbps_max_limit, daily_live_bbps_limit')
+        .eq('id', 1)
+        .single();
+      if (settingsData) {
+        setBbpsMaxLimit(Number(settingsData.bbps_max_limit) || 50000);
+        setGlobalLiveBbpsLimit(Number(settingsData.daily_live_bbps_limit) || 500000);
+      }
     } catch (err) {
       console.error('Error fetching profile:', err);
     }
@@ -1108,7 +1121,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     }
   };
 
-  const initiatePayment = () => {
+  const initiatePayment = async () => {
     const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
     if (!amt || isNaN(amt) || amt <= 0) {
       toast.error('Please enter a valid amount.');
@@ -1122,6 +1135,54 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
     if (lockoutSeconds > 0) {
       toast.error(`TPIN locked. Please try again in ${Math.ceil(lockoutSeconds / 60)} minutes.`);
+      return;
+    }
+
+    if (amt > bbpsMaxLimit) {
+      toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${amt.toLocaleString()}.`);
+      return;
+    }
+
+    if (amt >= 50000) {
+      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
+      return;
+    }
+
+    // Enforce daily Live BBPS limit
+    try {
+      const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0
+        ? Number(userProfile.custom_daily_live_bbps_limit)
+        : (Number(globalLiveBbpsLimit) || 500000);
+
+      const tzOffset = 5.5 * 60 * 60 * 1000;
+      const now = new Date();
+      const istTime = new Date(now.getTime() + tzOffset);
+      const istTodayStart = new Date(Date.UTC(
+        istTime.getUTCFullYear(),
+        istTime.getUTCMonth(),
+        istTime.getUTCDate(),
+        0, 0, 0, 0
+      ));
+      const utcTodayStart = new Date(istTodayStart.getTime() - tzOffset);
+
+      const { data: todayBBPS, error: sumError } = await supabase
+        .from('bbps_submissions')
+        .select('amount')
+        .eq('user_id', userId)
+        .in('status', ['pending', 'approved'])
+        .gte('created_at', utcTodayStart.toISOString());
+
+      if (sumError) throw sumError;
+
+      const todaySum = (todayBBPS || []).reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+
+      if (todaySum + amt > userLimit) {
+        toast.error(`Daily Live BBPS limit exceeded. You have already used ₹${todaySum.toLocaleString()} of your ₹${userLimit.toLocaleString()} limit today. Remaining limit: ₹${Math.max(0, userLimit - todaySum).toLocaleString()}.`);
+        return;
+      }
+    } catch (err: any) {
+      console.error('Error checking daily Live BBPS limit:', err);
+      toast.error('Failed to verify daily limit. Please try again.');
       return;
     }
 
@@ -1880,26 +1941,33 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                   </div>
 
                                   {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Bill Base Amount</span>
-                                        <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    Number(manualAmount) >= 50000 ? (
+                                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                        <AlertTriangle size={16} className="shrink-0" />
+                                        <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
                                       </div>
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Transaction Charges</span>
-                                        <span className="font-semibold text-indigo-500">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      {ccf1Fee > 0 && (
+                                    ) : (
+                                      <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
                                         <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                          <span>Convenience Fee (CCF1 + GST)</span>
-                                          <span className="font-semibold text-indigo-500">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                          <span>Bill Base Amount</span>
+                                          <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
-                                      )}
-                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                        <span>Total Debited</span>
-                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                          <span>Transaction Charges</span>
+                                          <span className="font-semibold text-indigo-500">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                        {ccf1Fee > 0 && (
+                                          <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                            <span>Convenience Fee (CCF1 + GST)</span>
+                                            <span className="font-semibold text-indigo-500">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                          </div>
+                                        )}
+                                        <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                          <span>Total Debited</span>
+                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
                                       </div>
-                                    </div>
+                                    )
                                   )}
 
                                   {/* 3. Due Date */}
@@ -1967,26 +2035,33 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                   </div>
 
                                   {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Bill Base Amount</span>
-                                        <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    Number(manualAmount) >= 50000 ? (
+                                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                        <AlertTriangle size={16} className="shrink-0" />
+                                        <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
                                       </div>
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Transaction Charges</span>
-                                        <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      {ccf1Fee > 0 && (
+                                    ) : (
+                                      <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
                                         <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                          <span>Convenience Fee (CCF1 + GST)</span>
-                                          <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                          <span>Bill Base Amount</span>
+                                          <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
-                                      )}
-                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                        <span>Total Debited</span>
-                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                          <span>Transaction Charges</span>
+                                          <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                        {ccf1Fee > 0 && (
+                                          <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                            <span>Convenience Fee (CCF1 + GST)</span>
+                                            <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                          </div>
+                                        )}
+                                        <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                          <span>Total Debited</span>
+                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
                                       </div>
-                                    </div>
+                                    )
                                   )}
                                 </div>
                               )
