@@ -798,8 +798,34 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     }
 
     try {
-      // Use metadata from DB instead of API call
-      const bDetail = biller.metadata;
+      // Use metadata from DB initially
+      let bDetail = biller.metadata;
+
+      // FALLBACK: If the DB doesn't have billerInputParams, fetch from live API
+      if (!bDetail?.billerInputParams && !bDetail?.inputParams) {
+        console.log('Parameters missing in DB, fetching from live API...');
+        const response = await fetch(`/api/bbps/billers?billerId=${biller.billerId}`);
+        if (!response.ok) throw new Error('Failed to fetch biller details from API');
+        
+        const data = await response.json();
+        const apiBiller = Array.isArray(data.biller) ? data.biller[0] : data.biller;
+        
+        if (apiBiller) {
+          bDetail = apiBiller;
+          
+          // Silently update the database so we don't have to fetch it again next time
+          supabase.from('billavenue_billers').update({
+            metadata: {
+              ...biller.metadata,
+              billerInputParams: apiBiller.billerInputParams,
+              billerPaymentModes: apiBiller.billerPaymentModes,
+              billerAmountOptions: apiBiller.billerAmountOptions
+            }
+          }).eq('biller_id', biller.billerId).then(({ error }) => {
+            if (error) console.error('Failed to cache biller params:', error);
+          });
+        }
+      }
 
       const ccf1FeeInfo = bDetail?.interchangeFeeCCF1;
       if (ccf1FeeInfo) {
