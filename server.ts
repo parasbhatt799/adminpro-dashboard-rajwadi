@@ -1788,11 +1788,10 @@ async function startServer() {
         billamount: Number(amount),
         billPeriod: safeBillPeriod,
         billNumber: safeBillNumber,
-        placeholderValue: firstParamName,
-        paramValue: paramValue,
         client_referenceId: "REF-" + requestId,
         paymentMode: "Wallet",
-        paymentChannel: "AGT"
+        paymentChannel: "AGT",
+        inputParams
       };
 
       if (additionalInfo && additionalInfo.length > 0) {
