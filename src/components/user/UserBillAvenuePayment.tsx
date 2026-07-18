@@ -860,14 +860,53 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         }
       });
 
-      const finalParams = paramsList.length > 0
-        ? paramsList
-        : selectedCategory === 'Credit Card'
-          ? [
-              { paramName: 'Last 4 Digits of Credit Card', dataType: 'NUMERIC', optional: false },
-              { paramName: 'Registered Mobile No', dataType: 'NUMERIC', optional: false }
-            ]
-          : [{ paramName: 'Consumer / Subscriber Number', dataType: 'ALPHANUMERIC' }];
+      // Smart Fallback Parameters Mapping when API doesn't return parameters
+      const nameStr = biller.billerName || '';
+      const bIdStr = biller.billerId || '';
+      let fallbackParams: BillerInputParam[] = [];
+
+      if (selectedCategory === 'Credit Card') {
+        fallbackParams = [
+          { paramName: 'Last 4 Digits of Credit Card', dataType: 'NUMERIC', optional: false },
+          { paramName: 'Registered Mobile No', dataType: 'NUMERIC', optional: false }
+        ];
+      } else if (selectedCategory === 'Electricity') {
+        if (
+          nameStr.toLowerCase().includes('dgvcl') ||
+          nameStr.toLowerCase().includes('mgvcl') ||
+          nameStr.toLowerCase().includes('pgvcl') ||
+          nameStr.toLowerCase().includes('ugvcl') ||
+          nameStr.toLowerCase().includes('dakshin gujarat') ||
+          nameStr.toLowerCase().includes('paschim gujarat') ||
+          nameStr.toLowerCase().includes('madhya gujarat') ||
+          nameStr.toLowerCase().includes('uttar gujarat') ||
+          nameStr.toLowerCase().includes('geb') ||
+          nameStr.toLowerCase().includes('gujarat')
+        ) {
+          fallbackParams = [{ paramName: 'Consumer Number', dataType: 'NUMERIC', optional: false }];
+        } else if (
+          nameStr.toLowerCase().includes('torrent') || 
+          bIdStr.toUpperCase().startsWith('TORR')
+        ) {
+          fallbackParams = [{ paramName: 'Service Number', dataType: 'NUMERIC', optional: false }];
+        } else {
+          fallbackParams = [{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC', optional: false }];
+        }
+      } else if (selectedCategory === 'Mobile Postpaid') {
+        fallbackParams = [{ paramName: 'Mobile Number', dataType: 'NUMERIC', optional: false }];
+      } else if (selectedCategory === 'LPG Gas' || selectedCategory === 'Gas' || selectedCategory === 'Piped Gas') {
+        fallbackParams = [{ paramName: 'Customer Reference Number', dataType: 'ALPHANUMERIC', optional: false }];
+      } else if (selectedCategory === 'Water') {
+        fallbackParams = [{ paramName: 'Connection Number', dataType: 'ALPHANUMERIC', optional: false }];
+      } else if (selectedCategory === 'Fastag') {
+        fallbackParams = [{ paramName: 'Vehicle Registration Number', dataType: 'ALPHANUMERIC', optional: false }];
+      } else if (selectedCategory === 'DTH') {
+        fallbackParams = [{ paramName: 'Subscriber ID', dataType: 'ALPHANUMERIC', optional: false }];
+      } else {
+        fallbackParams = [{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC', optional: false }];
+      }
+
+      const finalParams = paramsList.length > 0 ? paramsList : fallbackParams;
       setInputParams(finalParams);
       if (prefilledCardNumber) {
         setFormInputs({ [finalParams[0].paramName]: prefilledCardNumber });
@@ -878,16 +917,19 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         fetchRechargePlans(biller.billerId);
       }
     } catch (err) {
-      // Fallback parameters
-      const finalParams = selectedCategory === 'Credit Card'
-        ? [
-            { paramName: 'Last 4 Digits of Credit Card', dataType: 'NUMERIC', optional: false },
-            { paramName: 'Registered Mobile No', dataType: 'NUMERIC', optional: false }
-          ]
-        : [{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC' }];
-      setInputParams(finalParams);
+      // Catch fallback parameters mapping
+      let fallbackParams: BillerInputParam[] = [];
+      if (selectedCategory === 'Credit Card') {
+        fallbackParams = [
+          { paramName: 'Last 4 Digits of Credit Card', dataType: 'NUMERIC', optional: false },
+          { paramName: 'Registered Mobile No', dataType: 'NUMERIC', optional: false }
+        ];
+      } else {
+        fallbackParams = [{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC', optional: false }];
+      }
+      setInputParams(fallbackParams);
       if (prefilledCardNumber) {
-        setFormInputs({ [finalParams[0].paramName]: prefilledCardNumber });
+        setFormInputs({ [fallbackParams[0].paramName]: prefilledCardNumber });
       }
     } finally {
       setBillerParamsLoading(false);
