@@ -1017,7 +1017,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
       const data = await res.json();
       
-      if (!res.ok || data.status === 'ERROR') {
+      if (!res.ok || data.status === 'ERROR' || data.status === 'FAILED') {
         const errorMsg = data.message || 'Error fetching bill. Please check your details.';
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
