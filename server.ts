@@ -1786,9 +1786,7 @@ async function startServer() {
       const safeBillPeriod = (billDetails?.billPeriod || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
       const safeBillNumber = (billDetails?.billNumber || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
 
-      const paramKeys = Object.keys(customerParams || {});
-      const firstParamName = paramKeys[0] || "Consumer Number";
-      const paramValueStr = customerParams[firstParamName] || "";
+
 
       const payload: any = {
         requestId,
@@ -1800,7 +1798,7 @@ async function startServer() {
         paymentMode: "Wallet",
         paymentChannel: "AGT",
         placeholderValue: firstParamName,
-        paramValue: paramValueStr
+        paramValue: paramValue
       };
 
       if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
