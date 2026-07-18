@@ -1774,10 +1774,7 @@ async function startServer() {
         paramValue: customerParams[key]
       }));
 
-      // Fallback variables that might be needed if they are not in req.body
-      const customerEmail = req.body.customerEmail || "test@test.com";
-
-      const payload = {
+      const payload: any = {
         requestId,
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
@@ -1785,12 +1782,15 @@ async function startServer() {
         billamount: Number(amount),
         billPeriod: billDetails?.billPeriod || "N/A",
         billNumber: billDetails?.billNumber || "N/A",
-        placeholderValue: firstParamName,
-        paramValue: paramValue,
         client_referenceId: "REF-" + requestId,
-        additionalInfo,
-        inputParams // Adding this just in case their system reads it for multi-params
+        inputParams
       };
+
+      if (additionalInfo && additionalInfo.length > 0) {
+        payload.additionalInfo = additionalInfo;
+      }
+
+      console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
       
       const data = await camlenioBbps.payBill(payload);
       
