@@ -60,15 +60,13 @@ async function run() {
 
   console.log(`[Test Fetch] Card digits: ${cardLast4Digits}, Mobile: ${registeredMobile}`);
 
-  // Using the exact structure from the BBPS Integration doc
+  // Correct agentDeviceInfo tag structure for INT channel
   const xmlPayload = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billFetchRequest>
     <agentDeviceInfo>
-        <app>usepay</app>
-        <imei>000000000000000</imei>
-        <initChannel>INT</initChannel>
         <ip>103.108.7.127</ip>
-        <os>web</os>
+        <initChannel>INT</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
     <billerId>${billerId}</billerId>
