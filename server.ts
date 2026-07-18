@@ -1799,9 +1799,8 @@ async function startServer() {
         paymentChannel: "AGT"
       };
 
-      if (inputParams && inputParams.length > 0) {
-        payload.inputParams = inputParams;
-      }
+      payload.placeholderValue = firstParamName;
+      payload.paramValue = paramValue;
 
       if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
       if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
