@@ -40,7 +40,6 @@ const DeveloperLogs = lazy(() => import('./components/DeveloperLogs'));
 const UserPanel = lazy(() => import('./components/user/UserPanel'));
 const UserPayment = lazy(() => import('./components/user/UserPayment'));
 const UserBillPayment = lazy(() => import('./components/user/UserBillPayment'));
-const UserCsplPayment = lazy(() => import('./components/user/UserCsplPayment'));
 const UserBillAvenuePayment = lazy(() => import('./components/user/UserBillAvenuePayment'));
 const UserBillHistory = lazy(() => import('./components/user/UserBillHistory'));
 const UserViewReceipt = lazy(() => import('./components/user/UserViewReceipt'));
@@ -933,14 +932,14 @@ export default function App() {
           if (data) {
             const isEnabled = isOn ? data.is_service_on_sound_enabled : data.is_service_off_sound_enabled;
             if (isEnabled) {
-              const soundUrl = isOn
+              const soundUrl = isOn 
                 ? (data.service_on_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3')
                 : (data.service_off_sound_url || 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
               const audio = new Audio(soundUrl);
               audio.play().catch(() => { });
             }
           }
-        } catch (err) { }
+        } catch (err) {}
       };
 
       // Listen for Service Status Changes (is_bill_enabled)
@@ -1108,7 +1107,7 @@ export default function App() {
     };
 
     const activityEvents = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
-
+    
     // Add event listeners
     activityEvents.forEach(event => {
       window.addEventListener(event, resetTimer);
@@ -1179,29 +1178,29 @@ export default function App() {
         >
           <Route path="dashboard" element={
             (adminRole === 'full' || adminPermissions.includes('dashboard')) ? <Dashboard /> :
-              adminPermissions.includes('users-list') ? <Navigate to="/users-list" replace /> :
-                adminPermissions.includes('qr-payment-requests') ? <Navigate to="/qr-payment-requests" replace /> :
-                  adminPermissions.includes('bill-payment-requests') ? <Navigate to="/bill-payment-requests" replace /> :
-                    adminPermissions.includes('payout-requests') ? <Navigate to="/payout-requests" replace /> :
-                      adminPermissions.includes('qr-upload') ? <Navigate to="/qr-upload" replace /> :
-                        adminPermissions.includes('qr-history') ? <Navigate to="/qr-history" replace /> :
-                          adminPermissions.includes('super-distributors') ? <Navigate to="/super-distributors" replace /> :
-                            adminPermissions.includes('distributors') ? <Navigate to="/distributors" replace /> :
-                              adminPermissions.includes('distributor-withdrawals') ? <Navigate to="/distributor-withdrawals" replace /> :
-                                adminPermissions.includes('service-charge') ? <Navigate to="/service-charge" replace /> :
-                                  adminPermissions.includes('reason-entry') ? <Navigate to="/reason-entry" replace /> :
-                                    adminPermissions.includes('complaints-management') ? <Navigate to="/complaints-management" replace /> :
-                                      adminPermissions.includes('headlines') ? <Navigate to="/headlines" replace /> :
-                                        adminPermissions.includes('policies') ? <Navigate to="/policies" replace /> :
-                                          adminPermissions.includes('user-agreement') ? <Navigate to="/agreement" replace /> :
-                                            adminPermissions.includes('bank-upload') ? <Navigate to="/bank-upload" replace /> :
-                                              adminPermissions.includes('withdrawal-balance') ? <Navigate to="/withdrawal-balance" replace /> :
-                                                adminPermissions.includes('qr-master') ? <Navigate to="/qr-master" replace /> :
-                                                  adminPermissions.includes('kyc-verification-requests') ? <Navigate to="/kyc-verification-requests" replace /> :
-                                                    adminPermissions.includes('qr-gallery') ? <Navigate to="/qr-gallery" replace /> :
-                                                      adminPermissions.includes('bbps-history') ? <Navigate to="/bbps-history" replace /> :
-                                                        adminPermissions.includes('recharge-dashboard') ? <Navigate to="/admin/recharge-dashboard" replace /> :
-                                                          <Navigate to="/change-password" replace />
+            adminPermissions.includes('users-list') ? <Navigate to="/users-list" replace /> :
+            adminPermissions.includes('qr-payment-requests') ? <Navigate to="/qr-payment-requests" replace /> :
+            adminPermissions.includes('bill-payment-requests') ? <Navigate to="/bill-payment-requests" replace /> :
+            adminPermissions.includes('payout-requests') ? <Navigate to="/payout-requests" replace /> :
+            adminPermissions.includes('qr-upload') ? <Navigate to="/qr-upload" replace /> :
+            adminPermissions.includes('qr-history') ? <Navigate to="/qr-history" replace /> :
+            adminPermissions.includes('super-distributors') ? <Navigate to="/super-distributors" replace /> :
+            adminPermissions.includes('distributors') ? <Navigate to="/distributors" replace /> :
+            adminPermissions.includes('distributor-withdrawals') ? <Navigate to="/distributor-withdrawals" replace /> :
+            adminPermissions.includes('service-charge') ? <Navigate to="/service-charge" replace /> :
+            adminPermissions.includes('reason-entry') ? <Navigate to="/reason-entry" replace /> :
+            adminPermissions.includes('complaints-management') ? <Navigate to="/complaints-management" replace /> :
+            adminPermissions.includes('headlines') ? <Navigate to="/headlines" replace /> :
+            adminPermissions.includes('policies') ? <Navigate to="/policies" replace /> :
+            adminPermissions.includes('user-agreement') ? <Navigate to="/agreement" replace /> :
+            adminPermissions.includes('bank-upload') ? <Navigate to="/bank-upload" replace /> :
+            adminPermissions.includes('withdrawal-balance') ? <Navigate to="/withdrawal-balance" replace /> :
+            adminPermissions.includes('qr-master') ? <Navigate to="/qr-master" replace /> :
+            adminPermissions.includes('kyc-verification-requests') ? <Navigate to="/kyc-verification-requests" replace /> :
+            adminPermissions.includes('qr-gallery') ? <Navigate to="/qr-gallery" replace /> :
+            adminPermissions.includes('bbps-history') ? <Navigate to="/bbps-history" replace /> :
+            adminPermissions.includes('recharge-dashboard') ? <Navigate to="/admin/recharge-dashboard" replace /> :
+            <Navigate to="/change-password" replace />
           } />
           <Route path="change-password" element={<ChangePassword adminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
 
@@ -1228,7 +1227,7 @@ export default function App() {
           <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
           <Route path="bbps-history" element={(adminRole === 'full' || adminPermissions.includes('bbps-history')) ? <BBPSHistory /> : <Navigate to="/dashboard" replace />} />
           <Route path="admin/recharge-dashboard" element={(adminRole === 'full' || adminPermissions.includes('recharge-dashboard')) ? <RechargeDashboard /> : <Navigate to="/dashboard" replace />} />
-
+          
           <Route path="reports">
             <Route path="qr-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
             <Route path="bill-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <BillPaymentReport /> : <Navigate to="/dashboard" replace />} />
@@ -1258,7 +1257,6 @@ export default function App() {
           <Route path="fund-transfer" element={<UserFundTransfer userId={userId} />} />
           <Route path="partner-fund-transfer" element={<PartnerFundTransfer userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />
-          <Route path="cspl-payment" element={<UserCsplPayment userId={userId} />} />
           <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} mode="payment" />} />
           <Route path="billavenue-search" element={<UserBillAvenuePayment userId={userId} mode="search" />} />
           <Route path="recharge" element={<UserRecharge userId={userId} />} />

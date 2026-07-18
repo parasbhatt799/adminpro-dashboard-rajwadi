@@ -693,8 +693,9 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
     try {
       const searchLower = catName.toLowerCase();
-      let query = supabase.from('cspl_billers').select('*').limit(10000);
-
+      
+      let query = supabase.from('billavenue_billers').select('*').limit(10000);
+      
       if (searchLower === 'mobile prepaid') {
         query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
       } else {
@@ -803,15 +804,15 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       // FALLBACK: If the DB doesn't have billerInputParams, fetch from live API
       if (!bDetail?.billerInputParams && !bDetail?.inputParams) {
         console.log('Parameters missing in DB, fetching from live API...');
-        const response = await fetch('/api/cspl/billerinfo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billerId: biller.billerId }) });
+        const response = await fetch('/api/cspl/billerinfo', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ billerId: biller.billerId }) });
         if (!response.ok) throw new Error('Failed to fetch biller details from API');
-
+        
         const data = await response.json();
         const apiBiller = Array.isArray(data.biller) ? data.biller[0] : data.biller;
-
+        
         if (apiBiller) {
           bDetail = apiBiller;
-
+          
           // Silently update the database so we don't have to fetch it again next time
           supabase.from('billavenue_billers').update({
             metadata: {
@@ -844,13 +845,13 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       // Map parameters
       const paramsList: BillerInputParam[] = [];
       let rawParams: any[] = [];
-
+      
       if (bDetail?.billerInputParams) {
         // BillAvenue XML parsed format: billerInputParams.paramInfo
         if (bDetail.billerInputParams.paramInfo) {
           const info = bDetail.billerInputParams.paramInfo;
           rawParams = Array.isArray(info) ? info : [info];
-        }
+        } 
         // BillAvenue JSON format: billerInputParams[0].paramsList or billerInputParams.paramsList
         else if (Array.isArray(bDetail.billerInputParams) && bDetail.billerInputParams[0]?.paramsList) {
           rawParams = bDetail.billerInputParams[0].paramsList;
@@ -900,7 +901,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         ) {
           fallbackParams = [{ paramName: 'Consumer Number', dataType: 'NUMERIC', optional: false }];
         } else if (
-          nameStr.toLowerCase().includes('torrent') ||
+          nameStr.toLowerCase().includes('torrent') || 
           bIdStr.toUpperCase().startsWith('TORR')
         ) {
           fallbackParams = [{ paramName: 'Service Number', dataType: 'NUMERIC', optional: false }];
@@ -1012,7 +1013,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       });
 
       const data = await res.json();
-
+      
       if (!res.ok || data.status === 'ERROR') {
         const errorMsg = data.message || 'Error fetching bill. Please check your details.';
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
@@ -1035,7 +1036,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       const response = data?.billFetchResponse;
       const billerResp = response?.billerResponse || response; // Sometimes nested under billerResponse
       const respCode = billerResp?.responseCode || response?.responseCode;
-
+      
       if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success') {
         const billAmountStr = billerResp?.billAmount || response?.billAmount;
         const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs

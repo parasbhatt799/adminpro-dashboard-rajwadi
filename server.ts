@@ -14,7 +14,6 @@ import dns from "dns";
 import * as billAvenue from "./services/billavenue.js";
 import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
-import * as csplBbps from "./services/cspl_bbps.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -1757,7 +1756,7 @@ async function startServer() {
       const apiResponse = await camlenioAeps.getKycStatus(spkey, txnRef);
 
       const isVerified = apiResponse.status === "success" || apiResponse.kycStatus === "verified" || apiResponse.data?.kycStatus === "verified" || apiResponse.success === true;
-
+      
       if (isVerified) {
         const { error: dbError } = await supabaseAdmin
           .from("aeps_agents")
@@ -1835,7 +1834,7 @@ async function startServer() {
       };
 
       const apiResponse = await camlenioAeps.dailyLogin(payload);
-
+      
       const isSuccess = apiResponse.status === "success" || apiResponse.responseCode === "0000" || apiResponse.responseCode === "00" || apiResponse.success === true;
 
       if (isSuccess) {
@@ -2145,10 +2144,10 @@ async function startServer() {
             .from('billavenue_billers')
             .select('*')
             .range(from, from + limit - 1);
-
+          
           if (dbError) throw dbError;
           if (!data || data.length === 0) break;
-
+          
           dbBillers.push(...data);
           if (data.length < limit) break;
           from += limit;
@@ -2279,11 +2278,11 @@ async function startServer() {
     try {
       const { ca, mobile, ca_key, mobile_key } = req.query;
       if (!ca || !mobile) {
-        return res.json({ error: "Missing ?ca= or ?mobile=" });
+         return res.json({ error: "Missing ?ca= or ?mobile=" });
       }
       const params = {
-        [String(ca_key || "Last 4 Digits of Credit Card")]: String(ca),
-        [String(mobile_key || "Registered Mobile No")]: String(mobile)
+         [String(ca_key || "Last 4 Digits of Credit Card")]: String(ca),
+         [String(mobile_key || "Registered Mobile No")]: String(mobile)
       };
       const response = await billAvenue.fetchBill("SBIC00000NATDN", params, String(mobile));
       res.json({
@@ -3761,42 +3760,6 @@ async function startServer() {
     }
   });
 
-
-
-  // ==========================================
-  // CAMLENIO CSPL BBPS ROUTES
-  // ==========================================
-  app.post("/api/cspl/billerinfo", async (req, res) => {
-    try {
-      const data = await csplBbps.getBillerInfo(req.body.billerId);
-      res.json(data);
-    } catch (error: any) {
-      res.status(500).json({ status: "ERROR", message: error.message });
-    }
-  });
-
-  app.post("/api/cspl/billfetch", async (req, res) => {
-    try {
-      const { billerId, customerMobile, customerEmail, customerParams } = req.body;
-      const inputParams = Object.keys(customerParams || {}).map(k => ({
-        paramName: k,
-        paramValue: customerParams[k]
-      }));
-      const data = await csplBbps.fetchBill(billerId, customerMobile, customerEmail, inputParams);
-      res.json(data);
-    } catch (error: any) {
-      res.status(500).json({ status: "ERROR", message: error.message });
-    }
-  });
-
-  app.post("/api/cspl/billpay", async (req, res) => {
-    try {
-      const data = await csplBbps.payBill(req.body);
-      res.json(data);
-    } catch (error: any) {
-      res.status(500).json({ status: "ERROR", message: error.message });
-    }
-  });
 
   app.all("/api/bbps-proxy", async (req, res) => {
     try {
