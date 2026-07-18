@@ -1680,7 +1680,7 @@ async function startServer() {
         else if (b !== undefined) balance = b;
         else if (a !== undefined) balance = a;
         
-        res.json({ balance, username: data.username || "CSPL Wallet" });
+        res.json({ balance, raw_cspl: data, username: data.username || "CSPL Wallet" });
       } else {
         res.json({ balance: 0, error: data.message || "Failed to fetch CSPL balance", debug: data });
       }
