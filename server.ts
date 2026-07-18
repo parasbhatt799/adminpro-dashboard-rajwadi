@@ -1660,13 +1660,25 @@ async function startServer() {
       const isSuccess = data.status === 'SUCCESS' || data.status === 'success' || data.status_code === 200 || data.responseCode === '000' || data.status === true;
       
       if (isSuccess) {
-        // Handle out_wallet and wallet fields from CSPL
+        // Handle out_wallet and wallet fields from CSPL, safely removing commas
+        const parseAmount = (val: any) => {
+          if (val === undefined || val === null) return undefined;
+          const parsed = parseFloat(String(val).replace(/,/g, ''));
+          return isNaN(parsed) ? undefined : parsed;
+        };
+
         let balance = 0;
-        if (data.out_wallet !== undefined) balance = Number(data.out_wallet);
-        else if (data.wallet !== undefined) balance = Number(data.wallet);
-        else if (data.walletBalance !== undefined) balance = Number(data.walletBalance);
-        else if (data.balance !== undefined) balance = Number(data.balance);
-        else if (data.amount !== undefined) balance = Number(data.amount);
+        const outW = parseAmount(data.out_wallet);
+        const w = parseAmount(data.wallet);
+        const wB = parseAmount(data.walletBalance);
+        const b = parseAmount(data.balance);
+        const a = parseAmount(data.amount);
+
+        if (outW !== undefined) balance = outW;
+        else if (w !== undefined) balance = w;
+        else if (wB !== undefined) balance = wB;
+        else if (b !== undefined) balance = b;
+        else if (a !== undefined) balance = a;
         
         res.json({ balance, username: data.username || "CSPL Wallet" });
       } else {
