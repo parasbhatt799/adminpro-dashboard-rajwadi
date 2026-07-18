@@ -1799,6 +1799,7 @@ async function startServer() {
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
+      require('fs').appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - " + JSON.stringify(payload) + "\n");
       
       const data = await camlenioBbps.payBill(payload);
       
