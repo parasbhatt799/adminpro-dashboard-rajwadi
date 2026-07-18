@@ -1774,6 +1774,10 @@ async function startServer() {
         paramValue: customerParams[key]
       }));
 
+      const paramKeys = Object.keys(customerParams || {});
+      const firstParamName = paramKeys[0] || "Consumer Number";
+      const paramValue = customerParams[firstParamName] || "";
+
       const payload: any = {
         requestId,
         billerId,
@@ -1782,6 +1786,8 @@ async function startServer() {
         billamount: Number(amount),
         billPeriod: billDetails?.billPeriod || "N/A",
         billNumber: billDetails?.billNumber || "N/A",
+        placeholderValue: firstParamName,
+        paramValue: paramValue,
         client_referenceId: "REF-" + requestId,
         inputParams
       };
