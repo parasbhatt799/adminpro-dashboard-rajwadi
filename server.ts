@@ -1804,7 +1804,7 @@ async function startServer() {
           user_id: userId,
           service_type: "BBPS Bill Pay",
           provider: billerId,
-          consumer_number: paramValue || "BBPS Account",
+          consumer_number: Object.values(customerParams || {})[0] || "BBPS Account",
           amount: Number(amount),
           charges: Number(serviceCharge || 0) + Number(ccf1Fee || 0),
           status: "approved",
