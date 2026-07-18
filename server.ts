@@ -1776,10 +1776,7 @@ async function startServer() {
       }
 
 
-      const inputParams = Object.keys(customerParams || {}).map(key => ({
-        paramName: key,
-        paramValue: customerParams[key]
-      }));
+
 
 
       const paramKeys = Object.keys(customerParams || {});
@@ -1789,19 +1786,25 @@ async function startServer() {
       const safeBillPeriod = (billDetails?.billPeriod || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
       const safeBillNumber = (billDetails?.billNumber || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
 
+      const paramKeys = Object.keys(customerParams || {});
+      const firstParamName = paramKeys[0] || "Consumer Number";
+      const paramValueStr = customerParams[firstParamName] || "";
+
       const payload: any = {
         requestId,
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
         customerMobile: customerMobile || "9999999999",
         billamount: Number(amount),
-        billPeriod: safeBillPeriod,
-        billNumber: safeBillNumber,
         client_referenceId: "REF-" + requestId,
         paymentMode: "Wallet",
         paymentChannel: "AGT",
-        inputParams
+        placeholderValue: firstParamName,
+        paramValue: paramValueStr
       };
+
+      if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
+      if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
 
       if (additionalInfo && additionalInfo.length > 0) {
         payload.additionalInfo = additionalInfo;
