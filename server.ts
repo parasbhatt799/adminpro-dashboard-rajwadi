@@ -1793,7 +1793,7 @@ async function startServer() {
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
         customerMobile: customerMobile || "9999999999",
-        billamount: Number(amount),
+        billAmount: Number(amount),
         client_referenceId: "REF-" + requestId,
         paymentMode: "Wallet",
         paymentChannel: "AGT"
