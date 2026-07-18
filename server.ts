@@ -1793,27 +1793,18 @@ async function startServer() {
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
         customerMobile: customerMobile || "9999999999",
-        billamount: Number(amount), // From PDF
-        billAmount: Number(amount), // CamelCase variation
-        amount: Number(amount),     // General variation
+        billamount: Number(amount),
         client_referenceId: "REF-" + requestId,
-        paymentMode: "Wallet",      // From Dev call
-        paymentMethod: "Wallet",    // BBPS standard name
-        paymentChannel: "AGT",
-        placeholderValue: firstParamName,
-        paramValue: paramValue
+        paymentMode: "Wallet",
+        paymentChannel: "AGT"
       };
+
+      if (inputParams && inputParams.length > 0) {
+        payload.inputParams = inputParams;
+      }
 
       if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
       if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
-      
-      if (billDetails?.billerResponse) {
-        let safeBillerResp = { ...billDetails.billerResponse };
-        if (safeBillerResp.billPeriod) {
-          safeBillerResp.billPeriod = safeBillerResp.billPeriod.replace(/,/g, '');
-        }
-        payload.billerResponse = safeBillerResp;
-      }
 
       if (additionalInfo && additionalInfo.length > 0) {
         payload.additionalInfo = additionalInfo;
