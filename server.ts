@@ -2269,13 +2269,13 @@ async function startServer() {
 
   app.get("/api/bbps/test-sbi", async (req, res) => {
     try {
-      const { ca, mobile } = req.query;
+      const { ca, mobile, ca_key, mobile_key } = req.query;
       if (!ca || !mobile) {
          return res.json({ error: "Missing ?ca= or ?mobile=" });
       }
       const params = {
-         "Last 4 Digits of Credit Card": String(ca),
-         "Registered Mobile No": String(mobile)
+         [String(ca_key || "Last 4 Digits of Credit Card")]: String(ca),
+         [String(mobile_key || "Registered Mobile No")]: String(mobile)
       };
       const response = await billAvenue.fetchBill("SBIC00000NATDN", params, String(mobile));
       res.json({
