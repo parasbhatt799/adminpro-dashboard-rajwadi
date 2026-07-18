@@ -713,7 +713,9 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
-      <div className="flex flex-col 2xl:flex-row 2xl:items-center gap-3">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
+        <div className="space-y-2">
+          <div className="flex flex-col 2xl:flex-row 2xl:items-center gap-3">
         <div className="flex items-center gap-3">
           <h2 className="text-2xl font-bold text-slate-900">Dashboard Overview</h2>
           <motion.button
@@ -860,6 +862,7 @@ export default function Dashboard() {
                 </>
               )}
             </AnimatePresence>
+          </div>
           </div>
         </div>
       </div>
