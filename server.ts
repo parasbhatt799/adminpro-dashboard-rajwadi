@@ -1774,9 +1774,6 @@ async function startServer() {
         paramValue: customerParams[key]
       }));
 
-      const paramKeys = Object.keys(customerParams || {});
-      const firstParamName = paramKeys[0] || "Consumer Number";
-      const paramValue = customerParams[firstParamName] || "";
 
       const payload: any = {
         requestId,
