@@ -141,9 +141,9 @@ export async function callBillAvenueApi(url: string, xmlPayload: string): Promis
   const queryParams = new URLSearchParams();
   queryParams.append('accessCode', ACCESS_CODE);
   queryParams.append('requestId', requestId);
+  queryParams.append('encRequest', encRequest);
   queryParams.append('ver', '1.0');
   queryParams.append('instituteId', INSTITUTE_ID);
-  queryParams.append('encRequest', encRequest);
 
   try {
     const response = await fetch(url, {
