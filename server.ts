@@ -2075,15 +2075,29 @@ async function startServer() {
         } else {
           // Single biller: Inject interchangeFeeCCF1 metadata if missing
           const b = response.json.billerInfoResponse.biller;
-          if (b && !b.interchangeFeeCCF1) {
-            b.interchangeFeeCCF1 = {
-              feeCode: 'CCF1',
-              feeDirection: 'C2B',
-              flatFee: '100', // 100 paise = ₹1.00
-              percentFee: '1.2', // 1.2%
-              feeMinAmt: '1',
-              feeMaxAmt: '2147483647'
-            };
+          if (b) {
+            if (!b.interchangeFeeCCF1) {
+              b.interchangeFeeCCF1 = {
+                feeCode: 'CCF1',
+                feeDirection: 'C2B',
+                flatFee: '100', // 100 paise = ₹1.00
+                percentFee: '1.2', // 1.2%
+                feeMinAmt: '1',
+                feeMaxAmt: '2147483647'
+              };
+            }
+            // Save/Cache the details back to Supabase database so subsequent fallbacks contain parameters!
+            try {
+              await supabaseAdmin.from('billavenue_billers').upsert({
+                biller_id: b.billerId,
+                biller_name: b.billerName,
+                category: b.category || b.billerCategoryName || 'Credit Card',
+                metadata: b
+              });
+              console.log(`[BillAvenue Server] Dynamically cached single biller metadata for ${b.billerId}`);
+            } catch (cacheErr: any) {
+              console.warn(`[BillAvenue Server] Failed to cache single biller ${b.billerId}:`, cacheErr.message);
+            }
           }
         }
         return res.json(response.json);
@@ -2260,8 +2274,8 @@ async function startServer() {
          return res.json({ error: "Missing ?ca= or ?mobile=" });
       }
       const params = {
-         "CA number": String(ca),
-         "Mobile number": String(mobile)
+         "Last 4 Digits of Credit Card": String(ca),
+         "Registered Mobile No": String(mobile)
       };
       const response = await billAvenue.fetchBill("SBIC00000NATDN", params, String(mobile));
       res.json({
@@ -2439,7 +2453,7 @@ async function startServer() {
 
   app.post("/api/bbps/pay", async (req, res) => {
     try {
-      const { userId, billerId, customerParams, customerMobile, amount, paymentMode, quickPay, ccf1 } = req.body;
+      const { userId, billerId, customerParams, customerMobile, amount, paymentMode, quickPay, ccf1, billDetails } = req.body;
 
       if (!userId || !billerId || !customerMobile || !amount) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
@@ -2510,7 +2524,9 @@ async function startServer() {
           paymentAmount,
           paymentMode || 'UPI',
           quickPay || 'N',
-          ccf1 !== undefined ? Number(ccf1) : undefined
+          ccf1 !== undefined ? Number(ccf1) : undefined,
+          billDetails,
+          user.name || 'Valued Customer'
         );
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);
@@ -3501,7 +3517,7 @@ async function startServer() {
       // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
         .from("users_profiles")
-        .select("wallet_balance, service_charge_enabled, custom_service_charge")
+        .select("wallet_balance, service_charge_enabled, custom_service_charge, name")
         .eq("id", userId)
         .single();
 
@@ -3554,7 +3570,7 @@ async function startServer() {
       let txnRefId: string | null = null;
 
       try {
-        apiResponse = await recharge.rechargeMobile(mobile, billerId, rechargeAmount, planId);
+        apiResponse = await recharge.rechargeMobile(mobile, billerId, rechargeAmount, planId, user.name || 'Valued Customer');
         responseJson = apiResponse.json;
         payResponse = responseJson?.billPayResponse;
         responseCode = payResponse?.responseCode;

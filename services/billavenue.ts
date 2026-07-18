@@ -276,13 +276,33 @@ export async function payBill(
   amount: number,
   paymentMode: string = 'UPI',
   quickPay: string = 'N',
-  ccf1?: number // CCF1 + GST in paisa
+  ccf1?: number, // CCF1 + GST in paisa
+  billDetails?: any,
+  remitterName?: string
 ): Promise<any> {
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
+  const paymentRefId = generateRequestId();
+  const nameOfRemitter = remitterName || 'UsePay Customer';
 
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<billPayRequest>
+  let paymentAccountInfo = 'Cash Payment';
+  const mode = paymentMode.trim().toUpperCase();
+  if (mode === 'UPI' || mode === 'BHARAT QR') {
+    paymentAccountInfo = `${customerMobile}@upi`;
+  } else if (mode === 'WALLET') {
+    paymentAccountInfo = `UsePay|${customerMobile}`;
+  } else if (mode === 'INTERNET BANKING') {
+    paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
+  } else if (mode === 'DEBIT CARD' || mode === 'CREDIT CARD' || mode === 'PREPAID CARD') {
+    paymentAccountInfo = `1234|UsePay`;
+  } else if (mode === 'CASH') {
+    paymentAccountInfo = 'Cash Payment';
+  } else {
+    paymentAccountInfo = 'USSD Payment';
+  }
+
+  let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<billPaymentRequest>
     <agentId>${AGENT_ID}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
@@ -301,7 +321,7 @@ export async function payBill(
     </inputParams>
     <amountInfo>
         <amount>${amountInPaise}</amount>
-        <currency>INR</currency>
+        <currency>356</currency>
         <custConvFee>0</custConvFee>
         ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
     </amountInfo>
@@ -310,13 +330,62 @@ export async function payBill(
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
+    <paymentInfo>
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${nameOfRemitter}</infoValue>
+        </info>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${paymentRefId}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>${paymentAccountInfo}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment mode</infoName>
+            <infoValue>${paymentMode}</infoValue>
+        </info>
+    </paymentInfo>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
         <initChannel>INT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
-    <billerAdhoc>false</billerAdhoc>
-</billPayRequest>`;
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>`;
+
+  if (quickPay !== 'Y' && billDetails) {
+    const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
+    xml += `
+    <billerResponse>
+        <billAmount>${fetchedAmountInPaise}</billAmount>
+        ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
+        ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
+        ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
+        ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
+        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}
+    </billerResponse>`;
+  }
+
+  if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo)) {
+    xml += `
+    <additionalInfo>
+        ${billDetails.additionalInfo
+          .map(
+            (info: any) => `
+        <info>
+            <infoName>${info.infoName}</infoName>
+            <infoValue>${info.infoValue}</infoValue>
+        </info>`
+          )
+          .join('')}
+    </additionalInfo>`;
+  }
+
+  xml += `
+</billPaymentRequest>`;
+
   return callBillAvenueApi(ENDPOINTS.pay, xml);
 }
 

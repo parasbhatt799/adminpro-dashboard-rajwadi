@@ -841,7 +841,14 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         }
       });
 
-      const finalParams = paramsList.length > 0 ? paramsList : [{ paramName: 'Consumer / Subscriber Number', dataType: 'ALPHANUMERIC' }];
+      const finalParams = paramsList.length > 0
+        ? paramsList
+        : selectedCategory === 'Credit Card'
+          ? [
+              { paramName: 'Last 4 Digits of Credit Card', dataType: 'NUMERIC', optional: false },
+              { paramName: 'Registered Mobile No', dataType: 'NUMERIC', optional: false }
+            ]
+          : [{ paramName: 'Consumer / Subscriber Number', dataType: 'ALPHANUMERIC' }];
       setInputParams(finalParams);
       if (prefilledCardNumber) {
         setFormInputs({ [finalParams[0].paramName]: prefilledCardNumber });
@@ -853,7 +860,12 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       }
     } catch (err) {
       // Fallback parameters
-      const finalParams = [{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC' }];
+      const finalParams = selectedCategory === 'Credit Card'
+        ? [
+            { paramName: 'Last 4 Digits of Credit Card', dataType: 'NUMERIC', optional: false },
+            { paramName: 'Registered Mobile No', dataType: 'NUMERIC', optional: false }
+          ]
+        : [{ paramName: 'Consumer Number', dataType: 'ALPHANUMERIC' }];
       setInputParams(finalParams);
       if (prefilledCardNumber) {
         setFormInputs({ [finalParams[0].paramName]: prefilledCardNumber });
@@ -1131,7 +1143,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           amount: amt,
           paymentMode: selectedPaymentMode,
           quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
-          ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined
+          ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined,
+          billDetails: billDetails
         })
       });
 

@@ -131,10 +131,15 @@ export async function rechargeMobile(
   mobile: string,
   billerId: string,
   amount: number,
-  planId?: string
+  planId?: string,
+  remitterName?: string
 ): Promise<any> {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<billPayRequest>
+  const amountInPaise = Math.round(amount * 100);
+  const paymentRefId = generateRequestId();
+  const nameOfRemitter = remitterName || 'UsePay Customer';
+
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<billPaymentRequest>
     <agentId>${AGENT_ID}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
@@ -146,11 +151,42 @@ export async function rechargeMobile(
             <paramValue>${mobile}</paramValue>
         </input>
     </inputParams>
-    <amount>${Math.round(amount * 100)}</amount>
-    <paymentMode>UPI</paymentMode>
-    <quickPay>Y</quickPay>
+    <amountInfo>
+        <amount>${amountInPaise}</amount>
+        <currency>356</currency>
+        <custConvFee>0</custConvFee>
+    </amountInfo>
+    <paymentMethod>
+        <paymentMode>UPI</paymentMode>
+        <quickPay>Y</quickPay>
+        <splitPay>N</splitPay>
+    </paymentMethod>
+    <paymentInfo>
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${nameOfRemitter}</infoValue>
+        </info>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${paymentRefId}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>${mobile}@upi</infoValue>
+        </info>
+        <info>
+            <infoName>Payment mode</infoName>
+            <infoValue>UPI</infoValue>
+        </info>
+    </paymentInfo>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>INT</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <billerAdhoc>true</billerAdhoc>
     ${planId ? `<planId>${planId}</planId>` : ''}
-</billPayRequest>`;
+</billPaymentRequest>`;
 
   return callBillAvenueApi(RECHARGE_ENDPOINTS.pay, xml);
 }
