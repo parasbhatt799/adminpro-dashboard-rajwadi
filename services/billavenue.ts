@@ -207,7 +207,7 @@ export async function fetchBill(
 <billFetchRequest>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>INT</initChannel>
+        <initChannel>AGT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
@@ -242,7 +242,7 @@ export async function validateBill(
 <billValidationRequest>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>INT</initChannel>
+        <initChannel>AGT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
@@ -349,7 +349,7 @@ export async function payBill(
     </paymentInfo>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>INT</initChannel>
+        <initChannel>AGT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>`;

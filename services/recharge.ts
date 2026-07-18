@@ -181,7 +181,7 @@ export async function rechargeMobile(
     </paymentInfo>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
-        <initChannel>INT</initChannel>
+        <initChannel>AGT</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
     <billerAdhoc>true</billerAdhoc>
