@@ -1014,8 +1014,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
       const data = await res.json();
       
-      if (!res.ok || data.status === 'ERROR') {
-        const errorMsg = data.message || 'Error fetching bill. Please check your details.';
+      if (!res.ok || data.status === 'ERROR' || data.responseCode === '222') {
+        const errorMsg = data.message || data.error || data.reason || 'Error fetching bill. Please check your details.';
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
           return;
