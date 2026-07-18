@@ -7,7 +7,6 @@ const ACCESS_CODE = process.env.BILLAVENUE_ACCESS_CODE || "";
 const WORKING_KEY = process.env.BILLAVENUE_WORKING_KEY || "";
 const INSTITUTE_ID = process.env.BILLAVENUE_INSTITUTE_ID || "";
 const BASE_URL = 'https://api.billavenue.com';
-const URL = `${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/xml`;
 
 const IV = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
@@ -53,31 +52,42 @@ function parseXmlValue(xml, tag) {
 }
 
 async function run() {
-  const xmlPayload = `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest><billerId>DAKS00000GUJM5</billerId></billerInfoRequest>`;
+  const xmlPayload = `<?xml version="1.0" encoding="UTF-8"?>
+<billerInfoRequest>
+    <billerId>DAKS00000GUJM5</billerId>
+</billerInfoRequest>`;
+
   const requestId = generateRequestId();
   const encRequest = encryptRequest(xmlPayload).toLowerCase();
   
-  const postParams = new URLSearchParams();
-  postParams.append('accessCode', ACCESS_CODE);
-  postParams.append('requestId', requestId);
-  postParams.append('encRequest', encRequest);
-  postParams.append('ver', '1.0');
-  postParams.append('instituteId', INSTITUTE_ID);
+  // Construct URL with query parameters exactly as requested by support
+  const queryUrl = `${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/xml?accessCode=${ACCESS_CODE}&requestId=${requestId}&ver=1.0&instituteId=${INSTITUTE_ID}`;
+  
+  console.log("[Test MDM Support] Query URL:", queryUrl);
+  console.log("[Test MDM Support] Plain XML payload:", xmlPayload);
+
+  // Send only encRequest in the POST body as application/x-www-form-urlencoded
+  const bodyParams = new URLSearchParams();
+  bodyParams.append('encRequest', encRequest);
 
   try {
-    const response = await fetch(URL, {
+    const response = await fetch(queryUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: postParams.toString()
+      body: bodyParams.toString()
     });
 
     const responseText = await response.text();
+    console.log("[Test MDM Support] Raw response text:", responseText);
+
     let ciphertext = responseText;
     if (responseText.includes('<encResponse>')) {
       ciphertext = parseXmlValue(responseText, 'encResponse');
     }
     const decryptedXml = decryptResponse(ciphertext);
-    console.log("DECRYPTED LIVE MDM XML RESPONSE:");
+    console.log("\n==================================================");
+    console.log("DECRYPTED LIVE XML MDM RESPONSE (SUPPORT FORMAT):");
+    console.log("==================================================");
     console.log(decryptedXml);
   } catch (err: any) {
     console.error("API Call Failed:", err.message);
