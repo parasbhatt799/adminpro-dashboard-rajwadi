@@ -1805,9 +1805,17 @@ async function startServer() {
       payload.placeholderValue = firstParamName;
       payload.paramValue = paramValue;
 
-      if (inputParams && inputParams.length > 0) {
+      let paramArray: any[] = [];
+      if (typeof customerParams === "object" && customerParams !== null) {
+        paramArray = Object.entries(customerParams).map(([name, value]) => ({
+          paramName: name,
+          paramValue: String(value)
+        }));
+      }
+
+      if (paramArray.length > 0) {
         payload.inputParams = {
-          input: inputParams
+          input: paramArray
         };
       }
 
