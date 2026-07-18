@@ -179,12 +179,7 @@ export default function Dashboard() {
         setCsplBalance(null);
       } else if (data && typeof data.balance !== 'undefined') {
         const bal = Number(data.balance);
-        if (bal === 0 && data.raw_cspl) {
-           setCsplError(`Parsed balance is 0 | Raw CSPL API: ${JSON.stringify(data.raw_cspl)}`);
-           setCsplBalance(null);
-        } else {
-           setCsplBalance(bal);
-        }
+        setCsplBalance(bal);
       } else {
         setCsplError("Failed to fetch CSPL balance");
         setCsplBalance(null);

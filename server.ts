@@ -1668,8 +1668,16 @@ async function startServer() {
         };
 
         let balance = 0;
-        const outW = parseAmount(data.out_wallet);
-        const w = parseAmount(data.wallet);
+        
+        // CSPL API returns {"wallet": {"in_wallet": "0.00", "out_wallet": "10,000.00"}}
+        let outW;
+        if (data.wallet && data.wallet.out_wallet !== undefined) {
+           outW = parseAmount(data.wallet.out_wallet);
+        } else if (data.out_wallet !== undefined) {
+           outW = parseAmount(data.out_wallet);
+        }
+        
+        const w = parseAmount(typeof data.wallet === 'string' || typeof data.wallet === 'number' ? data.wallet : undefined);
         const wB = parseAmount(data.walletBalance);
         const b = parseAmount(data.balance);
         const a = parseAmount(data.amount);
