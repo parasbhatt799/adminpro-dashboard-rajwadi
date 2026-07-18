@@ -57,15 +57,15 @@ export async function callBbpsApi(endpoint: string, payload: any): Promise<any> 
 
 // 1. Biller Info API
 export async function getBillerInfo(billerId: string) {
-  return callBbpsApi('/bbps/billerinfo', { billerId });
+  return callBbpsApi('/api/v1/bbps/billerinfo', { billerId });
 }
 
 // 2. Bill Fetch API
 export async function fetchBill(payload: any) {
-  return callBbpsApi('/bbps/billfetch', payload);
+  return callBbpsApi('/api/v1/bbps/billfetch', payload);
 }
 
 // 3. Bill Pay API
 export async function payBill(payload: any) {
-  return callBbpsApi('/bbps/billPay', payload);
+  return callBbpsApi('/api/v1/bbps/billPay', payload);
 }
