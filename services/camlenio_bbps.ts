@@ -67,5 +67,5 @@ export async function fetchBill(payload: any) {
 
 // 3. Bill Pay API
 export async function payBill(payload: any) {
-  return callBbpsApi('/api/v1/bbps/billpay', payload);
+  return callBbpsApi('/api/v1/bbps/billerAdhoc/billpay', payload);
 }
