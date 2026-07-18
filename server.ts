@@ -14,6 +14,7 @@ import dns from "dns";
 import * as billAvenue from "./services/billavenue.js";
 import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
+import * as csplBbps from "./services/cspl_bbps.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -3760,6 +3761,42 @@ async function startServer() {
     }
   });
 
+
+
+  // ==========================================
+  // CAMLENIO CSPL BBPS ROUTES
+  // ==========================================
+  app.post("/api/cspl/billerinfo", async (req, res) => {
+    try {
+      const data = await csplBbps.getBillerInfo(req.body.billerId);
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/cspl/billfetch", async (req, res) => {
+    try {
+      const { billerId, customerMobile, customerEmail, customerParams } = req.body;
+      const inputParams = Object.keys(customerParams || {}).map(k => ({
+        paramName: k,
+        paramValue: customerParams[k]
+      }));
+      const data = await csplBbps.fetchBill(billerId, customerMobile, customerEmail, inputParams);
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/cspl/billpay", async (req, res) => {
+    try {
+      const data = await csplBbps.payBill(req.body);
+      res.json(data);
+    } catch (error: any) {
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
 
   app.all("/api/bbps-proxy", async (req, res) => {
     try {

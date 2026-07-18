@@ -40,6 +40,7 @@ const DeveloperLogs = lazy(() => import('./components/DeveloperLogs'));
 const UserPanel = lazy(() => import('./components/user/UserPanel'));
 const UserPayment = lazy(() => import('./components/user/UserPayment'));
 const UserBillPayment = lazy(() => import('./components/user/UserBillPayment'));
+const UserCsplPayment = lazy(() => import('./components/user/UserCsplPayment'));
 const UserBillAvenuePayment = lazy(() => import('./components/user/UserBillAvenuePayment'));
 const UserBillHistory = lazy(() => import('./components/user/UserBillHistory'));
 const UserViewReceipt = lazy(() => import('./components/user/UserViewReceipt'));
@@ -1257,6 +1258,7 @@ export default function App() {
           <Route path="fund-transfer" element={<UserFundTransfer userId={userId} />} />
           <Route path="partner-fund-transfer" element={<PartnerFundTransfer userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />
+          <Route path="cspl-payment" element={<UserCsplPayment userId={userId} />} />
           <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} mode="payment" />} />
           <Route path="billavenue-search" element={<UserBillAvenuePayment userId={userId} mode="search" />} />
           <Route path="recharge" element={<UserRecharge userId={userId} />} />

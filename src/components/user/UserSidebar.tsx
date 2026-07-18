@@ -33,6 +33,7 @@ const menuItems = [
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
   { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
+  { id: 'cspl-payment', label: 'CSPL Bill Payment', icon: Receipt, path: '/user/cspl-payment' },
   { id: 'billavenue-payment', label: 'Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'billavenue-search', label: 'Search TXN', icon: Search, path: '/user/billavenue-search' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
@@ -120,10 +121,10 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       return true;
     }),
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'cspl-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
         return false;
       }
-      if (!isBbpsEnabled && item.id === 'bill-payment') {
+      if (!isBbpsEnabled && (item.id === 'bill-payment' || item.id === 'cspl-payment')) {
         return false;
       }
       if (!isBillAvenueEnabled && (item.id === 'billavenue-payment' || item.id === 'billavenue-search')) {

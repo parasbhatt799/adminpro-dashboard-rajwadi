@@ -693,8 +693,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
     try {
       const searchLower = catName.toLowerCase();
-
-      let query = supabase.from('billavenue_billers').select('*').limit(10000);
+      let query = supabase.from('cspl_billers').select('*').limit(10000);
 
       if (searchLower === 'mobile prepaid') {
         query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
