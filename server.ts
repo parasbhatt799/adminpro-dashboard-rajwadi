@@ -1793,9 +1793,12 @@ async function startServer() {
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
         customerMobile: customerMobile || "9999999999",
-        billamount: Number(amount),
+        billamount: Number(amount), // From PDF
+        billAmount: Number(amount), // CamelCase variation
+        amount: Number(amount),     // General variation
         client_referenceId: "REF-" + requestId,
-        paymentMode: "Wallet",
+        paymentMode: "Wallet",      // From Dev call
+        paymentMethod: "Wallet",    // BBPS standard name
         paymentChannel: "AGT",
         placeholderValue: firstParamName,
         paramValue: paramValue
