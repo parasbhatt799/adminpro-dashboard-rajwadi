@@ -1793,7 +1793,7 @@ async function startServer() {
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
         customerMobile: customerMobile || "9999999999",
-        billAmount: Math.round(Number(amount) * 100), // Convert to Paise
+        billamount: Math.round(Number(amount) * 100), // Convert to Paise
         client_referenceId: "REF-" + requestId,
         paymentMode: "Wallet",
         paymentChannel: "AGT"
