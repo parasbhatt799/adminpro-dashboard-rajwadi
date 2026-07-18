@@ -1777,14 +1777,17 @@ async function startServer() {
       const firstParamName = paramKeys[0] || "Consumer Number";
       const paramValue = customerParams[firstParamName] || "";
 
+      const safeBillPeriod = (billDetails?.billPeriod || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
+      const safeBillNumber = (billDetails?.billNumber || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
+
       const payload: any = {
         requestId,
         billerId,
         customerName: billDetails?.customerName || "BBPS Customer",
         customerMobile: customerMobile || "9999999999",
         billamount: Number(amount),
-        billPeriod: billDetails?.billPeriod || "N/A",
-        billNumber: billDetails?.billNumber || "N/A",
+        billPeriod: safeBillPeriod,
+        billNumber: safeBillNumber,
         placeholderValue: firstParamName,
         paramValue: paramValue,
         client_referenceId: "REF-" + requestId
