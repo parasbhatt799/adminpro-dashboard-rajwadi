@@ -1740,6 +1740,15 @@ async function startServer() {
     }
   });
 
+  app.get("/api/cspl/logs", (req, res) => {
+    try {
+      const logs = require('fs').readFileSync('cspl_payload_logs.txt', 'utf-8');
+      res.type('text/plain').send(logs);
+    } catch (err) {
+      res.status(404).send("Logs not found or not created yet.");
+    }
+  });
+
   app.post("/api/cspl/billpay", async (req, res) => {
     try {
       const { userId, billerId, billerName, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
