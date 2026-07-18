@@ -14,6 +14,7 @@ import dns from "dns";
 import * as billAvenue from "./services/billavenue.js";
 import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
+import * as csplBbps from "./services/cspl_bbps.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -1628,6 +1629,95 @@ async function startServer() {
 
     } catch (error: any) {
       console.error("[BBPS Proxy] Pay Bill Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/cspl/billerinfo", async (req, res) => {
+    try {
+      const { billerId } = req.body;
+      const data = await csplBbps.getBillerInfo(billerId);
+      res.json(data);
+    } catch (error: any) {
+      console.error("[CSPL Proxy] Biller Info Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/cspl/billfetch", async (req, res) => {
+    try {
+      const { billerId, customerMobile, customerEmail, inputParams } = req.body;
+      const data = await csplBbps.fetchBill(billerId, customerMobile, customerEmail, inputParams);
+      res.json(data);
+    } catch (error: any) {
+      console.error("[CSPL Proxy] Fetch Bill Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/cspl/billpay", async (req, res) => {
+    try {
+      const {
+        requestId,
+        billerId,
+        customerName,
+        customerMobile,
+        billAmount,
+        billPeriod,
+        billNumber,
+        placeholderValue,
+        paramValue,
+        clientReferenceId,
+        additionalInfo,
+        userId
+      } = req.body;
+
+      // Ensure user has sufficient balance before paying
+      if (userId) {
+        const { data: userProfile } = await supabaseAdmin
+          .from("users_profiles")
+          .select("wallet_balance")
+          .eq("id", userId)
+          .single();
+
+        if (!userProfile || userProfile.wallet_balance < billAmount) {
+          return res.status(400).json({ status: "FAILED", message: "Insufficient wallet balance." });
+        }
+      }
+
+      const data = await csplBbps.payBill(
+        requestId,
+        billerId,
+        customerName,
+        customerMobile,
+        billAmount,
+        billPeriod,
+        billNumber,
+        placeholderValue,
+        paramValue,
+        clientReferenceId,
+        additionalInfo
+      );
+
+      // If successful, deduct balance and log transaction (simplified logic for now)
+      if (data && data.responseCode === "000" && userId) {
+        const { data: userProfile } = await supabaseAdmin
+          .from("users_profiles")
+          .select("wallet_balance")
+          .eq("id", userId)
+          .single();
+        
+        if (userProfile) {
+          await supabaseAdmin
+            .from("users_profiles")
+            .update({ wallet_balance: userProfile.wallet_balance - billAmount })
+            .eq("id", userId);
+        }
+      }
+
+      res.json(data);
+    } catch (error: any) {
+      console.error("[CSPL Proxy] Pay Bill Error:", error);
       res.status(500).json({ status: "ERROR", message: error.message });
     }
   });
