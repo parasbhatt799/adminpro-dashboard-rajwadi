@@ -143,8 +143,9 @@ export default function Dashboard() {
       if (data && data.status === "ERROR") {
         setBillAvenueError(data.message || "Failed to fetch balance");
         setBillAvenueBalance(null);
-      } else if (data && data.depositEnquiryResponse) {
-        const bal = Number(data.depositEnquiryResponse.balance) || 0;
+      } else if (data && (data.DepositEnquiryResponse || data.depositEnquiryResponse)) {
+        const balObj = data.DepositEnquiryResponse || data.depositEnquiryResponse;
+        const bal = Number(balObj.currentBalance || balObj.balance) || 0;
         setBillAvenueBalance(bal);
       } else if (data && typeof data.balance !== 'undefined') {
         setBillAvenueBalance(Number(data.balance));
