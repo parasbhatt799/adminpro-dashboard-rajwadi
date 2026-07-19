@@ -51,7 +51,7 @@ BEGIN
 
     -- 3. Create payout record
     INSERT INTO public.payout_submissions (
-        user_id, bank_name, beneficiary_name, account_number, ifsc_code,
+        user_id, bank_name, account_holder_name, account_number, ifsc_code,
         amount, charge_amount, status, txn_id, utr_number
     ) VALUES (
         p_user_id, p_bank_name, p_holder_name, p_account_number, p_ifsc_code,
