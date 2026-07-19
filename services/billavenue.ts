@@ -145,8 +145,7 @@ export function xmlToJson(xml: string): any {
   return parseNode(cleanXml);
 }
 
-export async function callBillAvenueApi(endpoint: string, xmlPayload: string, explicitRequestId?: string): Promise<any> {
-  const url = `${BASE_URL}${endpoint}`;
+export async function callBillAvenueApi(url: string, xmlPayload: string, explicitRequestId?: string): Promise<any> {
   const requestId = explicitRequestId || generateRequestId();
   console.log(`[BillAvenue Service] Outgoing Request [${requestId}] to URL: ${url}`);
   console.log('[BillAvenue Service] Plain Payload:', xmlPayload);
