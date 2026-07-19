@@ -4082,16 +4082,12 @@ async function startServer() {
     try {
       const { userId, accountNumber, ifsc, transactionId, bankName, holderName } = req.body;
 
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-      const supabaseClient = createClient(supabaseUrl, serviceKey);
-
       // 1. Get verification charge from settings
-      const { data: settings } = await supabaseClient.from('payout_settings').select('camlenio_verification_charge').eq('id', 1).single();
+      const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_verification_charge').eq('id', 1).single();
       const charge = settings?.camlenio_verification_charge || 5;
 
       // 2. Deduct wallet
-      const rpcData = await supabaseClient.rpc('submit_auto_payout_request', {
+      const rpcData = await supabaseAdmin.rpc('submit_auto_payout_request', {
         p_user_id: userId,
         p_bank_name: bankName || 'BANK',
         p_holder_name: holderName || 'ACCOUNT HOLDER',
@@ -4109,7 +4105,7 @@ async function startServer() {
       }
 
       const payoutId = rpcData.data.payout_id;
-      await supabaseClient.from('payout_submissions').update({ bank_ref: 'VERIFICATION_CHARGE' }).eq('id', payoutId);
+      await supabaseAdmin.from('payout_submissions').update({ bank_ref: 'VERIFICATION_CHARGE' }).eq('id', payoutId);
 
       // 3. Call API
       const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId);
@@ -4132,13 +4128,8 @@ async function startServer() {
         return res.status(400).json({ success: false, message: 'Missing required fields' });
       }
 
-      // We will first use Supabase RPC to check balance and get an initialized request
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-      const supabaseClient = createClient(supabaseUrl, serviceKey);
-
       // Check settings first
-      const { data: settings } = await supabaseClient.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout').eq('id', 1).single();
+      const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout').eq('id', 1).single();
       
       if (settings) {
         if (!settings.camlenio_is_enabled) {
@@ -4150,7 +4141,7 @@ async function startServer() {
       }
 
       // We pass 'pending_bank' temporarily to deduct wallet before hitting Camlenio
-      const rpcData = await supabaseClient.rpc('submit_auto_payout_request', {
+      const rpcData = await supabaseAdmin.rpc('submit_auto_payout_request', {
         p_user_id: userId,
         p_bank_name: bankName,
         p_holder_name: holderName,
@@ -4181,18 +4172,18 @@ async function startServer() {
 
       if (impsResult.success && (impsResult.status === 'SUCCESS' || impsResult.status === 'PENDING')) {
         // Update the record with Camlenio's txnId
-        await supabaseClient.from('payout_submissions')
+        await supabaseAdmin.from('payout_submissions')
           .update({ txn_id: impsResult.txnId, utr_number: impsResult.utr || impsResult.txnId })
           .eq('id', payoutId);
         
         return res.json({ success: true, message: 'Payout is being processed', data: impsResult });
       } else {
         // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
-        await supabaseClient.from('payout_submissions').update({ status: 'rejected', rejection_reason: impsResult.message }).eq('id', payoutId);
+        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', rejection_reason: impsResult.message }).eq('id', payoutId);
         
         // Refund Wallet Logic:
         const totalRefund = parseFloat(amount) + parseFloat(charge);
-        await supabaseClient.rpc('add_wallet_balance', {
+        await supabaseAdmin.rpc('add_wallet_balance', {
           p_user_id: userId,
           p_amount: totalRefund
         });
@@ -4219,12 +4210,8 @@ async function startServer() {
       const { reference, txnId, status, message, utr } = req.body;
       console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${status}`);
 
-      const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-      const supabaseClient = createClient(supabaseUrl, serviceKey);
-
       // Verify existing status
-      const { data: existing } = await supabaseClient.from('payout_submissions').select('status, amount, charge_amount, user_id').eq('id', reference).single();
+      const { data: existing } = await supabaseAdmin.from('payout_submissions').select('status, amount, charge_amount, user_id').eq('id', reference).single();
       
       if (!existing || existing.status !== 'processing') {
         // Avoid double processing
@@ -4232,14 +4219,14 @@ async function startServer() {
       }
 
       if (status === 'SUCCESS') {
-        await supabaseClient.from('payout_submissions').update({
+        await supabaseAdmin.from('payout_submissions').update({
           status: 'approved',
           txn_id: txnId,
           utr_number: utr,
           rejection_reason: message
         }).eq('id', reference);
       } else if (status === 'FAILED') {
-        await supabaseClient.from('payout_submissions').update({
+        await supabaseAdmin.from('payout_submissions').update({
           status: 'rejected',
           txn_id: txnId,
           rejection_reason: message
@@ -4247,7 +4234,7 @@ async function startServer() {
 
         // Refund User Wallet
         const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount);
-        await supabaseClient.rpc('add_wallet_balance', {
+        await supabaseAdmin.rpc('add_wallet_balance', {
           p_user_id: existing.user_id,
           p_amount: totalRefund
         });
