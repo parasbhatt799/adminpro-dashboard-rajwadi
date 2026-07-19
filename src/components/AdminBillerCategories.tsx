@@ -63,12 +63,20 @@ export default function AdminBillerCategories() {
   };
 
   const saveSettings = async () => {
+    setSaving(true);
     try {
-      setSaving(true);
+      // PostgREST bulk upsert requires all objects in the array to have the exact same keys.
+      // Strip 'id' and 'created_at' so newly added toggles match existing ones.
+      const payload = settings.map(s => ({
+        provider: s.provider,
+        category_name: s.category_name,
+        is_active: s.is_active
+      }));
+
       const res = await fetch('/api/admin/biller-categories', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(payload)
       });
       if (!res.ok) throw new Error('Failed to save settings');
       toast.success('Category settings saved successfully');
