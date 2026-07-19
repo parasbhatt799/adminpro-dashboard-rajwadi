@@ -144,12 +144,20 @@ export default function Dashboard() {
         setBillAvenueError(data.message || "Failed to fetch balance");
         setBillAvenueBalance(null);
       } else if (data && (data.DepositEnquiryResponse || data.depositEnquiryResponse)) {
-        console.log("Full DepositEnquiryResponse Data:", data);
         const balObj = data.DepositEnquiryResponse || data.depositEnquiryResponse;
-        const balStr = balObj.currentBalance || balObj.balance;
-        const bal = Number(String(balStr).replace(/,/g, '')) || 0;
-        console.log("Parsed balance:", balStr, "->", bal);
-        setBillAvenueBalance(bal);
+        if (balObj.errorInfo && balObj.errorInfo.error) {
+          let errMsgs = balObj.errorInfo.error;
+          if (Array.isArray(errMsgs)) {
+             setBillAvenueError(errMsgs.map((e: any) => e.errorMessage).join(", "));
+          } else {
+             setBillAvenueError(errMsgs.errorMessage || "BillAvenue Error");
+          }
+          setBillAvenueBalance(null);
+        } else {
+          const balStr = balObj.currentBalance || balObj.balance;
+          const bal = Number(String(balStr).replace(/,/g, '')) || 0;
+          setBillAvenueBalance(bal);
+        }
       } else if (data && typeof data.balance !== 'undefined') {
         setBillAvenueBalance(Number(data.balance));
       } else {
