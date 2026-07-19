@@ -4148,6 +4148,49 @@ async function startServer() {
     }
   });
 
+  // GET Category settings for both providers
+  app.get('/api/biller-categories', async (req, res) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from('biller_categories_settings')
+        .select('*');
+      
+      if (error) {
+        console.error('Error fetching biller categories:', error);
+        return res.status(500).json({ error: error.message });
+      }
+      return res.json(data || []);
+    } catch (err: any) {
+      console.error('Exception fetching biller categories:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
+  // PUT Category settings (Admin only, upserts array of settings)
+  app.put('/api/admin/biller-categories', express.json(), async (req, res) => {
+    try {
+      const settings = req.body;
+      if (!Array.isArray(settings)) {
+        return res.status(400).json({ error: 'Expected array of settings' });
+      }
+
+      // We use upsert on (provider, category_name) assuming there is a unique constraint
+      const { data, error } = await supabaseAdmin
+        .from('biller_categories_settings')
+        .upsert(settings, { onConflict: 'provider,category_name' })
+        .select();
+
+      if (error) {
+        console.error('Error saving biller categories:', error);
+        return res.status(500).json({ error: error.message });
+      }
+      return res.json({ success: true, data });
+    } catch (err: any) {
+      console.error('Exception saving biller categories:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
 
   app.get("/api/full-backup", async (req, res) => {
     const debugLog = (msg: string) => {
