@@ -321,8 +321,9 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     billNumber?: string;
     billDate?: string;
     billPeriod?: string;
-    additionalInfo?: { infoName: string; infoValue: string }[];
+    additionalInfo?: any[];
     fetchSupported: boolean;
+    rawBillerResponse?: any;
   } | null>(null);
 
   // UAT Multiple Amount and Payment Mode states
@@ -1077,7 +1078,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           billDate: billerResp?.billDate || response?.billDate,
           billPeriod: billerResp?.billPeriod || response?.billPeriod,
           additionalInfo: additionalInfoArray,
-          fetchSupported: true
+          fetchSupported: true,
+          rawBillerResponse: billerResp
         });
         setManualAmount(billAmount.toString());
 

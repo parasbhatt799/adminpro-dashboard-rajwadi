@@ -382,15 +382,27 @@ export async function payBill(
 
   if (quickPay !== 'Y' && billDetails) {
     const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
-    xml += `
-    <billerResponse>
+    xml += `\n    <billerResponse>`;
+    
+    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
+      const raw = { ...billDetails.rawBillerResponse };
+      raw.billAmount = fetchedAmountInPaise; // Override with the amount in paise
+      
+      for (const [key, value] of Object.entries(raw)) {
+        if (value !== null && value !== undefined && typeof value !== 'object') {
+          xml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
+        }
+      }
+    } else {
+      xml += `
         <billAmount>${fetchedAmountInPaise}</billAmount>
         ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
         ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
         ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
         ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
-        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}
-    </billerResponse>`;
+        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
+    }
+    xml += `\n    </billerResponse>`;
   }
 
   if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo)) {
