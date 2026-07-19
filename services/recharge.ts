@@ -209,10 +209,12 @@ export async function getRechargeStatus(requestId: string, trackType: string = '
  * Enquire agent deposit wallet balance
  */
 export async function getDepositBalance(): Promise<any> {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<depositEnquiryRequest>
-    <agentId>${AGENT_ID}</agentId>
-</depositEnquiryRequest>`;
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<depositDetailsRequest>
+    <agents>
+        <agentId>${AGENT_ID}</agentId>
+    </agents>
+</depositDetailsRequest>`;
 
   return callBillAvenueApi(RECHARGE_ENDPOINTS.deposit, xml);
 }
