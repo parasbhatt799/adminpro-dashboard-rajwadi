@@ -52,8 +52,6 @@ const menuItems = [
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: FileText, path: '/bill-payment-requests' },
   { id: 'bbps-history', label: 'BBPS Bill History', icon: History, path: '/bbps-history' },
-  { id: 'agent-balances', label: 'Agent Balances', icon: Activity, path: '/agent-balances' },
-  { id: 'recharge-dashboard', label: 'Recharge Dashboard', icon: Smartphone, path: '/admin/recharge-dashboard' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },
   {
@@ -74,7 +72,9 @@ const menuItems = [
     path: '/distributor-withdrawals',
     subItems: [
       { id: 'distributor-withdrawals', label: 'Dist. Withdrawals', path: '/distributor-withdrawals', role: 'full' },
-      { id: 'withdrawal-balance', label: 'Withdrawal Balance', path: '/withdrawal-balance', role: 'full' }
+      { id: 'withdrawal-balance', label: 'Withdrawal Balance', path: '/withdrawal-balance', role: 'full' },
+      { id: 'recharge-dashboard', label: 'Recharge Dashboard', path: '/admin/recharge-dashboard' },
+      { id: 'agent-balances', label: 'Agent Balances', path: '/agent-balances' }
     ]
   },
   {
