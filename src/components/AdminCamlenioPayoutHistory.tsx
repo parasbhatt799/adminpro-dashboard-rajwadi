@@ -40,7 +40,7 @@ export default function AdminCamlenioPayoutHistory() {
       // They are recorded in payout_submissions
       const { data: txData, error: txError } = await supabase
         .from('payout_submissions')
-        .select('*, users_profiles(name, phone)')
+        .select('*, users_profiles(name, mobile_number)')
         .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded'])
         .order('created_at', { ascending: false });
 
@@ -230,8 +230,8 @@ export default function AdminCamlenioPayoutHistory() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-bold text-slate-900">{tx.users_profiles?.name}</div>
-                      <div className="text-xs text-slate-500">{tx.users_profiles?.phone}</div>
+                      <div className="font-medium text-slate-800">{tx.users_profiles?.name}</div>
+                      <div className="text-xs text-slate-500">{tx.users_profiles?.mobile_number}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">
