@@ -24,6 +24,8 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   const [verifyingBank, setVerifyingBank] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [settings, setSettings] = useState<any>(null);
+  const [transactions, setTransactions] = useState<any[]>([]);
 
   // Add new beneficiary form
   const [payoutForm, setPayoutForm] = useState({
@@ -37,9 +39,34 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   const [payoutAmount, setPayoutAmount] = useState('');
 
   useEffect(() => {
+    fetchSettings();
     fetchUserData();
     fetchBeneficiaries();
+    fetchTransactions();
   }, [userId]);
+
+  const fetchSettings = async () => {
+    try {
+      const { data } = await supabase.from('payout_settings').select('*').eq('id', 1).single();
+      setSettings(data);
+    } catch (err) {
+      console.error('Error fetching settings:', err);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    try {
+      const { data } = await supabase
+        .from('payout_submissions')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      setTransactions(data || []);
+    } catch (err) {
+      console.error('Error fetching transactions:', err);
+    }
+  };
 
   const fetchUserData = async () => {
     try {
@@ -94,14 +121,16 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     setSuccess(null);
 
     try {
-      const localTxnId = `VFC${Date.now()}`;
+      const verifyTxnId = `VFC${Date.now()}`;
       const response = await fetch('/api/payout/verify-bank', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          userId,
           accountNumber: payoutForm.accountNumber,
           ifsc: payoutForm.ifscCode,
-          transactionId: localTxnId
+          transactionId: verifyTxnId,
+          bankName: payoutForm.bankName
         })
       });
       const data = await response.json();
@@ -124,6 +153,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         setSuccess(`Beneficiary ${data.data.beneficiaryName} verified and saved successfully!`);
         setPayoutForm({ bankName: '', accountNumber: '', ifscCode: '' });
         fetchBeneficiaries(); // Refresh list
+        fetchTransactions(); // Update history
       } else {
         throw new Error(data.message || 'Verification failed');
       }
@@ -196,6 +226,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       setSuccess(`Payout of ₹${amountNum} to ${selectedBeneficiary.holder_name} is being processed!`);
       setSelectedBeneficiary(null);
       setPayoutAmount('');
+      fetchTransactions();
 
       sendAdminPushNotification(
         'New Auto Payout 💰',
@@ -267,7 +298,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Account Number</label>
+                <label className="text-sm font-bold text-slate-700">Account Number</label>
               <input
                 type="text"
                 value={payoutForm.accountNumber}
@@ -343,7 +374,66 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                 ))}
               </div>
             )}
+            <p className="text-xs text-slate-500 mt-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
+              <span className="font-bold text-slate-700">Note:</span> A verification charge of ₹{settings?.camlenio_verification_charge || 5} will be deducted from your wallet to verify this bank account via Pennydrop.
+            </p>
           </div>
+        </div>
+      </div>
+
+      {/* History Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+        <div className="p-4 border-b border-slate-200 bg-slate-50">
+          <h2 className="text-lg font-bold text-slate-900">Recent Payouts & Verifications</h2>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-600">
+            <thead className="bg-slate-50/50 text-slate-500 uppercase text-xs font-bold border-b border-slate-200">
+              <tr>
+                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4">Type</th>
+                <th className="px-6 py-4 text-right">Amount</th>
+                <th className="px-6 py-4 text-right">Charge</th>
+                <th className="px-6 py-4">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {transactions.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
+                    No transactions found.
+                  </td>
+                </tr>
+              ) : (
+                transactions.map((tx) => (
+                  <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {new Date(tx.created_at).toLocaleDateString()} {new Date(tx.created_at).toLocaleTimeString()}
+                    </td>
+                    <td className="px-6 py-4 font-medium text-slate-900">
+                      {tx.bank_ref === 'VERIFICATION_CHARGE' ? 'A/C Verification' : 'Payout'}
+                    </td>
+                    <td className="px-6 py-4 text-right font-bold text-slate-900">
+                      ₹{tx.amount.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4 text-right text-red-600 font-medium">
+                      ₹{tx.charge_amount.toFixed(2)}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        tx.status === 'approved' ? 'bg-green-100 text-green-700' :
+                        tx.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        tx.status === 'refunded' ? 'bg-slate-100 text-slate-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {tx.status.toUpperCase()}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

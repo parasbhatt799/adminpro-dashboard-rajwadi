@@ -23,7 +23,7 @@ import autoTable from 'jspdf-autotable';
 
 interface UnifiedRecord {
   id: string;
-  type: 'QR' | 'BILL' | 'PAYOUT' | 'ADJUSTMENT';
+  type: 'QR' | 'BILL' | 'PAYOUT' | 'VERIFICATION' | 'ADJUSTMENT' | 'TRANSFER_DEBIT' | 'TRANSFER_CREDIT';
   date: string;
   firm_name: string;
   user_name: string;
@@ -212,7 +212,7 @@ export default function AdminStatementReport() {
         payoutMapped.push({
           id: r.id,
           numericId: String(r.id).split('-')[0].toUpperCase(),
-          type: 'PAYOUT',
+          type: r.bank_ref === 'VERIFICATION_CHARGE' ? 'VERIFICATION' : 'PAYOUT',
           date: r.created_at,
           firm_name: r.users_profiles?.firm_name || 'N/A',
           user_name: r.users_profiles?.name || 'N/A',

@@ -60,7 +60,9 @@ const menuItems = [
     icon: History,
     path: '/payout-requests',
     subItems: [
+      { id: 'qr-payment-requests', label: 'Wallet Load Request', path: '/qr-payment-requests' },
       { id: 'payout-requests', label: 'Payout Request', path: '/payout-requests' },
+      { id: 'camlenio-payouts', label: 'AEPS Payout History', path: '/camlenio-payouts' },
       { id: 'qr-history', label: 'QR Tracking History', path: '/qr-history' },
       { id: 'qr-gallery', label: 'QR Gallery', path: '/qr-gallery' }
     ]

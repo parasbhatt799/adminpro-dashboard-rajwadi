@@ -4080,8 +4080,43 @@ async function startServer() {
   // --- Camlenio Payout System ---
   app.post("/api/payout/verify-bank", async (req, res) => {
     try {
-      const { accountNumber, ifsc, transactionId } = req.body;
+      const { userId, accountNumber, ifsc, transactionId, bankName, holderName } = req.body;
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+      const supabaseClient = createClient(supabaseUrl, serviceKey);
+
+      // 1. Get verification charge from settings
+      const { data: settings } = await supabaseClient.from('payout_settings').select('camlenio_verification_charge').eq('id', 1).single();
+      const charge = settings?.camlenio_verification_charge || 5;
+
+      // 2. Deduct wallet
+      const rpcData = await supabaseClient.rpc('submit_auto_payout_request', {
+        p_user_id: userId,
+        p_bank_name: bankName || 'BANK',
+        p_holder_name: holderName || 'ACCOUNT HOLDER',
+        p_account_number: accountNumber,
+        p_ifsc_code: ifsc,
+        p_amount: 0,
+        p_charges: charge,
+        p_txn_id: transactionId,
+        p_status: 'approved',
+        p_utr_number: 'VERIFICATION'
+      });
+
+      if (rpcData.error || !rpcData.data?.success) {
+        return res.status(400).json({ success: false, message: rpcData.data?.message || rpcData.error?.message });
+      }
+
+      const payoutId = rpcData.data.payout_id;
+      await supabaseClient.from('payout_submissions').update({ bank_ref: 'VERIFICATION_CHARGE' }).eq('id', payoutId);
+
+      // 3. Call API
       const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId);
+      
+      // If verification completely fails (not just name mismatch but API failure), we could refund here,
+      // but pennydrop usually charges regardless. We will assume charge is non-refundable for API hits.
+      
       res.json(response);
     } catch (error: any) {
       console.error("[Payout API] Verify Bank Error:", error);
@@ -4101,6 +4136,18 @@ async function startServer() {
       const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
       const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
       const supabaseClient = createClient(supabaseUrl, serviceKey);
+
+      // Check settings first
+      const { data: settings } = await supabaseClient.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout').eq('id', 1).single();
+      
+      if (settings) {
+        if (!settings.camlenio_is_enabled) {
+          return res.status(400).json({ success: false, message: 'AEPS Payouts are currently disabled by Admin.' });
+        }
+        if (parseFloat(amount) > parseFloat(settings.camlenio_max_payout)) {
+          return res.status(400).json({ success: false, message: `Maximum payout allowed is ₹${settings.camlenio_max_payout}.` });
+        }
+      }
 
       // We pass 'pending_bank' temporarily to deduct wallet before hitting Camlenio
       const rpcData = await supabaseClient.rpc('submit_auto_payout_request', {
