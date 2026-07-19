@@ -2289,14 +2289,17 @@ async function startServer() {
           const mapped = billerList.map((b: any) => ({
             biller_id: b.billerId,
             biller_name: b.billerName,
-            category: b.category,
+            category: b.category || b.billerCategoryName || 'Unknown',
             metadata: b
           }));
 
           // Upsert into Supabase in batches of 100 to avoid request overload
           for (let i = 0; i < mapped.length; i += 100) {
             const chunk = mapped.slice(i, i + 100);
-            await supabaseAdmin.from('billavenue_billers').upsert(chunk);
+            const { error: upsertErr } = await supabaseAdmin.from('billavenue_billers').upsert(chunk);
+            if (upsertErr) {
+              console.error("[BillAvenue Server] Batch upsert error:", upsertErr);
+            }
           }
         } else {
           // Single biller: Inject interchangeFeeCCF1 metadata if missing
