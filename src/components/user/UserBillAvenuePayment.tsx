@@ -801,13 +801,30 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       // Use metadata from DB initially
       let bDetail = biller.metadata;
 
-      // FALLBACK: If the DB doesn't have billerInputParams, we CANNOT fetch from live API on demand 
-      // because BillAvenue has a strict limit of 15 MDM API calls per day.
+      // FALLBACK: If the DB doesn't have billerInputParams, fetch from live API on demand
       if (!bDetail?.billerInputParams && !bDetail?.inputParams) {
-        console.warn('Parameters missing in DB. Cannot fetch live due to API limits.');
-        toast.error('Biller details are incomplete. Please ask Admin to click "Sync Billers" in the admin panel.');
-        setBillerParamsLoading(false);
-        return;
+        console.log('Parameters missing in DB, fetching from live API...');
+        try {
+          const response = await fetch(`/api/bbps/billers?billerId=${biller.billerId}`);
+          if (!response.ok) throw new Error('Failed to fetch from live API');
+          const data = await response.json();
+          const apiBiller = data?.billerInfoResponse?.biller;
+          
+          if (apiBiller) {
+            bDetail = apiBiller;
+            // Silently update database so we don't fetch next time
+            supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then(({error}) => {
+              if (error) console.warn('Failed to cache biller params:', error.message);
+            });
+          } else {
+            throw new Error('Live API did not return parameters (Limit exceeded?)');
+          }
+        } catch (fetchErr: any) {
+          console.error(fetchErr);
+          toast.error(`Live API Error: ${fetchErr.message}. Parameters missing.`);
+          setBillerParamsLoading(false);
+          return;
+        }
       }
 
       const ccf1FeeInfo = bDetail?.interchangeFeeCCF1;
