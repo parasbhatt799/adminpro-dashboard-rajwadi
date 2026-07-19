@@ -1871,133 +1871,90 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                             {billDetails ? (
                               billDetails.fetchSupported ? (
                                 <div className="space-y-4">
-                                  {/* 1. Biller Name */}
-                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Biller Name</span>
-                                    <span className="font-semibold text-slate-600">{selectedBiller?.billerName || 'N/A'}</span>
-                                  </div>
-
-                                  {/* 2. Customer Name */}
-                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">{getFieldLabel('Customer name')}</span>
-                                    <span className="font-semibold text-slate-600">{billDetails.customerName}</span>
-                                  </div>
-
-                                  {/* 3. Customer Number */}
-                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Customer Number</span>
-                                    <span className="font-semibold text-slate-600 font-mono">
-                                      {Object.values(formInputs)[0] || customerMobile || 'N/A'}
-                                    </span>
-                                  </div>
-
-                                  {/* 4. Bill Date */}
-                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Date</span>
-                                    <span className="font-semibold text-slate-600">{billDetails.billDate && billDetails.billDate !== 'NA' ? billDetails.billDate : 'N/A'}</span>
-                                  </div>
-
-                                  {/* 5. Bill Period */}
-                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Period</span>
-                                    <span className="font-semibold text-slate-600">{billDetails.billPeriod && billDetails.billPeriod !== 'NA' ? billDetails.billPeriod : 'N/A'}</span>
-                                  </div>
-
-                                  {/* 6. Bill Number */}
-                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Number</span>
-                                    <span className="font-semibold text-slate-600 font-mono">{billDetails.billNumber && billDetails.billNumber !== 'NA' ? billDetails.billNumber : 'N/A'}</span>
-                                  </div>
-
-                                  {/* 7. Due Date */}
-                                  <div className="flex justify-between items-center text-xs border-b border-slate-100 pb-2">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Date</span>
-                                    <span className="font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate && billDetails.dueDate !== 'NA' ? billDetails.dueDate : 'N/A'}</span>
-                                  </div>
-
-                                  {/* 12. Multiple Amount Option Checkboxes */}
-                                  <div className="space-y-2 border-t border-slate-100 pt-3">
-                                    <label className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wider block">Multiple Amount Option</label>
-                                    <div className="space-y-2 bg-slate-100/50 p-3.5 rounded-2xl border border-slate-200/50">
-                                      {/* Base Bill Amount Checkbox */}
-                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="checkbox"
-                                            checked={amountOptions.base}
-                                            onChange={(e) => setAmountOptions({ ...amountOptions, base: e.target.checked })}
-                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                          />
-                                          <span>Base Bill Amount</span>
-                                        </div>
-                                        <span className="font-semibold text-slate-600">₹{baseBillAmount.toFixed(2)}</span>
-                                      </label>
-
-                                      {/* Late Payment Fee Checkbox */}
-                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="checkbox"
-                                            checked={amountOptions.lateFee}
-                                            onChange={(e) => setAmountOptions({ ...amountOptions, lateFee: e.target.checked })}
-                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                          />
-                                          <span>Late Payment Fee</span>
-                                        </div>
-                                        <span className="font-semibold text-slate-600">₹{latePaymentFee.toFixed(2)}</span>
-                                      </label>
-
-                                      {/* Additional Charges Checkbox */}
-                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="checkbox"
-                                            checked={amountOptions.additional}
-                                            onChange={(e) => setAmountOptions({ ...amountOptions, additional: e.target.checked })}
-                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                          />
-                                          <span>Additional Charges</span>
-                                        </div>
-                                        <span className="font-semibold text-slate-600">₹{additionalCharges.toFixed(2)}</span>
-                                      </label>
-
-                                      {/* Fixed Charges Checkbox */}
-                                      <label className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-200/40 transition-colors cursor-pointer text-xs font-semibold text-slate-700">
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="checkbox"
-                                            checked={amountOptions.fixed}
-                                            onChange={(e) => setAmountOptions({ ...amountOptions, fixed: e.target.checked })}
-                                            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
-                                          />
-                                          <span>Fixed Charges</span>
-                                        </div>
-                                        <span className="font-semibold text-slate-600">₹{fixedCharges.toFixed(2)}</span>
-                                      </label>
-                                    </div>
-                                  </div>
-
-                                  {/* 8. Bill Amount */}
-                                  <div className="flex justify-between items-center text-xs border-t border-slate-100 pt-3">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Amount</span>
-                                    <span className="font-semibold text-slate-600 text-sm">₹{Number(manualAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
-
-                                  {/* 9. Customer Convenience Fees */}
                                   <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Customer Convenience Fees</span>
-                                    <span className="font-semibold text-indigo-600">₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Amount</span>
+                                    <span className="text-lg font-semibold text-slate-600">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                   </div>
 
-                                  {/* 10. Total Amount */}
-                                  <div className="flex justify-between items-center text-xs bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/50">
-                                    <span className="text-indigo-900 font-black uppercase tracking-wider">Total Amount</span>
-                                    <span className="text-base font-black text-emerald-600">
-                                      ₹{(Number(manualAmount || 0) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </span>
+                                  <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
+                                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                    <input
+                                      type="number"
+                                      required
+                                      value={manualAmount}
+                                      onChange={(e) => setManualAmount(e.target.value)}
+                                      onWheel={(e) => e.currentTarget.blur()}
+                                      placeholder="Enter exact amount to pay"
+                                      className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
+                                    />
                                   </div>
 
-                                  {/* 11. Payment Mode */}
+                                  {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                    Number(manualAmount) >= 50000 ? (
+                                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
+                                        <AlertTriangle size={16} className="shrink-0" />
+                                        <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
+                                      </div>
+                                    ) : (
+                                      <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                          <span>Bill Base Amount</span>
+                                          <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                          <span>Customer Convenience Fees</span>
+                                          <span className="font-semibold text-indigo-500">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
+                                          <span>Transaction Charges</span>
+                                          <span className="font-semibold text-indigo-500">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                        <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
+                                          <span>Total Debited</span>
+                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + ccf1Fee + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                        </div>
+                                      </div>
+                                    )
+                                  )}
+
+                                  {billDetails.dueDate && billDetails.dueDate !== "NA" && (
+                                    <div className="flex justify-between items-center text-xs">
+                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Date</span>
+                                      <span className="font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
+                                    </div>
+                                  )}
+                                  {billDetails.billNumber && billDetails.billNumber !== "NA" && (
+                                    <div className="flex justify-between items-center text-xs">
+                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Number</span>
+                                      <span className="font-semibold text-slate-500">{billDetails.billNumber}</span>
+                                    </div>
+                                  )}
+                                  {billDetails.billDate && billDetails.billDate !== "NA" && (
+                                    <div className="flex justify-between items-center text-xs">
+                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Date</span>
+                                      <span className="font-semibold text-slate-500">{billDetails.billDate}</span>
+                                    </div>
+                                  )}
+                                  {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
+                                    <div className="flex justify-between items-center text-xs">
+                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Period</span>
+                                      <span className="font-semibold text-slate-500">{billDetails.billPeriod}</span>
+                                    </div>
+                                  )}
+                                  {billDetails.additionalInfo && billDetails.additionalInfo
+                                    .filter((info: any) => info.infoName.toLowerCase() !== "maximum permissible amount")
+                                    .map((info: any) => (
+                                      <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
+                                        <span className="text-slate-700 font-extrabold uppercase tracking-wider">{info.infoName}</span>
+                                        <span className="font-semibold text-slate-500">
+                                          {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
+                                            ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                            : info.infoValue}
+                                        </span>
+                                      </div>
+                                    ))}
+
+                                  {/* Payment Mode Selector */}
                                   <div className="space-y-1.5 border-t border-slate-100 pt-3">
                                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Payment Mode</label>
                                     <select
