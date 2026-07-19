@@ -15,6 +15,7 @@ import * as billAvenue from "./services/billavenue.js";
 import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
 import * as camlenioBbps from "./services/camlenio_bbps.js";
+import * as camlenioPayout from "./services/camlenio_payout.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -4073,6 +4074,142 @@ async function startServer() {
     } catch (error: any) {
       console.error("[Recharge API] Agent Deposit Enquiry Error:", error);
       res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  // --- Camlenio Payout System ---
+  app.post("/api/payout/verify-bank", async (req, res) => {
+    try {
+      const { accountNumber, ifsc, transactionId } = req.body;
+      const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId);
+      res.json(response);
+    } catch (error: any) {
+      console.error("[Payout API] Verify Bank Error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/payout/process-auto", async (req, res) => {
+    try {
+      const { userId, amount, bankName, holderName, accountNumber, ifscCode, charge, transactionId } = req.body;
+      
+      if (!userId || !amount || !accountNumber || !ifscCode || !transactionId) {
+        return res.status(400).json({ success: false, message: 'Missing required fields' });
+      }
+
+      // We will first use Supabase RPC to check balance and get an initialized request
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+      const supabaseClient = createClient(supabaseUrl, serviceKey);
+
+      // We pass 'pending_bank' temporarily to deduct wallet before hitting Camlenio
+      const rpcData = await supabaseClient.rpc('submit_auto_payout_request', {
+        p_user_id: userId,
+        p_bank_name: bankName,
+        p_holder_name: holderName,
+        p_account_number: accountNumber,
+        p_ifsc_code: ifscCode,
+        p_amount: amount,
+        p_charges: charge,
+        p_txn_id: null,
+        p_status: 'processing',
+        p_utr_number: transactionId // Using our local txnId in utr_number as reference for idempotency
+      });
+
+      if (rpcData.error || !rpcData.data?.success) {
+        return res.status(400).json({ success: false, message: rpcData.data?.message || rpcData.error?.message });
+      }
+
+      const payoutId = rpcData.data.payout_id;
+      
+      // Hit Camlenio
+      const impsResult = await camlenioPayout.processImpsPayout({
+        amount,
+        reference: payoutId, // Use database UUID as unique reference
+        bankAccount: accountNumber,
+        ifsc: ifscCode,
+        name: holderName,
+        phone: '9999999999' // Dummy if not provided
+      });
+
+      if (impsResult.success && (impsResult.status === 'SUCCESS' || impsResult.status === 'PENDING')) {
+        // Update the record with Camlenio's txnId
+        await supabaseClient.from('payout_submissions')
+          .update({ txn_id: impsResult.txnId, utr_number: impsResult.utr || impsResult.txnId })
+          .eq('id', payoutId);
+        
+        return res.json({ success: true, message: 'Payout is being processed', data: impsResult });
+      } else {
+        // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
+        await supabaseClient.from('payout_submissions').update({ status: 'rejected', rejection_reason: impsResult.message }).eq('id', payoutId);
+        
+        // Refund Wallet Logic:
+        const totalRefund = parseFloat(amount) + parseFloat(charge);
+        await supabaseClient.rpc('add_wallet_balance', {
+          p_user_id: userId,
+          p_amount: totalRefund
+        });
+
+        return res.status(400).json({ success: false, message: impsResult.message || 'Bank payout failed' });
+      }
+
+    } catch (error: any) {
+      console.error("[Payout API] Process IMPS Error:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  app.post("/api/webhooks/camlenio/payout", express.json({ type: 'application/json' }), async (req, res) => {
+    try {
+      const signature = req.headers['x-camlenio-signature'] as string;
+      const rawBody = JSON.stringify(req.body);
+      
+      if (!camlenioPayout.verifyWebhookSignature(rawBody, signature)) {
+        console.warn("Invalid signature in Camlenio Webhook");
+        return res.status(401).send("Invalid Signature");
+      }
+
+      const { reference, txnId, status, message, utr } = req.body;
+      console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${status}`);
+
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || "";
+      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+      const supabaseClient = createClient(supabaseUrl, serviceKey);
+
+      // Verify existing status
+      const { data: existing } = await supabaseClient.from('payout_submissions').select('status, amount, charge_amount, user_id').eq('id', reference).single();
+      
+      if (!existing || existing.status !== 'processing') {
+        // Avoid double processing
+        return res.status(200).json({ status: 'OK' });
+      }
+
+      if (status === 'SUCCESS') {
+        await supabaseClient.from('payout_submissions').update({
+          status: 'approved',
+          txn_id: txnId,
+          utr_number: utr,
+          rejection_reason: message
+        }).eq('id', reference);
+      } else if (status === 'FAILED') {
+        await supabaseClient.from('payout_submissions').update({
+          status: 'rejected',
+          txn_id: txnId,
+          rejection_reason: message
+        }).eq('id', reference);
+
+        // Refund User Wallet
+        const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount);
+        await supabaseClient.rpc('add_wallet_balance', {
+          p_user_id: existing.user_id,
+          p_amount: totalRefund
+        });
+      }
+
+      return res.status(200).json({ status: 'OK' });
+    } catch (err: any) {
+      console.error("Webhook Error:", err);
+      return res.status(500).send("Server Error");
     }
   });
 
