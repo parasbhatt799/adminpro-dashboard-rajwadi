@@ -837,9 +837,12 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         setCcf1Config(null);
       }
 
+      const isAdhocTrue = bDetail?.billerAcceptsAdhoc === 'true' || bDetail?.billerAcceptsAdhoc === true;
+      const isAdhocMissing = bDetail?.billerAcceptsAdhoc === undefined;
+      
       setBillerConfig({
-        billerAcceptsAdhoc: bDetail?.billerAcceptsAdhoc === 'true' || bDetail?.billerAcceptsAdhoc === true,
-        fetchRequirement: bDetail?.fetchRequirement || 'OPTIONAL'
+        billerAcceptsAdhoc: isAdhocTrue || isAdhocMissing || selectedCategory === 'Credit Card',
+        fetchRequirement: bDetail?.fetchRequirement || (selectedCategory === 'Credit Card' ? 'NOT_SUPPORTED' : 'OPTIONAL')
       });
 
       // Map parameters
@@ -999,6 +1002,17 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         } else {
           validCustomerMobile = '9999999999'; // Fallback to pass BBPS regex
         }
+      }
+
+      // Skip fetch completely if NOT_SUPPORTED
+      if (billerConfig?.fetchRequirement === 'NOT_SUPPORTED' && billerConfig?.billerAcceptsAdhoc) {
+        setBillDetails({
+          customerName: 'QuickPay / Adhoc Payment',
+          billAmount: 0,
+          fetchSupported: false
+        });
+        setLoading(false);
+        return;
       }
 
       const res = await fetch('/api/bbps/fetch', {
