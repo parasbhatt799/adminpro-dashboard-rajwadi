@@ -58,8 +58,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     amount: ''
   });
   const [submittingPayout, setSubmittingPayout] = useState(false);
-  const [verifyingBank, setVerifyingBank] = useState(false);
-  const [bankVerified, setBankVerified] = useState(false);
   const [payoutSettings, setPayoutSettings] = useState<any>(null);
   const [payoutBanks, setPayoutBanks] = useState<any[]>([]);
 
@@ -903,34 +901,22 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
 
     try {
-      // 1. Call Backend to Process Auto Payout
-      // We generate a local transactionId to send
-      const localTxnId = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
-
-      const response = await fetch('/api/payout/process-auto', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: userId,
-          amount: amountNum,
-          bankName: payoutForm.bankName,
-          holderName: payoutForm.holderName,
-          accountNumber: payoutForm.accountNumber,
-          ifscCode: payoutForm.ifscCode,
-          charge: charge,
-          transactionId: localTxnId
-        })
+      // Use Atomic RPC for submission (Deduct wallet + Insert record in ONE step)
+      const { data: result, error: rpcError } = await supabase.rpc('submit_payout_request_atomic', {
+        p_user_id: userId,
+        p_bank_name: payoutForm.bankName,
+        p_holder_name: payoutForm.holderName,
+        p_account_number: payoutForm.accountNumber,
+        p_ifsc_code: payoutForm.ifscCode,
+        p_amount: amountNum,
+        p_charges: charge
       });
 
-      const result = await response.json();
+      if (rpcError) throw rpcError;
+      if (!result.success) throw new Error(result.message);
 
-      if (!response.ok || !result.success) {
-        throw new Error(result.message || 'Payout submission failed');
-      }
-
-      // 2. OPTIMISTIC UPDATE: Update local balance
-      const newBalance = currentWallet - totalDeduction;
-      setUserBalance(newBalance);
+      // 3. OPTIMISTIC UPDATE: Update local balance
+      setUserBalance(result.new_balance);
 
       setSuccess('Payout request submitted successfully! Total amount (including charges) has been debited from your wallet.');
       setPayoutForm({
@@ -953,39 +939,6 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       setError(err.message || 'Failed to submit payout.');
     } finally {
       setSubmittingPayout(false);
-    }
-  };
-
-  const handleVerifyBank = async () => {
-    if (!payoutForm.accountNumber || !payoutForm.ifscCode) {
-      setError('Please enter Account Number and IFSC code to verify.');
-      return;
-    }
-    setVerifyingBank(true);
-    setError(null);
-    try {
-      const localTxnId = `VFC${Date.now()}`;
-      const response = await fetch('/api/payout/verify-bank', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          accountNumber: payoutForm.accountNumber,
-          ifsc: payoutForm.ifscCode,
-          transactionId: localTxnId
-        })
-      });
-      const data = await response.json();
-      if (data.success && data.data?.beneficiaryName) {
-        setPayoutForm(prev => ({ ...prev, holderName: data.data.beneficiaryName }));
-        setBankVerified(true);
-        setSuccess('Bank account verified successfully!');
-      } else {
-        throw new Error(data.message || 'Verification failed');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to verify bank account');
-    } finally {
-      setVerifyingBank(false);
     }
   };
 
@@ -2304,11 +2257,9 @@ export default function UserPayment({ userId }: UserPaymentProps) {
                           value={payoutForm.holderName}
                           onChange={(e) => setPayoutForm({ ...payoutForm, holderName: e.target.value })}
                           placeholder="Enter Holder Name"
-                          className={`w-full px-4 py-3 bg-white border ${bankVerified ? 'border-green-500 bg-green-50' : 'border-slate-200'} rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all`}
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
                           required
-                          readOnly={bankVerified}
                         />
-                        {bankVerified && <p className="text-xs text-green-600 font-medium">✓ Verified via Pennydrop</p>}
                       </div>
 
                       <div className="space-y-2">
@@ -2325,25 +2276,14 @@ export default function UserPayment({ userId }: UserPaymentProps) {
 
                       <div className="space-y-2">
                         <label className="text-sm font-bold text-slate-700">IFSC Code:</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={payoutForm.ifscCode}
-                            onChange={(e) => setPayoutForm({ ...payoutForm, ifscCode: e.target.value.toUpperCase() })}
-                            placeholder="Enter IFSC Code"
-                            className="flex-1 px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
-                            required
-                          />
-                          <button
-                            type="button"
-                            onClick={handleVerifyBank}
-                            disabled={verifyingBank || !payoutForm.accountNumber || !payoutForm.ifscCode}
-                            className="px-4 py-3 bg-slate-900 text-white font-medium rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-all flex items-center gap-2 whitespace-nowrap"
-                          >
-                            {verifyingBank ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
-                            Verify
-                          </button>
-                        </div>
+                        <input
+                          type="text"
+                          value={payoutForm.ifscCode}
+                          onChange={(e) => setPayoutForm({ ...payoutForm, ifscCode: e.target.value.toUpperCase() })}
+                          placeholder="Enter IFSC Code"
+                          className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                          required
+                        />
                       </div>
 
                       <div className="space-y-2">
