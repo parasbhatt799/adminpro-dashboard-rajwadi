@@ -4053,9 +4053,25 @@ async function startServer() {
   app.get("/api/recharge/deposit", async (req, res) => {
     try {
       const response = await recharge.getDepositBalance();
+      console.log("[Recharge API] Deposit API Response:", JSON.stringify(response.json, null, 2));
       res.json(response.json);
     } catch (error: any) {
       console.error("[Recharge API] Deposit Enquiry Error:", error);
+      res.status(500).json({ status: "ERROR", message: error.message });
+    }
+  });
+
+  app.post("/api/recharge/agent-deposit", async (req, res) => {
+    try {
+      const { agentId } = req.body;
+      if (!agentId) {
+        return res.status(400).json({ status: "ERROR", message: "agentId is required" });
+      }
+      const response = await recharge.getAgentDepositBalance(agentId);
+      console.log(`[Recharge API] Agent ${agentId} Deposit API Response:`, JSON.stringify(response.json, null, 2));
+      res.json(response.json);
+    } catch (error: any) {
+      console.error("[Recharge API] Agent Deposit Enquiry Error:", error);
       res.status(500).json({ status: "ERROR", message: error.message });
     }
   });

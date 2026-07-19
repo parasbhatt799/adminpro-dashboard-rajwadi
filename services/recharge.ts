@@ -219,3 +219,23 @@ export async function getDepositBalance(): Promise<any> {
 
   return callBillAvenueApi(RECHARGE_ENDPOINTS.deposit, xml);
 }
+
+/**
+ * Enquire specific agent deposit wallet balance
+ */
+export async function getAgentDepositBalance(agentId: string): Promise<any> {
+  const today = new Date().toISOString().split('T')[0]; // yyyy-MM-dd format
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<depositDetailsRequest>
+    <fromDate>${today}</fromDate>
+    <toDate>${today}</toDate>
+    <transType></transType>
+    <agents>
+        <agentId>${agentId}</agentId>
+    </agents>
+    <transactionId></transactionId>
+    <requestId></requestId>
+</depositDetailsRequest>`;
+
+  return callBillAvenueApi(RECHARGE_ENDPOINTS.deposit, xml);
+}

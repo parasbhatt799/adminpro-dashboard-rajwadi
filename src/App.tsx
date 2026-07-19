@@ -9,6 +9,7 @@ import LoadingSpinner from './components/shared/LoadingSpinner';
 
 // --- Lazy Loaded Components ---
 const Sidebar = lazy(() => import('./components/Sidebar'));
+const AgentBalances = lazy(() => import('./pages/AgentBalances'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const UsersList = lazy(() => import('./components/UsersList'));
 const QRManagement = lazy(() => import('./components/QRManagement'));
@@ -1228,6 +1229,7 @@ export default function App() {
           <Route path="kyc-verification-requests" element={(adminRole === 'full' || adminPermissions.includes('kyc-verification-requests')) ? <KYCVerificationRequests /> : <Navigate to="/dashboard" replace />} />
           <Route path="qr-gallery" element={(adminRole === 'full' || adminPermissions.includes('qr-gallery')) ? <QRScreenshotGallery /> : <Navigate to="/dashboard" replace />} />
           <Route path="bbps-history" element={(adminRole === 'full' || adminPermissions.includes('bbps-history')) ? <BBPSHistory /> : <Navigate to="/dashboard" replace />} />
+          <Route path="agent-balances" element={(adminRole === 'full' || adminPermissions.includes('agent-balances')) ? <AgentBalances /> : <Navigate to="/dashboard" replace />} />
           <Route path="admin/recharge-dashboard" element={(adminRole === 'full' || adminPermissions.includes('recharge-dashboard')) ? <RechargeDashboard /> : <Navigate to="/dashboard" replace />} />
           
           <Route path="reports">
