@@ -34,6 +34,7 @@ const Advertising = lazy(() => import('./components/Advertising'));
 const AgreementManagement = lazy(() => import('./components/AgreementManagement'));
 const QRScreenshotGallery = lazy(() => import('./components/QRScreenshotGallery'));
 const Settings = lazy(() => import('./components/Settings'));
+const AdminBillerCategories = lazy(() => import('./components/AdminBillerCategories'));
 const AdminWithdrawal = lazy(() => import('./components/AdminWithdrawal'));
 const PayoutManagement = lazy(() => import('./components/PayoutManagement'));
 const DeveloperLogs = lazy(() => import('./components/DeveloperLogs'));
@@ -1244,6 +1245,7 @@ export default function App() {
               <Route path="admin-management" element={<AdminManagement currentAdminId={userId} adminRole={adminRole} onLogout={handleLogout} />} />
               <Route path="settings" element={<Settings />} />
               <Route path="advertising" element={<Advertising />} />
+              <Route path="category-settings" element={<AdminBillerCategories />} />
               <Route path="developer-logs" element={<DeveloperLogs />} />
             </>
           )}

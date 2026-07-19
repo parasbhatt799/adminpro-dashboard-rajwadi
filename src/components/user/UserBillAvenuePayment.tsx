@@ -642,8 +642,20 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   const fetchBillersAndCategories = async () => {
     setCategoriesLoading(true);
     try {
+      // Fetch category settings from the backend
+      const settingsRes = await fetch('/api/biller-categories');
+      const settingsData = await settingsRes.json();
+      
       // Start with our comprehensive standard categories list
-      const mergedCats = [...STANDARD_CATEGORIES];
+      let mergedCats = [...STANDARD_CATEGORIES];
+      
+      if (Array.isArray(settingsData)) {
+        mergedCats = mergedCats.filter(cat => {
+          const setting = settingsData.find(s => s.provider === 'billavenue' && s.category_name === cat.name);
+          return setting ? setting.is_active : true; // Default to true if not found
+        });
+      }
+
       mergedCats.sort((a, b) => a.name.localeCompare(b.name));
       setCategories(mergedCats);
       setAllBillers([]); // Clear memory, we will fetch on demand per category

@@ -115,7 +115,8 @@ const menuItems = [
       { id: 'admin-management', label: 'Admin Management', path: '/admin-management', role: 'full' },
       { id: 'change-password', label: 'Change Password', path: '/change-password' },
       { id: 'settings', label: 'Business Settings', path: '/settings', role: 'full' },
-      { id: 'advertising', label: 'Advertising Settings', path: '/advertising', role: 'full' }
+      { id: 'advertising', label: 'Advertising Settings', path: '/advertising', role: 'full' },
+      { id: 'category-settings', label: 'Category Settings', path: '/category-settings', role: 'full' }
     ]
   },
   { id: 'developer-logs', label: 'System Logs', icon: FileText, path: '/developer-logs', role: 'developer' },
