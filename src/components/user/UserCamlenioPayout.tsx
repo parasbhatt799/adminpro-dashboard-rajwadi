@@ -290,12 +290,46 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
               <label className="text-sm font-bold text-slate-700">Bank Name</label>
               <input
                 type="text"
+                list="bankNames"
                 value={payoutForm.bankName}
                 onChange={(e) => setPayoutForm({ ...payoutForm, bankName: e.target.value })}
                 placeholder="e.g. State Bank of India"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
                 required
               />
+              <datalist id="bankNames">
+                <option value="State Bank of India" />
+                <option value="HDFC Bank" />
+                <option value="ICICI Bank" />
+                <option value="Axis Bank" />
+                <option value="Punjab National Bank" />
+                <option value="Bank of Baroda" />
+                <option value="Kotak Mahindra Bank" />
+                <option value="IndusInd Bank" />
+                <option value="Yes Bank" />
+                <option value="Union Bank of India" />
+                <option value="Canara Bank" />
+                <option value="Bank of India" />
+                <option value="Central Bank of India" />
+                <option value="Indian Bank" />
+                <option value="Indian Overseas Bank" />
+                <option value="UCO Bank" />
+                <option value="Bank of Maharashtra" />
+                <option value="Punjab & Sind Bank" />
+                <option value="IDBI Bank" />
+                <option value="RBL Bank" />
+                <option value="IDFC First Bank" />
+                <option value="Bandhan Bank" />
+                <option value="Federal Bank" />
+                <option value="South Indian Bank" />
+                <option value="Paytm Payments Bank" />
+                <option value="Airtel Payments Bank" />
+                <option value="India Post Payments Bank" />
+                <option value="Fino Payments Bank" />
+                <option value="Equitas Small Finance Bank" />
+                <option value="Ujjivan Small Finance Bank" />
+                <option value="AU Small Finance Bank" />
+              </datalist>
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">Account Number</label>
