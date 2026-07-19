@@ -4,6 +4,7 @@ dotenv.config();
 
 const BASE_URL = (process.env.CAMLENIO_AEPS_BASE_URL || 'https://cspl.camlenio.com').replace(/['"]/g, '').trim().replace(/\/$/, '');
 const API_KEY = (process.env.CAMLENIO_AEPS_API_KEY || 'fjf0f2xy3W01NTtSDTUS62rdKyVqPSY7').replace(/['"]/g, '').trim();
+const SECRET_KEY = (process.env.CAMLENIO_AEPS_SECRET_KEY || '').replace(/['"]/g, '').trim();
 
 export interface PennydropResponse {
   success: boolean;
