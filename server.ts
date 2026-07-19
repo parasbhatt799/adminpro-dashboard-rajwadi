@@ -2814,6 +2814,13 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
+      // If channel is AGT (Agent), BBPS often rejects modes like UPI, Net Banking, etc.
+      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash' or 'Wallet' to BBPS.
+      let finalPaymentMode = paymentMode || 'UPI';
+      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
+        finalPaymentMode = 'Cash';
+      }
+
       // 3. Call BillAvenue pay API
       let apiResponse;
       try {
@@ -2822,7 +2829,7 @@ async function startServer() {
           customerParams,
           customerMobile,
           paymentAmount,
-          paymentMode || 'UPI',
+          finalPaymentMode,
           quickPay || 'N',
           ccf1 !== undefined ? Number(ccf1) : undefined,
           billDetails,
