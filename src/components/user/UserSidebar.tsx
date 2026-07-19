@@ -17,7 +17,8 @@ import {
   Smartphone,
   HelpCircle,
   Search,
-  Fingerprint
+  Fingerprint,
+  Send
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { NavLink, Link } from 'react-router-dom';
@@ -39,6 +40,7 @@ const menuItems = [
   { id: 'cspl-search', label: 'Cspl Search', icon: Search, path: '/user/cspl-search' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },
+  { id: 'camlenio-payout', label: 'AEPS Payout', icon: Send, path: '/user/camlenio-payout' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },
