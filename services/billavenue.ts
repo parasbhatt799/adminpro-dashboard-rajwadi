@@ -188,11 +188,19 @@ export async function callBillAvenueApi(url: string, xmlPayload: string): Promis
     }
 
     const decryptedXml = decryptResponse(ciphertext);
-    console.log('[BillAvenue Service] Decrypted XML Response:', decryptedXml);
+    console.log('[BillAvenue Service] Decrypted XML Response length:', decryptedXml.length);
+    
+    let jsonResult = null;
+    try {
+      jsonResult = xmlToJson(decryptedXml);
+    } catch (e: any) {
+      console.warn('[BillAvenue Service] Warning: xmlToJson failed (likely due to huge MDM payload). Returning rawXml only.', e.message);
+    }
+
     return {
       requestId,
       rawXml: decryptedXml,
-      json: xmlToJson(decryptedXml)
+      json: jsonResult
     };
   } catch (error: any) {
     console.error('[BillAvenue Service] API call failed:', error);

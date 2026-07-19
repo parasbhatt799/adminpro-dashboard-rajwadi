@@ -2279,28 +2279,66 @@ async function startServer() {
         console.warn("[BillAvenue Server] API Fetch Failed, trying local database fallback:", apiErr.message);
       }
 
-      if (response && response.json?.billerInfoResponse?.biller) {
+      if (response && (response.json?.billerInfoResponse?.biller || (!billerId && response.rawXml))) {
         // Cache billers dynamically to supabase if we fetched all
         if (!billerId) {
-          const billerList = Array.isArray(response.json.billerInfoResponse.biller)
-            ? response.json.billerInfoResponse.biller
-            : [response.json.billerInfoResponse.biller];
+          const rawXml = response.rawXml;
+          const billerRegex = /<biller>([\s\S]*?)<\/biller>/g;
+          const mapped = [];
+          let match;
 
-          const mapped = billerList.map((b: any) => ({
-            biller_id: b.billerId,
-            biller_name: b.billerName,
-            category: b.category || b.billerCategoryName || 'Unknown',
-            metadata: b
-          }));
+          while ((match = billerRegex.exec(rawXml)) !== null) {
+            const content = match[1];
+            const bId = billAvenue.parseXmlValue(content, 'billerId');
+            const bName = billAvenue.parseXmlValue(content, 'billerName');
+            const cat = billAvenue.parseXmlValue(content, 'categoryName') || billAvenue.parseXmlValue(content, 'billerCategoryName') || 'Unknown';
+            
+            // Build a metadata object similar to what xmlToJson would output for a single biller
+            const metadata: any = { billerId: bId, billerName: bName, billerCategoryName: cat };
+            
+            // Try to extract input parameters
+            const paramsMatch = content.match(/<billerInputParams>([\s\S]*?)<\/billerInputParams>/);
+            if (paramsMatch) {
+              const paramRegex = /<paramInfo>([\s\S]*?)<\/paramInfo>/g;
+              const params = [];
+              let pMatch;
+              while ((pMatch = paramRegex.exec(paramsMatch[1])) !== null) {
+                params.push({
+                  paramName: billAvenue.parseXmlValue(pMatch[1], 'paramName'),
+                  dataType: billAvenue.parseXmlValue(pMatch[1], 'dataType'),
+                  isOptional: billAvenue.parseXmlValue(pMatch[1], 'isOptional'),
+                  minLength: billAvenue.parseXmlValue(pMatch[1], 'minLength'),
+                  maxLength: billAvenue.parseXmlValue(pMatch[1], 'maxLength')
+                });
+              }
+              if (params.length > 0) metadata.billerInputParams = { paramInfo: params };
+            }
+
+            // Extract exactness/fetch requirement
+            const fetchReq = billAvenue.parseXmlValue(content, 'fetchRequirement');
+            if (fetchReq) metadata.fetchRequirement = fetchReq;
+            
+            const acceptsAdhoc = billAvenue.parseXmlValue(content, 'billerAcceptsAdhoc');
+            if (acceptsAdhoc) metadata.billerAcceptsAdhoc = acceptsAdhoc;
+
+            mapped.push({
+              biller_id: bId,
+              biller_name: bName,
+              category: cat,
+              metadata: metadata
+            });
+          }
 
           // Upsert into Supabase in batches of 100 to avoid request overload
+          console.log(`[BillAvenue Server] Parsed ${mapped.length} billers from raw XML. Upserting...`);
           for (let i = 0; i < mapped.length; i += 100) {
             const chunk = mapped.slice(i, i + 100);
             const { error: upsertErr } = await supabaseAdmin.from('billavenue_billers').upsert(chunk);
             if (upsertErr) {
-              console.error("[BillAvenue Server] Batch upsert error:", upsertErr);
+              console.error("[BillAvenue Server] Batch upsert error:", upsertErr.message);
             }
           }
+          console.log(`[BillAvenue Server] Finished upserting billers.`);
         } else {
           // Single biller: Inject interchangeFeeCCF1 metadata if missing
           const b = response.json.billerInfoResponse.biller;
