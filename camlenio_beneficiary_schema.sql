@@ -15,24 +15,7 @@ CREATE TABLE IF NOT EXISTS public.payout_beneficiaries (
 -- Enable RLS
 ALTER TABLE public.payout_beneficiaries ENABLE ROW LEVEL SECURITY;
 
--- Allow users to manage their own beneficiaries
-CREATE POLICY "Users can manage their own beneficiaries" 
+-- Allow all operations (matching other tables in this app)
+CREATE POLICY "payout_beneficiaries_all" 
 ON public.payout_beneficiaries 
-FOR ALL 
-USING (auth.uid()::text = user_id) 
-WITH CHECK (auth.uid()::text = user_id);
-
--- Also allow admin access
-CREATE POLICY "Admins can view all beneficiaries" 
-ON public.payout_beneficiaries 
-FOR ALL 
-USING (
-    EXISTS (
-        SELECT 1 FROM public.admin_profiles WHERE id = auth.uid()
-    )
-) 
-WITH CHECK (
-    EXISTS (
-        SELECT 1 FROM public.admin_profiles WHERE id = auth.uid()
-    )
-);
+FOR ALL USING (true) WITH CHECK (true);

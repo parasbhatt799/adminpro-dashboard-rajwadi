@@ -4084,7 +4084,7 @@ async function startServer() {
 
       // 1. Get verification charge from settings
       const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_verification_charge').eq('id', 1).single();
-      const charge = settings?.camlenio_verification_charge || 5;
+      const charge = settings?.camlenio_verification_charge ?? 5;
 
       // 2. Deduct wallet
       const rpcData = await supabaseAdmin.rpc('submit_auto_payout_request', {
