@@ -16,6 +16,40 @@ interface Beneficiary {
   is_verified: boolean;
 }
 
+const POPULAR_BANKS = [
+  "State Bank of India",
+  "HDFC Bank",
+  "ICICI Bank",
+  "Axis Bank",
+  "Punjab National Bank",
+  "Bank of Baroda",
+  "Kotak Mahindra Bank",
+  "IndusInd Bank",
+  "Yes Bank",
+  "Union Bank of India",
+  "Canara Bank",
+  "Bank of India",
+  "Central Bank of India",
+  "Indian Bank",
+  "Indian Overseas Bank",
+  "UCO Bank",
+  "Bank of Maharashtra",
+  "Punjab & Sind Bank",
+  "IDBI Bank",
+  "RBL Bank",
+  "IDFC First Bank",
+  "Bandhan Bank",
+  "Federal Bank",
+  "South Indian Bank",
+  "Paytm Payments Bank",
+  "Airtel Payments Bank",
+  "India Post Payments Bank",
+  "Fino Payments Bank",
+  "Equitas Small Finance Bank",
+  "Ujjivan Small Finance Bank",
+  "AU Small Finance Bank"
+];
+
 export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) {
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
@@ -33,6 +67,9 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     accountNumber: '',
     ifscCode: ''
   });
+
+  const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const [filteredBanks, setFilteredBanks] = useState(POPULAR_BANKS);
 
   // Modal State
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
@@ -286,50 +323,39 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
             <h2 className="text-lg font-bold text-slate-900">Add Beneficiary</h2>
           </div>
           <form onSubmit={handleVerifyAndSave} className="p-4 space-y-4">
-            <div className="space-y-2">
+            <div className="space-y-2 relative">
               <label className="text-sm font-bold text-slate-700">Bank Name</label>
               <input
                 type="text"
-                list="bankNames"
                 value={payoutForm.bankName}
-                onChange={(e) => setPayoutForm({ ...payoutForm, bankName: e.target.value })}
+                onFocus={() => setShowBankDropdown(true)}
+                onBlur={() => setTimeout(() => setShowBankDropdown(false), 200)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setPayoutForm({ ...payoutForm, bankName: val });
+                  setFilteredBanks(POPULAR_BANKS.filter(b => b.toLowerCase().includes(val.toLowerCase())));
+                  setShowBankDropdown(true);
+                }}
                 placeholder="e.g. State Bank of India"
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm"
                 required
               />
-              <datalist id="bankNames">
-                <option value="State Bank of India" />
-                <option value="HDFC Bank" />
-                <option value="ICICI Bank" />
-                <option value="Axis Bank" />
-                <option value="Punjab National Bank" />
-                <option value="Bank of Baroda" />
-                <option value="Kotak Mahindra Bank" />
-                <option value="IndusInd Bank" />
-                <option value="Yes Bank" />
-                <option value="Union Bank of India" />
-                <option value="Canara Bank" />
-                <option value="Bank of India" />
-                <option value="Central Bank of India" />
-                <option value="Indian Bank" />
-                <option value="Indian Overseas Bank" />
-                <option value="UCO Bank" />
-                <option value="Bank of Maharashtra" />
-                <option value="Punjab & Sind Bank" />
-                <option value="IDBI Bank" />
-                <option value="RBL Bank" />
-                <option value="IDFC First Bank" />
-                <option value="Bandhan Bank" />
-                <option value="Federal Bank" />
-                <option value="South Indian Bank" />
-                <option value="Paytm Payments Bank" />
-                <option value="Airtel Payments Bank" />
-                <option value="India Post Payments Bank" />
-                <option value="Fino Payments Bank" />
-                <option value="Equitas Small Finance Bank" />
-                <option value="Ujjivan Small Finance Bank" />
-                <option value="AU Small Finance Bank" />
-              </datalist>
+              {showBankDropdown && filteredBanks.length > 0 && (
+                <ul className="absolute z-10 w-full bg-white border border-slate-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto text-sm">
+                  {filteredBanks.map((bank, idx) => (
+                    <li
+                      key={idx}
+                      className="px-3 py-2 hover:bg-slate-50 cursor-pointer text-slate-700 border-b border-slate-50 last:border-0"
+                      onClick={() => {
+                        setPayoutForm({ ...payoutForm, bankName: bank });
+                        setShowBankDropdown(false);
+                      }}
+                    >
+                      {bank}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
             <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">Account Number</label>
