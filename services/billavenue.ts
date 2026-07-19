@@ -183,8 +183,12 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
     if (responseText.includes('<encResponse>')) {
       ciphertext = parseXmlValue(responseText, 'encResponse');
     } else if (responseText.trim().startsWith('<')) {
-      console.warn('[BillAvenue Service] Received plain XML/HTML error response (IP might not be whitelisted):', responseText);
-      throw new Error(`BillAvenue returned plain text/XML error (IP might not be whitelisted): ${responseText}`);
+      let errorDesc = "BillAvenue returned plain text/XML error (IP might not be whitelisted)";
+      if (responseText.includes("Unauthorized Access Detected")) {
+        errorDesc = "Unauthorized Access Detected. Please make sure you have access privilege for this module.";
+      }
+      console.warn(`[BillAvenue Service] ${errorDesc}:`, responseText);
+      throw new Error(errorDesc);
     }
 
     const decryptedXml = decryptResponse(ciphertext);
