@@ -1,95 +1,79 @@
-const https = require('https');
-
 // Make sure these match your LIVE credentials
-const BASE_HOSTNAME = 'cspl.camlenio.com';
+const BASE_URL = 'https://cspl.camlenio.com';
 const API_KEY = 'fjf0f2xy3W01NTtSDTUS62rdKyVqPSY7';
 const SECRET_KEY = '7eSVhG7xf8sP5sLYAwFvQFZD7ksrb21BGmslzEolFkkbBxZLr8b9XrmxMCr3m16p';
 const USER_ID = 'CU260707KTT';
 
-function makeRequest(path, headers, payload, name) {
-  return new Promise((resolve, reject) => {
-    console.log(`\n======================================`);
-    console.log(`Testing ${name} on LIVE Server`);
-    console.log(`URL: https://${BASE_HOSTNAME}${path}`);
-    
-    const dataString = JSON.stringify(payload);
-    headers['Content-Length'] = Buffer.byteLength(dataString);
-
-    const options = {
-      hostname: BASE_HOSTNAME,
-      port: 443,
-      path: path,
+async function testPennydrop() {
+  const url = `${BASE_URL}/api/v1/vfc/pennydrop`;
+  console.log(`\n======================================`);
+  console.log(`Testing Pennydrop API on LIVE Server`);
+  console.log(`URL: ${url}`);
+  
+  try {
+    const response = await fetch(url, {
       method: 'POST',
-      headers: headers
-    };
-
-    const req = https.request(options, (res) => {
-      console.log(`Status Code: ${res.statusCode}`);
-      
-      let responseBody = '';
-      res.on('data', (chunk) => {
-        responseBody += chunk;
-      });
-      
-      res.on('end', () => {
-        console.log(`Response Body: \n${responseBody}\n`);
-        resolve();
-      });
+      headers: {
+        'Content-Type': 'application/json',
+        'ApiKey': API_KEY,
+        'SecretKey': SECRET_KEY,
+        'UserId': USER_ID
+      },
+      body: JSON.stringify({
+        accountNumber: "100058651466",
+        ifsc: "INDX0000265",
+        transactionId: "TXN" + Date.now()
+      })
     });
+    
+    console.log(`Status Code: ${response.status}`);
+    const text = await response.text();
+    console.log(`Response Body: \n${text}\n`);
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+  }
+}
 
-    req.on('error', (error) => {
-      console.error(`Error: ${error.message}`);
-      reject(error);
+async function testImpsPayout() {
+  const url = `${BASE_URL}/api/v1/payout/transaction`;
+  console.log(`\n======================================`);
+  console.log(`Testing IMPS Payout API on LIVE Server`);
+  console.log(`URL: ${url}`);
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-TIMESTAMP': new Date().toISOString(),
+        'X-REQUEST-ID': 'REQ' + Date.now(),
+        'X-API-KEY': API_KEY
+      },
+      body: JSON.stringify({
+        amount: 10,
+        reference: "REF" + Date.now(),
+        bankProfileId: "BP1001", 
+        bankAccount: "100058651466",
+        ifsc: "INDX0000265",
+        latitude: "23.0225",
+        longitude: "72.5714",
+        name: "Test User",
+        phone: "9999999999"
+      })
     });
-
-    req.write(dataString);
-    req.end();
-  });
+    
+    console.log(`Status Code: ${response.status}`);
+    const text = await response.text();
+    console.log(`Response Body: \n${text}\n`);
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+  }
 }
 
 async function runTests() {
-  console.log(`Starting Camlenio API Tests (No dependencies required)...`);
-
-  // 1. Test Pennydrop
-  await makeRequest(
-    '/api/v1/vfc/pennydrop',
-    {
-      'Content-Type': 'application/json',
-      'ApiKey': API_KEY,
-      'SecretKey': SECRET_KEY,
-      'UserId': USER_ID
-    },
-    {
-      accountNumber: "100058651466",
-      ifsc: "INDX0000265",
-      transactionId: "TXN" + Date.now()
-    },
-    'Pennydrop API'
-  );
-
-  // 2. Test IMPS Payout
-  await makeRequest(
-    '/api/v1/payout/transaction',
-    {
-      'Content-Type': 'application/json',
-      'X-TIMESTAMP': new Date().toISOString(),
-      'X-REQUEST-ID': 'REQ' + Date.now(),
-      'X-API-KEY': API_KEY
-    },
-    {
-      amount: 10,
-      reference: "REF" + Date.now(),
-      bankProfileId: "BP1001",
-      bankAccount: "100058651466",
-      ifsc: "INDX0000265",
-      latitude: "23.0225",
-      longitude: "72.5714",
-      name: "Test User",
-      phone: "9999999999"
-    },
-    'IMPS Payout API'
-  );
-
+  console.log(`Starting Camlenio API Tests (Native Fetch - Node 18+)...`);
+  await testPennydrop();
+  await testImpsPayout();
   console.log(`Tests Finished!`);
 }
 
