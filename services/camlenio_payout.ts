@@ -4,7 +4,7 @@ dotenv.config();
 
 const BASE_URL = (process.env.CAMLENIO_AEPS_BASE_URL || 'https://cspl.camlenio.com').replace(/['"]/g, '').trim().replace(/\/$/, '');
 const API_KEY = (process.env.CAMLENIO_AEPS_API_KEY || 'fjf0f2xy3W01NTtSDTUS62rdKyVqPSY7').replace(/['"]/g, '').trim();
-const SECRET_KEY = (process.env.CAMLENIO_AEPS_SECRET_KEY || '').replace(/['"]/g, '').trim();
+const SECRET_KEY = (process.env.CAMLENIO_PAYOUT_SECRET_KEY || '').replace(/['"]/g, '').trim();
 
 export interface PennydropResponse {
   success: boolean;
@@ -77,11 +77,34 @@ export async function callPayoutApi(endpoint: string, payload: any): Promise<any
  */
 export async function verifyBankAccount(accountNumber: string, ifsc: string, transactionId: string): Promise<PennydropResponse> {
   try {
-    const data = await callPayoutApi('/api/v1/payout/pennydrop', {
-      accountNumber,
-      ifsc,
-      transactionId
+    const url = `${BASE_URL}/api/v1/vfc/pennydrop`;
+    const headers = {
+      'Content-Type': 'application/json',
+      'ApiKey': API_KEY,
+      'SecretKey': SECRET_KEY,
+      'UserId': process.env.CAMLENIO_PAYOUT_USER_ID || ''
+    };
+
+    console.log(`[Payout Service] Pennydrop Request to ${url}`);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        accountNumber,
+        ifsc,
+        transactionId
+      })
     });
+
+    if (!response.ok) {
+      let errorBody = "";
+      try { errorBody = await response.text(); } catch (_) {}
+      throw new Error(`HTTP Error ${response.status}: ${errorBody}`);
+    }
+
+    const data = await response.json();
+    console.log(`[Payout Service] Pennydrop Response:`, JSON.stringify(data));
 
     if (data.status === 'SUCCESS' && data.data?.tranStatus === 'Success') {
       return {
