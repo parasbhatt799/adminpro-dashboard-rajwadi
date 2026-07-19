@@ -825,7 +825,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       
       setBillerConfig({
         billerAcceptsAdhoc: isAdhocTrue || isAdhocMissing || selectedCategory === 'Credit Card',
-        fetchRequirement: bDetail?.fetchRequirement || (selectedCategory === 'Credit Card' ? 'NOT_SUPPORTED' : 'OPTIONAL')
+        fetchRequirement: bDetail?.fetchRequirement || 'OPTIONAL'
       });
 
       // Map parameters
