@@ -61,16 +61,29 @@ export default function AdminCamlenioPayoutHistory() {
     setSavingSettings(true);
     setMessage(null);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('payout_settings')
         .update({
           camlenio_is_enabled: settings.camlenio_is_enabled,
           camlenio_max_payout: settings.camlenio_max_payout,
           camlenio_verification_charge: settings.camlenio_verification_charge
         })
-        .eq('id', 1);
+        .eq('id', 1)
+        .select();
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        const { error: insertError } = await supabase
+          .from('payout_settings')
+          .insert({
+            id: 1,
+            camlenio_is_enabled: settings.camlenio_is_enabled,
+            camlenio_max_payout: settings.camlenio_max_payout,
+            camlenio_verification_charge: settings.camlenio_verification_charge
+          });
+        if (insertError) throw insertError;
+      }
       setMessage({ type: 'success', text: 'Settings updated successfully!' });
       
       setTimeout(() => setMessage(null), 3000);
