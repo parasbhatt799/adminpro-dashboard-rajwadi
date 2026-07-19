@@ -209,13 +209,13 @@ export async function getRechargeStatus(requestId: string, trackType: string = '
 export async function getDepositBalance(): Promise<any> {
   const today = new Date().toISOString().split('T')[0]; // yyyy-MM-dd format
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<depositEnquiryRequest>
+<depositDetailsRequest>
     <fromDate>${today}</fromDate>
     <toDate>${today}</toDate>
     <transType></transType>
     <transactionId></transactionId>
     <requestId></requestId>
-</depositEnquiryRequest>`;
+</depositDetailsRequest>`;
 
   return callBillAvenueApi(RECHARGE_ENDPOINTS.deposit, xml);
 }
