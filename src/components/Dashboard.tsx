@@ -144,8 +144,11 @@ export default function Dashboard() {
         setBillAvenueError(data.message || "Failed to fetch balance");
         setBillAvenueBalance(null);
       } else if (data && (data.DepositEnquiryResponse || data.depositEnquiryResponse)) {
+        console.log("Full DepositEnquiryResponse Data:", data);
         const balObj = data.DepositEnquiryResponse || data.depositEnquiryResponse;
-        const bal = Number(balObj.currentBalance || balObj.balance) || 0;
+        const balStr = balObj.currentBalance || balObj.balance;
+        const bal = Number(String(balStr).replace(/,/g, '')) || 0;
+        console.log("Parsed balance:", balStr, "->", bal);
         setBillAvenueBalance(bal);
       } else if (data && typeof data.balance !== 'undefined') {
         setBillAvenueBalance(Number(data.balance));
