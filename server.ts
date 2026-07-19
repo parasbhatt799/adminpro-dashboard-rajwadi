@@ -2707,7 +2707,12 @@ async function startServer() {
           console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
           return res.json(getMockResponse());
         }
-        return res.json(response.json);
+        
+        // Pass back the generated or returned requestId so it can be used for the payment call
+        return res.json({
+          ...response.json,
+          requestId: response.requestId || response.json?.requestId
+        });
       } catch (apiError: any) {
         console.warn(`[BillAvenue Proxy] Fetch failed, checking if staging mock is possible for ${billerId}:`, apiError.message);
         if (isStaging) {
@@ -2738,9 +2743,21 @@ async function startServer() {
 
   app.post("/api/bbps/pay", async (req, res) => {
     try {
-      const { userId, billerId, customerParams, customerMobile, amount, paymentMode, quickPay, ccf1, billDetails } = req.body;
+      const { 
+        userId, 
+        billerId, 
+        billerName, 
+        customerParams, 
+        customerMobile, 
+        amount, 
+        paymentMode, 
+        quickPay, 
+        ccf1,
+        billDetails,
+        fetchRequestId
+      } = req.body;
 
-      if (!userId || !billerId || !customerMobile || !amount) {
+      if (!userId || !billerId || !customerParams || !customerMobile || !amount) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
       }
 
@@ -2834,7 +2851,8 @@ async function startServer() {
           ccf1 !== undefined ? Number(ccf1) : undefined,
           billDetails,
           user.name || 'Valued Customer',
-          initChannel
+          initChannel,
+          fetchRequestId
         );
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);

@@ -324,6 +324,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     additionalInfo?: any[];
     fetchSupported: boolean;
     rawBillerResponse?: any;
+    fetchRequestId?: string;
   } | null>(null);
 
   // UAT Multiple Amount and Payment Mode states
@@ -1079,7 +1080,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           billPeriod: billerResp?.billPeriod || response?.billPeriod,
           additionalInfo: additionalInfoArray,
           fetchSupported: true,
-          rawBillerResponse: billerResp
+          rawBillerResponse: billerResp,
+          fetchRequestId: data?.requestId
         });
         setManualAmount(billAmount.toString());
 
@@ -1249,7 +1251,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           paymentMode: selectedPaymentMode,
           quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
           ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined,
-          billDetails: billDetails
+          billDetails: billDetails,
+          fetchRequestId: billDetails?.fetchRequestId
         })
       });
 

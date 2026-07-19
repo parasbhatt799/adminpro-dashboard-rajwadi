@@ -145,8 +145,9 @@ export function xmlToJson(xml: string): any {
   return parseNode(cleanXml);
 }
 
-export async function callBillAvenueApi(url: string, xmlPayload: string): Promise<any> {
-  const requestId = generateRequestId();
+export async function callBillAvenueApi(endpoint: string, xmlPayload: string, explicitRequestId?: string): Promise<any> {
+  const url = `${BASE_URL}${endpoint}`;
+  const requestId = explicitRequestId || generateRequestId();
   console.log(`[BillAvenue Service] Outgoing Request [${requestId}] to URL: ${url}`);
   console.log('[BillAvenue Service] Plain Payload:', xmlPayload);
 
@@ -303,7 +304,8 @@ export async function payBill(
   ccf1?: number, // CCF1 + GST in paisa
   billDetails?: any,
   remitterName?: string,
-  initChannel: string = 'AGT'
+  initChannel: string = 'AGT',
+  fetchRequestId?: string
 ): Promise<any> {
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
@@ -424,7 +426,7 @@ export async function payBill(
   xml += `
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
 }
 
 /**
