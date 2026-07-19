@@ -27,6 +27,21 @@ const ENDPOINTS = {
 // Fixed IV for CCAvenue/BillAvenue AES-128-CBC
 const IV = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
+// Helper to escape XML special characters
+function escapeXml(unsafe: string): string {
+  if (!unsafe) return '';
+  return String(unsafe).replace(/[<>&'"]/g, function (c) {
+    switch (c) {
+      case '<': return '&lt;';
+      case '>': return '&gt;';
+      case '&': return '&amp;';
+      case '\'': return '&apos;';
+      case '"': return '&quot;';
+      default: return c;
+    }
+  });
+}
+
 /**
  * Generate 35-character requestId in the format: 27 random chars + YDDDhhmm
  */
@@ -221,8 +236,8 @@ export async function fetchBill(
           .map(
             ([name, val]) => `
         <input>
-            <paramName>${name}</paramName>
-            <paramValue>${val}</paramValue>
+            <paramName>${escapeXml(name)}</paramName>
+            <paramValue>${escapeXml(val)}</paramValue>
         </input>`
           )
           .join('')}
@@ -257,8 +272,8 @@ export async function validateBill(
           .map(
             ([name, val]) => `
         <input>
-            <paramName>${name}</paramName>
-            <paramValue>${val}</paramValue>
+            <paramName>${escapeXml(name)}</paramName>
+            <paramValue>${escapeXml(val)}</paramValue>
         </input>`
           )
           .join('')}
@@ -315,8 +330,8 @@ export async function payBill(
           .map(
             ([name, val]) => `
         <input>
-            <paramName>${name}</paramName>
-            <paramValue>${val}</paramValue>
+            <paramName>${escapeXml(name)}</paramName>
+            <paramValue>${escapeXml(val)}</paramValue>
         </input>`
           )
           .join('')}

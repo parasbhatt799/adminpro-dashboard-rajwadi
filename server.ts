@@ -2649,7 +2649,7 @@ async function startServer() {
       });
 
       const isCreditCard = billerCategory === 'Credit Card' || billerCategory?.toLowerCase()?.includes('card');
-      const initChannel = isCreditCard ? 'INT' : 'AGT';
+      const initChannel = 'AGT'; // Always use AGT for BillAvenue as our Agent ID is registered for AGT
 
       try {
         const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
@@ -2759,7 +2759,7 @@ async function startServer() {
           .eq('biller_id', billerId)
           .maybeSingle();
         if (dbBiller && (dbBiller.category === 'Credit Card' || dbBiller.category?.toLowerCase()?.includes('card'))) {
-          initChannel = 'INT';
+          initChannel = 'AGT'; // Always use AGT for BillAvenue
         }
       } catch (dbErr) {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
