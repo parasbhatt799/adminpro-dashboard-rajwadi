@@ -97,19 +97,9 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
     }
   } catch (error: any) {
     console.error('Pennydrop API Error:', error);
-    // Fallback for local testing since API might return 404 on local or incorrect endpoint
-    console.log('Returning mock success response for local testing...');
     return { 
-      success: true, 
-      message: 'Mock Verification Successful (Local Test)',
-      data: {
-        transactionId: transactionId,
-        apiTransactionId: 'MOCK_API_' + Date.now(),
-        beneficiaryName: 'LOCAL TEST HOLDER',
-        beneficiaryAccountNumber: accountNumber,
-        detail: 'Name Matched Successfully',
-        tranStatus: 'Success'
-      }
+      success: false, 
+      message: `API Error: ${error.message}`
     };
   }
 }
@@ -168,17 +158,12 @@ export async function processImpsPayout(params: {
     }
   } catch (error: any) {
     console.error('IMPS Payout API Error:', error);
-    // Fallback for local testing since API might return 404 on local or incorrect endpoint
-    console.log('Returning mock success response for local testing...');
     return { 
-      success: true, 
-      status: 'SUCCESS', 
-      statusCode: '00', 
+      success: false, 
+      status: 'FAILED', 
+      statusCode: '99', 
       reference: params.reference, 
-      utr: 'MOCK_UTR_' + Date.now(),
-      txnId: 'MOCK_TXN_' + Date.now(),
-      amount: params.amount,
-      message: 'Mock Payout Successful (Local Test)'
+      message: `API Error: ${error.message}`
     };
   }
 }
