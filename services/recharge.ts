@@ -212,9 +212,12 @@ export async function getDepositBalance(): Promise<any> {
 <depositEnquiryRequest>
     <fromDate>${today}</fromDate>
     <toDate>${today}</toDate>
+    <transType></transType>
     <agents>
         <agentId>${AGENT_ID}</agentId>
     </agents>
+    <transactionId></transactionId>
+    <requestId></requestId>
 </depositEnquiryRequest>`;
 
   return callBillAvenueApi(RECHARGE_ENDPOINTS.deposit, xml);
