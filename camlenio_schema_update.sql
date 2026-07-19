@@ -4,8 +4,11 @@ ADD COLUMN IF NOT EXISTS txn_id TEXT,
 ADD COLUMN IF NOT EXISTS bank_ref TEXT;
 
 -- Create an updated RPC for automatic payout submissions
+-- Drop the old function if it exists with UUID to avoid type conflicts
+DROP FUNCTION IF EXISTS submit_auto_payout_request(UUID, TEXT, TEXT, TEXT, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT);
+
 CREATE OR REPLACE FUNCTION submit_auto_payout_request(
-    p_user_id UUID,
+    p_user_id TEXT,
     p_bank_name TEXT,
     p_holder_name TEXT,
     p_account_number TEXT,
