@@ -2279,19 +2279,42 @@ async function startServer() {
         console.warn("[BillAvenue Server] API Fetch Failed, trying local database fallback:", apiErr.message);
       }
 
-      if (response && (response.json?.billerInfoResponse?.biller || (!billerId && response.rawXml))) {
+      if (response && response.json) {
         // Cache billers dynamically to supabase if we fetched all
         if (!billerId) {
-          const billerList = Array.isArray(response.json.billerInfoResponse.biller)
-            ? response.json.billerInfoResponse.biller
-            : [response.json.billerInfoResponse.biller];
+          // Foolproof extraction of biller list
+          let rawList: any[] = [];
+          
+          const findBillerArray = (obj: any): any[] => {
+            if (!obj) return [];
+            if (Array.isArray(obj)) {
+              // If it's an array and first element has billerId, we found it
+              if (obj.length > 0 && obj[0].billerId) return obj;
+              // Otherwise keep searching inside the array
+              for (const item of obj) {
+                const res = findBillerArray(item);
+                if (res.length > 0) return res;
+              }
+            } else if (typeof obj === 'object') {
+              if (obj.billerId) return [obj]; // Single biller
+              for (const key in obj) {
+                const res = findBillerArray(obj[key]);
+                if (res.length > 0) return res;
+              }
+            }
+            return [];
+          };
 
-          const mapped = billerList.map((b: any) => ({
-            biller_id: b.billerId,
-            biller_name: b.billerName,
-            category: b.category || b.billerCategoryName || 'Unknown',
-            metadata: b
-          }));
+          rawList = findBillerArray(response.json);
+
+          const mapped = rawList
+            .filter((b: any) => b && b.billerId)
+            .map((b: any) => ({
+              biller_id: b.billerId,
+              biller_name: b.billerName,
+              category: b.category || b.billerCategoryName || 'Unknown',
+              metadata: b
+            }));
 
           // Upsert into Supabase in batches of 100 to avoid request overload
           console.log(`[BillAvenue Server] Parsed ${mapped.length} billers from JSON. Upserting...`);
@@ -2305,7 +2328,28 @@ async function startServer() {
           console.log(`[BillAvenue Server] Finished upserting billers.`);
         } else {
           // Single biller: Inject interchangeFeeCCF1 metadata if missing
-          const b = response.json.billerInfoResponse.biller;
+          let b: any = null;
+          
+          const findSingleBiller = (obj: any): any => {
+            if (!obj) return null;
+            if (Array.isArray(obj)) {
+              if (obj.length > 0 && obj[0].billerId) return obj[0];
+              for (const item of obj) {
+                const res = findSingleBiller(item);
+                if (res) return res;
+              }
+            } else if (typeof obj === 'object') {
+              if (obj.billerId) return obj;
+              for (const key in obj) {
+                const res = findSingleBiller(obj[key]);
+                if (res) return res;
+              }
+            }
+            return null;
+          };
+
+          b = findSingleBiller(response.json);
+          
           if (b) {
             if (!b.interchangeFeeCCF1) {
               b.interchangeFeeCCF1 = {
