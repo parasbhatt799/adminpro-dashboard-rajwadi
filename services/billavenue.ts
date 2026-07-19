@@ -386,7 +386,8 @@ export async function payBill(
     
     if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
       const raw = { ...billDetails.rawBillerResponse };
-      raw.billAmount = fetchedAmountInPaise; // Override with the amount in paise
+      // Do NOT override raw.billAmount. BBPS requires the billerResponse block to be passed
+      // EXACTLY as received from the fetch call. The actual payment amount is in <amountInfo>.
       
       for (const [key, value] of Object.entries(raw)) {
         if (value !== null && value !== undefined && typeof value !== 'object') {
