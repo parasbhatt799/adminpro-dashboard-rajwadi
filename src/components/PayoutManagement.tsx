@@ -426,20 +426,11 @@ export default function PayoutManagement() {
     setSuccess(null);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('payout_settings')
-        .update(settings)
-        .eq('id', 1)
-        .select();
+        .upsert({ id: 1, ...settings });
 
       if (error) throw error;
-      
-      if (!data || data.length === 0) {
-        const { error: insertError } = await supabase
-          .from('payout_settings')
-          .insert({ id: 1, ...settings });
-        if (insertError) throw insertError;
-      }
       setSuccess('Settings updated successfully!');
     } catch (err) {
       console.error('Error saving settings:', err);
