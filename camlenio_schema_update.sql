@@ -1,7 +1,8 @@
 -- Update payout_submissions to track Camlenio specific fields
 ALTER TABLE public.payout_submissions 
 ADD COLUMN IF NOT EXISTS txn_id TEXT,
-ADD COLUMN IF NOT EXISTS bank_ref TEXT;
+ADD COLUMN IF NOT EXISTS bank_ref TEXT,
+ADD COLUMN IF NOT EXISTS utr_number TEXT;
 
 -- Create an updated RPC for automatic payout submissions
 -- Drop the old function if it exists with UUID to avoid type conflicts
