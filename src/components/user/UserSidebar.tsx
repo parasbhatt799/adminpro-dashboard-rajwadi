@@ -115,6 +115,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
   const [isCsplEnabled, setIsCsplEnabled] = useState(false);
   const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
   const [isFundTransferEnabled, setIsFundTransferEnabled] = useState(true);
+  const [isCamlenioAepsPayoutEnabled, setIsCamlenioAepsPayoutEnabled] = useState(false);
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
@@ -143,13 +144,16 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       if (!isFundTransferEnabled && item.id === 'fund-transfer') {
         return false;
       }
+      if (!isCamlenioAepsPayoutEnabled && item.id === 'camlenio-payout') {
+        return false;
+      }
       return true;
     })
   ];
 
   useEffect(() => {
     const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled, is_camlenio_aeps_payout_enabled').eq('id', 1).single();
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
@@ -161,6 +165,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         setIsCsplEnabled(data.is_cspl_enabled ?? false);
         setIsRechargeEnabled(data.is_recharge_enabled ?? true);
         setIsFundTransferEnabled(data.is_fund_transfer_enabled ?? true);
+        setIsCamlenioAepsPayoutEnabled(data.is_camlenio_aeps_payout_enabled ?? false);
       }
     };
     fetchBranding();
@@ -187,6 +192,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
           }
           if ('is_fund_transfer_enabled' in payload.new) {
             setIsFundTransferEnabled(payload.new.is_fund_transfer_enabled ?? true);
+          }
+          if ('is_camlenio_aeps_payout_enabled' in payload.new) {
+            setIsCamlenioAepsPayoutEnabled(payload.new.is_camlenio_aeps_payout_enabled ?? false);
           }
         }
       })
