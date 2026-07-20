@@ -4087,8 +4087,8 @@ async function startServer() {
       const charge = settings?.camlenio_verification_charge || 5;
 
       // 2. Pre-check balance before calling API
-      const { data: profile } = await supabaseAdmin.from('users_profiles').select('main_wallet').eq('id', userId).single();
-      if (!profile || (profile.main_wallet || 0) < charge) {
+      const { data: profile, error } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', userId).single();
+      if (error || !profile || (profile.wallet_balance || 0) < charge) {
         return res.status(400).json({ success: false, message: 'Insufficient main wallet balance for verification charge' });
       }
 
