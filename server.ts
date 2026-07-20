@@ -2902,6 +2902,7 @@ async function startServer() {
         const newBalance = currentBalance - totalDeduction;
 
         // 4. Deduct wallet balance in Supabase
+
         const { error: updateError } = await supabaseAdmin
           .from("users_profiles")
           .update({ wallet_balance: newBalance })
@@ -3159,10 +3160,11 @@ async function startServer() {
             response: responseJson
           });
 
-        return res.json({
+        return res.status(400).json({
           status: "FAILED",
-          message: payResponse?.responseReason || "Transaction failed at BillAvenue Gateway.",
-          data: payResponse
+          message: payResponse?.responseReason || responseJson?.billerResponse?.errorInfo?.error?.errorMessage || `Gateway Error: ${JSON.stringify(responseJson)}`,
+          errorCode: responseCode,
+          data: apiResponse.json
         });
       }
 
