@@ -2829,11 +2829,13 @@ async function startServer() {
           initChannel = 'AGT'; // Always use AGT for BillAvenue
         }
       } catch (dbErr) {
-        console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
+      // If channel is AGT (Agent), BBPS rejects modes like UPI, Net Banking, etc.
+      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash'.
+      let finalPaymentMode = paymentMode || 'UPI';
+      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
+        finalPaymentMode = 'Cash';
       }
 
-      // We pass the user's selected payment mode directly to BBPS.
-      let finalPaymentMode = paymentMode || 'UPI';
 
       // 3. Call BillAvenue pay API
       let apiResponse;
@@ -3160,9 +3162,15 @@ async function startServer() {
             response: responseJson
           });
 
+        // Extract exact error message from various BBPS error structures
+        let actualErrorMessage = payResponse?.responseReason 
+                              || payResponse?.errorInfo?.error?.errorMessage
+                              || responseJson?.billerResponse?.errorInfo?.error?.errorMessage 
+                              || `Gateway Error: ${JSON.stringify(responseJson)}`;
+
         return res.status(400).json({
           status: "FAILED",
-          message: payResponse?.responseReason || responseJson?.billerResponse?.errorInfo?.error?.errorMessage || `Gateway Error: ${JSON.stringify(responseJson)}`,
+          message: actualErrorMessage,
           errorCode: responseCode,
           data: apiResponse.json
         });
