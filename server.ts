@@ -4084,7 +4084,7 @@ async function startServer() {
 
       // 1. Get verification charge from settings
       const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_verification_charge').eq('id', 1).single();
-      const charge = settings?.camlenio_verification_charge || 5;
+      const charge = settings?.camlenio_verification_charge !== undefined ? settings.camlenio_verification_charge : 5;
 
       // 2. Pre-check balance before calling API
       const { data: profile, error } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', userId).single();
@@ -4137,15 +4137,21 @@ async function startServer() {
       }
 
       // Check settings first
-      const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout').eq('id', 1).single();
+      const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout, camlenio_min_payout, camlenio_payout_charge').eq('id', 1).single();
 
+      let actualCharge = 0;
       if (settings) {
         if (!settings.camlenio_is_enabled) {
           return res.status(400).json({ success: false, message: 'AEPS Payouts are currently disabled by Admin.' });
         }
+        const minPayout = settings.camlenio_min_payout ?? 100;
+        if (parseFloat(amount) < parseFloat(minPayout)) {
+          return res.status(400).json({ success: false, message: `Minimum payout allowed is ₹${minPayout}.` });
+        }
         if (parseFloat(amount) > parseFloat(settings.camlenio_max_payout)) {
           return res.status(400).json({ success: false, message: `Maximum payout allowed is ₹${settings.camlenio_max_payout}.` });
         }
+        actualCharge = settings.camlenio_payout_charge ?? 0;
       }
 
       // We pass 'pending_bank' temporarily to deduct wallet before hitting Camlenio
@@ -4156,7 +4162,7 @@ async function startServer() {
         p_account_number: accountNumber,
         p_ifsc_code: ifscCode,
         p_amount: amount,
-        p_charges: charge,
+        p_charges: actualCharge,
         p_txn_id: null,
         p_status: 'processing',
         p_utr_number: transactionId // Using our local txnId in utr_number as reference for idempotency
@@ -4190,7 +4196,7 @@ async function startServer() {
         await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', rejection_reason: impsResult.message }).eq('id', payoutId);
 
         // Refund Wallet Logic:
-        const totalRefund = parseFloat(amount) + parseFloat(charge);
+        const totalRefund = parseFloat(amount) + parseFloat(actualCharge.toString());
         await supabaseAdmin.rpc('add_wallet_balance', {
           p_user_id: userId,
           p_amount: totalRefund

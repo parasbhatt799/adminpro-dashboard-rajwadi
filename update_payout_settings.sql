@@ -1,0 +1,1 @@
+﻿ALTER TABLE public.payout_settings ADD COLUMN IF NOT EXISTS camlenio_min_payout NUMERIC DEFAULT 100; ALTER TABLE public.payout_settings ADD COLUMN IF NOT EXISTS camlenio_payout_charge NUMERIC DEFAULT 0;

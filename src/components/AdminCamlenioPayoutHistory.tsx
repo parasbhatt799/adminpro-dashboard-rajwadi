@@ -10,6 +10,8 @@ export default function AdminCamlenioPayoutHistory() {
   const [settings, setSettings] = useState({
     camlenio_is_enabled: true,
     camlenio_max_payout: 50000,
+    camlenio_min_payout: 100,
+    camlenio_payout_charge: 0,
     camlenio_verification_charge: 5
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -32,6 +34,8 @@ export default function AdminCamlenioPayoutHistory() {
         setSettings({
           camlenio_is_enabled: settingsData.camlenio_is_enabled ?? true,
           camlenio_max_payout: settingsData.camlenio_max_payout ?? 50000,
+          camlenio_min_payout: settingsData.camlenio_min_payout ?? 100,
+          camlenio_payout_charge: settingsData.camlenio_payout_charge ?? 0,
           camlenio_verification_charge: settingsData.camlenio_verification_charge ?? 5
         });
       }
@@ -161,6 +165,22 @@ export default function AdminCamlenioPayoutHistory() {
               </div>
             </div>
 
+            {/* Min Payout Amount */}
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Min Payout Amount (₹)</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <IndianRupee className="w-4 h-4" />
+                </div>
+                <input
+                  type="number"
+                  value={settings.camlenio_min_payout}
+                  onChange={(e) => setSettings({ ...settings, camlenio_min_payout: parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
             {/* Verification Charge */}
             <div className="space-y-2">
               <label className="text-sm font-bold text-slate-700">A/c Verify Charge (₹)</label>
@@ -172,6 +192,22 @@ export default function AdminCamlenioPayoutHistory() {
                   type="number"
                   value={settings.camlenio_verification_charge}
                   onChange={(e) => setSettings({ ...settings, camlenio_verification_charge: parseFloat(e.target.value) || 0 })}
+                  className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Payout Charge */}
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-slate-700">Payout Charge (₹)</label>
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+                  <IndianRupee className="w-4 h-4" />
+                </div>
+                <input
+                  type="number"
+                  value={settings.camlenio_payout_charge}
+                  onChange={(e) => setSettings({ ...settings, camlenio_payout_charge: parseFloat(e.target.value) || 0 })}
                   className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                 />
               </div>
