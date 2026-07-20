@@ -428,6 +428,9 @@ function DashboardSliderSettings() {
         <div>
           <h2 className="text-2xl font-bold text-slate-900">User Dashboard Sliders</h2>
           <p className="text-slate-500 mt-1">Manage multiple slider images shown on the User Dashboard.</p>
+          <p className="text-amber-600 text-xs font-bold mt-1.5 uppercase tracking-wide">
+            Recommended Size: 1600 x 350 pixels (or ratio 4.5:1)
+          </p>
         </div>
         <button
           onClick={() => fileInputRef.current?.click()}
