@@ -193,7 +193,7 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
 
     const decryptedXml = decryptResponse(ciphertext);
     console.log('[BillAvenue Service] Decrypted XML Response length:', decryptedXml.length);
-    
+
     let jsonResult = null;
     try {
       jsonResult = xmlToJson(decryptedXml);
@@ -216,7 +216,7 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
  * Fetch Biller List
  */
 export async function getBillers(billerId?: string): Promise<any> {
-  const xml = billerId 
+  const xml = billerId
     ? `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest><billerId>${billerId}</billerId></billerInfoRequest>`
     : `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest></billerInfoRequest>`;
   return callBillAvenueApi(ENDPOINTS.billers, xml);
@@ -229,8 +229,7 @@ export async function fetchBill(
   billerId: string,
   customerParams: Record<string, string>,
   customerMobile: string,
-  initChannel: string = 'AGT',
-  customerEmail?: string
+  initChannel: string = 'AGT'
 ): Promise<any> {
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billFetchRequest>
@@ -243,18 +242,17 @@ export async function fetchBill(
     <billerId>${billerId}</billerId>
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>
-        ${customerEmail ? `<customerEmail>${customerEmail}</customerEmail>` : ''}
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
-          .map(
-            ([name, val]) => `
+      .map(
+        ([name, val]) => `
         <input>
             <paramName>${escapeXml(name)}</paramName>
             <paramValue>${escapeXml(val)}</paramValue>
         </input>`
-          )
-          .join('')}
+      )
+      .join('')}
     </inputParams>
 </billFetchRequest>`;
   return callBillAvenueApi(ENDPOINTS.fetch, xml);
@@ -283,14 +281,14 @@ export async function validateBill(
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
-          .map(
-            ([name, val]) => `
+      .map(
+        ([name, val]) => `
         <input>
             <paramName>${escapeXml(name)}</paramName>
             <paramValue>${escapeXml(val)}</paramValue>
         </input>`
-          )
-          .join('')}
+      )
+      .join('')}
     </inputParams>
 </billValidationRequest>`;
   return callBillAvenueApi(ENDPOINTS.validate, xml);
@@ -342,14 +340,14 @@ export async function payBill(
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
-          .map(
-            ([name, val]) => `
+      .map(
+        ([name, val]) => `
         <input>
             <paramName>${escapeXml(name)}</paramName>
             <paramValue>${escapeXml(val)}</paramValue>
         </input>`
-          )
-          .join('')}
+      )
+      .join('')}
     </inputParams>
     <amountInfo>
         <amount>${amountInPaise}</amount>
@@ -390,12 +388,12 @@ export async function payBill(
   if (quickPay !== 'Y' && billDetails) {
     const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
     xml += `\n    <billerResponse>`;
-    
+
     if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
       const raw = { ...billDetails.rawBillerResponse };
       // Do NOT override raw.billAmount. BBPS requires the billerResponse block to be passed
       // EXACTLY as received from the fetch call. The actual payment amount is in <amountInfo>.
-      
+
       for (const [key, value] of Object.entries(raw)) {
         if (value !== null && value !== undefined && typeof value !== 'object') {
           xml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
@@ -417,14 +415,14 @@ export async function payBill(
     xml += `
     <additionalInfo>
         ${billDetails.additionalInfo
-          .map(
-            (info: any) => `
+        .map(
+          (info: any) => `
         <info>
             <infoName>${info.infoName}</infoName>
             <infoValue>${info.infoValue}</infoValue>
         </info>`
-          )
-          .join('')}
+        )
+        .join('')}
     </additionalInfo>`;
   }
 

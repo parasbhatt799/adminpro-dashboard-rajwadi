@@ -1657,9 +1657,9 @@ async function startServer() {
     try {
       const data = await camlenioAeps.getWalletBalance();
       console.log("[CSPL] Balance API Full Response:", JSON.stringify(data));
-      
+
       const isSuccess = data.status === 'SUCCESS' || data.status === 'success' || data.status_code === 200 || data.responseCode === '000' || data.status === true;
-      
+
       if (isSuccess) {
         // Handle out_wallet and wallet fields from CSPL, safely removing commas
         const parseAmount = (val: any) => {
@@ -1669,15 +1669,15 @@ async function startServer() {
         };
 
         let balance = 0;
-        
+
         // CSPL API returns {"wallet": {"in_wallet": "0.00", "out_wallet": "10,000.00"}}
         let outW;
         if (data.wallet && data.wallet.out_wallet !== undefined) {
-           outW = parseAmount(data.wallet.out_wallet);
+          outW = parseAmount(data.wallet.out_wallet);
         } else if (data.out_wallet !== undefined) {
-           outW = parseAmount(data.out_wallet);
+          outW = parseAmount(data.out_wallet);
         }
-        
+
         const w = parseAmount(typeof data.wallet === 'string' || typeof data.wallet === 'number' ? data.wallet : undefined);
         const wB = parseAmount(data.walletBalance);
         const b = parseAmount(data.balance);
@@ -1688,7 +1688,7 @@ async function startServer() {
         else if (wB !== undefined) balance = wB;
         else if (b !== undefined) balance = b;
         else if (a !== undefined) balance = a;
-        
+
         res.json({ balance, raw_cspl: data, username: data.username || "CSPL Wallet" });
       } else {
         res.json({ balance: 0, error: data.message || "Failed to fetch CSPL balance", debug: data });
@@ -1725,14 +1725,14 @@ async function startServer() {
         paramName: key,
         paramValue: customerParams[key]
       }));
-      
+
       const payload = {
         billerId,
         customerMobile,
         customerEmail,
         inputParams
       };
-      
+
       const data = await camlenioBbps.fetchBill(payload);
       res.json(data);
     } catch (err: any) {
@@ -1753,16 +1753,16 @@ async function startServer() {
   app.post("/api/cspl/billpay", async (req, res) => {
     try {
       const { userId, billerId, billerName, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
-      
 
-      
+
+
       const requestId = "CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString();
-      
+
       let additionalInfo: any[] = [];
       if (billDetails && billDetails.additionalInfo) {
-         additionalInfo = billDetails.additionalInfo;
+        additionalInfo = billDetails.additionalInfo;
       }
-      
+
       const totalDeduction = Number(amount) + Number(serviceCharge || 0) + Number(ccf1Fee || 0);
 
       // Verify balance first
@@ -1771,7 +1771,7 @@ async function startServer() {
         .select("wallet_balance")
         .eq("id", userId)
         .single();
-        
+
       if (userError || !user || user.wallet_balance < totalDeduction) {
         return res.json({ status: "ERROR", message: "Insufficient balance or user not found." });
       }
@@ -1833,17 +1833,17 @@ async function startServer() {
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
       fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - REQUEST: " + JSON.stringify(payload) + "\n");
-      
+
       const data = await camlenioBbps.payBill(payload);
       fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - RESPONSE: " + JSON.stringify(data) + "\n\n");
-      
+
       if (data.responseCode === '000' || data.status === 'SUCCESS') {
         const newBalance = user.wallet_balance - totalDeduction;
         await supabaseAdmin.from("users_profiles").update({ wallet_balance: newBalance }).eq("id", userId);
         data.new_balance = newBalance;
-        
+
         const txnRefId = data.txnRefId || data.refid || requestId;
-        
+
         const { error: insertError } = await supabaseAdmin.from("bbps_submissions").insert({
           user_id: userId,
           service_type: "BBPS Bill Pay",
@@ -1865,12 +1865,12 @@ async function startServer() {
         if (insertError) {
           console.error("[CSPL BBPS] Failed to log transaction in bbps_submissions:", insertError);
         }
-        
+
         data.status = 'SUCCESS'; // Ensure frontend gets SUCCESS
       } else {
-         data.status = 'ERROR';
+        data.status = 'ERROR';
       }
-      
+
       res.json(data);
     } catch (err: any) {
       console.error("[CSPL BBPS] Bill Pay Error:", err);
@@ -1983,7 +1983,7 @@ async function startServer() {
       const apiResponse = await camlenioAeps.getKycStatus(spkey, txnRef);
 
       const isVerified = apiResponse.status === "success" || apiResponse.kycStatus === "verified" || apiResponse.data?.kycStatus === "verified" || apiResponse.success === true;
-      
+
       if (isVerified) {
         const { error: dbError } = await supabaseAdmin
           .from("aeps_agents")
@@ -2061,7 +2061,7 @@ async function startServer() {
       };
 
       const apiResponse = await camlenioAeps.dailyLogin(payload);
-      
+
       const isSuccess = apiResponse.status === "success" || apiResponse.responseCode === "0000" || apiResponse.responseCode === "00" || apiResponse.success === true;
 
       if (isSuccess) {
@@ -2285,7 +2285,7 @@ async function startServer() {
         if (!billerId) {
           // Foolproof extraction of biller list
           let rawList: any[] = [];
-          
+
           const findBillerArray = (obj: any): any[] => {
             if (!obj) return [];
             if (Array.isArray(obj)) {
@@ -2330,7 +2330,7 @@ async function startServer() {
         } else {
           // Single biller: Inject interchangeFeeCCF1 metadata if missing
           let b: any = null;
-          
+
           const findSingleBiller = (obj: any): any => {
             if (!obj) return null;
             if (Array.isArray(obj)) {
@@ -2350,7 +2350,7 @@ async function startServer() {
           };
 
           b = findSingleBiller(response.json);
-          
+
           if (b) {
             if (!b.interchangeFeeCCF1) {
               b.interchangeFeeCCF1 = {
@@ -2420,10 +2420,10 @@ async function startServer() {
             .from('billavenue_billers')
             .select('*')
             .range(from, from + limit - 1);
-          
+
           if (dbError) throw dbError;
           if (!data || data.length === 0) break;
-          
+
           dbBillers.push(...data);
           if (data.length < limit) break;
           from += limit;
@@ -2554,11 +2554,11 @@ async function startServer() {
     try {
       const { ca, mobile, ca_key, mobile_key } = req.query;
       if (!ca || !mobile) {
-         return res.json({ error: "Missing ?ca= or ?mobile=" });
+        return res.json({ error: "Missing ?ca= or ?mobile=" });
       }
       const params = {
-         [String(ca_key || "Last 4 Digits of Credit Card")]: String(ca),
-         [String(mobile_key || "Registered Mobile No")]: String(mobile)
+        [String(ca_key || "Last 4 Digits of Credit Card")]: String(ca),
+        [String(mobile_key || "Registered Mobile No")]: String(mobile)
       };
       const response = await billAvenue.fetchBill("SBIC00000NATDN", params, String(mobile));
       res.json({
@@ -2654,7 +2654,7 @@ async function startServer() {
 
   app.post("/api/bbps/fetch", async (req, res) => {
     try {
-      const { billerId, customerParams, customerMobile, customerEmail } = req.body;
+      const { billerId, customerParams, customerMobile } = req.body;
       if (!billerId || !customerParams || !customerMobile) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
       }
@@ -2702,13 +2702,13 @@ async function startServer() {
       const initChannel = 'AGT'; // Always use AGT for BillAvenue as our Agent ID is registered for AGT
 
       try {
-        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel, customerEmail);
+        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
         const responseCode = response.json?.billFetchResponse?.responseCode;
         if (isStaging && responseCode !== '0000') {
           console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
           return res.json(getMockResponse());
         }
-        
+
         // Pass back the generated or returned requestId so it can be used for the payment call
         return res.json({
           ...response.json,
@@ -2744,15 +2744,15 @@ async function startServer() {
 
   app.post("/api/bbps/pay", async (req, res) => {
     try {
-      const { 
-        userId, 
-        billerId, 
-        billerName, 
-        customerParams, 
-        customerMobile, 
-        amount, 
-        paymentMode, 
-        quickPay, 
+      const {
+        userId,
+        billerId,
+        billerName,
+        customerParams,
+        customerMobile,
+        amount,
+        paymentMode,
+        quickPay,
         ccf1,
         billDetails,
         fetchRequestId
@@ -4084,7 +4084,7 @@ async function startServer() {
 
       // 1. Get verification charge from settings
       const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_verification_charge').eq('id', 1).single();
-      const charge = settings?.camlenio_verification_charge ?? 5;
+      const charge = settings?.camlenio_verification_charge || 5;
 
       // 2. Deduct wallet
       const rpcData = await supabaseAdmin.rpc('submit_auto_payout_request', {
@@ -4109,10 +4109,10 @@ async function startServer() {
 
       // 3. Call API
       const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId);
-      
+
       // If verification completely fails (not just name mismatch but API failure), we could refund here,
       // but pennydrop usually charges regardless. We will assume charge is non-refundable for API hits.
-      
+
       res.json(response);
     } catch (error: any) {
       console.error("[Payout API] Verify Bank Error:", error);
@@ -4123,14 +4123,14 @@ async function startServer() {
   app.post("/api/payout/process-auto", async (req, res) => {
     try {
       const { userId, amount, bankName, holderName, accountNumber, ifscCode, charge, transactionId } = req.body;
-      
+
       if (!userId || !amount || !accountNumber || !ifscCode || !transactionId) {
         return res.status(400).json({ success: false, message: 'Missing required fields' });
       }
 
       // Check settings first
       const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout').eq('id', 1).single();
-      
+
       if (settings) {
         if (!settings.camlenio_is_enabled) {
           return res.status(400).json({ success: false, message: 'AEPS Payouts are currently disabled by Admin.' });
@@ -4159,7 +4159,7 @@ async function startServer() {
       }
 
       const payoutId = rpcData.data.payout_id;
-      
+
       // Hit Camlenio
       const impsResult = await camlenioPayout.processImpsPayout({
         amount,
@@ -4175,12 +4175,12 @@ async function startServer() {
         await supabaseAdmin.from('payout_submissions')
           .update({ txn_id: impsResult.txnId, utr_number: impsResult.utr || impsResult.txnId })
           .eq('id', payoutId);
-        
+
         return res.json({ success: true, message: 'Payout is being processed', data: impsResult });
       } else {
         // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
         await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', rejection_reason: impsResult.message }).eq('id', payoutId);
-        
+
         // Refund Wallet Logic:
         const totalRefund = parseFloat(amount) + parseFloat(charge);
         await supabaseAdmin.rpc('add_wallet_balance', {
@@ -4201,7 +4201,7 @@ async function startServer() {
     try {
       const signature = req.headers['x-camlenio-signature'] as string;
       const rawBody = JSON.stringify(req.body);
-      
+
       if (!camlenioPayout.verifyWebhookSignature(rawBody, signature)) {
         console.warn("Invalid signature in Camlenio Webhook");
         return res.status(401).send("Invalid Signature");
@@ -4212,7 +4212,7 @@ async function startServer() {
 
       // Verify existing status
       const { data: existing } = await supabaseAdmin.from('payout_submissions').select('status, amount, charge_amount, user_id').eq('id', reference).single();
-      
+
       if (!existing || existing.status !== 'processing') {
         // Avoid double processing
         return res.status(200).json({ status: 'OK' });
@@ -4366,7 +4366,7 @@ async function startServer() {
       const { data, error } = await supabaseAdmin
         .from('biller_categories_settings')
         .select('*');
-      
+
       if (error) {
         console.error('Error fetching biller categories:', error);
         return res.status(500).json({ error: error.message });
