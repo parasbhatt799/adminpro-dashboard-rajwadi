@@ -4175,14 +4175,32 @@ async function startServer() {
       const payoutId = rpcData.data.payout_id;
 
       // Hit Camlenio
-      const impsResult = await camlenioPayout.processImpsPayout({
-        amount,
-        reference: payoutId, // Use database UUID as unique reference
-        bankAccount: accountNumber,
-        ifsc: ifscCode,
-        name: holderName,
-        phone: '9999999999' // Dummy if not provided
-      });
+      let impsResult;
+      try {
+        impsResult = await camlenioPayout.processImpsPayout({
+          amount,
+          reference: payoutId, // Use database UUID as unique reference
+          bankAccount: accountNumber,
+          ifsc: ifscCode,
+          name: holderName,
+          phone: '9999999999' // Dummy if not provided
+        });
+      } catch (apiError: any) {
+        console.error("[Payout API] Process IMPS Error:", apiError);
+        
+        // FAILED immediately (e.g. Bank Server Down): DELETE record so it doesn't show in history
+        await supabaseAdmin.from('payout_submissions').delete().eq('id', payoutId);
+
+        // Refund Wallet Logic:
+        const totalRefund = parseFloat(amount) + parseFloat(actualCharge.toString());
+        const { data: userProfile } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', userId).single();
+        if (userProfile) {
+          const newBalance = Number(userProfile.wallet_balance || 0) + totalRefund;
+          await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', userId);
+        }
+
+        return res.status(400).json({ success: false, message: apiError.message || 'Bank payout failed' });
+      }
 
       if (impsResult.success && (impsResult.status === 'SUCCESS' || impsResult.status === 'PENDING')) {
         // Update the record with Camlenio's txnId
@@ -4192,8 +4210,9 @@ async function startServer() {
 
         return res.json({ success: true, message: 'Payout is being processed', data: impsResult });
       } else {
-        // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
-        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', rejection_reason: impsResult.message }).eq('id', payoutId);
+        // FAILED gracefully from Camlenio (e.g. invalid account)
+        // User doesn't want it in history, so we DELETE instead of UPDATE
+        await supabaseAdmin.from('payout_submissions').delete().eq('id', payoutId);
 
         // Refund Wallet Logic:
         const totalRefund = parseFloat(amount) + parseFloat(actualCharge.toString());
@@ -4208,7 +4227,7 @@ async function startServer() {
       }
 
     } catch (error: any) {
-      console.error("[Payout API] Process IMPS Error:", error);
+      console.error("[Payout API] Outer Catch Error:", error);
       res.status(500).json({ success: false, message: error.message });
     }
   });
