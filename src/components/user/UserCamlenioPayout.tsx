@@ -551,61 +551,6 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         </div>
       </div>
 
-      {/* History Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-200 bg-slate-50">
-          <h2 className="text-lg font-bold text-slate-900">Recent Payouts & Verifications</h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm text-slate-600">
-            <thead className="bg-slate-50/50 text-slate-500 uppercase text-xs font-bold border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4">Date</th>
-                <th className="px-6 py-4">Type</th>
-                <th className="px-6 py-4 text-right">Amount</th>
-                <th className="px-6 py-4 text-right">Charge</th>
-                <th className="px-6 py-4">Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {transactions.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-slate-500">
-                    No transactions found.
-                  </td>
-                </tr>
-              ) : (
-                transactions.map((tx) => (
-                  <tr key={tx.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {new Date(tx.created_at).toLocaleDateString()} {new Date(tx.created_at).toLocaleTimeString()}
-                    </td>
-                    <td className="px-6 py-4 font-medium text-slate-900">
-                      {tx.bank_ref === 'VERIFICATION_CHARGE' ? 'A/C Verification' : 'Payout'}
-                    </td>
-                    <td className="px-6 py-4 text-right font-bold text-slate-900">
-                      ₹{tx.amount.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4 text-right text-red-600 font-medium">
-                      ₹{tx.charge_amount.toFixed(2)}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                        tx.status === 'approved' ? 'bg-green-100 text-green-700' :
-                        tx.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        tx.status === 'refunded' ? 'bg-slate-100 text-slate-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
-                        {tx.status.toUpperCase()}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
       {/* Add Beneficiary Modal */}
       {isAddModalOpen && (
