@@ -816,7 +816,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       let bDetail = biller.metadata;
 
       // FALLBACK: If the DB doesn't have billerInputParams, fetch from live API on demand
-      if (!bDetail?.billerInputParams && !bDetail?.inputParams) {
+      if (!bDetail?.billerInputParams) {
         console.log('Parameters missing in DB, fetching from live API...');
         try {
           const response = await fetch(`/api/bbps/billers?billerId=${biller.billerId}`);
