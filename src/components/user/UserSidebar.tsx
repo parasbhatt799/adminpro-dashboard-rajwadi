@@ -33,10 +33,10 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
-  { id: 'bill-payment', label: 'Live Bill Payment', icon: Receipt, path: '/user/bill-payment' },
-  { id: 'billavenue-payment', label: 'Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
+  { id: 'bill-payment', label: 'Bill Payment 1', icon: Receipt, path: '/user/bill-payment' },
+  { id: 'billavenue-payment', label: 'Bill Payment 2', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'billavenue-search', label: 'Search TXN', icon: Search, path: '/user/billavenue-search' },
-  { id: 'cspl-payment', label: 'CsplPayment', icon: Receipt, path: '/user/cspl-payment' },
+  { id: 'cspl-payment', label: 'Bill Payment 3', icon: Receipt, path: '/user/cspl-payment' },
   { id: 'cspl-search', label: 'Cspl Search', icon: Search, path: '/user/cspl-search' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },
@@ -155,7 +155,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
     const fetchBranding = async () => {
       const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled').eq('id', 1).single();
       const { data: payoutData } = await supabase.from('payout_settings').select('camlenio_is_enabled').eq('id', 1).single();
-      
+
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
@@ -208,8 +208,8 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       })
       .subscribe();
 
-    return () => { 
-      supabase.removeChannel(channel); 
+    return () => {
+      supabase.removeChannel(channel);
       supabase.removeChannel(payoutChannel);
     };
   }, []);
