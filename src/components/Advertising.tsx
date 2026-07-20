@@ -390,8 +390,8 @@ function DashboardSliderSettings() {
       toast.success('Slider image added successfully!');
       fetchSliders();
     } catch (err: any) {
-      console.error(err);
-      toast.error('Failed to add slider image');
+      console.error('Error adding slider:', err);
+      toast.error(err?.message || 'Failed to add slider image');
     } finally {
       setSaving(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
