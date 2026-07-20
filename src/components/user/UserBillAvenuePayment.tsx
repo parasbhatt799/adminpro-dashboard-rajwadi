@@ -816,7 +816,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       let bDetail = biller.metadata;
 
       // FALLBACK: If the DB doesn't have billerInputParams, fetch from live API on demand
-      if (!bDetail?.billerInputParams) {
+      if (!bDetail?.billerInputParams && !bDetail?.mdm_fetched) {
         console.log('Parameters missing in DB, fetching from live API...');
         try {
           const response = await fetch(`/api/bbps/billers?billerId=${biller.billerId}`);
@@ -825,19 +825,21 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           const apiBiller = data?.billerInfoResponse?.biller;
           
           if (apiBiller) {
-            bDetail = apiBiller;
+            bDetail = { ...apiBiller, mdm_fetched: true };
             // Silently update database so we don't fetch next time
             supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then(({error}) => {
               if (error) console.warn('Failed to cache biller params:', error.message);
             });
           } else {
+            // Mark as fetched even if it failed so we don't keep trying
+            bDetail = { ...(bDetail || {}), mdm_fetched: true };
+            supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then();
             throw new Error('Live API did not return parameters (Limit exceeded?)');
           }
         } catch (fetchErr: any) {
           console.error(fetchErr);
-          toast.error(`Live API Error: ${fetchErr.message}. Parameters missing.`);
-          setBillerParamsLoading(false);
-          return;
+          toast.info(`Could not fetch exact BillAvenue parameters (MDM Limit?). Using fallback details.`);
+          // Don't return early; fall back to PayPrime format or hardcoded fallbackParams
         }
       }
 
