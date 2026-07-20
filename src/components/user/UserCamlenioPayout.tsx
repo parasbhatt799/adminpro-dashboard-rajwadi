@@ -16,39 +16,8 @@ interface Beneficiary {
   is_verified: boolean;
 }
 
-const POPULAR_BANKS = [
-  "State Bank of India",
-  "HDFC Bank",
-  "ICICI Bank",
-  "Axis Bank",
-  "Punjab National Bank",
-  "Bank of Baroda",
-  "Kotak Mahindra Bank",
-  "IndusInd Bank",
-  "Yes Bank",
-  "Union Bank of India",
-  "Canara Bank",
-  "Bank of India",
-  "Central Bank of India",
-  "Indian Bank",
-  "Indian Overseas Bank",
-  "UCO Bank",
-  "Bank of Maharashtra",
-  "Punjab & Sind Bank",
-  "IDBI Bank",
-  "RBL Bank",
-  "IDFC First Bank",
-  "Bandhan Bank",
-  "Federal Bank",
-  "South Indian Bank",
-  "Paytm Payments Bank",
-  "Airtel Payments Bank",
-  "India Post Payments Bank",
-  "Fino Payments Bank",
-  "Equitas Small Finance Bank",
-  "Ujjivan Small Finance Bank",
-  "AU Small Finance Bank"
-];
+// We will load banks dynamically from the database instead of hardcoding
+// POPULAR_BANKS list has been removed.
 
 export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) {
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -69,7 +38,8 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   });
 
   const [showBankDropdown, setShowBankDropdown] = useState(false);
-  const [filteredBanks, setFilteredBanks] = useState(POPULAR_BANKS);
+  const [allBanks, setAllBanks] = useState<string[]>([]);
+  const [filteredBanks, setFilteredBanks] = useState<string[]>([]);
 
   // Modal State
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
@@ -80,7 +50,25 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     fetchUserData();
     fetchBeneficiaries();
     fetchTransactions();
+    fetchAllBanks();
   }, [userId]);
+
+  const fetchAllBanks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('camlenio_banks')
+        .select('bank_name')
+        .order('bank_name', { ascending: true });
+        
+      if (!error && data) {
+        const bankNames = Array.from(new Set(data.map(b => b.bank_name).filter(Boolean)));
+        setAllBanks(bankNames);
+        setFilteredBanks(bankNames);
+      }
+    } catch (err) {
+      console.error('Error fetching banks:', err);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -333,7 +321,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                 onChange={(e) => {
                   const val = e.target.value;
                   setPayoutForm({ ...payoutForm, bankName: val });
-                  setFilteredBanks(POPULAR_BANKS.filter(b => b.toLowerCase().includes(val.toLowerCase())));
+                  setFilteredBanks(allBanks.filter(b => b.toLowerCase().includes(val.toLowerCase())));
                   setShowBankDropdown(true);
                 }}
                 placeholder="e.g. State Bank of India"
