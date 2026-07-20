@@ -82,7 +82,7 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
     const headers = generateHeaders();
 
     console.log(`[Payout Service] Pennydrop Request [${headers['X-REQUEST-ID']}] to ${url}`);
-    const bankProfileId = getBankProfileId(ifsc) || process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
+    const bankProfileId = (await getBankProfileId(ifsc)) || process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
 
     const response = await fetch(url, {
       method: 'POST',
@@ -142,7 +142,7 @@ export async function processImpsPayout(params: {
   remarks?: string;
 }): Promise<PayoutResponse> {
   try {
-    const bankProfileId = getBankProfileId(params.ifsc) || BANK_PROFILE_ID;
+    const bankProfileId = (await getBankProfileId(params.ifsc)) || BANK_PROFILE_ID;
 
     const data = await callPayoutApi('/api/v1/aer/payout/imps-payout', {
       amount: params.amount,

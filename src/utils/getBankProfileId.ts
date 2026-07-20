@@ -1,24 +1,32 @@
-import banks from './camlenio_banks';
+import { createClient } from '@supabase/supabase-js';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Create a local supabase client specifically for this util
+const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 /**
- * Finds the correct Bank Profile ID for a given IFSC code.
- * It does a prefix match on the IFSC code.
+ * Finds the correct Bank Profile ID for a given IFSC code from the database.
  */
-export function getBankProfileId(ifsc: string): string | null {
-  if (!ifsc) return null;
+export async function getBankProfileId(ifsc: string): Promise<string | null> {
+  if (!ifsc || !supabase) return null;
   const upperIfsc = ifsc.toUpperCase();
   
-  let bestMatch = '';
-  let bestId: string | null = null;
+  try {
+    const { data, error } = await supabase.rpc('get_camlenio_bank_profile_id', {
+      p_ifsc: upperIfsc
+    });
 
-  for (const [code, id] of Object.entries(banks)) {
-    if (upperIfsc.startsWith(code.toUpperCase())) {
-      if (code.length > bestMatch.length) {
-        bestMatch = code;
-        bestId = id;
-      }
+    if (error) {
+      console.error('Error fetching bank profile id from db:', error);
+      return null;
     }
-  }
 
-  return bestId;
+    return data as string | null;
+  } catch (err) {
+    console.error('Exception fetching bank profile id:', err);
+    return null;
+  }
 }
