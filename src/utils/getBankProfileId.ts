@@ -1,11 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+import ws from 'ws';
 dotenv.config();
 
 // Create a local supabase client specifically for this util
 const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey, {
+  auth: { persistSession: false },
+  realtime: { transport: ws as any }
+}) : null;
 
 /**
  * Finds the correct Bank Profile ID for a given IFSC code from the database.
