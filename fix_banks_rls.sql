@@ -1,0 +1,1 @@
+ALTER TABLE public.camlenio_banks ENABLE ROW LEVEL SECURITY; DROP POLICY IF EXISTS "Enable read access for all users" ON public.camlenio_banks; CREATE POLICY "Enable read access for all users" ON public.camlenio_banks FOR SELECT USING (true);
