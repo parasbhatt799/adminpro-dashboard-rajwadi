@@ -87,8 +87,7 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
       body: JSON.stringify({
         accountNumber,
         ifsc,
-        transactionId,
-        bankProfileId: process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001'
+        transactionId
       })
     });
 
