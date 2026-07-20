@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { getBankProfileId } from '../src/utils/getBankProfileId.js';
 import * as dotenv from 'dotenv';
 dotenv.config();
 
@@ -138,10 +139,12 @@ export async function processImpsPayout(params: {
   remarks?: string;
 }): Promise<PayoutResponse> {
   try {
+    const bankProfileId = (await getBankProfileId(params.ifsc)) || BANK_PROFILE_ID;
+
     const data = await callPayoutApi('/api/v1/aer/payout/imps-payout', {
       amount: params.amount,
       reference: params.reference,
-      bankProfileId: BANK_PROFILE_ID,
+      bankProfileId: bankProfileId,
       bankAccount: params.bankAccount,
       ifsc: params.ifsc,
       latitude: '23.0225', // Defaulting to Gujarat coordinates as fallback
