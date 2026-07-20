@@ -4086,7 +4086,21 @@ async function startServer() {
       const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_verification_charge').eq('id', 1).single();
       const charge = settings?.camlenio_verification_charge || 5;
 
-      // 2. Deduct wallet
+      // 2. Pre-check balance before calling API
+      const { data: profile } = await supabaseAdmin.from('users_profiles').select('main_wallet').eq('id', userId).single();
+      if (!profile || (profile.main_wallet || 0) < charge) {
+        return res.status(400).json({ success: false, message: 'Insufficient main wallet balance for verification charge' });
+      }
+
+      // 3. Call API FIRST
+      const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId);
+
+      // If verification completely fails, do not deduct charge
+      if (!response.success) {
+        return res.status(400).json(response);
+      }
+
+      // 4. Deduct wallet and make entry ONLY if verification is successful
       const rpcData = await supabaseAdmin.rpc('submit_auto_payout_request', {
         p_user_id: userId,
         p_bank_name: bankName || 'BANK',
@@ -4101,17 +4115,11 @@ async function startServer() {
       });
 
       if (rpcData.error || !rpcData.data?.success) {
-        return res.status(400).json({ success: false, message: rpcData.data?.message || rpcData.error?.message });
+        console.warn(`[Payout API] Verify Bank Deduction Failed after successful API call:`, rpcData.error || rpcData.data?.message);
+      } else {
+        const payoutId = rpcData.data.payout_id;
+        await supabaseAdmin.from('payout_submissions').update({ bank_ref: 'VERIFICATION_CHARGE' }).eq('id', payoutId);
       }
-
-      const payoutId = rpcData.data.payout_id;
-      await supabaseAdmin.from('payout_submissions').update({ bank_ref: 'VERIFICATION_CHARGE' }).eq('id', payoutId);
-
-      // 3. Call API
-      const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId);
-
-      // If verification completely fails (not just name mismatch but API failure), we could refund here,
-      // but pennydrop usually charges regardless. We will assume charge is non-refundable for API hits.
 
       res.json(response);
     } catch (error: any) {

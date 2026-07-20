@@ -77,19 +77,14 @@ export async function callPayoutApi(endpoint: string, payload: any): Promise<any
  */
 export async function verifyBankAccount(accountNumber: string, ifsc: string, transactionId: string): Promise<PennydropResponse> {
   try {
-    const url = `${BASE_URL}/api/v1/vfc/pennydrop`;
-    const headers = {
-      'Content-Type': 'application/json',
-      'ApiKey': API_KEY,
-      'SecretKey': SECRET_KEY,
-      'UserId': process.env.CAMLENIO_PAYOUT_USER_ID || ''
-    };
+    const url = `${BASE_URL}/api/v1/vfc/penny-drop`;
+    const headers = generateHeaders();
 
-    console.log(`[Payout Service] Pennydrop Request to ${url}`);
+    console.log(`[Payout Service] Pennydrop Request [${headers['X-REQUEST-ID']}] to ${url}`);
     
     const response = await fetch(url, {
       method: 'POST',
-      headers,
+      headers: headers as any,
       body: JSON.stringify({
         accountNumber,
         ifsc,
