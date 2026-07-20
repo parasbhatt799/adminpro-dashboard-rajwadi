@@ -1,6 +1,5 @@
 import { randomUUID } from 'crypto';
-import { getBankProfileId } from '../src/utils/getBankProfileId.js';
-import * as dotenv from 'dotenv';
+import dotenv from 'dotenv';
 dotenv.config();
 
 const BASE_URL = (process.env.CAMLENIO_AEPS_BASE_URL || 'https://cspl.camlenio.com').replace(/['"]/g, '').trim().replace(/\/$/, '');
@@ -82,6 +81,7 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
     const headers = generateHeaders();
 
     console.log(`[Payout Service] Pennydrop Request [${headers['X-REQUEST-ID']}] to ${url}`);
+    
     const response = await fetch(url, {
       method: 'POST',
       headers: headers as any,
@@ -140,12 +140,10 @@ export async function processImpsPayout(params: {
   remarks?: string;
 }): Promise<PayoutResponse> {
   try {
-    const bankProfileId = (await getBankProfileId(params.ifsc)) || BANK_PROFILE_ID;
-
     const data = await callPayoutApi('/api/v1/aer/payout/imps-payout', {
       amount: params.amount,
       reference: params.reference,
-      bankProfileId: bankProfileId,
+      bankProfileId: BANK_PROFILE_ID,
       bankAccount: params.bankAccount,
       ifsc: params.ifsc,
       latitude: '23.0225', // Defaulting to Gujarat coordinates as fallback
