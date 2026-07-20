@@ -161,20 +161,14 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
   queryParams.append('instituteId', INSTITUTE_ID);
 
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 seconds timeout
-
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/xml, text/xml, */*'
       },
-      body: queryParams.toString(),
-      signal: controller.signal
+      body: queryParams.toString()
     });
-
-    clearTimeout(timeoutId);
 
     if (!response.ok) {
       throw new Error(`HTTP Error Status: ${response.status}`);

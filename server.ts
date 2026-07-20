@@ -2832,9 +2832,12 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
+      // If channel is AGT (Agent), BBPS often rejects modes like UPI, Net Banking, etc.
+      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash' or 'Wallet' to BBPS.
       let finalPaymentMode = paymentMode || 'UPI';
-
-
+      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
+        finalPaymentMode = 'Cash';
+      }
 
       // 3. Call BillAvenue pay API
       let apiResponse;
@@ -2877,9 +2880,7 @@ async function startServer() {
       const isStaging = process.env.BILLAVENUE_ENV !== 'production';
 
       const responseJson = apiResponse.json;
-      let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse || responseJson?.billPaymentResponse || responseJson?.BillPaymentResponse || responseJson;
-
-
+      let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
       let responseCode = payResponse?.responseCode;
       let txnRefId = payResponse?.txnRefId;
 
@@ -2903,7 +2904,6 @@ async function startServer() {
         const newBalance = currentBalance - totalDeduction;
 
         // 4. Deduct wallet balance in Supabase
-
         const { error: updateError } = await supabaseAdmin
           .from("users_profiles")
           .update({ wallet_balance: newBalance })
@@ -3161,28 +3161,10 @@ async function startServer() {
             response: responseJson
           });
 
-        // Extract exact error message from various BBPS error structures
-        let actualErrorMessage = payResponse?.responseReason;
-
-        if (!actualErrorMessage) {
-          const errInfo = payResponse?.errorInfo || responseJson?.billerResponse?.errorInfo;
-          if (Array.isArray(errInfo)) {
-            actualErrorMessage = errInfo.map((e: any) => e?.error?.errorMessage || '').filter(Boolean).join(', ');
-          } else if (errInfo?.error?.errorMessage) {
-            actualErrorMessage = errInfo.error.errorMessage;
-          }
-        }
-
-        if (!actualErrorMessage) {
-          actualErrorMessage = `Gateway Error: ${JSON.stringify(responseJson)}`;
-        }
-
-
-        return res.status(400).json({
+        return res.json({
           status: "FAILED",
-          message: actualErrorMessage,
-          errorCode: responseCode,
-          data: apiResponse.json
+          message: payResponse?.responseReason || "Transaction failed at BillAvenue Gateway.",
+          data: payResponse
         });
       }
 
