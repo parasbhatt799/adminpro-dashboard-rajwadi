@@ -1029,18 +1029,6 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         return;
       }
 
-      let validCustomerMobile = customerMobile;
-      if (!validCustomerMobile || validCustomerMobile.trim() === '') {
-        for (const [k, v] of Object.entries(cleanedParams)) {
-          if (k.toLowerCase().includes('mobile') || k.toLowerCase().includes('phone')) {
-            validCustomerMobile = v;
-            break;
-          }
-        }
-        if (!validCustomerMobile || validCustomerMobile.trim() === '') {
-          validCustomerMobile = "9999999999";
-        }
-      }
 
       const res = await fetch('/api/bbps/fetch', {
         method: 'POST',
