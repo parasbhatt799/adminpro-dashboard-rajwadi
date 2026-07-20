@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { getBankProfileId } from '../src/utils/getBankProfileId';
+import { getBankProfileId } from '../src/utils/getBankProfileId.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
