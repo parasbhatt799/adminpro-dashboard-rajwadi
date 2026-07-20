@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const BASE_URL = (process.env.CAMLENIO_AEPS_BASE_URL || 'https://cspl.camlenio.com').replace(/['"]/g, '').trim().replace(/\/$/, '');
-const API_KEY = (process.env.CAMLENIO_AEPS_API_KEY || 'fjf0f2xy3W01NTtSDTUS62rdKyVqPSY7').replace(/['"]/g, '').trim();
+const API_KEY = (process.env.CAMLENIO_PAYOUT_API_KEY || process.env.CAMLENIO_AEPS_API_KEY || 'fjf0f2xy3W01NTtSDTUS62rdKyVqPSY7').replace(/['"]/g, '').trim();
 const SECRET_KEY = (process.env.CAMLENIO_PAYOUT_SECRET_KEY || '').replace(/['"]/g, '').trim();
 
 export interface PennydropResponse {
@@ -88,7 +88,8 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
       body: JSON.stringify({
         accountNumber,
         ifsc,
-        transactionId
+        transactionId,
+        bankProfileId: process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001'
       })
     });
 
