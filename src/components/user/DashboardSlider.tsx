@@ -44,7 +44,7 @@ export default function DashboardSlider() {
   };
 
   return (
-    <div className="relative w-full h-[120px] md:h-[180px] lg:h-[220px] rounded-3xl overflow-hidden shadow-sm border border-slate-200 bg-slate-100 group mb-6 z-20">
+    <div className="relative w-full h-[120px] md:h-[180px] lg:h-[220px] xl:h-[280px] rounded-3xl overflow-hidden shadow-sm border border-slate-200 bg-white group mb-6 z-20">
       <AnimatePresence mode="wait">
         <motion.img
           key={currentIndex}
@@ -54,7 +54,7 @@ export default function DashboardSlider() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -20 }}
           transition={{ duration: 0.5 }}
-          className="absolute inset-0 w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-contain"
         />
       </AnimatePresence>
 

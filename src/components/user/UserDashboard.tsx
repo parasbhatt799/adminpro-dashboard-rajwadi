@@ -315,13 +315,13 @@ export default function UserDashboard({ userId }: { userId: string }) {
         </div>
       )}
 
+      <DashboardSlider />
+
       {/* Grid Layout for dashboard elements and sidebar */}
       <div className="relative z-10 grid grid-cols-1 lg:grid-cols-4 gap-8">
         
         {/* Main Content (left) */}
         <div className="lg:col-span-3 space-y-6">
-          <DashboardSlider />
-          
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center gap-6">
               <div>
