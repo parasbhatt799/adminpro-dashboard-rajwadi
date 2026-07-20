@@ -2654,7 +2654,7 @@ async function startServer() {
 
   app.post("/api/bbps/fetch", async (req, res) => {
     try {
-      const { billerId, customerParams, customerMobile } = req.body;
+      const { billerId, customerParams, customerMobile, customerEmail } = req.body;
       if (!billerId || !customerParams || !customerMobile) {
         return res.status(400).json({ status: "ERROR", message: "Missing required parameters." });
       }
@@ -2702,7 +2702,7 @@ async function startServer() {
       const initChannel = 'AGT'; // Always use AGT for BillAvenue as our Agent ID is registered for AGT
 
       try {
-        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
+        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel, customerEmail);
         const responseCode = response.json?.billFetchResponse?.responseCode;
         if (isStaging && responseCode !== '0000') {
           console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);

@@ -229,7 +229,8 @@ export async function fetchBill(
   billerId: string,
   customerParams: Record<string, string>,
   customerMobile: string,
-  initChannel: string = 'AGT'
+  initChannel: string = 'AGT',
+  customerEmail?: string
 ): Promise<any> {
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billFetchRequest>
@@ -242,6 +243,7 @@ export async function fetchBill(
     <billerId>${billerId}</billerId>
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>
+        ${customerEmail ? `<customerEmail>${customerEmail}</customerEmail>` : ''}
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
