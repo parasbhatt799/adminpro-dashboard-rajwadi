@@ -140,7 +140,7 @@ export async function processImpsPayout(params: {
   remarks?: string;
 }): Promise<PayoutResponse> {
   try {
-    const data = await callPayoutApi('/api/v1/payout/transaction', {
+    const data = await callPayoutApi('/api/v1/aer/payout/imps-payout', {
       amount: params.amount,
       reference: params.reference,
       bankProfileId: BANK_PROFILE_ID,
