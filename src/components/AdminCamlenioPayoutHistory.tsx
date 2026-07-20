@@ -71,6 +71,8 @@ export default function AdminCamlenioPayoutHistory() {
           id: 1,
           camlenio_is_enabled: settings.camlenio_is_enabled,
           camlenio_max_payout: settings.camlenio_max_payout,
+          camlenio_min_payout: settings.camlenio_min_payout,
+          camlenio_payout_charge: settings.camlenio_payout_charge,
           camlenio_verification_charge: settings.camlenio_verification_charge
         });
 
