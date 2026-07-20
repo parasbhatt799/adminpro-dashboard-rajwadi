@@ -1,6 +1,6 @@
 import { randomUUID } from 'crypto';
 import { getBankProfileId } from '../src/utils/getBankProfileId.js';
-import dotenv from 'dotenv';
+import * as dotenv from 'dotenv';
 dotenv.config();
 
 const BASE_URL = (process.env.CAMLENIO_AEPS_BASE_URL || 'https://cspl.camlenio.com').replace(/['"]/g, '').trim().replace(/\/$/, '');
