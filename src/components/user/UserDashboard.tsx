@@ -22,6 +22,7 @@ import {
 } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import DashboardIllustration from './DashboardIllustration';
+import DashboardSlider from './DashboardSlider';
 import { useToast } from '../../context/ToastContext';
 
 type DateFilter = 'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom';
@@ -319,6 +320,8 @@ export default function UserDashboard({ userId }: { userId: string }) {
         
         {/* Main Content (left) */}
         <div className="lg:col-span-3 space-y-6">
+          <DashboardSlider />
+          
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center gap-6">
               <div>

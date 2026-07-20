@@ -10,7 +10,9 @@ import {
   Globe, 
   AlertCircle, 
   RefreshCw, 
-  ExternalLink 
+  ExternalLink,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 
@@ -308,6 +310,8 @@ export default function Advertising() {
           </div>
         </div>
       </div>
+
+      <DashboardSliderSettings />
     </div>
   );
 }
@@ -325,3 +329,166 @@ const Loader2 = ({ size, className }: { size: number; className?: string }) => (
     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
   </svg>
 );
+
+function DashboardSliderSettings() {
+  const toast = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [sliders, setSliders] = useState<any[]>([]);
+
+  const fetchSliders = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.from('dashboard_sliders').select('*').order('id', { ascending: true });
+      if (error) throw error;
+      setSliders(data || []);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to load dashboard sliders');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchSliders();
+  }, []);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `dashboard_slider_${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('site_assets')
+        .upload(fileName, file, { cacheControl: '3600', upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from('site_assets').getPublicUrl(fileName);
+      
+      const { error: insertError } = await supabase.from('dashboard_sliders').insert([
+        { image_url: urlData.publicUrl, is_active: true }
+      ]);
+
+      if (insertError) throw insertError;
+      
+      toast.success('Slider image added successfully!');
+      fetchSliders();
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to add slider image');
+    } finally {
+      setSaving(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const toggleActive = async (id: number, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase.from('dashboard_sliders').update({ is_active: !currentStatus }).eq('id', id);
+      if (error) throw error;
+      setSliders(prev => prev.map(s => s.id === id ? { ...s, is_active: !currentStatus } : s));
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to update status');
+    }
+  };
+
+  const deleteSlider = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this slider?')) return;
+    try {
+      const { error } = await supabase.from('dashboard_sliders').delete().eq('id', id);
+      if (error) throw error;
+      setSliders(prev => prev.filter(s => s.id !== id));
+      toast.success('Slider deleted successfully');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to delete slider');
+    }
+  };
+
+  return (
+    <div className="mt-12 space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900">User Dashboard Sliders</h2>
+          <p className="text-slate-500 mt-1">Manage multiple slider images shown on the User Dashboard.</p>
+        </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={saving}
+          className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center gap-2"
+        >
+          {saving ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
+          Add New Slide
+        </button>
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden" 
+          accept="image/*"
+        />
+      </div>
+
+      {loading ? (
+        <div className="py-12 text-center text-indigo-600">
+           <Loader2 size={24} className="mx-auto animate-spin" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+          {sliders.length === 0 ? (
+            <div className="col-span-full py-12 text-center bg-slate-50 border border-slate-200 border-dashed rounded-3xl">
+              <p className="text-slate-500 font-medium">No sliders found. Click "Add New Slide" to get started.</p>
+            </div>
+          ) : (
+            sliders.map((slider) => (
+              <div key={slider.id} className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm flex flex-col group">
+                <div className="relative h-48 bg-slate-100 flex items-center justify-center">
+                  <img src={slider.image_url} alt="Slider" className="w-full h-full object-cover" />
+                  <div className="absolute top-3 right-3 flex gap-2">
+                    <button
+                      onClick={() => toggleActive(slider.id, slider.is_active)}
+                      className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm transition-colors ${
+                        slider.is_active ? 'bg-green-500 text-white' : 'bg-slate-200 text-slate-500'
+                      }`}
+                    >
+                      {slider.is_active ? 'Active' : 'Inactive'}
+                    </button>
+                  </div>
+                </div>
+                <div className="p-4 flex items-center justify-between border-t border-slate-100 bg-slate-50/50">
+                  <div className="text-xs font-bold text-slate-400">
+                    Added: {new Date(slider.created_at).toLocaleDateString()}
+                  </div>
+                  <button 
+                    onClick={() => deleteSlider(slider.id)}
+                    className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors"
+                    title="Delete Slider"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
