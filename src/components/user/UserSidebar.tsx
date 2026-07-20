@@ -154,6 +154,8 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
   useEffect(() => {
     const fetchBranding = async () => {
       const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled, is_camlenio_aeps_payout_enabled').eq('id', 1).single();
+      const { data: payoutData } = await supabase.from('payout_settings').select('camlenio_is_enabled').eq('id', 1).single();
+      
       if (data) {
         setBranding({
           logo: data.logo_url || '/logo.png',
@@ -165,7 +167,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
         setIsCsplEnabled(data.is_cspl_enabled ?? false);
         setIsRechargeEnabled(data.is_recharge_enabled ?? true);
         setIsFundTransferEnabled(data.is_fund_transfer_enabled ?? true);
-        setIsCamlenioAepsPayoutEnabled(data.is_camlenio_aeps_payout_enabled ?? false);
+        setIsCamlenioAepsPayoutEnabled(payoutData?.camlenio_is_enabled ?? data.is_camlenio_aeps_payout_enabled ?? false);
       }
     };
     fetchBranding();
@@ -200,7 +202,18 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    const payoutChannel = supabase.channel('payout_settings_user')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payout_settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new && 'camlenio_is_enabled' in payload.new) {
+          setIsCamlenioAepsPayoutEnabled(payload.new.camlenio_is_enabled ?? false);
+        }
+      })
+      .subscribe();
+
+    return () => { 
+      supabase.removeChannel(channel); 
+      supabase.removeChannel(payoutChannel);
+    };
   }, []);
 
   return (
