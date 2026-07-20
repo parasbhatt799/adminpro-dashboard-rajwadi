@@ -4197,10 +4197,12 @@ async function startServer() {
 
         // Refund Wallet Logic:
         const totalRefund = parseFloat(amount) + parseFloat(actualCharge.toString());
-        await supabaseAdmin.rpc('add_wallet_balance', {
-          p_user_id: userId,
-          p_amount: totalRefund
-        });
+        // Inline refund
+        const { data: userProfile } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', userId).single();
+        if (userProfile) {
+          const newBalance = Number(userProfile.wallet_balance || 0) + totalRefund;
+          await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', userId);
+        }
 
         return res.status(400).json({ success: false, message: impsResult.message || 'Bank payout failed' });
       }
@@ -4248,10 +4250,12 @@ async function startServer() {
 
         // Refund User Wallet
         const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount);
-        await supabaseAdmin.rpc('add_wallet_balance', {
-          p_user_id: existing.user_id,
-          p_amount: totalRefund
-        });
+        // Inline refund
+        const { data: existingUser } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', existing.user_id).single();
+        if (existingUser) {
+          const newBalance = Number(existingUser.wallet_balance || 0) + totalRefund;
+          await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', existing.user_id);
+        }
       }
 
       return res.status(200).json({ status: 'OK' });
