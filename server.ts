@@ -2878,6 +2878,7 @@ async function startServer() {
       const responseJson = apiResponse.json;
       let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse || responseJson?.billPaymentResponse || responseJson?.BillPaymentResponse || responseJson;
 
+
       let responseCode = payResponse?.responseCode;
       let txnRefId = payResponse?.txnRefId;
 
