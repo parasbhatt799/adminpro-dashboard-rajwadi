@@ -2832,9 +2832,12 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
+      // If channel is AGT (Agent), BBPS rejects modes like UPI, Net Banking, etc.
+      // Since the agent is deducting their B2B wallet, it is standard to send 'Wallet' or 'Cash'.
+      // For credit cards like RBL, Cash is disabled, so Wallet is the safest mode.
       let finalPaymentMode = paymentMode || 'UPI';
-      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
-        finalPaymentMode = 'Cash';
+      if (initChannel === 'AGT') {
+        finalPaymentMode = 'Wallet';
       }
 
 
