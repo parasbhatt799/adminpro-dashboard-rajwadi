@@ -2832,13 +2832,8 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // If channel is AGT (Agent), BBPS rejects modes like UPI, Net Banking, etc.
-      // Since the agent is deducting their B2B wallet, it is standard to send 'Wallet' or 'Cash'.
-      // For credit cards like RBL, Cash is disabled, so Wallet is the safest mode.
       let finalPaymentMode = paymentMode || 'UPI';
-      if (initChannel === 'AGT') {
-        finalPaymentMode = 'Wallet';
-      }
+
 
 
       // 3. Call BillAvenue pay API
@@ -3167,10 +3162,21 @@ async function startServer() {
           });
 
         // Extract exact error message from various BBPS error structures
-        let actualErrorMessage = payResponse?.responseReason 
-                              || payResponse?.errorInfo?.error?.errorMessage
-                              || responseJson?.billerResponse?.errorInfo?.error?.errorMessage 
-                              || `Gateway Error: ${JSON.stringify(responseJson)}`;
+        let actualErrorMessage = payResponse?.responseReason;
+
+        if (!actualErrorMessage) {
+          const errInfo = payResponse?.errorInfo || responseJson?.billerResponse?.errorInfo;
+          if (Array.isArray(errInfo)) {
+            actualErrorMessage = errInfo.map((e: any) => e?.error?.errorMessage || '').filter(Boolean).join(', ');
+          } else if (errInfo?.error?.errorMessage) {
+            actualErrorMessage = errInfo.error.errorMessage;
+          }
+        }
+
+        if (!actualErrorMessage) {
+          actualErrorMessage = `Gateway Error: ${JSON.stringify(responseJson)}`;
+        }
+
 
         return res.status(400).json({
           status: "FAILED",
