@@ -4092,14 +4092,9 @@ async function startServer() {
         return res.status(400).json({ success: false, message: 'Insufficient main wallet balance for verification charge' });
       }
 
-      // 3. Get Bank Profile ID from our camlenio_banks table
-      let bankProfileId = process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
-      if (bankName) {
-        const { data: bankData } = await supabaseAdmin.from('camlenio_banks').select('bank_id').ilike('bank_name', bankName).single();
-        if (bankData?.bank_id) {
-          bankProfileId = bankData.bank_id;
-        }
-      }
+      // For Payout, bankProfileId must be the Sender/source bank profile ID configured with Camlenio.
+      // We should use the one from .env and NOT overwrite it with the beneficiary's bank ID.
+      const bankProfileId = process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
 
       // 4. Call API FIRST
       const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId, bankProfileId);
@@ -4183,12 +4178,8 @@ async function startServer() {
 
       const payoutId = rpcData.data.payout_id;
 
-      // Fetch bankProfileId
-      let bankProfileId = process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
-      const { data: bankData } = await supabaseAdmin.from('camlenio_banks').select('bank_id').ilike('bank_name', bankName).single();
-      if (bankData?.bank_id) {
-        bankProfileId = bankData.bank_id;
-      }
+      // Fetch Sender bankProfileId from env
+      const bankProfileId = process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
 
       const { data: userProfileForPhone } = await supabaseAdmin.from('users_profiles').select('phone').eq('id', userId).single();
       const userPhone = userProfileForPhone?.phone || '9999999999';
