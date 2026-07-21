@@ -75,7 +75,7 @@ export async function callPayoutApi(endpoint: string, payload: any): Promise<any
 /**
  * Verify Bank Account using Pennydrop API
  */
-export async function verifyBankAccount(accountNumber: string, ifsc: string, transactionId: string): Promise<PennydropResponse> {
+export async function verifyBankAccount(accountNumber: string, ifsc: string, transactionId: string, bankProfileId: string): Promise<PennydropResponse> {
   try {
     const url = `${BASE_URL}/api/v1/vfc/penny-drop`;
     const headers = generateHeaders();
@@ -89,7 +89,7 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
         accountNumber,
         ifsc,
         transactionId,
-        bankProfileId: process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001'
+        bankProfileId: bankProfileId
       })
     });
 
@@ -123,8 +123,6 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
   }
 }
 
-const BANK_PROFILE_ID = process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
-
 /**
  * Initiate IMPS Payout
  */
@@ -138,12 +136,13 @@ export async function processImpsPayout(params: {
   phone: string;
   address?: string;
   remarks?: string;
+  bankProfileId: string;
 }): Promise<PayoutResponse> {
   try {
     const data = await callPayoutApi('/api/v1/aer/payout/imps-payout', {
       amount: params.amount,
       reference: params.reference,
-      bankProfileId: BANK_PROFILE_ID,
+      bankProfileId: params.bankProfileId,
       bankAccount: params.bankAccount,
       ifsc: params.ifsc,
       latitude: '23.0225', // Defaulting to Gujarat coordinates as fallback

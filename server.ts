@@ -4092,8 +4092,17 @@ async function startServer() {
         return res.status(400).json({ success: false, message: 'Insufficient main wallet balance for verification charge' });
       }
 
-      // 3. Call API FIRST
-      const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId);
+      // 3. Get Bank Profile ID from our camlenio_banks table
+      let bankProfileId = process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
+      if (bankName) {
+        const { data: bankData } = await supabaseAdmin.from('camlenio_banks').select('bank_id').ilike('bank_name', bankName).single();
+        if (bankData?.bank_id) {
+          bankProfileId = bankData.bank_id;
+        }
+      }
+
+      // 4. Call API FIRST
+      const response = await camlenioPayout.verifyBankAccount(accountNumber, ifsc, transactionId, bankProfileId);
 
       // If verification completely fails, do not deduct charge
       if (!response.success) {
@@ -4174,6 +4183,13 @@ async function startServer() {
 
       const payoutId = rpcData.data.payout_id;
 
+      // Fetch bankProfileId
+      let bankProfileId = process.env.CAMLENIO_BANK_PROFILE_ID || 'BP1001';
+      const { data: bankData } = await supabaseAdmin.from('camlenio_banks').select('bank_id').ilike('bank_name', bankName).single();
+      if (bankData?.bank_id) {
+        bankProfileId = bankData.bank_id;
+      }
+
       // Hit Camlenio
       const impsResult = await camlenioPayout.processImpsPayout({
         amount,
@@ -4181,7 +4197,8 @@ async function startServer() {
         bankAccount: accountNumber,
         ifsc: ifscCode,
         name: holderName,
-        phone: '9999999999' // Dummy if not provided
+        phone: '9999999999', // Dummy if not provided
+        bankProfileId: bankProfileId
       });
 
       if (impsResult.success && (impsResult.status === 'SUCCESS' || impsResult.status === 'PENDING')) {
