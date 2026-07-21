@@ -146,12 +146,7 @@ export async function processImpsPayout(params: {
       bankAccount: params.bankAccount,
       ifsc: params.ifsc,
       latitude: '23.0225', // Defaulting to Gujarat coordinates as fallback
-      longitude: '72.5714',
-      name: params.name,
-      email: params.email || 'noreply@example.com',
-      phone: params.phone,
-      address: params.address || 'Gujarat',
-      remarks: params.remarks || 'Payout Request'
+      longitude: '72.5714'
     });
 
     if (data.status === 'SUCCESS' || data.status === 'PENDING') {
