@@ -41,6 +41,7 @@ const menuItems = [
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },
   { id: 'camlenio-payout', label: 'AEPS Payout', icon: Send, path: '/user/camlenio-payout' },
+  { id: 'payout-history', label: 'Payout History', icon: History, path: '/user/payout-history' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
   { id: 'policies', label: 'Terms & Conditions', icon: FileText, path: '/user/policies' },

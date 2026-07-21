@@ -40,7 +40,6 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [settings, setSettings] = useState<any>(null);
-  const [transactions, setTransactions] = useState<any[]>([]);
   const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Add new beneficiary form
@@ -71,7 +70,6 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     fetchSettings();
     fetchUserData();
     fetchBeneficiaries();
-    fetchTransactions();
     fetchCamlenioBanks();
   }, [userId]);
 
@@ -97,19 +95,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     }
   };
 
-  const fetchTransactions = async () => {
-    try {
-      const { data } = await supabase
-        .from('payout_submissions')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      setTransactions(data || []);
-    } catch (err) {
-      console.error('Error fetching transactions:', err);
-    }
-  };
+
 
   const fetchUserData = async () => {
     try {
@@ -403,7 +389,6 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       setSelectedBeneficiary(null);
       setPayoutAmount('');
       setShowTpinModal(false);
-      fetchTransactions();
 
       sendAdminPushNotification(
         'New Auto Payout 💰',
