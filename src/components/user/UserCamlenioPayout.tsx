@@ -73,6 +73,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   });
 
   const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const [allBanksList, setAllBanksList] = useState(POPULAR_BANKS);
   const [filteredBanks, setFilteredBanks] = useState(POPULAR_BANKS);
 
   // Modal State
@@ -91,7 +92,21 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     fetchUserData();
     fetchBeneficiaries();
     fetchTransactions();
+    fetchCamlenioBanks();
   }, [userId]);
+
+  const fetchCamlenioBanks = async () => {
+    try {
+      const { data, error } = await supabase.from('camlenio_banks').select('bank_name').limit(2000);
+      if (!error && data && data.length > 0) {
+        const bankNames = data.map(b => b.bank_name).sort();
+        setAllBanksList(bankNames);
+        setFilteredBanks(bankNames);
+      }
+    } catch (err) {
+      console.error('Error fetching camlenio banks:', err);
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -587,7 +602,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                   onChange={(e) => {
                     const val = e.target.value;
                     setPayoutForm({ ...payoutForm, bankName: val });
-                    setFilteredBanks(POPULAR_BANKS.filter(b => b.toLowerCase().includes(val.toLowerCase())));
+                    setFilteredBanks(allBanksList.filter(b => b.toLowerCase().includes(val.toLowerCase())));
                     setShowBankDropdown(true);
                   }}
                   placeholder="e.g. State Bank of India"
