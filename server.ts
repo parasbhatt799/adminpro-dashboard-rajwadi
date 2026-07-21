@@ -4218,13 +4218,7 @@ async function startServer() {
           remark: impsResult.message
         }).eq('id', payoutId);
 
-        return res.status(200).json({ 
-          success: true, 
-          message: impsResult.message || 'Payout Processed',
-          reference: impsResult.reference,
-          status: impsResult.status === 'SUCCESS' ? 'approved' : 'processing',
-          charge: actualCharge
-        });
+        return res.status(200).json({ success: true, message: impsResult.message || 'Payout Processed' });
       } else {
         // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
         await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', remark: impsResult.message }).eq('id', payoutId);
