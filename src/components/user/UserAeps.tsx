@@ -428,7 +428,7 @@ export default function UserAeps({ userId }: UserAepsProps) {
   };
 
   // Generate Receipt PDF
-  const downloadReceiptPdf = () => {
+  const downloadReceiptPdf = async () => {
     if (!latestResult) return;
     const module = await import('jspdf');
       const JsPDFClass = module.jsPDF || module.default;

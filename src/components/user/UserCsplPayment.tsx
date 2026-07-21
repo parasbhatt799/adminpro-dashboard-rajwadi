@@ -372,7 +372,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  const downloadPDFReceipt = () => {
+  const downloadPDFReceipt = async () => {
     if (!receipt) return;
     try {
       const module = await import('jspdf');

@@ -139,7 +139,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
     window.print();
   };
 
-  const downloadPDFReceipt = (receipt: any) => {
+  const downloadPDFReceipt = async (receipt: any) => {
     if (!receipt) return;
     try {
       const module = await import('jspdf');
