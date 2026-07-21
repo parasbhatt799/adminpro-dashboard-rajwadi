@@ -4190,27 +4190,36 @@ async function startServer() {
         bankProfileId = bankData.bank_id;
       }
 
+      const { data: userProfileForPhone } = await supabaseAdmin.from('users_profiles').select('phone').eq('id', userId).single();
+      const userPhone = userProfileForPhone?.phone || '9999999999';
+      
+      // Shorten transactionId to prevent length-based validation failures (e.g. 15 chars)
+      const shortRef = `P${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 1000)}`;
+
       // Hit Camlenio
       const impsResult = await camlenioPayout.processImpsPayout({
         amount,
-        reference: transactionId, // Use localTxnId (max 20 chars) instead of UUID to prevent validation failures
+        reference: shortRef,
         bankAccount: accountNumber,
         ifsc: ifscCode,
         name: holderName,
-        phone: '9999999999', // Dummy if not provided
+        phone: userPhone,
         bankProfileId: bankProfileId
       });
 
       if (impsResult.success && (impsResult.status === 'SUCCESS' || impsResult.status === 'PENDING')) {
-        // Update the record with Camlenio's txnId
-        await supabaseAdmin.from('payout_submissions')
-          .update({ txn_id: impsResult.txnId, utr_number: impsResult.utr || impsResult.txnId })
-          .eq('id', payoutId);
+        // SUCCESS or PENDING: Update database
+        await supabaseAdmin.from('payout_submissions').update({ 
+          status: impsResult.status === 'SUCCESS' ? 'approved' : 'processing', 
+          bank_ref: impsResult.reference,
+          utr_number: impsResult.reference,
+          remark: impsResult.message
+        }).eq('id', payoutId);
 
-        return res.json({ success: true, message: 'Payout is being processed', data: impsResult });
+        return res.status(200).json({ success: true, message: impsResult.message || 'Payout Processed' });
       } else {
         // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
-        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', rejection_reason: impsResult.message }).eq('id', payoutId);
+        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', remark: impsResult.message }).eq('id', payoutId);
 
         // Refund Wallet Logic:
         const totalRefund = parseFloat(amount) + parseFloat(actualCharge.toString());
