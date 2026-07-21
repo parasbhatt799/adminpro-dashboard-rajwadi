@@ -6,6 +6,9 @@ import {
   FileSpreadsheet,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { LogoLoader } from '../shared/LoadingSpinner';
 
 interface UserStatementReportProps {
@@ -307,8 +310,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
     if (userId) fetchStatement();
   }, [userId, startDate, endDate]);
 
-  const exportToExcel = async () => {
-    const XLSX = await import('xlsx');
+  const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
     const exportData = dataToExport.map(r => ({
       'Payment Date': new Date(r.date).toLocaleString('en-IN', {
@@ -333,14 +335,9 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
     XLSX.writeFile(wb, `My_Account_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const exportToPDF = async () => {
+  const exportToPDF = () => {
     try {
-      const module = await import('jspdf');
-      const JsPDFClass = module.jsPDF || module.default;
-      const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || (autoTableModule as any);
-      
-      const doc = new JsPDFClass({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
       const dataToExport = records.slice(0, displayCount);
       const tableData = dataToExport.map(r => [
         new Date(r.date).toLocaleString('en-IN', {
