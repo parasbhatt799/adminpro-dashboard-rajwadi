@@ -148,8 +148,8 @@ export async function processImpsPayout(params: {
       latitude: '23.0225', // Defaulting to Gujarat coordinates as fallback
       longitude: '72.5714',
       name: params.name,
-      email: params.email || 'noreply@example.com',
-      phone: params.phone,
+      email: params.email || 'support@usepay.in',
+      phone: params.phone.replace(/[^0-9]/g, '').slice(-10) || '9999999999',
       address: params.address || 'Gujarat',
       remarks: params.remarks || 'Payout Request'
     });
