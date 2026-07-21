@@ -531,7 +531,7 @@ export default function Dashboard() {
           borderColor: "hover:border-amber-300",
           iconColor: "text-amber-600",
           iconBg: "bg-amber-50",
-          description: `Range: ${dateDisplay}`,
+          description: `Verify & Payout Charges | Range: ${dateDisplay}`,
           sparklineData: payoutChargesSparkOnly,
           sparklineColor: getSparklineColor(payoutChargesSparkOnly),
           comparison: getComparison(range_payout_charges, prevRpcStats?.range_payout_charges || 0)
