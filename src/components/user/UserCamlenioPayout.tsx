@@ -17,6 +17,18 @@ interface Beneficiary {
   is_verified: boolean;
 }
 
+interface ReceiptData {
+  reference: string;
+  amount: number;
+  charge: number;
+  status: string;
+  accountNumber: string;
+  holderName: string;
+  bankName: string;
+  isError?: boolean;
+  errorMessage?: string;
+}
+
 // Removed POPULAR_BANKS as we now fetch dynamically from database
 export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) {
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -29,6 +41,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   const [success, setSuccess] = useState<string | null>(null);
   const [settings, setSettings] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
 
   // Add new beneficiary form
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -375,9 +388,17 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       }
 
       setWalletBalance(prev => prev - totalDeduction);
-      const successMsg = `Payout of ₹${amountNum} to ${selectedBeneficiary!.holder_name} is being processed!`;
-      setSuccess(successMsg);
-      alert(successMsg);
+      
+      setReceiptData({
+        reference: result.reference || localTxnId,
+        amount: amountNum,
+        charge: result.charge || charge,
+        status: result.status || 'processing',
+        accountNumber: selectedBeneficiary!.account_number,
+        holderName: selectedBeneficiary!.holder_name,
+        bankName: selectedBeneficiary!.bank_name,
+        isError: false
+      });
       
       setSelectedBeneficiary(null);
       setPayoutAmount('');
@@ -393,8 +414,17 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     } catch (err: any) {
       console.error('Error submitting payout:', err);
       const errorMsg = err.message || 'Failed to submit payout.';
-      setError(errorMsg);
-      alert(errorMsg);
+      setReceiptData({
+        reference: 'N/A',
+        amount: amountNum,
+        charge: charge,
+        status: 'failed',
+        accountNumber: selectedBeneficiary?.account_number || '',
+        holderName: selectedBeneficiary?.holder_name || '',
+        bankName: selectedBeneficiary?.bank_name || '',
+        isError: true,
+        errorMessage: errorMsg
+      });
       setShowTpinModal(false);
     } finally {
       setSubmitting(false);
@@ -762,6 +792,109 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                     ) : 'Authorize Payment'}
                   </button>
                 </form>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Receipt Modal */}
+      <AnimatePresence>
+        {receiptData && (
+          <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className="relative w-full max-w-sm bg-white rounded-xl shadow-2xl overflow-hidden flex flex-col border-2 border-slate-100"
+            >
+              {/* Header */}
+              <div className={`p-4 flex justify-between items-center ${receiptData.isError ? 'bg-red-600' : 'bg-green-600'} text-white`}>
+                <h3 className="text-lg font-bold w-full text-center tracking-wide">
+                  {receiptData.isError ? 'Payout Failed' : 'Payout Completed'}
+                </h3>
+                <button onClick={() => setReceiptData(null)} className="absolute right-4 text-white/80 hover:text-white transition-colors">
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Status Icon */}
+              <div className="flex justify-center pt-8 pb-4 relative">
+                <div className="absolute inset-x-0 bottom-0 border-b border-slate-200"></div>
+                <div className={`w-16 h-16 rounded-full flex items-center justify-center relative z-10 ${receiptData.isError ? 'bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]' : 'bg-green-500 shadow-[0_0_20px_rgba(34,197,94,0.4)]'} text-white`}>
+                  {receiptData.isError ? <X size={40} strokeWidth={3} /> : <CheckCircle2 size={40} strokeWidth={3} />}
+                </div>
+              </div>
+
+              {/* Receipt Details */}
+              <div className="px-6 py-6 space-y-3 bg-white text-sm">
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Reference Id:</span>
+                  <span className="text-slate-700 text-right font-medium break-all">{receiptData.reference}</span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Amount:</span>
+                  <span className="text-slate-700 text-right font-medium">₹{receiptData.amount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Charges:</span>
+                  <span className="text-slate-700 text-right font-medium">₹{receiptData.charge.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Status:</span>
+                  <span className={`text-right font-bold uppercase ${receiptData.status === 'approved' ? 'text-green-600' : receiptData.status === 'processing' ? 'text-amber-500' : 'text-red-600'}`}>
+                    {receiptData.status}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Mode:</span>
+                  <span className="text-slate-700 text-right font-medium">IMPS</span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Account Number:</span>
+                  <span className="text-slate-700 text-right font-medium">{receiptData.accountNumber}</span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Account Name:</span>
+                  <span className="text-slate-700 text-right font-medium">{receiptData.holderName}</span>
+                </div>
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-blue-500 font-bold whitespace-nowrap">Bank Name:</span>
+                  <span className="text-slate-700 text-right font-medium">{receiptData.bankName}</span>
+                </div>
+                {receiptData.isError && receiptData.errorMessage && (
+                   <div className="flex flex-col gap-1 pt-2 border-t border-slate-100 mt-2">
+                     <span className="text-red-500 font-bold">Error Reason:</span>
+                     <span className="text-slate-700 text-xs">{receiptData.errorMessage}</span>
+                   </div>
+                )}
+                
+                <div className="text-center text-[11px] font-medium text-slate-400 mt-6 pt-4">
+                  © Copyright 2022-24 UsePay | All Rights Reserved.
+                </div>
+              </div>
+
+              {/* Footer Buttons */}
+              <div className="p-4 bg-slate-50 flex justify-center gap-3 border-t border-slate-100">
+                <button 
+                  onClick={() => window.print()}
+                  className="px-6 py-2 bg-white text-slate-700 border border-slate-300 font-bold rounded-lg shadow-sm hover:bg-slate-50 transition-colors"
+                >
+                  Print
+                </button>
+                <button 
+                  onClick={() => setReceiptData(null)}
+                  className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg shadow-md hover:bg-blue-700 transition-colors"
+                >
+                  Dashboard
+                </button>
               </div>
             </motion.div>
           </div>
