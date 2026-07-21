@@ -4254,8 +4254,8 @@ async function startServer() {
       const { reference, txnId, status, message, utr } = req.body;
       console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${status}`);
 
-      // Verify existing status
-      const { data: existing } = await supabaseAdmin.from('payout_submissions').select('status, amount, charge_amount, user_id').eq('id', reference).single();
+      // Verify existing status (lookup by bank_ref, NOT id, since Camlenio returns our shortRef)
+      const { data: existing } = await supabaseAdmin.from('payout_submissions').select('id, status, amount, charge_amount, user_id').eq('bank_ref', reference).single();
 
       if (!existing || existing.status !== 'processing') {
         // Avoid double processing
@@ -4267,14 +4267,14 @@ async function startServer() {
           status: 'approved',
           txn_id: txnId,
           utr_number: utr,
-          rejection_reason: message
-        }).eq('id', reference);
+          remark: message
+        }).eq('id', existing.id);
       } else if (status === 'FAILED') {
         await supabaseAdmin.from('payout_submissions').update({
           status: 'rejected',
           txn_id: txnId,
-          rejection_reason: message
-        }).eq('id', reference);
+          remark: message
+        }).eq('id', existing.id);
 
         // Refund User Wallet
         const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount);
