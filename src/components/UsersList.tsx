@@ -22,8 +22,6 @@ import UserDetails from './UserDetails';
 import AddUser from './AddUser';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { LogoLoader } from './shared/LoadingSpinner';
 
@@ -271,7 +269,11 @@ export default function UsersList({ adminRole }: UsersListProps) {
         return;
       }
 
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({ orientation: 'l', unit: 'mm', format: 'a4' });
 
       doc.setFontSize(20);
       doc.setTextColor(79, 70, 229);

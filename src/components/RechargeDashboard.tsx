@@ -22,8 +22,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { LogoLoader } from './shared/LoadingSpinner';
 import { useToast } from '../context/ToastContext';
 
@@ -284,9 +282,13 @@ export default function RechargeDashboard() {
     XLSX.writeFile(wb, `Recharges_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({ orientation: 'l', unit: 'mm', format: 'a4' });
       const tableData = filteredTxns.slice(0, displayCount).map(r => [
         new Date(r.created_at).toLocaleString(),
         r.users_profiles?.name || 'N/A',

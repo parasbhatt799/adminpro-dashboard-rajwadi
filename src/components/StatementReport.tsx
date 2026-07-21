@@ -11,8 +11,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 interface UnifiedRecord {
   id: string;
@@ -390,9 +388,13 @@ export default function StatementReport() {
     XLSX.writeFile(wb, `Account_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({ orientation: 'l', unit: 'mm', format: 'a4' });
       const dataToExport = records.slice(0, displayCount);
 
       const tableData = dataToExport.map(r => [

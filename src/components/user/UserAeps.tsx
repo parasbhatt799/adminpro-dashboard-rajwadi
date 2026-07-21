@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { motion, AnimatePresence } from 'motion/react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import {
   Fingerprint,
   User,
@@ -432,7 +430,11 @@ export default function UserAeps({ userId }: UserAepsProps) {
   // Generate Receipt PDF
   const downloadReceiptPdf = () => {
     if (!latestResult) return;
-    const doc = new jsPDF();
+    const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass();
 
     doc.setFillColor(15, 23, 42);
     doc.rect(0, 0, 210, 40, 'F');

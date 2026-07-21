@@ -22,8 +22,6 @@ import { supabase } from '../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { LogoLoader } from './shared/LoadingSpinner';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { Link } from 'react-router-dom';
 
 interface BBPSTransaction {
@@ -422,9 +420,13 @@ export default function BBPSHistory() {
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
-      const doc = new jsPDF({
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({
         orientation: 'l',
         unit: 'mm',
         format: 'a4'

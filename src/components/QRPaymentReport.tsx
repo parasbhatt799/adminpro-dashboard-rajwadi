@@ -19,8 +19,6 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 interface QRPaymentRequest {
   id: string;
@@ -425,7 +423,11 @@ export default function QRPaymentReport() {
         final: acc.final + (Number(curr.amount || 0) - Number(curr.charges || 0))
       }), { amount: 0, admin: 0, distributor: 0, superDistributor: 0, final: 0 });
 
-      const doc = new jsPDF({
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({
         orientation: 'l',
         unit: 'mm',
         format: 'a4'

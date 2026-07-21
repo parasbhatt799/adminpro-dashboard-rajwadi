@@ -12,8 +12,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { LogoLoader } from '../shared/LoadingSpinner';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 interface UnifiedRecord {
   id: string;

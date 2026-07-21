@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import {
   Receipt,
   Search,
@@ -377,7 +375,11 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   const downloadPDFReceipt = () => {
     if (!receipt) return;
     try {
-      const doc = new jsPDF({
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'

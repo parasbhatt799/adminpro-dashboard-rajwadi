@@ -24,8 +24,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../lib/supabase';
 import { format, parseISO, startOfDay, endOfDay, isWithinInterval, getHours } from 'date-fns';
 import { LogoLoader } from '../shared/LoadingSpinner';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 interface UserReportsProps {
@@ -258,8 +256,12 @@ export default function UserReports({ userId }: UserReportsProps) {
     XLSX.writeFile(wb, fileName);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape' });
+  const exportToPDF = async () => {
+    const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({ orientation: 'landscape' });
     const title = `Master Report - ${activeReport.toUpperCase()}`;
     const dateRange = `Date Range: ${startDate || 'All Time'} to ${endDate || 'Present'}`;
 

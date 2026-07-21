@@ -17,8 +17,6 @@ import {
   Trash2,
   FileSpreadsheet
 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState, useEffect } from 'react';
@@ -284,9 +282,13 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
-      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({ orientation: 'l', unit: 'mm', format: 'a4' });
 
       const headers = isFullAdmin 
         ? ['QR Name', 'Created At', 'WhatsApp', 'Status', 'Entries', 'Amount', 'P/A/R', 'Admin', 'S.Dist', 'Dist', 'Total', 'QR %', 'QR Profit', 'Final Profit']

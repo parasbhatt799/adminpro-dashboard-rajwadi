@@ -9,8 +9,6 @@ import {
 import { supabase } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { LogoLoader } from '../shared/LoadingSpinner';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { useToast } from '../../context/ToastContext';
 
 interface UserViewReceiptProps {
@@ -144,7 +142,11 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
   const downloadPDFReceipt = (receipt: any) => {
     if (!receipt) return;
     try {
-      const doc = new jsPDF({
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass({
         orientation: 'portrait',
         unit: 'mm',
         format: 'a4'

@@ -17,8 +17,6 @@ import {
 import { motion } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 interface DistributorReportData {
   id: string;
@@ -93,8 +91,12 @@ export default function DistributorQRReport() {
     XLSX.writeFile(wb, `Distributor_Profit_Report_${new Date().toLocaleDateString()}.xlsx`);
   };
 
-  const exportToPDF = () => {
-    const doc = new jsPDF();
+  const exportToPDF = async () => {
+    const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const doc = new JsPDFClass();
     doc.text("Distributor Profit Report", 14, 15);
     
     const tableData = filteredData.map(d => [
