@@ -17,40 +17,7 @@ interface Beneficiary {
   is_verified: boolean;
 }
 
-const POPULAR_BANKS = [
-  "State Bank of India",
-  "HDFC Bank",
-  "ICICI Bank",
-  "Axis Bank",
-  "Punjab National Bank",
-  "Bank of Baroda",
-  "Kotak Mahindra Bank",
-  "IndusInd Bank",
-  "Yes Bank",
-  "Union Bank of India",
-  "Canara Bank",
-  "Bank of India",
-  "Central Bank of India",
-  "Indian Bank",
-  "Indian Overseas Bank",
-  "UCO Bank",
-  "Bank of Maharashtra",
-  "Punjab & Sind Bank",
-  "IDBI Bank",
-  "RBL Bank",
-  "IDFC First Bank",
-  "Bandhan Bank",
-  "Federal Bank",
-  "South Indian Bank",
-  "Paytm Payments Bank",
-  "Airtel Payments Bank",
-  "India Post Payments Bank",
-  "Fino Payments Bank",
-  "Equitas Small Finance Bank",
-  "Ujjivan Small Finance Bank",
-  "AU Small Finance Bank"
-];
-
+// Removed POPULAR_BANKS as we now fetch dynamically from database
 export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) {
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
@@ -73,8 +40,8 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   });
 
   const [showBankDropdown, setShowBankDropdown] = useState(false);
-  const [allBanksList, setAllBanksList] = useState(POPULAR_BANKS);
-  const [filteredBanks, setFilteredBanks] = useState(POPULAR_BANKS);
+  const [allBanksList, setAllBanksList] = useState<string[]>([]);
+  const [filteredBanks, setFilteredBanks] = useState<string[]>([]);
 
   // Modal State
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
