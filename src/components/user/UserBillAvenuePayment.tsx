@@ -371,7 +371,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   const [searchLoading, setSearchLoading] = useState<boolean>(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  const downloadPDFReceipt = () => {
+  const downloadPDFReceipt = async () => {
     if (!receipt) return;
     try {
       const module = await import('jspdf');
