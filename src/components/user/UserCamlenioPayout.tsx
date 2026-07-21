@@ -210,7 +210,6 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
 
         setSuccess(`Beneficiary verified successfully as ${data.data.beneficiaryName}!`);
         fetchBeneficiaries();
-        fetchTransactions();
         fetchUserData();
       } else {
         throw new Error(data.message || 'Verification failed');
