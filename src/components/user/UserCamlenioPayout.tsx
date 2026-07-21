@@ -425,6 +425,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       setError(err.message || 'Failed to submit payout.');
     } finally {
       setSubmitting(false);
+      fetchUserData(); // Ensure balance is updated (e.g. if refunded or deducted)
     }
   };
 

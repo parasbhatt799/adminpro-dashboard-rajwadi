@@ -4193,7 +4193,7 @@ async function startServer() {
       // Hit Camlenio
       const impsResult = await camlenioPayout.processImpsPayout({
         amount,
-        reference: payoutId, // Use database UUID as unique reference
+        reference: transactionId, // Use localTxnId (max 20 chars) instead of UUID to prevent validation failures
         bankAccount: accountNumber,
         ifsc: ifscCode,
         name: holderName,
