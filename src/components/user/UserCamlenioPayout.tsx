@@ -78,7 +78,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   // Modal State
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
   const [payoutAmount, setPayoutAmount] = useState('');
-  
+
   // T-PIN State
   const [showTpinModal, setShowTpinModal] = useState(false);
   const [tpinInput, setTpinInput] = useState('');
@@ -123,7 +123,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         .select('wallet_balance')
         .eq('id', userId)
         .single();
-        
+
       if (error) throw error;
       setWalletBalance(Number(data.wallet_balance) || 0);
     } catch (err) {
@@ -140,7 +140,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
-        
+
       if (error) throw error;
       setBeneficiaries(data || []);
     } catch (err) {
@@ -154,7 +154,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       setError('Please fill all fields to save.');
       return;
     }
-    
+
     // Check if already exists locally
     const exists = beneficiaries.some(
       b => b.account_number === payoutForm.accountNumber && b.ifsc_code === payoutForm.ifscCode
@@ -214,7 +214,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         })
       });
       const data = await response.json();
-      
+
       if (data.success && data.data?.beneficiaryName) {
         // Update to Database
         const { error: updateError } = await supabase
@@ -228,8 +228,8 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         if (updateError) throw updateError;
 
         setSuccess(`Beneficiary verified successfully as ${data.data.beneficiaryName}!`);
-        fetchBeneficiaries(); 
-        fetchTransactions(); 
+        fetchBeneficiaries();
+        fetchTransactions();
         fetchUserData();
       } else {
         throw new Error(data.message || 'Verification failed');
@@ -277,19 +277,19 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         .select('tpin')
         .eq('id', userId)
         .single();
-        
+
       if (profileErr) throw profileErr;
-      
+
       if (!userProfile.tpin) {
         setError("You have not set up a TPIN. Please set up a TPIN in your profile settings before making a payout.");
         return;
       }
-      
+
       setTpinInput('');
       setTpinError(null);
       setShowTpinModal(true);
-    } catch(err: any) {
-       setError("Error checking TPIN setup.");
+    } catch (err: any) {
+      setError("Error checking TPIN setup.");
     }
   };
 
@@ -326,12 +326,12 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         if (attempts >= 3) {
           const lockUntil = new Date();
           lockUntil.setMinutes(lockUntil.getMinutes() + 10);
-          
+
           await supabase
             .from('users_profiles')
             .update({ tpin_attempts: attempts, tpin_locked_until: lockUntil.toISOString() })
             .eq('id', userId);
-            
+
           setShowTpinModal(false);
           setError('Too many incorrect TPIN attempts. Account locked for 10 minutes.');
         } else {
@@ -350,10 +350,10 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         .from('users_profiles')
         .update({ tpin_attempts: 0, tpin_locked_until: null })
         .eq('id', userId);
-        
+
       setShowTpinModal(false);
       executePayout();
-      
+
     } catch (err: any) {
       setTpinError(err.message || 'TPIN verification failed.');
     } finally {
@@ -365,7 +365,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     setSubmitting(true);
     setError(null);
     setSuccess(null);
-    
+
     const amountNum = parseFloat(payoutAmount);
     const charge = 0; // Fetch from settings if dynamic
     const totalDeduction = amountNum + charge;
@@ -425,7 +425,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Camlenio Auto Payout</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Bank Payout</h1>
           <p className="text-slate-500">Add verified beneficiaries and transfer funds instantly</p>
         </div>
         <button
@@ -459,7 +459,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
             {beneficiaries.length} Accounts
           </span>
         </div>
-        
+
         <div className="p-6">
           {beneficiaries.length === 0 ? (
             <div className="text-center py-10">
@@ -470,13 +470,12 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {beneficiaries.map((b) => (
-                <div 
-                  key={b.id} 
-                  className={`relative p-5 border rounded-2xl transition-all group overflow-hidden ${
-                    b.is_verified 
-                      ? 'border-emerald-200 bg-emerald-50 hover:shadow-md' 
+                <div
+                  key={b.id}
+                  className={`relative p-5 border rounded-2xl transition-all group overflow-hidden ${b.is_verified
+                      ? 'border-emerald-200 bg-emerald-50 hover:shadow-md'
                       : 'border-yellow-200 bg-yellow-50 hover:shadow-md'
-                  }`}
+                    }`}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex flex-col">
@@ -493,7 +492,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  
+
                   <div className="space-y-1 mb-5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-500">A/C Number:</span>
@@ -504,7 +503,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                       <span className="font-bold text-slate-800">{b.ifsc_code}</span>
                     </div>
                   </div>
-                  
+
                   <div className="mt-auto pt-4 border-t border-black/5 flex items-center justify-between">
                     {b.is_verified ? (
                       <>
@@ -565,7 +564,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSaveBeneficiary} className="p-6 space-y-5">
               <div className="space-y-2">
                 <label className="text-sm font-bold text-slate-700">Beneficiary Name</label>
@@ -634,7 +633,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                   required
                 />
               </div>
-              
+
               <div className="pt-2">
                 <button
                   type="submit"
@@ -663,7 +662,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                 <X className="w-5 h-5 text-slate-500" />
               </button>
             </div>
-            
+
             <form onSubmit={handleProcessPayoutSubmit} className="p-6 space-y-6">
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-1">
                 <div className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1">Beneficiary Details</div>
@@ -715,7 +714,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
               onClick={() => setShowTpinModal(false)}
               className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
             />
-            
+
             <motion.div
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
@@ -770,7 +769,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                     className="w-full py-4 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all shadow-lg shadow-slate-900/20 mt-6 flex justify-center items-center gap-2"
                   >
                     {tpinLoading || submitting ? (
-                       <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
+                      <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</>
                     ) : 'Authorize Payment'}
                   </button>
                 </form>
