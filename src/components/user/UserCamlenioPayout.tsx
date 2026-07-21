@@ -333,8 +333,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         .update({ tpin_attempts: 0, tpin_locked_until: null })
         .eq('id', userId);
 
-      setShowTpinModal(false);
-      executePayout();
+      await executePayout();
 
     } catch (err: any) {
       setTpinError(err.message || 'TPIN verification failed.');
@@ -376,9 +375,13 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       }
 
       setWalletBalance(prev => prev - totalDeduction);
-      setSuccess(`Payout of ₹${amountNum} to ${selectedBeneficiary!.holder_name} is being processed!`);
+      const successMsg = `Payout of ₹${amountNum} to ${selectedBeneficiary!.holder_name} is being processed!`;
+      setSuccess(successMsg);
+      alert(successMsg);
+      
       setSelectedBeneficiary(null);
       setPayoutAmount('');
+      setShowTpinModal(false);
       fetchTransactions();
 
       sendAdminPushNotification(
@@ -389,7 +392,10 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
 
     } catch (err: any) {
       console.error('Error submitting payout:', err);
-      setError(err.message || 'Failed to submit payout.');
+      const errorMsg = err.message || 'Failed to submit payout.';
+      setError(errorMsg);
+      alert(errorMsg);
+      setShowTpinModal(false);
     } finally {
       setSubmitting(false);
       fetchUserData(); // Ensure balance is updated (e.g. if refunded or deducted)
@@ -633,7 +639,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       )}
 
       {/* Payment Modal */}
-      {selectedBeneficiary && (
+      {selectedBeneficiary && !showTpinModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-slate-100 flex justify-between items-start">
