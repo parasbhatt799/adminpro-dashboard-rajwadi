@@ -4251,45 +4251,56 @@ async function startServer() {
         return res.status(401).send("Invalid Signature");
       }
 
-      const { reference, txnId, status, message, utr } = req.body;
-      console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${status}`);
+      // 1. Acknowledge immediately per Camlenio API docs to ensure < 1s response time
+      res.status(200).json({ status: 'OK' });
 
-      // Verify existing status (lookup by bank_ref, NOT id, since Camlenio returns our shortRef)
-      const { data: existing } = await supabaseAdmin.from('payout_submissions').select('id, status, amount, charge_amount, user_id').eq('bank_ref', reference).single();
+      // 2. Process asynchronously
+      (async () => {
+        try {
+          const { reference, txnId, status, message, utr } = req.body;
+          console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${status}`);
 
-      if (!existing || existing.status !== 'processing') {
-        // Avoid double processing
-        return res.status(200).json({ status: 'OK' });
-      }
+          // Verify existing status (lookup by bank_ref, NOT id, since Camlenio returns our shortRef)
+          const { data: existing } = await supabaseAdmin.from('payout_submissions').select('id, status, amount, charge_amount, user_id').eq('bank_ref', reference).single();
 
-      if (status === 'SUCCESS') {
-        await supabaseAdmin.from('payout_submissions').update({
-          status: 'approved',
-          txn_id: txnId,
-          utr_number: utr,
-          remark: message
-        }).eq('id', existing.id);
-      } else if (status === 'FAILED') {
-        await supabaseAdmin.from('payout_submissions').update({
-          status: 'rejected',
-          txn_id: txnId,
-          remark: message
-        }).eq('id', existing.id);
+          if (!existing || existing.status !== 'processing') {
+            // Avoid double processing
+            return;
+          }
 
-        // Refund User Wallet
-        const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount);
-        // Inline refund
-        const { data: existingUser } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', existing.user_id).single();
-        if (existingUser) {
-          const newBalance = Number(existingUser.wallet_balance || 0) + totalRefund;
-          await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', existing.user_id);
+          if (status === 'SUCCESS') {
+            await supabaseAdmin.from('payout_submissions').update({
+              status: 'approved',
+              txn_id: txnId,
+              utr_number: utr,
+              remark: message
+            }).eq('id', existing.id);
+          } else if (status === 'FAILED') {
+            await supabaseAdmin.from('payout_submissions').update({
+              status: 'rejected',
+              txn_id: txnId,
+              remark: message
+            }).eq('id', existing.id);
+
+            // Refund User Wallet
+            const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount);
+            // Inline refund
+            const { data: existingUser } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', existing.user_id).single();
+            if (existingUser) {
+              const newBalance = Number(existingUser.wallet_balance || 0) + totalRefund;
+              await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', existing.user_id);
+            }
+          }
+        } catch (asyncErr) {
+          console.error("Webhook Async Processing Error:", asyncErr);
         }
-      }
-
-      return res.status(200).json({ status: 'OK' });
+      })();
     } catch (err: any) {
-      console.error("Webhook Error:", err);
-      return res.status(500).send("Server Error");
+      console.error("Webhook Route Error:", err);
+      // Only send 500 if we haven't already sent a response (i.e., error parsing JSON)
+      if (!res.headersSent) {
+        return res.status(500).send("Server Error");
+      }
     }
   });
 
