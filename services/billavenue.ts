@@ -216,10 +216,11 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
  * Fetch Biller List
  */
 export async function getBillers(billerId?: string): Promise<any> {
-  const xml = billerId
-    ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<billerInfoRequest>\n    <billerId>${billerId}</billerId>\n</billerInfoRequest>`
-    : `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<billerInfoRequest></billerInfoRequest>`;
-  return callBillAvenueApi(ENDPOINTS.billers, xml);
+  const jsonPayload = billerId
+    ? JSON.stringify({ billerId: [billerId] })
+    : JSON.stringify({ billerId: [] }); // Or we can test with one.
+    
+  return callBillAvenueApi(`${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/json`, jsonPayload);
 }
 
 /**
