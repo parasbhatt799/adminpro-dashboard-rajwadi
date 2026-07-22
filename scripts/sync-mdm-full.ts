@@ -15,9 +15,9 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-const ACCESS_CODE = process.env.BILLAVENUE_ACCESS_CODE || "";
-const WORKING_KEY = process.env.BILLAVENUE_WORKING_KEY || "";
-const INSTITUTE_ID = process.env.BILLAVENUE_INSTITUTE_ID || "";
+const ACCESS_CODE = (process.env.BILLAVENUE_ACCESS_CODE || "").replace(/['"]/g, '').trim();
+const WORKING_KEY = (process.env.BILLAVENUE_WORKING_KEY || "").replace(/['"]/g, '').trim();
+const INSTITUTE_ID = (process.env.BILLAVENUE_INSTITUTE_ID || "").replace(/['"]/g, '').trim();
 const BASE_URL = 'https://api.billavenue.com';
 const IV = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
