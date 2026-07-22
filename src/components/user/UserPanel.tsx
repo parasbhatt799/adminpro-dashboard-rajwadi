@@ -637,7 +637,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
         )}
       </AnimatePresence>
 
-      <UserSidebar onLogout={onLogout} isCollapsed={isSidebarCollapsed} role={userProfile?.role} />
+      <UserSidebar onLogout={onLogout} isCollapsed={isSidebarCollapsed} role={userProfile?.role} isTester={userProfile?.is_tester} />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Top Header */}

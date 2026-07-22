@@ -1,0 +1,1 @@
+ALTER TABLE users_profiles ADD COLUMN IF NOT EXISTS is_tester BOOLEAN DEFAULT false;

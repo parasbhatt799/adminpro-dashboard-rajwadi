@@ -27,6 +27,7 @@ interface UserSidebarProps {
   onLogout: () => void;
   isCollapsed: boolean;
   role?: string;
+  isTester?: boolean;
 }
 
 const menuItems = [
@@ -48,7 +49,7 @@ const menuItems = [
   { id: 'complaints', label: 'Admin Complaint', icon: MessageSquare, path: '/user/complaints' },
 ];
 
-export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebarProps) {
+export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: UserSidebarProps) {
   const [branding, setBranding] = useState<{ logo: string, mini: string, fav: string }>({ logo: '/logo.png', mini: '/fav.png', fav: '/fav.png' });
 
   const distributorItems = (role === 'distributor' || role === 'super_distributor') ? [
@@ -129,13 +130,13 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
         return false;
       }
-      if (!isBbpsEnabled && item.id === 'bill-payment') {
+      if (!isBbpsEnabled && item.id === 'bill-payment' && !isTester) {
         return false;
       }
-      if (!isBillAvenueEnabled && (item.id === 'billavenue-payment' || item.id === 'billavenue-search')) {
+      if (!isBillAvenueEnabled && (item.id === 'billavenue-payment' || item.id === 'billavenue-search') && !isTester) {
         return false;
       }
-      if (!isCsplEnabled && (item.id === 'cspl-payment' || item.id === 'cspl-search')) {
+      if (!isCsplEnabled && (item.id === 'cspl-payment' || item.id === 'cspl-search') && !isTester) {
         return false;
       }
       if (!isRechargeEnabled && item.id === 'mobile-recharge') {
@@ -144,7 +145,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role }: UserSidebar
       if (!isFundTransferEnabled && item.id === 'fund-transfer') {
         return false;
       }
-      if (!isCamlenioAepsPayoutEnabled && item.id === 'camlenio-payout') {
+      if (!isCamlenioAepsPayoutEnabled && item.id === 'camlenio-payout' && !isTester) {
         return false;
       }
       return true;

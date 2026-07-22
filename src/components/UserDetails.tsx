@@ -123,6 +123,20 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
     fetchSubDistributors();
   }, [activeTab, user.id]);
 
+  const handleTesterToggle = async () => {
+    try {
+      const { error } = await supabase
+        .from('users_profiles')
+        .update({ is_tester: !user.is_tester })
+        .eq('id', user.id);
+      if (error) throw error;
+      toast.success(`Test Mode ${!user.is_tester ? 'Enabled' : 'Disabled'}`);
+      onEdit({ ...user, is_tester: !user.is_tester });
+    } catch (err: any) {
+      toast.error('Failed to update Test Mode');
+    }
+  };
+
   const handleDelete = async () => {
     setIsDeleting(true);
     setError(null);
@@ -589,6 +603,24 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                               : 'Default (Global)'}
                           </p>
                         </div>
+                      </div>
+                      <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Test Mode (Bypass Toggles)</p>
+                          <button
+                            onClick={handleTesterToggle}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                              user.is_tester ? 'bg-indigo-600' : 'bg-slate-200'
+                            }`}
+                          >
+                            <span
+                              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                user.is_tester ? 'translate-x-5' : 'translate-x-0'
+                              }`}
+                            />
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-500 font-medium">When enabled, this user will see all payment/payout menus even if they are disabled globally.</p>
                       </div>
                     </>
                   )}
