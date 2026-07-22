@@ -13,9 +13,11 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL ||
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 
+const AGENT_ID = process.env.BILLAVENUE_AGENT_ID || "CC01CC01513515340681";
+
 async function fetchBillerChunk(billerIds: string[]) {
   const billerTags = billerIds.map(id => `    <billerId>${id}</billerId>`).join('\n');
-  const xmlPayload = `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n${billerTags}\n</billerInfoRequest>`;
+  const xmlPayload = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<billerInfoRequest>\n${billerTags}\n</billerInfoRequest>`;
   
   try {
     const response = await callBillAvenueApi(ENDPOINTS.billers, xmlPayload);

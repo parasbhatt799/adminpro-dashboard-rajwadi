@@ -217,8 +217,8 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
  */
 export async function getBillers(billerId?: string): Promise<any> {
   const xml = billerId
-    ? `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest><billerId>${billerId}</billerId></billerInfoRequest>`
-    : `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest></billerInfoRequest>`;
+    ? `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<billerInfoRequest>\n    <billerId>${billerId}</billerId>\n</billerInfoRequest>`
+    : `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<billerInfoRequest></billerInfoRequest>`;
   return callBillAvenueApi(ENDPOINTS.billers, xml);
 }
 
