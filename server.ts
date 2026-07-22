@@ -4261,8 +4261,10 @@ async function startServer() {
       // 2. Process asynchronously
       (async () => {
         try {
-          const { reference, txnId, status, message, utr } = req.body;
-          console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${status}`);
+          const { reference, status, message, utr } = req.body;
+          const actualTxnId = req.body.txnId || req.body.txn_id || req.body.transactionId || req.body.transaction_id;
+          const statusUpper = status ? status.toString().toUpperCase() : '';
+          console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${statusUpper}`);
 
           // Verify existing status (lookup by bank_ref, NOT id, since Camlenio returns our shortRef)
           const { data: existing } = await supabaseAdmin.from('payout_submissions').select('id, status, amount, charge_amount, user_id').eq('bank_ref', reference).single();
@@ -4272,18 +4274,18 @@ async function startServer() {
             return;
           }
 
-          if (status === 'SUCCESS') {
+          if (statusUpper === 'SUCCESS') {
             await supabaseAdmin.from('payout_submissions').update({
               status: 'approved',
-              txn_id: txnId,
+              txn_id: actualTxnId,
               utr_number: utr,
-              remark: message
+              remark: message || 'Payout Successful'
             }).eq('id', existing.id);
-          } else if (status === 'FAILED') {
+          } else if (statusUpper === 'FAILED' || statusUpper === 'FAILURE' || statusUpper === 'REJECTED') {
             await supabaseAdmin.from('payout_submissions').update({
               status: 'rejected',
-              txn_id: txnId,
-              remark: message
+              txn_id: actualTxnId,
+              remark: message || 'Payout Failed'
             }).eq('id', existing.id);
 
             // Refund User Wallet
