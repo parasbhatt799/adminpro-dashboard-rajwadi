@@ -53,8 +53,11 @@ async function run() {
     start += limit;
   }
   
-  const billerIds = allBillers.map(b => b.biller_id);
-  console.log(`Successfully fetched ${billerIds.length} billers from DB.`);
+  const billerIds = allBillers
+    .map(b => String(b.biller_id).trim())
+    .filter(id => id.length === 14 && /^[A-Za-z0-9]+$/.test(id));
+  
+  console.log(`Filtered out invalid IDs. Successfully fetched ${billerIds.length} valid billers from DB.`);
   
   // 2. Chunk into batches of 1950 (Limit is 2000, playing safe)
   const chunkSize = 1950;
@@ -75,7 +78,14 @@ async function run() {
     const response = await fetchBillerChunk(chunks[i]);
     
     if (!response || !response.biller) {
-      console.log(`Chunk ${i + 1} Failed! You may have hit the 15 requests/day limit or invalid ENC.`);
+      console.log(`Chunk ${i + 1} Failed!`);
+      if (response && response.errorInfo) {
+         console.log("API Error:", JSON.stringify(response.errorInfo));
+      } else if (response) {
+         console.log("Unknown API Response:", JSON.stringify(response));
+      } else {
+         console.log("No response received.");
+      }
       failCount += chunks[i].length;
       continue;
     }
