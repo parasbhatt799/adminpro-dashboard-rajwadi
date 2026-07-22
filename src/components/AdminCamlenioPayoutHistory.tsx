@@ -276,7 +276,7 @@ export default function AdminCamlenioPayoutHistory() {
                         {tx.bank_ref === 'VERIFICATION_CHARGE' ? 'A/C Verification' : 'Payout Transfer'}
                       </div>
                       <div className="text-xs text-slate-500 font-mono">
-                        {tx.bank_ref !== 'VERIFICATION_CHARGE' ? (tx.bank_ref || tx.transaction_id) : tx.transaction_id}
+                        {tx.bank_ref !== 'VERIFICATION_CHARGE' ? (tx.bank_ref || tx.txn_id) : tx.txn_id}
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">
