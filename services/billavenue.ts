@@ -13,7 +13,7 @@ const AGENT_ID = (process.env.BILLAVENUE_AGENT_ID || 'CC01CC01513515340681').rep
 const IS_PROD = process.env.BILLAVENUE_ENV === 'production';
 const BASE_URL = IS_PROD ? 'https://api.billavenue.com' : 'https://stgapi.billavenue.com';
 
-export const ENDPOINTS = {
+const ENDPOINTS = {
   billers: `${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/xml`,
   fetch: `${BASE_URL}/billpay/extBillCntrl/billFetchRequest/xml`,
   pay: `${BASE_URL}/billpay/extBillPayCntrl/billPayRequest/xml`,
@@ -216,11 +216,10 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
  * Fetch Biller List
  */
 export async function getBillers(billerId?: string): Promise<any> {
-  const jsonPayload = billerId
-    ? JSON.stringify({ billerId: [billerId] })
-    : JSON.stringify({ billerId: [] }); // Or we can test with one.
-    
-  return callBillAvenueApi(`${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/json`, jsonPayload);
+  const xml = billerId
+    ? `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest><billerId>${billerId}</billerId></billerInfoRequest>`
+    : `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest></billerInfoRequest>`;
+  return callBillAvenueApi(ENDPOINTS.billers, xml);
 }
 
 /**
