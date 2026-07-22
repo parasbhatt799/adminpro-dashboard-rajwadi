@@ -50,7 +50,11 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf.toString();
+    }
+  }));
 
   // Global Request Logger
   app.use((req, res, next) => {
@@ -4241,12 +4245,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/webhooks/camlenio/payout", express.json({ 
-    type: 'application/json',
-    verify: (req: any, res, buf) => {
-      req.rawBody = buf.toString();
-    }
-  }), async (req: any, res) => {
+  app.post("/api/webhooks/camlenio/payout", async (req: any, res) => {
     try {
       const signature = req.headers['x-camlenio-signature'] as string;
       const rawBody = req.rawBody || JSON.stringify(req.body);
