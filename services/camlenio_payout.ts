@@ -167,12 +167,13 @@ export async function processImpsPayout(params: {
         message: data.message
       };
     } else {
+      const detailedMessage = data.data?.message || data.message || 'Payout failed';
       return {
         success: false,
         status: 'FAILED',
         statusCode: data.statusCode || '02',
         reference: params.reference,
-        message: data.message || 'Payout failed'
+        message: detailedMessage
       };
     }
   } catch (error: any) {
