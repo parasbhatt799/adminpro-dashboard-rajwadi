@@ -28,6 +28,11 @@ async function syncBillers() {
     
     if (!response || !response.json || !response.json.billerInfoResponse || !response.json.billerInfoResponse.biller) {
       console.error("Failed to parse biller data from response.");
+      if (response && response.json && response.json.billerInfoResponse && response.json.billerInfoResponse.errorInfo) {
+         console.error("API Error Info:", JSON.stringify(response.json.billerInfoResponse.errorInfo, null, 2));
+      } else if (response && response.rawXml) {
+         console.error("Raw XML Response:", response.rawXml);
+      }
       process.exit(1);
     }
     
