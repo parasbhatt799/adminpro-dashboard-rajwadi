@@ -4279,13 +4279,13 @@ async function startServer() {
               status: 'approved',
               txn_id: actualTxnId,
               utr_number: utr,
-              remark: message || 'Payout Successful'
+              remark: JSON.stringify(req.body)
             }).eq('id', existing.id);
           } else if (statusUpper === 'FAILED' || statusUpper === 'FAILURE' || statusUpper === 'REJECTED') {
             await supabaseAdmin.from('payout_submissions').update({
               status: 'rejected',
               txn_id: actualTxnId,
-              remark: message || 'Payout Failed'
+              remark: JSON.stringify(req.body)
             }).eq('id', existing.id);
 
             // Refund User Wallet
