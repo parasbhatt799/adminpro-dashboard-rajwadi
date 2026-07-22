@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Eye, X } from 'lucide-react';
 import { format } from 'date-fns';
 
 export default function AdminCamlenioPayoutHistory() {
@@ -15,6 +15,7 @@ export default function AdminCamlenioPayoutHistory() {
     camlenio_verification_charge: 5
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [selectedLog, setSelectedLog] = useState<any>(null);
 
   useEffect(() => {
     fetchData();
@@ -44,7 +45,7 @@ export default function AdminCamlenioPayoutHistory() {
       // They are recorded in payout_submissions
       const { data: txData, error: txError } = await supabase
         .from('payout_submissions')
-        .select('*, users_profiles(name, mobile_number)')
+        .select('*, users_profiles(name, mobile_number), api_log')
         .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded'])
         .order('created_at', { ascending: false });
 
@@ -247,6 +248,7 @@ export default function AdminCamlenioPayoutHistory() {
                 <th className="px-6 py-4 text-right">Amount</th>
                 <th className="px-6 py-4 text-right">Charge</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-center">Log</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -295,6 +297,19 @@ export default function AdminCamlenioPayoutHistory() {
                         {tx.status.toUpperCase()}
                       </span>
                     </td>
+                    <td className="px-6 py-4 text-center">
+                      {tx.api_log ? (
+                        <button
+                          onClick={() => setSelectedLog(tx.api_log)}
+                          className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="View API Log"
+                        >
+                          <Eye className="w-5 h-5" />
+                        </button>
+                      ) : (
+                        <span className="text-slate-400 text-xs">-</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -303,6 +318,27 @@ export default function AdminCamlenioPayoutHistory() {
         </div>
       </div>
 
+      {/* Log Modal */}
+      {selectedLog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-2xl overflow-hidden shadow-xl border border-slate-200">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
+              <h3 className="font-bold text-slate-900">API Response Log</h3>
+              <button
+                onClick={() => setSelectedLog(null)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4 overflow-x-auto bg-slate-900">
+              <pre className="text-sm font-mono text-green-400 whitespace-pre-wrap break-all">
+                {typeof selectedLog === 'object' ? JSON.stringify(selectedLog, null, 2) : selectedLog}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

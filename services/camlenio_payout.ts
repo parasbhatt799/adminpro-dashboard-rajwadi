@@ -21,6 +21,7 @@ export interface PayoutResponse {
   txnId?: string;
   amount?: number;
   message?: string;
+  fullResponse?: any;
 }
 
 export interface PayoutHeader {
@@ -163,7 +164,8 @@ export async function processImpsPayout(params: {
         utr: data.utr,
         txnId: data.txnId,
         amount: data.amount,
-        message: data.message
+        message: data.message,
+        fullResponse: data
       };
     } else {
       return {
@@ -171,7 +173,8 @@ export async function processImpsPayout(params: {
         status: 'FAILED',
         statusCode: data.statusCode || '02',
         reference: params.reference,
-        message: data.message || 'Payout failed'
+        message: data.message || 'Payout failed',
+        fullResponse: data
       };
     }
   } catch (error: any) {
@@ -181,7 +184,8 @@ export async function processImpsPayout(params: {
       status: 'FAILED', 
       statusCode: '99', 
       reference: params.reference, 
-      message: `API Error: ${error.message}`
+      message: `API Error: ${error.message}`,
+      fullResponse: error.message
     };
   }
 }

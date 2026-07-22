@@ -4215,13 +4215,14 @@ async function startServer() {
           status: impsResult.status === 'SUCCESS' ? 'approved' : 'processing', 
           bank_ref: impsResult.reference,
           utr_number: impsResult.reference,
-          remark: impsResult.message
+          remark: impsResult.message,
+          api_log: impsResult.fullResponse
         }).eq('id', payoutId);
 
         return res.status(200).json({ success: true, message: impsResult.message || 'Payout Processed' });
       } else {
         // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
-        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', remark: impsResult.message }).eq('id', payoutId);
+        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', remark: impsResult.message, api_log: impsResult.fullResponse }).eq('id', payoutId);
 
         // Refund Wallet Logic:
         const totalRefund = parseFloat(amount) + parseFloat(actualCharge.toString());
@@ -4232,7 +4233,7 @@ async function startServer() {
           await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', userId);
         }
 
-        return res.status(400).json({ success: false, message: impsResult.message || 'Bank payout failed' });
+        return res.status(400).json({ success: false, message: impsResult.message || 'Bank payout failed', fullResponse: impsResult.fullResponse });
       }
 
     } catch (error: any) {
@@ -4267,13 +4268,15 @@ async function startServer() {
           status: 'approved',
           txn_id: txnId,
           utr_number: utr,
-          remark: message
+          remark: message,
+          api_log: JSON.stringify(req.body)
         }).eq('id', existing.id);
       } else if (status === 'FAILED') {
         await supabaseAdmin.from('payout_submissions').update({
           status: 'rejected',
           txn_id: txnId,
-          remark: message
+          remark: message,
+          api_log: JSON.stringify(req.body)
         }).eq('id', existing.id);
 
         // Refund User Wallet
