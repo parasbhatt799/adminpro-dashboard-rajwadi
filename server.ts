@@ -4276,14 +4276,14 @@ async function startServer() {
           if (status === 'SUCCESS') {
             await supabaseAdmin.from('payout_submissions').update({
               status: 'approved',
-              txn_id: txnId,
+              transaction_id: txnId,
               utr_number: utr,
               remark: message
             }).eq('id', existing.id);
           } else if (status === 'FAILED') {
             await supabaseAdmin.from('payout_submissions').update({
               status: 'rejected',
-              txn_id: txnId,
+              transaction_id: txnId,
               remark: message
             }).eq('id', existing.id);
 
