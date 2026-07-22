@@ -13,7 +13,7 @@ const AGENT_ID = (process.env.BILLAVENUE_AGENT_ID || 'CC01CC01513515340681').rep
 const IS_PROD = process.env.BILLAVENUE_ENV === 'production';
 const BASE_URL = IS_PROD ? 'https://api.billavenue.com' : 'https://stgapi.billavenue.com';
 
-const ENDPOINTS = {
+export const ENDPOINTS = {
   billers: `${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/xml`,
   fetch: `${BASE_URL}/billpay/extBillCntrl/billFetchRequest/xml`,
   pay: `${BASE_URL}/billpay/extBillPayCntrl/billPayRequest/xml`,
