@@ -4247,11 +4247,17 @@ async function startServer() {
 
   app.post("/api/webhooks/camlenio/payout", async (req: any, res) => {
     try {
-      const signature = req.headers['x-camlenio-signature'] as string;
+      const signature = req.headers['x-camlenio-signature'] as string || req.headers['x-api-key'] as string; // Sometimes they pass it differently
       const rawBody = req.rawBody || JSON.stringify(req.body);
+
+      console.log("[Webhook] Received Headers:", JSON.stringify(req.headers));
+      console.log("[Webhook] Received Signature:", signature);
+      console.log("[Webhook] Received Raw Body:", rawBody);
 
       if (!camlenioPayout.verifyWebhookSignature(rawBody, signature)) {
         console.warn("Invalid signature in Camlenio Webhook");
+        // Don't reject immediately for debugging. We will allow it through for a moment to see the remark, or just log.
+        // Actually, let's keep rejecting, but now we have the logs!
         return res.status(401).send("Invalid Signature");
       }
 
