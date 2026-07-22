@@ -5,6 +5,7 @@ dotenv.config();
 const BASE_URL = (process.env.CAMLENIO_AEPS_BASE_URL || 'https://cspl.camlenio.com').replace(/['"]/g, '').trim().replace(/\/$/, '');
 const API_KEY = (process.env.CAMLENIO_PAYOUT_API_KEY || process.env.CAMLENIO_AEPS_API_KEY || 'fjf0f2xy3W01NTtSDTUS62rdKyVqPSY7').replace(/['"]/g, '').trim();
 const SECRET_KEY = (process.env.CAMLENIO_PAYOUT_SECRET_KEY || '').replace(/['"]/g, '').trim();
+const WEBHOOK_SECRET_KEY = (process.env.CAMLENIO_WEBHOOK_SECRET_KEY || SECRET_KEY).replace(/['"]/g, '').trim();
 
 export interface PennydropResponse {
   success: boolean;
@@ -192,10 +193,10 @@ import * as crypto from 'crypto';
  * Verify Webhook HMAC Signature
  */
 export function verifyWebhookSignature(rawBody: string, signature: string): boolean {
-  if (!signature || !SECRET_KEY) return false;
+  if (!signature || !WEBHOOK_SECRET_KEY) return false;
   
   const expectedSignature = crypto
-    .createHmac('sha256', SECRET_KEY)
+    .createHmac('sha256', WEBHOOK_SECRET_KEY)
     .update(rawBody)
     .digest('hex');
     
