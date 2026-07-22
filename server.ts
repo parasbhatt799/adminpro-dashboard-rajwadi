@@ -50,7 +50,11 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf.toString('utf8');
+    }
+  }));
 
   // Global Request Logger
   app.use((req, res, next) => {
@@ -4242,10 +4246,14 @@ async function startServer() {
     }
   });
 
-  app.post("/api/webhooks/camlenio/payout", express.json({ type: 'application/json' }), async (req, res) => {
+  app.post("/api/webhooks/camlenio/payout", express.json({
+    type: 'application/json',
+    verify: (req, res, buf) => { (req as any).rawBody = buf.toString(); }
+  }), async (req, res) => {
     try {
       const signature = req.headers['x-camlenio-signature'] as string;
-      const rawBody = JSON.stringify(req.body);
+      const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+      console.log(`[Webhook] Payout Update received`);
 
       if (!camlenioPayout.verifyWebhookSignature(rawBody, signature)) {
         console.warn("Invalid signature in Camlenio Webhook");
