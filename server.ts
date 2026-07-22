@@ -4241,10 +4241,15 @@ async function startServer() {
     }
   });
 
-  app.post("/api/webhooks/camlenio/payout", express.json({ type: 'application/json' }), async (req, res) => {
+  app.post("/api/webhooks/camlenio/payout", express.json({ 
+    type: 'application/json',
+    verify: (req: any, res, buf) => {
+      req.rawBody = buf.toString();
+    }
+  }), async (req: any, res) => {
     try {
       const signature = req.headers['x-camlenio-signature'] as string;
-      const rawBody = JSON.stringify(req.body);
+      const rawBody = req.rawBody || JSON.stringify(req.body);
 
       if (!camlenioPayout.verifyWebhookSignature(rawBody, signature)) {
         console.warn("Invalid signature in Camlenio Webhook");
