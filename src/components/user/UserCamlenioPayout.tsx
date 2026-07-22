@@ -371,10 +371,6 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
       const result = await response.json();
 
       if (!response.ok || !result.success) {
-        if (result.fullResponse) {
-          console.error("Camlenio Full Response:", result.fullResponse);
-          throw new Error(`${result.message || 'Payout submission failed'} | LOG: ${JSON.stringify(result.fullResponse)}`);
-        }
         throw new Error(result.message || 'Payout submission failed');
       }
 

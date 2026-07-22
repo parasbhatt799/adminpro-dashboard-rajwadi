@@ -50,11 +50,7 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json({
-    verify: (req: any, res, buf) => {
-      req.rawBody = buf.toString('utf8');
-    }
-  }));
+  app.use(express.json());
 
   // Global Request Logger
   app.use((req, res, next) => {
@@ -4219,14 +4215,13 @@ async function startServer() {
           status: impsResult.status === 'SUCCESS' ? 'approved' : 'processing', 
           bank_ref: impsResult.reference,
           utr_number: impsResult.reference,
-          remark: impsResult.message,
-          api_log: impsResult.fullResponse
+          remark: impsResult.message
         }).eq('id', payoutId);
 
         return res.status(200).json({ success: true, message: impsResult.message || 'Payout Processed' });
       } else {
         // FAILED: Refund wallet via atomic_security_update or similar logic, and set rejected
-        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', remark: impsResult.message, api_log: impsResult.fullResponse }).eq('id', payoutId);
+        await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', remark: impsResult.message }).eq('id', payoutId);
 
         // Refund Wallet Logic:
         const totalRefund = parseFloat(amount) + parseFloat(actualCharge.toString());
@@ -4237,7 +4232,7 @@ async function startServer() {
           await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', userId);
         }
 
-        return res.status(400).json({ success: false, message: impsResult.message || 'Bank payout failed', fullResponse: impsResult.fullResponse });
+        return res.status(400).json({ success: false, message: impsResult.message || 'Bank payout failed' });
       }
 
     } catch (error: any) {
@@ -4246,14 +4241,10 @@ async function startServer() {
     }
   });
 
-  app.post("/api/webhooks/camlenio/payout", express.json({
-    type: 'application/json',
-    verify: (req, res, buf) => { (req as any).rawBody = buf.toString(); }
-  }), async (req, res) => {
+  app.post("/api/webhooks/camlenio/payout", express.json({ type: 'application/json' }), async (req, res) => {
     try {
       const signature = req.headers['x-camlenio-signature'] as string;
-      const rawBody = (req as any).rawBody || JSON.stringify(req.body);
-      console.log(`[Webhook] Payout Update received`);
+      const rawBody = JSON.stringify(req.body);
 
       if (!camlenioPayout.verifyWebhookSignature(rawBody, signature)) {
         console.warn("Invalid signature in Camlenio Webhook");
@@ -4276,15 +4267,13 @@ async function startServer() {
           status: 'approved',
           txn_id: txnId,
           utr_number: utr,
-          remark: message,
-          api_log: JSON.stringify(req.body)
+          remark: message
         }).eq('id', existing.id);
       } else if (status === 'FAILED') {
         await supabaseAdmin.from('payout_submissions').update({
           status: 'rejected',
           txn_id: txnId,
-          remark: message,
-          api_log: JSON.stringify(req.body)
+          remark: message
         }).eq('id', existing.id);
 
         // Refund User Wallet
