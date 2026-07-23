@@ -2851,11 +2851,14 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // If channel is AGT (Agent), BBPS often rejects modes like UPI, Net Banking, etc.
-      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash' or 'Wallet' to BBPS.
+      // As per BillAvenue B2B Matrix:
+      // - AGT (Agent) channel ONLY supports 'Cash' (all other modes including Wallet are 'N')
+      // - INT (Internet) channel supports UPI, Wallet, Internet Banking, etc. but DOES NOT support 'Cash'
       let finalPaymentMode = paymentMode || 'UPI';
-      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
-        finalPaymentMode = 'Cash';
+      if (initChannel === 'AGT') {
+        finalPaymentMode = 'Cash'; // Strictly Cash for AGT
+      } else if (initChannel === 'INT' && finalPaymentMode === 'Cash') {
+        finalPaymentMode = 'UPI';  // Cash not allowed in INT
       }
 
       // 3. Call BillAvenue pay API
@@ -2883,8 +2886,8 @@ async function startServer() {
           // CRITICAL FIX: As per BillAvenue B2B Matrix, INT channel DOES NOT support 'Cash'.
           // So if we are retrying with INT, we must revert the payment mode back to the original (e.g. UPI or Internet Banking)
           let retryPaymentMode = paymentMode || 'UPI';
-          if (retryPaymentMode === 'Wallet' || retryPaymentMode === 'Cash') {
-             retryPaymentMode = 'UPI'; // Safe fallback for INT channel
+          if (retryPaymentMode === 'Cash') {
+             retryPaymentMode = 'UPI'; // Safe fallback for INT channel, Wallet is also allowed in INT
           }
           
           apiResponse = await billAvenue.payBill(
