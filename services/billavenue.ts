@@ -215,10 +215,18 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
 /**
  * Fetch Biller List
  */
-export async function getBillers(billerId?: string): Promise<any> {
-  const xml = billerId
-    ? `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n<billerId>${billerId}</billerId>\n</billerInfoRequest>`
+export async function getBillers(billerIds?: string | string[]): Promise<any> {
+  let billerTags = '';
+  if (Array.isArray(billerIds)) {
+    billerTags = billerIds.map(id => `<billerId>${id}</billerId>`).join('\n');
+  } else if (billerIds) {
+    billerTags = `<billerId>${billerIds}</billerId>`;
+  }
+
+  const xml = billerTags
+    ? `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n${billerTags}\n</billerInfoRequest>`
     : `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n</billerInfoRequest>`;
+
     
   const encRequest = encryptRequest(xml).toLowerCase();
   const requestId = generateRequestId();
