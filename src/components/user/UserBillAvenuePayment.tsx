@@ -826,22 +826,18 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           const data = await response.json();
           const apiBiller = data?.billerInfoResponse?.biller;
           
-          if (apiBiller) {
+          if (apiBiller && apiBiller.billerInputParams) {
             bDetail = { ...apiBiller, mdm_fetched: true };
             // Silently update database so we don't fetch next time
             supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then(({error}) => {
               if (error) console.warn('Failed to cache biller params:', error.message);
             });
           } else {
-            // Mark as fetched even if it failed so we don't keep trying
-            bDetail = { ...(bDetail || {}), mdm_fetched: true };
-            supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then();
             throw new Error('Live API did not return parameters (Limit exceeded?)');
           }
         } catch (fetchErr: any) {
-          console.error(fetchErr);
-          toast.info(`Could not fetch exact BillAvenue parameters (MDM Limit?). Using fallback details.`);
-          // Don't return early; fall back to PayPrime format or hardcoded fallbackParams
+          console.error('Biller MDM fetch failed:', fetchErr);
+          // Silently fall back to PayPrime format or hardcoded fallbackParams without showing a toast
         }
       }
 
