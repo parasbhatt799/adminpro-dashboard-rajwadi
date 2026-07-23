@@ -4262,7 +4262,11 @@ async function startServer() {
 
   app.post("/api/webhooks/camlenio/payout", async (req: any, res) => {
     try {
-      const signature = req.headers['x-camlenio-signature'] as string || req.headers['x-signature'] as string || req.headers['signature'] as string || req.headers['x-api-key'] as string;
+      const signature = req.headers['x-camlenio-signature'] as string || 
+                        req.headers['x-webhook-signature'] as string || 
+                        req.headers['x-signature'] as string || 
+                        req.headers['signature'] as string || 
+                        req.headers['x-api-key'] as string;
       const rawBody = req.rawBody || JSON.stringify(req.body);
 
       console.log("[Webhook] Received Headers:", JSON.stringify(req.headers));
@@ -4282,10 +4286,16 @@ async function startServer() {
       // 2. Process asynchronously
       (async () => {
         try {
-          const { reference, status, message, utr } = req.body;
-          const actualTxnId = req.body.txnId || req.body.txn_id || req.body.transactionId || req.body.transaction_id;
+          const { status, message, utr } = req.body;
+          const reference = req.body.reference || req.body.client_txnid || req.body.client_refid;
+          const actualTxnId = req.body.txnId || req.body.txnid || req.body.txn_id || req.body.transactionId || req.body.transaction_id;
           const statusUpper = status ? status.toString().toUpperCase() : '';
           console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${statusUpper}`);
+
+          if (!reference) {
+            console.warn("[Webhook] Missing reference/client_txnid in payload. Cannot process.");
+            return;
+          }
 
           // Verify existing status (lookup by bank_ref, NOT id, since Camlenio returns our shortRef)
           const { data: existing } = await supabaseAdmin.from('payout_submissions').select('id, status, amount, charge_amount, user_id').eq('bank_ref', reference).single();
