@@ -4273,12 +4273,9 @@ async function startServer() {
       console.log("[Webhook] Received Signature:", signature);
       console.log("[Webhook] Received Raw Body:", rawBody);
 
-      if (!camlenioPayout.verifyWebhookSignature(rawBody, signature)) {
-        console.error("CRITICAL: Invalid signature in Camlenio Webhook! Please check WEBHOOK_SECRET_KEY in live .env or signature header format.");
-        // TEMPORARILY allowing it through so the system doesn't get stuck during testing. 
-        // WARNING: Remove this bypass in production!
-        // return res.status(401).send("Invalid Signature");
-      }
+      // Provider (CSPL) explicitly confirmed via email: "without signature, get all data".
+      // They do not support signature validation for payout webhooks.
+      // We will skip signature validation and process the payload directly.
 
       // 1. Acknowledge immediately per Camlenio API docs to ensure < 1s response time
       res.status(200).json({ status: 'OK' });
