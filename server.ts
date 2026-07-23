@@ -4158,10 +4158,14 @@ async function startServer() {
 
       // Check settings first
       const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout, camlenio_min_payout, camlenio_payout_charge').eq('id', 1).single();
+      
+      // Check if user is tester
+      const { data: userProfile } = await supabaseAdmin.from('users_profiles').select('is_tester').eq('id', userId).single();
+      const isTester = userProfile?.is_tester || false;
 
       let actualCharge = 0;
       if (settings) {
-        if (!settings.camlenio_is_enabled) {
+        if (!settings.camlenio_is_enabled && !isTester) {
           return res.status(400).json({ success: false, message: 'AEPS Payouts are currently disabled by Admin.' });
         }
         const minPayout = settings.camlenio_min_payout ?? 100;
