@@ -2713,15 +2713,7 @@ async function startServer() {
       const initChannel = 'AGT'; // Always use AGT for BillAvenue as our Agent ID is registered for AGT
 
       try {
-        let response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
-        
-        // Check if error is related to AGT channel being disabled
-        let responseStr = JSON.stringify(response.json || {});
-        if (responseStr.includes('channel AGT is disable') || responseStr.includes('channel AGT is not allowed') || responseStr.includes('is disable for biller')) {
-          console.log(`[BillAvenue Proxy] AGT channel disabled for ${billerId}. Retrying fetch with INT channel...`);
-          response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, 'INT');
-        }
-
+        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
         const responseCode = response.json?.billFetchResponse?.responseCode;
         if (isStaging && responseCode !== '0000') {
           console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
@@ -2851,14 +2843,11 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // As per BillAvenue B2B Matrix:
-      // - AGT (Agent) channel ONLY supports 'Cash' (all other modes including Wallet are 'N')
-      // - INT (Internet) channel supports UPI, Wallet, Internet Banking, etc. but DOES NOT support 'Cash'
+      // If channel is AGT (Agent), BBPS often rejects modes like UPI, Net Banking, etc.
+      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash' or 'Wallet' to BBPS.
       let finalPaymentMode = paymentMode || 'UPI';
-      if (initChannel === 'AGT') {
-        finalPaymentMode = 'Cash'; // Strictly Cash for AGT
-      } else if (initChannel === 'INT' && finalPaymentMode === 'Cash') {
-        finalPaymentMode = 'UPI';  // Cash not allowed in INT
+      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
+        finalPaymentMode = 'Cash';
       }
 
       // 3. Call BillAvenue pay API
@@ -2877,33 +2866,6 @@ async function startServer() {
           initChannel,
           fetchRequestId
         );
-
-        // Check if error is related to AGT channel being disabled
-        let responseStr = JSON.stringify(apiResponse.json || {});
-        if (responseStr.includes('channel AGT is disable') || responseStr.includes('channel AGT is not allowed') || responseStr.includes('is disable for biller')) {
-          console.log(`[BillAvenue Proxy] AGT channel disabled for payment on ${billerId}. Retrying with INT channel...`);
-          
-          // CRITICAL FIX: As per BillAvenue B2B Matrix, INT channel DOES NOT support 'Cash'.
-          // So if we are retrying with INT, we must revert the payment mode back to the original (e.g. UPI or Internet Banking)
-          let retryPaymentMode = paymentMode || 'UPI';
-          if (retryPaymentMode === 'Cash') {
-             retryPaymentMode = 'UPI'; // Safe fallback for INT channel, Wallet is also allowed in INT
-          }
-          
-          apiResponse = await billAvenue.payBill(
-            billerId,
-            customerParams,
-            customerMobile,
-            paymentAmount,
-            retryPaymentMode,
-            quickPay || 'N',
-            ccf1 !== undefined ? Number(ccf1) : undefined,
-            billDetails,
-            user.name || 'Valued Customer',
-            'INT',
-            fetchRequestId
-          );
-        }
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);
         const isStaging = process.env.BILLAVENUE_ENV !== 'production';
