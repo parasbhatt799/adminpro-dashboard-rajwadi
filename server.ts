@@ -2879,12 +2879,20 @@ async function startServer() {
         let responseStr = JSON.stringify(apiResponse.json || {});
         if (responseStr.includes('channel AGT is disable') || responseStr.includes('channel AGT is not allowed') || responseStr.includes('is disable for biller')) {
           console.log(`[BillAvenue Proxy] AGT channel disabled for payment on ${billerId}. Retrying with INT channel...`);
+          
+          // CRITICAL FIX: As per BillAvenue B2B Matrix, INT channel DOES NOT support 'Cash'.
+          // So if we are retrying with INT, we must revert the payment mode back to the original (e.g. UPI or Internet Banking)
+          let retryPaymentMode = paymentMode || 'UPI';
+          if (retryPaymentMode === 'Wallet' || retryPaymentMode === 'Cash') {
+             retryPaymentMode = 'UPI'; // Safe fallback for INT channel
+          }
+          
           apiResponse = await billAvenue.payBill(
             billerId,
             customerParams,
             customerMobile,
             paymentAmount,
-            finalPaymentMode,
+            retryPaymentMode,
             quickPay || 'N',
             ccf1 !== undefined ? Number(ccf1) : undefined,
             billDetails,
