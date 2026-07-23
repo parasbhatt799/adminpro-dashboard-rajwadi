@@ -219,7 +219,62 @@ export async function getBillers(billerId?: string): Promise<any> {
   const xml = billerId
     ? `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n<billerId>${billerId}</billerId>\n</billerInfoRequest>`
     : `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n</billerInfoRequest>`;
-  return callBillAvenueApi(ENDPOINTS.billers, xml);
+    
+  const encRequest = encryptRequest(xml).toLowerCase();
+  const requestId = generateRequestId();
+  
+  // Construct URL exactly as in BillAvenue's email
+  const url = new URL(ENDPOINTS.billers);
+  url.searchParams.append('accessCode', ACCESS_CODE);
+  url.searchParams.append('requestId', requestId);
+  url.searchParams.append('ver', '1.0');
+  url.searchParams.append('instituteId', INSTITUTE_ID);
+
+  console.log(`[BillAvenue MDM] Outgoing Request [${requestId}] to URL: ${url.toString()}`);
+  console.log('[BillAvenue MDM] Plain Payload:', xml);
+
+  try {
+    const response = await fetch(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain', // Sending raw encrypted string
+        'Accept': 'application/xml, text/xml, */*'
+      },
+      body: encRequest // Just the raw encrypted string
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP Error Status: ${response.status}`);
+    }
+
+    let responseText = await response.text();
+    responseText = responseText.trim();
+    console.log(`[BillAvenue MDM] Received Encrypted Raw Response length: ${responseText.length}`);
+
+    let ciphertext = responseText;
+    if (responseText.includes('<encResponse>')) {
+      ciphertext = parseXmlValue(responseText, 'encResponse');
+    }
+
+    const decryptedXml = decryptResponse(ciphertext);
+    console.log('[BillAvenue MDM] Decrypted XML Response length:', decryptedXml.length);
+
+    let jsonResult = null;
+    try {
+      jsonResult = xmlToJson(decryptedXml);
+    } catch (e: any) {
+      console.warn('[BillAvenue MDM] Warning: xmlToJson failed.', e.message);
+    }
+
+    return {
+      requestId,
+      rawXml: decryptedXml,
+      json: jsonResult
+    };
+  } catch (error: any) {
+    console.error('[BillAvenue MDM] API call failed:', error);
+    throw error;
+  }
 }
 
 /**
