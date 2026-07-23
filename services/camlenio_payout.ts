@@ -201,6 +201,11 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
     .update(rawBody)
     .digest('hex');
     
+  if (expectedSignature.length !== signature.length) {
+    console.warn(`[Webhook] Signature length mismatch! Expected: ${expectedSignature.length}, Got: ${signature.length}`);
+    return false;
+  }
+    
   return crypto.timingSafeEqual(
     Buffer.from(expectedSignature),
     Buffer.from(signature)
