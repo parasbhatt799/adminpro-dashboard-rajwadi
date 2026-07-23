@@ -14,7 +14,7 @@ const IS_PROD = process.env.BILLAVENUE_ENV === 'production';
 const BASE_URL = IS_PROD ? 'https://api.billavenue.com' : 'https://stgapi.billavenue.com';
 
 const ENDPOINTS = {
-  billers: `${BASE_URL}/billpay/extMdmCntrl/mdmRequest/xml`,
+  billers: `${BASE_URL}/billpay/extMdmCntrl/mdmRequestNew/xml`,
   fetch: `${BASE_URL}/billpay/extBillCntrl/billFetchRequest/xml`,
   pay: `${BASE_URL}/billpay/extBillPayCntrl/billPayRequest/xml`,
   status: `${BASE_URL}/billpay/transactionStatus/fetchInfo/xml`,
@@ -217,8 +217,8 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
  */
 export async function getBillers(billerId?: string): Promise<any> {
   const xml = billerId
-    ? `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest><agentId>${AGENT_ID}</agentId><billerId>${billerId}</billerId></billerInfoRequest>`
-    : `<?xml version="1.0" encoding="UTF-8"?><billerInfoRequest><agentId>${AGENT_ID}</agentId></billerInfoRequest>`;
+    ? `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n<billerId>${billerId}</billerId>\n</billerInfoRequest>`
+    : `<?xml version="1.0" encoding="UTF-8"?>\n<billerInfoRequest>\n</billerInfoRequest>`;
   return callBillAvenueApi(ENDPOINTS.billers, xml);
 }
 
