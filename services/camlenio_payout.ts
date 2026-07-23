@@ -160,9 +160,9 @@ export async function processImpsPayout(params: {
         success: true,
         status: data.status,
         statusCode: data.statusCode,
-        reference: data.reference,
-        utr: data.utr,
-        txnId: data.txnId,
+        reference: data.reference || data.client_txnid || params.reference,
+        utr: data.utr || data.txnid,
+        txnId: data.txnId || data.txnid,
         amount: data.amount,
         message: data.message
       };

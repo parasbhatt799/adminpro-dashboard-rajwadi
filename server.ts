@@ -4298,7 +4298,7 @@ async function startServer() {
           const { data: existing } = await supabaseAdmin.from('payout_submissions').select('id, status, amount, charge_amount, user_id').eq('bank_ref', reference).single();
 
           if (!existing || existing.status !== 'processing') {
-            // Avoid double processing
+            console.log(`[Webhook] Skipping. Payout not found or already processed for Ref: ${reference}. Found: ${existing ? existing.status : 'None'}`);
             return;
           }
 
