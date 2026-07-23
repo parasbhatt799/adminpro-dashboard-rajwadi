@@ -2713,7 +2713,15 @@ async function startServer() {
       const initChannel = 'AGT'; // Always use AGT for BillAvenue as our Agent ID is registered for AGT
 
       try {
-        const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
+        let response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
+        
+        // Check if error is related to AGT channel being disabled
+        let responseStr = JSON.stringify(response.json || {});
+        if (responseStr.includes('channel AGT is disable') || responseStr.includes('channel AGT is not allowed') || responseStr.includes('is disable for biller')) {
+          console.log(`[BillAvenue Proxy] AGT channel disabled for ${billerId}. Retrying fetch with INT channel...`);
+          response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, 'INT');
+        }
+
         const responseCode = response.json?.billFetchResponse?.responseCode;
         if (isStaging && responseCode !== '0000') {
           console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
@@ -2866,6 +2874,25 @@ async function startServer() {
           initChannel,
           fetchRequestId
         );
+
+        // Check if error is related to AGT channel being disabled
+        let responseStr = JSON.stringify(apiResponse.json || {});
+        if (responseStr.includes('channel AGT is disable') || responseStr.includes('channel AGT is not allowed') || responseStr.includes('is disable for biller')) {
+          console.log(`[BillAvenue Proxy] AGT channel disabled for payment on ${billerId}. Retrying with INT channel...`);
+          apiResponse = await billAvenue.payBill(
+            billerId,
+            customerParams,
+            customerMobile,
+            paymentAmount,
+            finalPaymentMode,
+            quickPay || 'N',
+            ccf1 !== undefined ? Number(ccf1) : undefined,
+            billDetails,
+            user.name || 'Valued Customer',
+            'INT',
+            fetchRequestId
+          );
+        }
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);
         const isStaging = process.env.BILLAVENUE_ENV !== 'production';
