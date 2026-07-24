@@ -432,7 +432,7 @@ export default function BBPSHistory() {
       const module = await import('jspdf');
       const JsPDFClass = module.jsPDF || module.default;
       const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const autoTable = (autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule) as any;
       const doc = new JsPDFClass({
         orientation: 'l',
         unit: 'mm',
