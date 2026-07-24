@@ -145,7 +145,7 @@ export function xmlToJson(xml: string): any {
   return parseNode(cleanXml);
 }
 
-export async function callBillAvenueApi(url: string, xmlPayload: string, explicitRequestId?: string): Promise<any> {
+export async function callBillAvenueApi(url: string, xmlPayload: string, explicitRequestId?: string, version: string = '1.0'): Promise<any> {
   const requestId = explicitRequestId || generateRequestId();
   console.log(`[BillAvenue Service] Outgoing Request [${requestId}] to URL: ${url}`);
   console.log('[BillAvenue Service] Plain Payload:', xmlPayload);
@@ -157,7 +157,7 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
   queryParams.append('accessCode', ACCESS_CODE);
   queryParams.append('requestId', requestId);
   queryParams.append('encRequest', encRequest);
-  queryParams.append('ver', '1.0');
+  queryParams.append('ver', version);
   queryParams.append('instituteId', INSTITUTE_ID);
 
   try {
@@ -526,7 +526,7 @@ export async function registerComplaint(
     <complaintDesc>${cleanDesc}</complaintDesc>
     <complaintDisposition>${extractedDisposition}</complaintDisposition>
 </complaintRegistrationReq>`;
-  return callBillAvenueApi(ENDPOINTS.registerComplaint, xml);
+  return callBillAvenueApi(ENDPOINTS.registerComplaint, xml, undefined, '2.0');
 }
 
 /**
@@ -537,7 +537,7 @@ export async function trackComplaint(complaintId: string, mobile: string): Promi
 <complaintTrackingReq>
     <complaintId>${complaintId}</complaintId>
 </complaintTrackingReq>`;
-  return callBillAvenueApi(ENDPOINTS.trackComplaint, xml);
+  return callBillAvenueApi(ENDPOINTS.trackComplaint, xml, undefined, '2.0');
 }
 
 /**
