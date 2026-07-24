@@ -61,6 +61,7 @@ export default function BBPSHistory() {
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'failed'>('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('today');
   const [startDate, setStartDate] = useState(getTodayStr());
   const [endDate, setEndDate] = useState(getTodayStr());
@@ -95,6 +96,7 @@ export default function BBPSHistory() {
   const clearFilters = () => {
     setSearchQuery('');
     setFilter('all');
+    setCategoryFilter('all');
     setDateFilter('today');
     setStartDate(getTodayStr());
     setEndDate(getTodayStr());
@@ -146,6 +148,11 @@ export default function BBPSHistory() {
       // Apply Status Filter
       if (filter !== 'all') {
         query = query.eq('status', filter);
+      }
+
+      // Apply Category Filter
+      if (categoryFilter !== 'all') {
+        query = query.eq('service_type', categoryFilter);
       }
 
       // Apply Search Filter (on user firm/name or biller details)
@@ -694,6 +701,18 @@ export default function BBPSHistory() {
               <option value="approved">Success</option>
               <option value="pending">Pending</option>
               <option value="failed">Failed</option>
+            </select>
+
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="px-4 py-2 h-10 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
+            >
+              <option value="all">All Categories</option>
+              <option value="BillAvenue BBPS">BillAvenue BBPS</option>
+              <option value="CSPL BBPS">CSPL BBPS</option>
+              <option value="PayPrime BBPS">PayPrime BBPS</option>
+              <option value="Credit Card">Credit Card</option>
             </select>
 
             <button
