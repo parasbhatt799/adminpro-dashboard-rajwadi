@@ -1299,7 +1299,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           date: new Date().toLocaleString('en-IN'),
           initiatingChannel: 'Internet (WEB)',
           paymentMode: selectedPaymentMode,
-          transactionStatus: 'Successful',
+          transactionStatus: data.data?.computedStatus === 'pending' ? 'Pending' : 'Successful',
           approvalNumber: approvalNum,
           consumerDetails: formInputs
         });

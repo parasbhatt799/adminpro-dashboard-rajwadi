@@ -2894,10 +2894,19 @@ async function startServer() {
       let payResponse = responseJson?.ExtBillPayResponse || responseJson?.extBillPayResponse || responseJson?.billPayResponse;
       let responseCode = payResponse?.responseCode;
       let txnRefId = payResponse?.txnRefId;
+      let errorCode = payResponse?.errorInfo?.error?.errorCode;
+      let responseReason = payResponse?.responseReason;
 
-      let isSuccess = responseCode === '0000' || responseCode === '000' || responseCode?.toString().toLowerCase() === 'success' || payResponse?.status?.toString().toLowerCase() === 'success';
+      let isSuccess = responseCode === '0000' || responseCode === '000' || 
+                      responseCode?.toString().toLowerCase() === 'success' || 
+                      payResponse?.status?.toString().toLowerCase() === 'success';
 
-      if (!isSuccess && isStaging) {
+      let isPending = errorCode === 'PNR001' || errorCode === 'Timeout' || 
+                      responseReason?.toString().toLowerCase() === 'awaited' || 
+                      responseReason?.toString().toLowerCase() === 'pending' || 
+                      responseCode?.toString().toLowerCase() === 'pending';
+
+      if (!isSuccess && !isPending && isStaging) {
         console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} payment failed with ${responseCode}. Mocking success.`);
         payResponse = {
           responseCode: '0000',
@@ -2911,7 +2920,7 @@ async function startServer() {
         isSuccess = true;
       }
 
-      if (isSuccess || responseCode === '0000' || responseCode === '000') {
+      if (isSuccess || isPending || responseCode === '0000' || responseCode === '000') {
         const newBalance = currentBalance - totalDeduction;
 
         // 4. Deduct wallet balance in Supabase
@@ -2924,6 +2933,9 @@ async function startServer() {
           console.error("[CRITICAL] Wallet deduction failed for completed BillAvenue transaction:", updateError);
         }
 
+        const finalStatus = isPending ? "pending" : "success";
+        const finalSubmissionStatus = isPending ? "pending" : "approved";
+
         // 5. Log transaction into billavenue_transactions
         await supabaseAdmin
           .from("billavenue_transactions")
@@ -2932,7 +2944,7 @@ async function startServer() {
             txn_ref_id: txnRefId || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
             customer_mobile: customerMobile,
             amount: paymentAmount,
-            status: "success",
+            status: finalStatus,
             response: responseJson
           });
 
@@ -2946,13 +2958,14 @@ async function startServer() {
             consumer_number: customerParams[Object.keys(customerParams)[0]] || "BA Account",
             amount: paymentAmount,
             charges: serviceCharge,
-            status: "approved",
+            status: finalSubmissionStatus,
             rejection_reason: txnRefId || apiResponse.requestId,
             metadata: {
               gateway: "BillAvenue",
               requestId: apiResponse.requestId,
               customerParams,
-              paymentMode: paymentMode || 'UPI'
+              paymentMode: paymentMode || 'UPI',
+              totalDeducted: totalDeduction
             }
           });
 
@@ -3154,10 +3167,13 @@ async function startServer() {
 
         return res.json({
           status: "SUCCESS",
-          message: "Transaction SUCCESS",
+          message: isPending ? "Transaction Pending/Awaited at Gateway" : "Transaction SUCCESS",
           new_balance: newBalance,
           charges: serviceCharge,
-          data: payResponse
+          data: {
+            ...payResponse,
+            computedStatus: finalSubmissionStatus
+          }
         });
       } else {
         // Log failed transaction
@@ -3197,8 +3213,21 @@ async function startServer() {
       if (statusResponse) {
         const txnStatus = statusResponse.status?.toLowerCase();
         let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
-        if (txnStatus === 'success' || txnStatus === 'approved') mappedStatus = 'success';
-        else if (txnStatus === 'failed' || txnStatus === 'rejected') mappedStatus = 'failed';
+        let mappedSubmissionStatus = 'pending';
+        
+        if (txnStatus === 'success' || txnStatus === 'approved') {
+          mappedStatus = 'success';
+          mappedSubmissionStatus = 'approved';
+        } else if (txnStatus === 'failed' || txnStatus === 'rejected') {
+          mappedStatus = 'failed';
+          mappedSubmissionStatus = 'rejected';
+        }
+
+        const { data: existingSubmission } = await supabaseAdmin
+          .from("bbps_submissions")
+          .select("id, status, user_id, metadata")
+          .eq("metadata->>requestId", requestId)
+          .maybeSingle();
 
         await supabaseAdmin
           .from("billavenue_transactions")
@@ -3208,6 +3237,37 @@ async function startServer() {
             response: response.json
           })
           .eq("request_id", requestId);
+
+        if (existingSubmission) {
+          await supabaseAdmin
+            .from("bbps_submissions")
+            .update({
+              status: mappedSubmissionStatus,
+              rejection_reason: statusResponse.txnRefId || requestId
+            })
+            .eq("id", existingSubmission.id);
+
+          if (existingSubmission.status === 'pending' && mappedSubmissionStatus === 'rejected') {
+            const totalDeducted = existingSubmission.metadata?.totalDeducted;
+            if (totalDeducted && typeof totalDeducted === 'number') {
+              const { data: userProfile } = await supabaseAdmin
+                .from("users_profiles")
+                .select("wallet_balance")
+                .eq("id", existingSubmission.user_id)
+                .single();
+              
+              if (userProfile) {
+                const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
+                await supabaseAdmin
+                  .from("users_profiles")
+                  .update({ wallet_balance: refundedBalance })
+                  .eq("id", existingSubmission.user_id);
+                  
+                console.log(`[BillAvenue Status] Refunded ₹${totalDeducted} to user ${existingSubmission.user_id} for failed pending transaction ${requestId}`);
+              }
+            }
+          }
+        }
       }
 
       res.json(response.json);
