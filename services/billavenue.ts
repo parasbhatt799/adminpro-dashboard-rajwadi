@@ -514,21 +514,21 @@ export async function registerComplaint(
   complaintType: string,
   txnRefId: string,
   complaintDesc: string,
-  mobile: string
+  mobile: string,
+  complaintDisposition?: string
 ): Promise<any> {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<complaintRequest>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
+  const extractedDisposition = complaintDesc.match(/\[Disposition: (.*?)\]/)?.[1] || complaintDisposition || 'Amount deducted multiple times';
+  const cleanDesc = complaintDesc.replace(/\[Disposition: .*?\]\s*/, '').substring(0, 255);
+
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<complaintRegistrationReq>
     <agentId>${AGENT_ID}</agentId>
+    <complaintDesc>${cleanDesc}</complaintDesc>
+    <complaintDisposition>${extractedDisposition}</complaintDisposition>
     <complaintType>${complaintType}</complaintType>
+    <participationType>Biller</participationType>
     <txnRefId>${txnRefId}</txnRefId>
-    <complaintDesc>${complaintDesc}</complaintDesc>
-    <customerMobile>${mobile}</customerMobile>
-</complaintRequest>`;
+</complaintRegistrationReq>`;
   return callBillAvenueApi(ENDPOINTS.registerComplaint, xml);
 }
 
@@ -536,17 +536,10 @@ export async function registerComplaint(
  * Track an Existing Complaint Status
  */
 export async function trackComplaint(complaintId: string, mobile: string): Promise<any> {
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<complaintTrackRequest>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <agentId>${AGENT_ID}</agentId>
+  const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<complaintTrackingReq>
     <complaintId>${complaintId}</complaintId>
-    <customerMobile>${mobile}</customerMobile>
-</complaintTrackRequest>`;
+</complaintTrackingReq>`;
   return callBillAvenueApi(ENDPOINTS.trackComplaint, xml);
 }
 
