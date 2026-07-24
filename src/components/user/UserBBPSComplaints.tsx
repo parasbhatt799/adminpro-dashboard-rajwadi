@@ -175,8 +175,9 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
         setComplaintEndDate('');
         fetchUserComplaints();
       } else {
-        const errorMsg = registerResp?.desc || registerResp?.errorReason || data.message || 'Failed to lodge complaint.';
-        toast.error(errorMsg);
+        const fallbackError = registerResp ? JSON.stringify(registerResp) : (data.message || 'Failed to lodge complaint.');
+        const errorMsg = registerResp?.desc || registerResp?.errorReason || registerResp?.msg || registerResp?.errorMessage || fallbackError;
+        toast.error(`Error: ${errorMsg}`);
       }
     } catch (err) {
       toast.error('Error submitting complaint request.');
