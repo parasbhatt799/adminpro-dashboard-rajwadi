@@ -202,7 +202,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
       const data = await res.json();
       const trackResp = data?.complaintTrackingResp || data?.complaintTrackResponse;
       if (trackResp) {
-        toast.success(`Complaint status: ${trackResp.status || 'Updated'}`);
+        toast.success(`Complaint status: ${trackResp.complaintStatus || trackResp.status || 'Updated'}`);
         fetchUserComplaints();
       } else {
         toast.error(data.message || 'Failed to track complaint.');
@@ -561,13 +561,18 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Status</span>
-                            <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${manualTrackResult.status === 'RESOLVED' || manualTrackResult.status === 'SUCCESS' || manualTrackResult.status?.toString().toLowerCase() === 'resolved'
+                            <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mt-1 ${
+                              (manualTrackResult.complaintStatus || manualTrackResult.status) === 'RESOLVED' || 
+                              (manualTrackResult.complaintStatus || manualTrackResult.status) === 'SUCCESS' || 
+                              (manualTrackResult.complaintStatus || manualTrackResult.status)?.toString().toLowerCase() === 'resolved'
                               ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-                              : manualTrackResult.status === 'FAILED' || manualTrackResult.status === 'REJECTED' || manualTrackResult.status?.toString().toLowerCase() === 'failed'
+                              : (manualTrackResult.complaintStatus || manualTrackResult.status) === 'FAILED' || 
+                                (manualTrackResult.complaintStatus || manualTrackResult.status) === 'REJECTED' || 
+                                (manualTrackResult.complaintStatus || manualTrackResult.status)?.toString().toLowerCase() === 'failed'
                                 ? 'bg-rose-50 text-rose-600 border border-rose-200'
                                 : 'bg-amber-50 text-amber-600 border border-amber-200'
                               }`}>
-                              {manualTrackResult.status || 'PENDING'}
+                              {manualTrackResult.complaintStatus || manualTrackResult.status || 'PENDING'}
                             </span>
                           </div>
                           <div>
