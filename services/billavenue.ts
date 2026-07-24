@@ -522,12 +522,9 @@ export async function registerComplaint(
 
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <complaintRegistrationReq>
-    <agentId>${AGENT_ID}</agentId>
+    <txnRefId>${txnRefId}</txnRefId>
     <complaintDesc>${cleanDesc}</complaintDesc>
     <complaintDisposition>${extractedDisposition}</complaintDisposition>
-    <complaintType>${complaintType}</complaintType>
-    <participationType>Biller</participationType>
-    <txnRefId>${txnRefId}</txnRefId>
 </complaintRegistrationReq>`;
   return callBillAvenueApi(ENDPOINTS.registerComplaint, xml);
 }
