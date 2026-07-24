@@ -518,11 +518,16 @@ export async function registerComplaint(
 ): Promise<any> {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <complaintRequest>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>AGT</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <agentId>${AGENT_ID}</agentId>
     <complaintType>${complaintType}</complaintType>
     <txnRefId>${txnRefId}</txnRefId>
     <complaintDesc>${complaintDesc}</complaintDesc>
-    <agentId>${AGENT_ID}</agentId>
-    <mobile>${mobile}</mobile>
+    <customerMobile>${mobile}</customerMobile>
 </complaintRequest>`;
   return callBillAvenueApi(ENDPOINTS.registerComplaint, xml);
 }
@@ -533,8 +538,14 @@ export async function registerComplaint(
 export async function trackComplaint(complaintId: string, mobile: string): Promise<any> {
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <complaintTrackRequest>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>AGT</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <agentId>${AGENT_ID}</agentId>
     <complaintId>${complaintId}</complaintId>
-    <mobile>${mobile}</mobile>
+    <customerMobile>${mobile}</customerMobile>
 </complaintTrackRequest>`;
   return callBillAvenueApi(ENDPOINTS.trackComplaint, xml);
 }
