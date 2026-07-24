@@ -2820,13 +2820,37 @@ async function startServer() {
       const ccf1InRupees = ccf1 !== undefined ? Number(ccf1) / 100 : 0;
       const totalDeduction = paymentAmount + serviceCharge + ccf1InRupees;
 
-      // 2. Enforce minimum ₹250 wallet balance rule taking calculated charges into account
-      if (currentBalance - totalDeduction < 250) {
-        return res.status(400).json({
-          status: "ERROR",
-          message: `Insufficient balance. You must maintain at least ₹250 in your wallet after payment (Bill Amount: ₹${paymentAmount} + Service Charge: ₹${serviceCharge} + Convenience Fee: ₹${ccf1InRupees}).`
-        });
+      // 2. Atomic deduction via RPC
+      const consumerNumber = customerParams ? (customerParams[Object.keys(customerParams)[0]] || "BA Account") : "BA Account";
+      const metadata = {
+        gateway: "BillAvenue",
+        customerParams,
+        paymentMode: paymentMode || 'UPI',
+        totalDeducted: totalDeduction,
+        idempotencyKey: req.body.idempotencyKey || `BA-${Date.now()}`
+      };
+
+      const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('process_billavenue_payment', {
+        p_user_id: userId,
+        p_total_deduction: totalDeduction,
+        p_payment_amount: paymentAmount,
+        p_service_charge: serviceCharge,
+        p_biller_id: billerId,
+        p_consumer_number: consumerNumber,
+        p_metadata: metadata,
+        p_idempotency_key: metadata.idempotencyKey
+      });
+
+      if (rpcError) {
+        console.error("[BillAvenue] RPC error:", rpcError);
+        return res.status(500).json({ status: "ERROR", message: "Database error while processing payment." });
       }
+
+      if (!rpcData.success) {
+        return res.status(400).json({ status: "ERROR", message: rpcData.message });
+      }
+
+      const submissionId = rpcData.submission_id;
 
       // Look up biller category to determine channel (Credit Card uses INT, others use AGT)
       let initChannel = 'AGT';
@@ -2884,6 +2908,15 @@ async function startServer() {
             }
           };
         } else {
+          // API Failed -> Refund Wallet and mark submission failed
+          console.warn(`[BillAvenue Proxy] API Exception for Biller ${billerId}. Refunding ${totalDeduction} to User ${userId}`);
+          
+          await supabaseAdmin.rpc('refund_billavenue_payment', {
+            p_user_id: userId,
+            p_refund_amount: totalDeduction,
+            p_submission_id: submissionId,
+            p_reason: payApiError.message || 'API Exception'
+          });
           throw payApiError;
         }
       }
@@ -2921,20 +2954,17 @@ async function startServer() {
       }
 
       if (isSuccess || isPending || responseCode === '0000' || responseCode === '000') {
-        const newBalance = currentBalance - totalDeduction;
-
-        // 4. Deduct wallet balance in Supabase
-        const { error: updateError } = await supabaseAdmin
-          .from("users_profiles")
-          .update({ wallet_balance: newBalance })
-          .eq("id", userId);
-
-        if (updateError) {
-          console.error("[CRITICAL] Wallet deduction failed for completed BillAvenue transaction:", updateError);
-        }
-
         const finalStatus = isPending ? "pending" : "success";
         const finalSubmissionStatus = isPending ? "pending" : "approved";
+
+        // Update the existing submission status created by the RPC
+        await supabaseAdmin
+          .from("bbps_submissions")
+          .update({ 
+            status: finalSubmissionStatus, 
+            rejection_reason: txnRefId || apiResponse.requestId 
+          })
+          .eq("id", submissionId);
 
         // 5. Log transaction into billavenue_transactions
         await supabaseAdmin
@@ -2948,26 +2978,7 @@ async function startServer() {
             response: responseJson
           });
 
-        // 6. Also log into bbps_submissions for unified reporting / analytics
-        await supabaseAdmin
-          .from("bbps_submissions")
-          .insert({
-            user_id: userId,
-            service_type: "BillAvenue BBPS",
-            provider: billerId,
-            consumer_number: customerParams[Object.keys(customerParams)[0]] || "BA Account",
-            amount: paymentAmount,
-            charges: serviceCharge,
-            status: finalSubmissionStatus,
-            rejection_reason: txnRefId || apiResponse.requestId,
-            metadata: {
-              gateway: "BillAvenue",
-              requestId: apiResponse.requestId,
-              customerParams,
-              paymentMode: paymentMode || 'UPI',
-              totalDeducted: totalDeduction
-            }
-          });
+        const newBalance = rpcData.new_balance;
 
         // Send email alert (Obs 8)
         try {
@@ -3176,6 +3187,16 @@ async function startServer() {
           }
         });
       } else {
+        // API Failed -> Refund Wallet and mark submission failed
+        console.warn(`[BillAvenue Proxy] API Failed for Biller ${billerId}. Refunding ${totalDeduction} to User ${userId}`);
+        
+        await supabaseAdmin.rpc('refund_billavenue_payment', {
+          p_user_id: userId,
+          p_refund_amount: totalDeduction,
+          p_submission_id: submissionId,
+          p_reason: responseReason || errorCode || 'API Failed'
+        });
+
         // Log failed transaction
         await supabaseAdmin
           .from("billavenue_transactions")

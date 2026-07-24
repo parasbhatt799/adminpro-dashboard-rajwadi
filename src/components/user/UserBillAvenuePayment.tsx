@@ -1249,6 +1249,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       }
     }
 
+    const idempotencyKey = "BA-" + Date.now() + "-" + Math.random().toString(36).substring(2, 9);
+
     try {
       const res = await fetch('/api/bbps/pay', {
         method: 'POST',
@@ -1264,7 +1266,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           quickPay: billDetails?.fetchSupported ? 'N' : 'Y',
           ccf1: ccf1Config ? Math.round(ccf1Fee * 100) : undefined,
           billDetails: billDetails,
-          fetchRequestId: billDetails?.fetchRequestId
+          fetchRequestId: billDetails?.fetchRequestId,
+          idempotencyKey
         })
       });
 
