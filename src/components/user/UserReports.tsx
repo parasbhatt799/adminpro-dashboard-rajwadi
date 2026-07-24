@@ -260,7 +260,7 @@ export default function UserReports({ userId }: UserReportsProps) {
     const module = await import('jspdf');
       const JsPDFClass = module.jsPDF || module.default;
       const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const autoTable: any = autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule;
       const doc = new JsPDFClass({ orientation: 'landscape' });
     const title = `Master Report - ${activeReport.toUpperCase()}`;
     const dateRange = `Date Range: ${startDate || 'All Time'} to ${endDate || 'Present'}`;

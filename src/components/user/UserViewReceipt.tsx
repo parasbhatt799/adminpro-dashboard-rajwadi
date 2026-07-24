@@ -145,7 +145,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
       const module = await import('jspdf');
       const JsPDFClass = module.jsPDF || module.default;
       const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const autoTable: any = autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule;
       const doc = new JsPDFClass({
         orientation: 'portrait',
         unit: 'mm',
@@ -193,11 +193,9 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
         ['Bill Number', receipt.billNumber || 'N/A'],
         ['Due Date', receipt.dueDate || 'N/A'],
         ['Bill Amount', `INR ${Number(receipt.billAmount).toFixed(2)}`],
-        ['Customer Convenience Fees', `INR ${Number(receipt.ccf1Fee).toFixed(2)}`],
         ['Total Amount', `INR ${Number(receipt.totalAmount).toFixed(2)}`],
         ['Transaction Date and Time', receipt.date || 'N/A'],
         ['Initiating Channel', receipt.initiatingChannel || 'N/A'],
-        ['Payment Mode', receipt.paymentMode || 'N/A'],
         ['Transaction Status', receipt.transactionStatus || 'N/A'],
         ['Approval Number', receipt.approvalNumber || 'N/A']
       ];

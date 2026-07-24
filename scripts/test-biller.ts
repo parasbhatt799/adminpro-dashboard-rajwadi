@@ -11,7 +11,15 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SU
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function test() {
-  const billerId = 'SBIC00000NATDN';
+  const { data } = await supabase.from('billavenue_billers').select('biller_id, biller_name, metadata').ilike('biller_name', '%Tamilnad%').limit(1);
+  if (!data || data.length === 0) {
+    console.log('No biller found.');
+    return;
+  }
+  const billerId = data[0].biller_id;
+  console.log(`Found biller: ${data[0].biller_name} (${billerId})`);
+  console.log('Current DB metadata:', JSON.stringify(data[0].metadata, null, 2));
+
   console.log(`Fetching from API for ${billerId}...`);
   try {
     const response = await getBillers(billerId);

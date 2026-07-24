@@ -1387,7 +1387,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                         <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Transaction Charges</span>
+                                        <span>Platform Charge</span>
                                         <span className="font-semibold text-indigo-500">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
@@ -1472,7 +1472,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                         <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Transaction Charges</span>
+                                        <span>Platform Charge</span>
                                         <span className="font-semibold text-indigo-500">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                       </div>
                                       <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
@@ -1556,7 +1556,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                       <span className="font-black text-slate-800">₹{receipt.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Charges</span>
+                      <span className="text-slate-400 uppercase tracking-wider text-[9px]">Platform Charge</span>
                       <span className="font-black text-slate-800">₹{(receipt.charges || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                     </div>
                     <div className="flex justify-between border-t border-slate-100 pt-3">

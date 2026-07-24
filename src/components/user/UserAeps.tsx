@@ -433,7 +433,7 @@ export default function UserAeps({ userId }: UserAepsProps) {
     const module = await import('jspdf');
       const JsPDFClass = module.jsPDF || module.default;
       const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const autoTable: any = autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule;
       const doc = new JsPDFClass();
 
     doc.setFillColor(15, 23, 42);

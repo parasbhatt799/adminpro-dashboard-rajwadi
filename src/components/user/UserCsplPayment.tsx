@@ -378,7 +378,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       const module = await import('jspdf');
       const JsPDFClass = module.jsPDF || module.default;
       const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const autoTable: any = autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule;
       const doc = new JsPDFClass({
         orientation: 'portrait',
         unit: 'mm',
@@ -428,11 +428,9 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         ['Bill Number', receipt.billNumber || 'N/A'],
         ['Due Date', receipt.dueDate || 'N/A'],
         ['Bill Amount', `INR ${Number(receipt.billAmount).toFixed(2)}`],
-        ['Customer Convenience Fees', `INR ${Number(receipt.ccf1Fee).toFixed(2)}`],
         ['Total Amount', `INR ${Number(receipt.totalAmount).toFixed(2)}`],
         ['Transaction Date and Time', receipt.date || 'N/A'],
         ['Initiating Channel', receipt.initiatingChannel || 'N/A'],
-        ['Payment Mode', receipt.paymentMode || 'N/A'],
         ['Transaction Status', receipt.transactionStatus || 'N/A'],
         ['Approval Number', receipt.approvalNumber || 'N/A']
       ];
@@ -1972,7 +1970,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                           <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                          <span>Transaction Charges</span>
+                                          <span>Platform Charge</span>
                                           <span className="font-semibold text-indigo-500">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         {ccf1Fee > 0 && (
@@ -1983,7 +1981,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                         )}
                                         <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
                                           <span>Total Debited</span>
-                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                       </div>
                                     )
@@ -2066,7 +2064,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                           <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                          <span>Transaction Charges</span>
+                                          <span>Platform Charge</span>
                                           <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                         {ccf1Fee > 0 && (
@@ -2077,7 +2075,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                         )}
                                         <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
                                           <span>Total Debited</span>
-                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                         </div>
                                       </div>
                                     )
@@ -2108,18 +2106,12 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                       <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                     <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                      <span>Transaction Charges</span>
+                                      <span>Platform Charge</span>
                                       <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                     </div>
-                                    {ccf1Fee > 0 && (
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Convenience Fee (CCF1 + GST)</span>
-                                        <span className="font-bold text-indigo-600">+ ₹{ccf1Fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                    )}
                                     <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
                                       <span>Total Debited</span>
-                                      <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount)) + ccf1Fee).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                      <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                     </div>
                                   </div>
                                 )}
@@ -2208,10 +2200,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                           <span className="font-black text-slate-800 text-right">₹{receipt.billAmount.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Customer Convenience Fees</span>
-                          <span className="font-black text-slate-800 text-right">₹{receipt.ccf1Fee.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 pb-2">
                           <span className="text-slate-400 uppercase tracking-wider text-[9px]">Total Amount</span>
                           <span className="font-black text-emerald-600 text-right text-sm">₹{receipt.totalAmount.toFixed(2)}</span>
                         </div>
@@ -2222,10 +2210,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                         <div className="flex justify-between border-b border-slate-100 pb-2">
                           <span className="text-slate-400 uppercase tracking-wider text-[9px]">Initiating Channel</span>
                           <span className="font-black text-slate-800 text-right">{receipt.initiatingChannel}</span>
-                        </div>
-                        <div className="flex justify-between border-b border-slate-100 pb-2">
-                          <span className="text-slate-400 uppercase tracking-wider text-[9px]">Payment Mode</span>
-                          <span className="font-black text-slate-800 text-right">{receipt.paymentMode}</span>
                         </div>
                         <div className="flex justify-between border-b border-slate-100 pb-2">
                           <span className="text-slate-400 uppercase tracking-wider text-[9px]">Transaction Status</span>
