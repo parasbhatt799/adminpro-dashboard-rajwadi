@@ -65,7 +65,7 @@ DECLARE
     v_is_active BOOLEAN;
     v_ip_whitelist TEXT[];
 BEGIN
-    SELECT agent_id, billavenue_agent_id, is_active, ip_whitelist 
+    SELECT id::text, billavenue_agent_id, is_active, ip_whitelist 
     INTO v_agent_id, v_billavenue_agent_id, v_is_active, v_ip_whitelist
     FROM public.b2b_api_credentials
     WHERE api_key = p_api_key AND secret_key = p_secret_key;

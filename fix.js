@@ -1,19 +1,9 @@
--- Migration to add billavenue_agent_id to b2b_api_credentials
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
--- 1. Add column if it doesn't exist
-DO $$ 
-BEGIN 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_schema = 'public' 
-                   AND table_name = 'b2b_api_credentials' 
-                   AND column_name = 'billavenue_agent_id') THEN
-        ALTER TABLE public.b2b_api_credentials ADD COLUMN billavenue_agent_id TEXT;
-    END IF;
-END $$;
-
--- 2. Update the authentication function to return a JSON object with both IDs
-DROP FUNCTION IF EXISTS authenticate_b2b_api(TEXT, TEXT, TEXT);
-
+async function run() {
+  const sql = `
 CREATE OR REPLACE FUNCTION authenticate_b2b_api(p_api_key TEXT, p_secret_key TEXT, p_ip_address TEXT)
 RETURNS JSONB AS $$
 DECLARE
@@ -45,3 +35,19 @@ BEGIN
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+  `;
+  
+  // Note: execute_sql doesn't exist by default in Supabase, but some projects have it.
+  // Actually, we can just write the sql to a file, and instruct the user to run it in the Supabase Dashboard,
+  // OR wait! I can just use supabase-cli to push the database, but we are not in a full cli project.
+  // Let's see if execute_sql exists.
+  const { data, error } = await supabase.rpc('execute_sql', { query: sql });
+  if (error) {
+    console.error("execute_sql error:", error);
+    // Alternatively, maybe we can just query using REST.
+  } else {
+    console.log("Success:", data);
+  }
+}
+
+run();
