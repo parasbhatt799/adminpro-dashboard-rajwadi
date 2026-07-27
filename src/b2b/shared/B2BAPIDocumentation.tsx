@@ -53,7 +53,7 @@ export default function B2BAPIDocumentation() {
           
           <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/50">
             <span className="text-sm text-slate-400 uppercase font-semibold">Base URL</span>
-            <code className="block mt-2 text-indigo-300 font-mono">{typeof window !== 'undefined' ? window.location.origin : 'https://api.yourdomain.com'}/api/b2b</code>
+            <code className="block mt-2 text-indigo-300 font-mono">{typeof window !== 'undefined' ? window.location.origin : 'https://api.yourdomain.com'}/api/v1/b2b</code>
           </div>
 
           <div>
