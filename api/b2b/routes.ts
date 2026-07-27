@@ -4,6 +4,18 @@ import { getCategories, getBillers, fetchBill, payBill, getBalance } from './con
 
 const router = Router();
 
+// Enable CORS for B2B API so it can be called from browsers on other domains
+router.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, x-api-key, x-secret-key");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  if (req.method === "OPTIONS") {
+    res.status(200).end();
+    return;
+  }
+  next();
+});
+
 // Apply B2B Auth Middleware to all B2B routes
 router.use(b2bAuthMiddleware);
 
