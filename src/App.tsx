@@ -8,6 +8,19 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet, useLocation, 
 import LoadingSpinner from './components/shared/LoadingSpinner';
 
 // --- Lazy Loaded Components ---
+const B2BLogin = lazy(() => import('./b2b/B2BLogin'));
+const B2BAdminLayout = lazy(() => import('./b2b/admin/B2BAdminLayout'));
+const B2BAdminDashboard = lazy(() => import('./b2b/admin/B2BAdminDashboard'));
+const CreateB2BAgent = lazy(() => import('./b2b/admin/CreateB2BAgent'));
+const B2BAdminFundRequests = lazy(() => import('./b2b/admin/B2BAdminFundRequests'));
+const B2BAPIDocumentation = lazy(() => import('./b2b/shared/B2BAPIDocumentation'));
+const B2BAdminBillHistory = lazy(() => import('./b2b/admin/B2BAdminBillHistory'));
+
+const B2BAgentLayout = lazy(() => import('./b2b/agent/B2BAgentLayout'));
+const B2BAgentDashboard = lazy(() => import('./b2b/agent/B2BAgentDashboard'));
+const B2BAgentFundRequest = lazy(() => import('./b2b/agent/B2BAgentFundRequest'));
+const B2BAgentBillHistory = lazy(() => import('./b2b/agent/B2BAgentBillHistory'));
+
 const Sidebar = lazy(() => import('./components/Sidebar'));
 const AgentBalances = lazy(() => import('./pages/AgentBalances'));
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -1309,6 +1322,28 @@ export default function App() {
                 <Login onLogin={handleLogin} isAdminMode={false} />
           }
         />
+        
+        {/* Standalone B2B Portal Routes */}
+        <Route path="/b2b/login" element={<B2BLogin />} />
+        
+        {/* B2B Admin Routes */}
+        <Route path="/b2b/admin" element={isAdmin ? <B2BAdminLayout /> : <Navigate to="/b2b/login" replace />}>
+          <Route index element={<Navigate to="/b2b/admin/dashboard" replace />} />
+          <Route path="dashboard" element={<B2BAdminDashboard />} />
+          <Route path="create-agent" element={<CreateB2BAgent />} />
+          <Route path="fund-requests" element={<B2BAdminFundRequests />} />
+          <Route path="api-docs" element={<B2BAPIDocumentation />} />
+          <Route path="bill-history" element={<B2BAdminBillHistory />} />
+        </Route>
+        
+        {/* B2B Agent Routes */}
+        <Route path="/b2b/agent" element={<B2BAgentLayout />}>
+          <Route index element={<Navigate to="/b2b/agent/dashboard" replace />} />
+          <Route path="dashboard" element={<B2BAgentDashboard />} />
+          <Route path="fund-request" element={<B2BAgentFundRequest />} />
+          <Route path="api-docs" element={<B2BAPIDocumentation />} />
+          <Route path="bill-history" element={<B2BAgentBillHistory />} />
+        </Route>
       </Routes>
     </Router>
   );

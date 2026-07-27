@@ -6,11 +6,13 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
-  message: string;
+  message?: string;
   type?: 'success' | 'error' | 'warning' | 'info' | 'confirm';
   onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
+  children?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
 }
 
 export default function Modal({
@@ -21,7 +23,9 @@ export default function Modal({
   type = 'info',
   onConfirm,
   confirmText = 'Confirm',
-  cancelText = 'Cancel'
+  cancelText = 'Cancel',
+  children,
+  size = 'sm'
 }: ModalProps) {
   const getIcon = () => {
     switch (type) {
@@ -43,6 +47,21 @@ export default function Modal({
     }
   };
 
+  const getSizeClass = () => {
+    switch (size) {
+      case 'sm': return 'max-w-sm';
+      case 'md': return 'max-w-md';
+      case 'lg': return 'max-w-lg';
+      case 'xl': return 'max-w-xl';
+      case '2xl': return 'max-w-2xl';
+      case '3xl': return 'max-w-3xl';
+      case '4xl': return 'max-w-4xl';
+      case '5xl': return 'max-w-5xl';
+      case 'full': return 'max-w-full mx-4';
+      default: return 'max-w-sm';
+    }
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -58,56 +77,68 @@ export default function Modal({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="w-full max-w-sm relative z-[101] bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-hidden text-center"
+            className={`w-full ${getSizeClass()} relative z-[101] bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-hidden ${!children ? 'text-center' : ''}`}
+            style={children ? { maxHeight: '90vh', display: 'flex', flexDirection: 'column' } : {}}
           >
             <button 
               onClick={onClose}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors"
+              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10"
             >
               <X size={20} />
             </button>
 
-            <div className="flex flex-col items-center gap-4">
-              <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-2">
-                {getIcon()}
+            {children ? (
+              <div className="flex flex-col h-full overflow-hidden">
+                <h3 className="text-xl font-bold text-slate-900 mb-6 pr-8 flex-shrink-0">{title}</h3>
+                <div className="w-full overflow-y-auto overflow-x-hidden flex-1 scrollbar-hide">
+                  {children}
+                </div>
               </div>
-              
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold text-slate-900">{title}</h3>
-                <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                  {message}
-                </p>
-              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-2">
+                  {getIcon()}
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-xl font-bold text-slate-900">{title}</h3>
+                  {message && (
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                      {message}
+                    </p>
+                  )}
+                </div>
 
-              <div className="w-full grid grid-cols-1 gap-3 pt-4">
-                {type === 'confirm' ? (
-                  <div className="flex gap-3">
+                <div className="w-full grid grid-cols-1 gap-3 pt-4">
+                  {type === 'confirm' ? (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={onClose}
+                        className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all active:scale-95"
+                      >
+                        {cancelText}
+                      </button>
+                      <button
+                        onClick={() => {
+                          onConfirm?.();
+                          onClose();
+                        }}
+                        className={`flex-1 px-6 py-4 rounded-2xl text-white font-bold transition-all shadow-lg active:scale-95 ${getButtonClass()}`}
+                      >
+                        {confirmText}
+                      </button>
+                    </div>
+                  ) : (
                     <button
                       onClick={onClose}
-                      className="flex-1 px-6 py-4 rounded-2xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all active:scale-95"
+                      className={`w-full px-6 py-4 rounded-2xl text-white font-bold transition-all shadow-lg active:scale-95 ${getButtonClass()}`}
                     >
-                      {cancelText}
+                      Got it
                     </button>
-                    <button
-                      onClick={() => {
-                        onConfirm?.();
-                        onClose();
-                      }}
-                      className={`flex-1 px-6 py-4 rounded-2xl text-white font-bold transition-all shadow-lg active:scale-95 ${getButtonClass()}`}
-                    >
-                      {confirmText}
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={onClose}
-                    className={`w-full px-6 py-4 rounded-2xl text-white font-bold transition-all shadow-lg active:scale-95 ${getButtonClass()}`}
-                  >
-                    Got it
-                  </button>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </motion.div>
         </div>
       )}

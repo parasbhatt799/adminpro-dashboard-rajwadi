@@ -292,8 +292,10 @@ export async function fetchBill(
   billerId: string,
   customerParams: Record<string, string>,
   customerMobile: string,
-  initChannel: string = 'AGT'
+  initChannel: string = 'AGT',
+  billavenueAgentId?: string
 ): Promise<any> {
+  const finalAgentId = billavenueAgentId || AGENT_ID;
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billFetchRequest>
     <agentDeviceInfo>
@@ -301,7 +303,7 @@ export async function fetchBill(
         <initChannel>${initChannel}</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
-    <agentId>${AGENT_ID}</agentId>
+    <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>
@@ -328,8 +330,10 @@ export async function validateBill(
   billerId: string,
   customerParams: Record<string, string>,
   customerMobile: string,
-  initChannel: string = 'AGT'
+  initChannel: string = 'AGT',
+  billavenueAgentId?: string
 ): Promise<any> {
+  const finalAgentId = billavenueAgentId || AGENT_ID;
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billValidationRequest>
     <agentDeviceInfo>
@@ -337,7 +341,7 @@ export async function validateBill(
         <initChannel>${initChannel}</initChannel>
         <mac>01-23-45-67-89-ab</mac>
     </agentDeviceInfo>
-    <agentId>${AGENT_ID}</agentId>
+    <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>
@@ -371,8 +375,10 @@ export async function payBill(
   billDetails?: any,
   remitterName?: string,
   initChannel: string = 'AGT',
-  fetchRequestId?: string
+  fetchRequestId?: string,
+  billavenueAgentId?: string
 ): Promise<any> {
+  const finalAgentId = billavenueAgentId || AGENT_ID;
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
   const paymentRefId = generateRequestId();
@@ -396,7 +402,7 @@ export async function payBill(
 
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
-    <agentId>${AGENT_ID}</agentId>
+    <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>

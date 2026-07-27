@@ -16,6 +16,7 @@ import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
 import * as camlenioBbps from "./services/camlenio_bbps.js";
 import * as camlenioPayout from "./services/camlenio_payout.js";
+import b2bRoutes from "./api/b2b/routes.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -33,7 +34,7 @@ process.on('uncaughtException', (err) => {
   console.error('[CRITICAL] Uncaught Exception:', err);
 });
 
-const supabaseAdmin = createClient(
+export const supabaseAdmin = createClient(
   process.env.VITE_SUPABASE_URL || "",
   process.env.SUPABASE_SERVICE_ROLE_KEY || "",
   {
@@ -68,6 +69,10 @@ async function startServer() {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
   });
+
+  // Mount B2B API Routes
+  app.use("/api/v1/b2b", b2bRoutes);
+
 
   async function sendResendEmail(to: string, subject: string, text: string, html: string) {
     const host = process.env.SMTP_HOST;

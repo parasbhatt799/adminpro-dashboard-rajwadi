@@ -61,9 +61,14 @@ export const LogoLoader: React.FC<LogoLoaderProps> = ({ size = 'md', className =
   );
 };
 
-const LoadingSpinner = () => {
+interface LoadingSpinnerProps {
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
+const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ size = 'lg', className = '' }) => {
   return (
-    <div className="fixed inset-0 z-[9999] bg-slate-50/80 backdrop-blur-sm flex items-center justify-center">
+    <div className={`fixed inset-0 z-[9999] bg-slate-50/80 backdrop-blur-sm flex items-center justify-center ${className}`}>
       <div className="relative">
         {/* Decorative background circle */}
         <div className="absolute inset-0 bg-indigo-500/10 blur-2xl rounded-full scale-150"></div>
@@ -74,7 +79,7 @@ const LoadingSpinner = () => {
           className="relative bg-white p-8 rounded-[40px] shadow-2xl border border-slate-100 flex flex-col items-center gap-4 min-w-[240px]"
         >
           {/* Logo & Orbiting Ring Container */}
-          <LogoLoader size="lg" />
+          <LogoLoader size={size} />
 
           <div className="flex flex-col items-center">
             <h3 className="text-lg font-bold text-slate-900 tracking-tight">UsePay</h3>
