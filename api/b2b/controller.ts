@@ -123,13 +123,81 @@ export const fetchBill = async (req: Request, res: Response) => {
     const billavenueAgentId = (req as any).billavenueAgentId;
     const response = await billAvenue.fetchBill(billerId, formattedParams, mobile, 'AGT', billavenueAgentId);
     
+    const isStaging = process.env.BILLAVENUE_ENV !== 'production';
+    const responseCode = response.json?.billFetchResponse?.responseCode;
+    
+    let finalJsonResponse = response.json;
+
+    if (isStaging && responseCode !== '0000') {
+      console.log(`[B2B Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
+      
+      let billerCategory = 'Utility';
+      let billerName = 'UAT Test Biller';
+      try {
+        const { data: dbBiller } = await supabaseAdmin
+          .from('billavenue_billers')
+          .select('category, biller_name')
+          .eq('biller_id', billerId)
+          .maybeSingle();
+        if (dbBiller) {
+          billerCategory = dbBiller.category || 'Utility';
+          billerName = dbBiller.biller_name || 'UAT Test Biller';
+        }
+      } catch (dbErr) {
+        console.warn('Failed to load biller info for mock:', dbErr);
+      }
+
+      finalJsonResponse = {
+        billFetchResponse: {
+          responseCode: '0000',
+          responseReason: 'Successful',
+          customerName: 'Sumit C Patel (B2B Mock)',
+          billAmount: '10000', // ₹100.00 (in paise)
+          dueDate: '2026-06-30',
+          billNumber: 'BILL998811',
+          billDate: '2026-06-01',
+          billPeriod: 'Monthly',
+          additionalInfo: {
+            info: [
+              { infoName: 'Consumer ID', infoValue: formattedParams[Object.keys(formattedParams)[0]] || '123456' },
+              { infoName: 'Biller Name', infoValue: billerName },
+              { infoName: 'Category', infoValue: billerCategory }
+            ]
+          },
+          requestId: response.requestId
+        }
+      };
+    }
+
+    // Log the fetch attempt
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .insert({
+        agent_id: (req as any).agentId,
+        endpoint: '/api/b2b/fetch-bill',
+        method: 'POST',
+        request_body: req.body,
+        status_code: 200,
+        response_body: finalJsonResponse
+      });
+
     res.json({
       status: 'success',
-      data: response.json // Returns the JSON converted from BillAvenue XML
+      data: finalJsonResponse
     });
 
   } catch (err: any) {
     console.error('[B2B fetchBill Error]', err);
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .insert({
+        agent_id: (req as any).agentId,
+        endpoint: '/api/b2b/fetch-bill',
+        method: 'POST',
+        request_body: req.body,
+        status_code: 500,
+        response_body: { error: err.message || 'Failed to fetch bill' }
+      });
     res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch bill' });
   }
 };

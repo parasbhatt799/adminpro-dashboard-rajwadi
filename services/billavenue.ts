@@ -193,6 +193,7 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
 
     const decryptedXml = decryptResponse(ciphertext);
     console.log('[BillAvenue Service] Decrypted XML Response length:', decryptedXml.length);
+    console.log('[BillAvenue Service] Decrypted Response:', decryptedXml);
 
     let jsonResult = null;
     try {
