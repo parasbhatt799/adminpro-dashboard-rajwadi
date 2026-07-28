@@ -54,11 +54,11 @@ export const getBillers = async (req: Request, res: Response) => {
 
     let query = supabaseAdmin
       .from('billavenue_billers')
-      .select('*', { count: 'exact' })
-      .eq('status', 'active');
+      .select('*', { count: 'exact' });
       
     if (category_id) {
-      query = query.eq('category_id', category_id);
+      // If category_id is a number, we might need to map it, but assuming it's the category name
+      query = query.eq('category', category_id);
     }
     if (state) {
       // In BillAvenue billers state may be stored in coverage or state column, assuming 'state' or ilike logic if present
