@@ -1,5 +1,5 @@
 import cron from 'node-cron';
-import { supabaseAdmin } from '../lib/supabase';
+import { supabaseAdmin } from '../server.js';
 import { getTransactionStatus } from '../services/billavenue';
 import fetch from 'node-fetch';
 
