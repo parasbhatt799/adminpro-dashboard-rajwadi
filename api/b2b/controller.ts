@@ -195,6 +195,7 @@ export const fetchBill = async (req: Request, res: Response) => {
         ...finalJsonResponse,
         billerResponse: {
           ...billerResp,
+          billAmount: amountInRupees,
           amount: amountInRupees
         },
         additionalInfo: billerResp.additionalInfo || {}
