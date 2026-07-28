@@ -131,8 +131,18 @@ export default function B2BAPIDocumentation() {
     { 
       "biller_id": "DGVCL0000GUJ01", 
       "biller_name": "Dakshin Gujarat Vij Company Limited (DGVCL)",
-      "category_id": 1,
-      "status": "active"
+      "category": "Electricity",
+      "metadata": {
+        "billerInputParams": {
+          "paramInfo": [
+            {
+              "paramName": "Consumer Number",
+              "dataType": "NUMERIC",
+              "isOptional": "false"
+            }
+          ]
+        }
+      }
     }
   ],
   "pagination": {
