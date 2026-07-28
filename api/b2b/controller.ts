@@ -237,7 +237,7 @@ export const getBalance = async (req: Request, res: Response) => {
 
 export const payBill = async (req: Request, res: Response) => {
   try {
-    const { billerId, amount, customerParams, mobile, billerResponseInfo } = req.body;
+    const { billerId, amount, customerParams, mobile, billerResponseInfo, paymentMode, quickPay } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
 
@@ -307,8 +307,8 @@ export const payBill = async (req: Request, res: Response) => {
         formattedParams,
         mobile,
         parsedAmount,
-        'Cash', // paymentMode (Agent typically uses Cash/Wallet)
-        'N', // quickPay
+        paymentMode || 'Wallet', // paymentMode (Agent typically uses Wallet)
+        quickPay || (billerResponseInfo ? 'N' : 'Y'), // quickPay
         undefined, // ccf1
         billerResponseInfo, // billDetails
         undefined, // remitterName
