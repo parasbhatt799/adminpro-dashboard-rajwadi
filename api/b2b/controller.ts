@@ -336,6 +336,14 @@ export const payBill = async (req: Request, res: Response) => {
       }
     }
 
+    // Deduct balance before calling API
+    const { error: deductError } = await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: -totalDeduction });
+    if (deductError) {
+      console.error(`[B2B PayBill - ERROR] Failed to deduct wallet balance:`, deductError);
+      return res.status(500).json({ status: 'error', message: 'Failed to process payment deduction' });
+    }
+    console.log(`[B2B PayBill - DEDUCTION] Deducted ₹${totalDeduction} from agent ${agentId}`);
+
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
@@ -391,7 +399,7 @@ export const payBill = async (req: Request, res: Response) => {
     if (logId) {
         const updatePayload: any = {
             status_code: 200, 
-            response_body: { ...payJson, finalStatus, transaction_id: customTxnId }
+            response_body: { ...payJson, finalStatus, payment_status: finalStatus, transaction_id: customTxnId }
         };
         // Only log the charge as deducted if payment is successful
         if (finalStatus === 'success') {
