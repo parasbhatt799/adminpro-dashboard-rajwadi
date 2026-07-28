@@ -2873,10 +2873,10 @@ async function startServer() {
       }
 
       // If channel is AGT (Agent), BBPS often rejects modes like UPI, Net Banking, etc.
-      // Since the agent is deducting their B2B wallet, it is standard to send 'Wallet' to BBPS (Cash is rejected for Credit Cards).
+      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash' or 'Wallet' to BBPS.
       let finalPaymentMode = paymentMode || 'UPI';
       if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
-        finalPaymentMode = 'Wallet';
+        finalPaymentMode = 'Cash';
       }
 
       // 3. Call BillAvenue pay API
