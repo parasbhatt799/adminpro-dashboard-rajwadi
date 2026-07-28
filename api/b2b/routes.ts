@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { b2bAuthMiddleware } from './middleware';
-import { getCategories, getBillers, fetchBill, payBill, getBalance } from './controller';
+import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus } from './controller';
 
 const router = Router();
 
@@ -34,7 +34,7 @@ router.post('/fetch-bill', fetchBill);
 // Pay Bill (Deducts wallet balance, calls BillAvenue XML API and returns JSON)
 router.post('/pay-bill', payBill);
 
-// Additional status check route could be added here
-// router.get('/status/:requestId', checkStatus);
+// Check Status of a transaction
+router.get('/status/:transaction_id', checkStatus);
 
 export default router;

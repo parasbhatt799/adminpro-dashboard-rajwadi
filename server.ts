@@ -18,6 +18,9 @@ import * as camlenioBbps from "./services/camlenio_bbps.js";
 import * as camlenioPayout from "./services/camlenio_payout.js";
 import b2bRoutes from "./api/b2b/routes.js";
 
+// Initialize CRON Jobs
+import "./jobs/billavenue-cron.js";
+
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
 

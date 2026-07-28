@@ -236,6 +236,51 @@ export const getBalance = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * Check BBPS Transaction Status
+ */
+export const checkStatus = async (req: Request, res: Response): Promise<any> => {
+  const { transaction_id } = req.params;
+  const agentId = (req as any).agentId;
+
+  if (!transaction_id) {
+    return res.status(400).json({ status: 'error', message: 'Transaction ID is required' });
+  }
+
+  try {
+    // Verify the transaction belongs to this agent
+    const { data: log, error: logError } = await supabaseAdmin
+      .from('b2b_api_logs')
+      .select('*')
+      .eq('agent_id', agentId)
+      .eq('endpoint', '/api/b2b/pay-bill')
+      .contains('request_body', { transaction_id })
+      .single();
+
+    if (logError || !log) {
+      return res.status(404).json({ status: 'error', message: 'Transaction not found for this agent' });
+    }
+
+    const statusResult = await billAvenue.getTransactionStatus(transaction_id);
+    let bbpsStatus = statusResult?.json?.transactionStatusRes?.txnStatus || 'UNKNOWN';
+    let localStatus = log.payment_status || 'pending';
+
+    return res.json({
+      status: 'success',
+      data: {
+        transaction_id,
+        current_status: localStatus,
+        bbps_status: bbpsStatus,
+        polled_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error: any) {
+    console.error('[B2B CheckStatus Error]', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to check transaction status', details: error.message });
+  }
+};
+
 export const payBill = async (req: Request, res: Response) => {
   try {
     const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo } = req.body;

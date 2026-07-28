@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Shield, KeyRound, Copy, Activity, RefreshCw, Terminal, Eye, EyeOff, LogOut, CheckCircle2 } from 'lucide-react';
+import { Shield, KeyRound, Copy, Activity, RefreshCw, Terminal, Eye, EyeOff, LogOut, CheckCircle2, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useToast } from '../../context/ToastContext';
@@ -14,6 +14,9 @@ export default function B2BAgentDashboard() {
   const [credentials, setCredentials] = useState<any>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [showSecret, setShowSecret] = useState(false);
+  const [stats, setStats] = useState({ fetchCount: 0, successCount: 0 });
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [isUpdatingWebhook, setIsUpdatingWebhook] = useState(false);
 
   useEffect(() => {
     const agentId = localStorage.getItem('b2bAgentId');
@@ -28,13 +31,22 @@ export default function B2BAgentDashboard() {
   const fetchDashboardData = async (agentId: string) => {
     setLoading(true);
     try {
-      const [credRes, logsRes] = await Promise.all([
+      const [credRes, logsRes, fetchCountRes, payCountRes] = await Promise.all([
         supabase.from('b2b_api_credentials').select('*').eq('id', agentId).single(),
-        supabase.from('b2b_api_logs').select('*').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20)
+        supabase.from('b2b_api_logs').select('*').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20),
+        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('endpoint', '/api/b2b/fetch-bill'),
+        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('endpoint', '/api/b2b/pay-bill').eq('status_code', 200)
       ]);
 
-      if (credRes.data) setCredentials(credRes.data);
+      if (credRes.data) {
+        setCredentials(credRes.data);
+        setWebhookUrl(credRes.data.webhook_url || '');
+      }
       if (logsRes.data) setLogs(logsRes.data);
+      setStats({
+        fetchCount: fetchCountRes.count || 0,
+        successCount: payCountRes.count || 0
+      });
     } catch (error) {
       console.error(error);
       toast.error('Failed to load dashboard data');
@@ -51,6 +63,28 @@ export default function B2BAgentDashboard() {
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${type} copied to clipboard`);
+  };
+
+  const handleUpdateWebhook = async () => {
+    if (!webhookUrl || !webhookUrl.startsWith('http')) {
+      toast.error('Please enter a valid HTTP/HTTPS URL');
+      return;
+    }
+    setIsUpdatingWebhook(true);
+    try {
+      const { error } = await supabase
+        .from('b2b_api_credentials')
+        .update({ webhook_url: webhookUrl })
+        .eq('id', credentials.id);
+
+      if (error) throw error;
+      toast.success('Webhook URL updated successfully');
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to update Webhook URL');
+    } finally {
+      setIsUpdatingWebhook(false);
+    }
   };
 
   if (loading) {
@@ -95,6 +129,33 @@ export default function B2BAgentDashboard() {
           
           {/* Credentials Section */}
           <div className="lg:col-span-2 space-y-6">
+            
+            {/* Stats Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between relative z-10">
+                  <div>
+                    <p className="text-slate-400 text-sm font-medium mb-1">Total Bills Fetched</p>
+                    <h3 className="text-3xl font-bold text-white">{stats.fetchCount}</h3>
+                  </div>
+                  <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
+              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between relative z-10">
+                  <div>
+                    <p className="text-slate-400 text-sm font-medium mb-1">Successful Payments</p>
+                    <h3 className="text-3xl font-bold text-white">{stats.successCount}</h3>
+                  </div>
+                  <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
+                    <CheckCircle2 className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 blur-[100px] rounded-full pointer-events-none" />
               
@@ -137,30 +198,59 @@ export default function B2BAgentDashboard() {
               </div>
             </div>
 
-            {/* IP Whitelist Info */}
+            {/* Configuration Settings */}
             <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl">
               <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
                 <Shield className="h-5 w-5 text-emerald-400" />
-                IP Whitelist Configuration
+                API Configuration
               </h2>
-              <p className="text-slate-400 text-sm mb-4">
-                Only requests originating from the following IP addresses will be accepted. Contact support to add new IPs.
-              </p>
               
-              {credentials.ip_whitelist && credentials.ip_whitelist.length > 0 ? (
-                <div className="flex flex-wrap gap-2 mt-4">
-                  {credentials.ip_whitelist.map((ip: string) => (
-                    <div key={ip} className="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 font-mono text-sm text-slate-300">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {ip}
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-slate-400 mb-2">IP Whitelist</label>
+                  <p className="text-slate-500 text-xs mb-3">
+                    Only requests originating from the following IP addresses will be accepted. Contact support to add new IPs.
+                  </p>
+                  
+                  {credentials.ip_whitelist && credentials.ip_whitelist.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {credentials.ip_whitelist.map((ip: string) => (
+                        <div key={ip} className="bg-slate-900 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center gap-2 font-mono text-sm text-slate-300">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-500" /> {ip}
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl text-amber-400 text-sm flex items-start gap-3">
+                      <Shield className="h-5 w-5 shrink-0" />
+                      <p>Your API is completely locked down. Please ask the administrator to whitelist your server's IP address.</p>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-xl text-amber-400 text-sm flex items-start gap-3 mt-4">
-                  <Shield className="h-5 w-5 shrink-0" />
-                  <p>Your API is completely locked down. Please ask the administrator to whitelist your server's IP address.</p>
+
+                <div className="border-t border-slate-700/50 pt-6">
+                  <label className="block text-sm font-semibold text-slate-400 mb-2">Webhook URL</label>
+                  <p className="text-slate-500 text-xs mb-3">
+                    We will send a POST request to this URL when a pending payment becomes SUCCESS or FAILED.
+                  </p>
+                  <div className="flex gap-2">
+                    <input 
+                      type="url"
+                      placeholder="https://yourdomain.com/webhook"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                    />
+                    <button 
+                      onClick={handleUpdateWebhook}
+                      disabled={isUpdatingWebhook}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                    >
+                      {isUpdatingWebhook ? 'Saving...' : 'Save URL'}
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 

@@ -263,6 +263,64 @@ export default function B2BAPIDocumentation() {
           </div>
         </div>
 
+        {/* Check Status */}
+        <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl">
+          <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+            <span className="bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded text-xs uppercase tracking-wider font-bold">GET</span>
+            /status/:transaction_id
+          </h3>
+          <p className="text-slate-400 mb-4">Manually check the status of a pending transaction.</p>
+          
+          <CodeBlock 
+            title="Response (200 OK)"
+            section="status_res"
+            code={`{
+  "status": "success",
+  "data": {
+    "transaction_id": "USEPAY6456545445",
+    "current_status": "success",
+    "bbps_status": "SUCCESS",
+    "polled_at": "2024-01-15T10:30:00Z"
+  }
+}`}
+          />
+        </div>
+
+      </section>
+
+      {/* Webhooks Section */}
+      <section className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl">
+        <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+          <Activity className="h-5 w-5 text-indigo-400" />
+          Webhooks (Asynchronous Callbacks)
+        </h3>
+        
+        <div className="space-y-4 text-slate-300">
+          <p>
+            When a payment is processed but returns a <code>pending</code> status, our system will continue polling BBPS in the background. 
+            Once the transaction reaches a final state (Success or Failed), we will send a <strong>POST</strong> request to the <strong>Webhook URL</strong> configured in your API Configuration panel.
+          </p>
+          
+          <CodeBlock 
+            title="Webhook Payload Example"
+            section="webhook_payload"
+            code={`{
+  "event": "PAYMENT_STATUS_UPDATE",
+  "transaction_id": "USEPAY6456545445",
+  "status": "success",
+  "amount": 1500.00,
+  "bbps_status": "SUCCESS",
+  "timestamp": "2024-01-15T10:30:00.000Z"
+}`}
+          />
+
+          <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 mt-4 text-sm flex gap-3">
+            <AlertCircle className="h-5 w-5 text-blue-400 flex-shrink-0" />
+            <p className="text-blue-200">
+              <strong>Refund on Failure:</strong> If a pending transaction ultimately fails, the Webhook will send <code>"status": "failed"</code> and your wallet will be instantly refunded for the deducted amount.
+            </p>
+          </div>
+        </div>
       </section>
       
       {/* BBPS Transaction Status */}
