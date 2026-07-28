@@ -264,13 +264,13 @@ export const payBill = async (req: Request, res: Response) => {
     console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ${parsedAmount} + Charge: ${chargePerBill})...`);
 
     // 1. Deduct total amount securely from b2b wallet via Atomic RPC
-    const { data: deductSuccess, error: deductError } = await supabaseAdmin.rpc('deduct_b2b_wallet_balance', {
+    const { data: deductSuccess, error: walletDeductError } = await supabaseAdmin.rpc('deduct_b2b_wallet_balance', {
       p_agent_id: agentId,
       p_amount: totalDeduction
     });
 
-    if (deductError || !deductSuccess) {
-      console.error(`[B2B PayBill - WALLET ERROR] Failed to deduct ₹${totalDeduction} from agent ${agentId}. Error:`, deductError);
+    if (walletDeductError || !deductSuccess) {
+      console.error(`[B2B PayBill - WALLET ERROR] Failed to deduct ₹${totalDeduction} from agent ${agentId}. Error:`, walletDeductError);
       return res.status(400).json({ 
         status: 'error', 
         message: 'Insufficient balance or transaction failed' 
@@ -335,14 +335,6 @@ export const payBill = async (req: Request, res: Response) => {
         }
       }
     }
-
-    // Deduct balance before calling API
-    const { error: deductError } = await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: -totalDeduction });
-    if (deductError) {
-      console.error(`[B2B PayBill - ERROR] Failed to deduct wallet balance:`, deductError);
-      return res.status(500).json({ status: 'error', message: 'Failed to process payment deduction' });
-    }
-    console.log(`[B2B PayBill - DEDUCTION] Deducted ₹${totalDeduction} from agent ${agentId}`);
 
     // 2. Call BillAvenue Pay API
     let apiResponse;
