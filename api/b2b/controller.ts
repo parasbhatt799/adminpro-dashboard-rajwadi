@@ -5,8 +5,9 @@ import * as billAvenue from '../../services/billavenue';
 export const getCategories = async (req: Request, res: Response) => {
   try {
     const { data, error } = await supabaseAdmin
-      .from('billavenue_categories')
+      .from('biller_categories_settings')
       .select('*')
+      .eq('provider', 'billavenue')
       .order('category_name', { ascending: true });
 
     if (error) throw error;
