@@ -317,7 +317,7 @@ export const payBill = async (req: Request, res: Response) => {
         formattedParams,
         mobile,
         parsedAmount,
-        'Wallet', // paymentMode (BBPS rejects Cash for Credit Cards, so Wallet is universally safer for B2B)
+        'Cash', // paymentMode (Agent typically uses Cash/Wallet)
         'N', // quickPay
         undefined, // ccf1
         billerResponseInfo, // billDetails
