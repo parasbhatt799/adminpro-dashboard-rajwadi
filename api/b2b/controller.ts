@@ -241,7 +241,11 @@ export const payBill = async (req: Request, res: Response) => {
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
 
+    console.log(`\n[B2B PayBill - START] Agent: ${agentId}, Biller: ${billerId}, Amount: ${amount}`);
+    console.log(`[B2B PayBill] Request Body:`, JSON.stringify(req.body));
+
     if (!billerId || !amount || !customerParams || !mobile) {
+      console.error(`[B2B PayBill - ERROR] Missing parameters`);
       return res.status(400).json({ status: 'error', message: 'Missing required parameters for payment' });
     }
 
@@ -256,6 +260,8 @@ export const payBill = async (req: Request, res: Response) => {
     const parsedAmount = parseFloat(amount);
     const totalDeduction = parsedAmount + chargePerBill;
 
+    console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ${parsedAmount} + Charge: ${chargePerBill})...`);
+
     // 1. Deduct total amount securely from b2b wallet via Atomic RPC
     const { data: deductSuccess, error: deductError } = await supabaseAdmin.rpc('deduct_b2b_wallet_balance', {
       p_agent_id: agentId,
@@ -263,11 +269,14 @@ export const payBill = async (req: Request, res: Response) => {
     });
 
     if (deductError || !deductSuccess) {
+      console.error(`[B2B PayBill - WALLET ERROR] Failed to deduct ₹${totalDeduction} from agent ${agentId}. Error:`, deductError);
       return res.status(400).json({ 
         status: 'error', 
         message: 'Insufficient balance or transaction failed' 
       });
     }
+
+    console.log(`[B2B PayBill - WALLET SUCCESS] Successfully deducted ₹${totalDeduction} from agent ${agentId}.`);
 
     // Generate custom transaction ID
     const customTxnId = `USEPAY${Math.floor(1000000000 + Math.random() * 9000000000)}`;
@@ -302,6 +311,7 @@ export const payBill = async (req: Request, res: Response) => {
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
+      console.log(`[B2B PayBill - BILLAVENUE REQ] Calling billavenue.payBill with amount ${parsedAmount}, initChannel AGT...`);
       apiResponse = await billAvenue.payBill(
         billerId,
         formattedParams,
@@ -316,10 +326,12 @@ export const payBill = async (req: Request, res: Response) => {
         undefined, // fetchRequestId
         billavenueAgentId
       );
+      console.log(`[B2B PayBill - BILLAVENUE SUCCESS] Response received:`, JSON.stringify(apiResponse.json));
     } catch (payErr: any) {
-      console.error('[B2B payBill Error] Pay API failed', payErr);
+      console.error(`[B2B PayBill - BILLAVENUE ERROR] Pay API failed for agent ${agentId}:`, payErr);
       // Refund user if API failed completely (Refund total including charge)
       await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
+      console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to API failure.`);
       
       if (logId) {
           await supabaseAdmin.from('b2b_api_logs').update({ 
@@ -342,7 +354,10 @@ export const payBill = async (req: Request, res: Response) => {
        finalStatus = 'failed';
        // Initiate refund (Refund total including charge)
        await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
+       console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to FAILED status from BillAvenue.`);
     }
+
+    console.log(`[B2B PayBill - FINAL STATUS] ${finalStatus.toUpperCase()} for txn ${customTxnId}`);
 
     // Update log
     if (logId) {
@@ -367,7 +382,7 @@ export const payBill = async (req: Request, res: Response) => {
     });
 
   } catch (err: any) {
-    console.error('[B2B payBill Exception]', err);
+    console.error('[B2B PayBill - FATAL EXCEPTION]', err);
     res.status(500).json({ status: 'error', message: err.message || 'Internal Server Error' });
   }
 };
