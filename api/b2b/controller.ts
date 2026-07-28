@@ -175,7 +175,6 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
-        method: 'POST',
         request_body: req.body,
         status_code: 200,
         response_body: finalJsonResponse
@@ -210,7 +209,6 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
-        method: 'POST',
         request_body: req.body,
         status_code: 500,
         response_body: { error: err.message || 'Failed to fetch bill' }
@@ -328,17 +326,22 @@ export const payBill = async (req: Request, res: Response) => {
     const customTxnId = `USEPAY${Math.floor(1000000000 + Math.random() * 9000000000)}`;
 
     // Log the transaction attempt in b2b_api_logs
-    const { data: logData } = await supabaseAdmin
+    const { data: logData, error: logError } = await supabaseAdmin
       .from('b2b_api_logs')
       .insert({
         agent_id: agentId,
         endpoint: '/api/b2b/pay-bill',
-        method: 'POST',
         request_body: { ...req.body, transaction_id: customTxnId, totalDeduction, chargeDeducted: chargePerBill },
         status_code: 202
       })
       .select('id')
       .single();
+      
+    if (logError) {
+      console.error('[B2B PayBill - LOG ERROR] Failed to log transaction. Refunding amount. Error:', logError);
+      await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
+      return res.status(500).json({ status: 'error', message: 'Internal Server Error' });
+    }
       
     const logId = logData?.id;
 
