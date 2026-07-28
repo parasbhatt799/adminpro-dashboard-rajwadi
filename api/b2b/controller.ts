@@ -307,6 +307,14 @@ export const payBill = async (req: Request, res: Response) => {
     } else {
       formattedParams = customerParams;
     }
+    let rawBillerResp = { ...billerResponseInfo };
+    if (rawBillerResp.billAmount && String(rawBillerResp.billAmount).includes('.')) {
+        rawBillerResp.billAmount = String(Math.round(Number(rawBillerResp.billAmount) * 100));
+    }
+    // Delete the extra 'amount' field injected by fetchBill to prevent BBPS strict XML validation errors
+    if ('amount' in rawBillerResp) {
+        delete rawBillerResp.amount;
+    }
 
     // 2. Call BillAvenue Pay API
     let apiResponse;
@@ -320,7 +328,7 @@ export const payBill = async (req: Request, res: Response) => {
         'Cash', // paymentMode (Agent typically uses Cash/Wallet)
         'N', // quickPay
         undefined, // ccf1
-        billerResponseInfo, // billDetails
+        { rawBillerResponse: rawBillerResp }, // billDetails
         undefined, // remitterName
         'AGT', // initChannel
         undefined, // fetchRequestId
