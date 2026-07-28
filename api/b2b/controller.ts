@@ -181,9 +181,17 @@ export const fetchBill = async (req: Request, res: Response) => {
         response_body: finalJsonResponse
       });
 
+    const responseCode = finalJsonResponse?.billFetchResponse?.responseCode;
+    const billerResp = finalJsonResponse?.billFetchResponse?.billerResponse || finalJsonResponse?.billFetchResponse || {};
+    
     res.json({
-      status: 'success',
-      data: finalJsonResponse
+      status: (responseCode === '000' || responseCode === '0000') ? 'SUCCESS' : 'ERROR',
+      message: responseCode === '000' ? 'Bill fetched successfully' : (billerResp.responseReason || 'Failed to fetch bill'),
+      data: {
+        ...finalJsonResponse,
+        billerResponse: billerResp,
+        additionalInfo: billerResp.additionalInfo || {}
+      }
     });
 
   } catch (err: any) {
@@ -342,7 +350,8 @@ export const payBill = async (req: Request, res: Response) => {
     }
 
     res.json({
-      status: 'success',
+      status: finalStatus === 'success' ? 'SUCCESS' : 'ERROR',
+      message: finalStatus === 'success' ? 'Bill Paid successfully' : 'Payment failed',
       data: payJson,
       transaction_id: customTxnId,
       payment_status: finalStatus,
