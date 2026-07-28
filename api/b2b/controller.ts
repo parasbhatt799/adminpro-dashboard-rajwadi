@@ -192,6 +192,7 @@ export const fetchBill = async (req: Request, res: Response) => {
       message: (finalResponseCode === '000' || finalResponseCode === '0000') ? 'Bill fetched successfully' : (billerResp.responseReason || 'Failed to fetch bill'),
       data: {
         responseCode: finalResponseCode,
+        requestId: response.requestId,
         ...finalJsonResponse,
         billerResponse: {
           ...billerResp,
@@ -237,7 +238,7 @@ export const getBalance = async (req: Request, res: Response) => {
 
 export const payBill = async (req: Request, res: Response) => {
   try {
-    const { billerId, amount, customerParams, mobile, billerResponseInfo } = req.body;
+    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
 
@@ -331,7 +332,7 @@ export const payBill = async (req: Request, res: Response) => {
         { rawBillerResponse: rawBillerResp }, // billDetails
         undefined, // remitterName
         'AGT', // initChannel
-        undefined, // fetchRequestId
+        fetchRequestId, // fetchRequestId
         billavenueAgentId
       );
       console.log(`[B2B PayBill - BILLAVENUE SUCCESS] Response received:`, JSON.stringify(apiResponse.json));
