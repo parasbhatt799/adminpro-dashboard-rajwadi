@@ -22,7 +22,7 @@ export const getBillers = async (req: Request, res: Response) => {
   try {
     const agentId = (req as any).agentId;
     const { category_id, state, page = '1', limit = '500' } = req.query;
-    
+
     // 1. Enforce Daily Limit (50 requests/day for biller sync)
     const today = new Date().toISOString().split('T')[0];
     const { count: dailyRequests, error: logError } = await supabaseAdmin
@@ -35,9 +35,9 @@ export const getBillers = async (req: Request, res: Response) => {
     if (logError) throw logError;
 
     if (dailyRequests && dailyRequests >= 50) {
-      return res.status(429).json({ 
-        status: 'error', 
-        message: 'Daily limit of 50 requests reached for biller sync. Please try again tomorrow.' 
+      return res.status(429).json({
+        status: 'error',
+        message: 'Daily limit of 50 requests reached for biller sync. Please try again tomorrow.'
       });
     }
 
@@ -55,7 +55,7 @@ export const getBillers = async (req: Request, res: Response) => {
     let query = supabaseAdmin
       .from('billavenue_billers')
       .select('*', { count: 'exact' });
-      
+
     if (category_id) {
       // If category_id is a number, we might need to map it, but assuming it's the category name
       query = query.eq('category', category_id);
@@ -83,8 +83,8 @@ export const getBillers = async (req: Request, res: Response) => {
         response_body: { message: `Fetched page ${pageNum} with ${data?.length} billers` }
       });
 
-    res.json({ 
-      status: 'success', 
+    res.json({
+      status: 'success',
       data,
       pagination: {
         page: pageNum,
@@ -102,7 +102,7 @@ export const getBillers = async (req: Request, res: Response) => {
 export const fetchBill = async (req: Request, res: Response) => {
   try {
     const { billerId, customerParams, mobile } = req.body;
-    
+
     if (!billerId || !customerParams || !mobile) {
       return res.status(400).json({ status: 'error', message: 'billerId, customerParams, and mobile are required' });
     }
@@ -122,15 +122,15 @@ export const fetchBill = async (req: Request, res: Response) => {
     // Call BillAvenue Service
     const billavenueAgentId = (req as any).billavenueAgentId;
     const response = await billAvenue.fetchBill(billerId, formattedParams, mobile, 'AGT', billavenueAgentId);
-    
+
     const isStaging = process.env.BILLAVENUE_ENV !== 'production';
     const responseCode = response.json?.billFetchResponse?.responseCode;
-    
+
     let finalJsonResponse = response.json;
 
     if (isStaging && responseCode !== '0000') {
       console.log(`[B2B Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
-      
+
       let billerCategory = 'Utility';
       let billerName = 'UAT Test Biller';
       try {
@@ -175,6 +175,7 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
+        method: 'POST',
         request_body: req.body,
         status_code: 200,
         response_body: finalJsonResponse
@@ -182,10 +183,10 @@ export const fetchBill = async (req: Request, res: Response) => {
 
     const finalResponseCode = finalJsonResponse?.billFetchResponse?.responseCode;
     const billerResp = finalJsonResponse?.billFetchResponse?.billerResponse || finalJsonResponse?.billFetchResponse || {};
-    
+
     const rawBillAmount = billerResp.billAmount || '0';
     const amountInRupees = (Number(rawBillAmount) / 100).toFixed(2);
-    
+
     res.json({
       status: (finalResponseCode === '000' || finalResponseCode === '0000') ? 'success' : 'error',
       message: (finalResponseCode === '000' || finalResponseCode === '0000') ? 'Bill fetched successfully' : (billerResp.responseReason || 'Failed to fetch bill'),
@@ -209,6 +210,7 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
+        method: 'POST',
         request_body: req.body,
         status_code: 500,
         response_body: { error: err.message || 'Failed to fetch bill' }
@@ -299,7 +301,7 @@ export const payBill = async (req: Request, res: Response) => {
       .select('charge_per_bill')
       .eq('id', agentId)
       .single();
-      
+
     const chargePerBill = parseFloat(agentData?.charge_per_bill || '0');
     const parsedAmount = parseFloat(amount);
     const totalDeduction = parsedAmount + chargePerBill;
@@ -314,9 +316,9 @@ export const payBill = async (req: Request, res: Response) => {
 
     if (walletDeductError || !deductSuccess) {
       console.error(`[B2B PayBill - WALLET ERROR] Failed to deduct ₹${totalDeduction} from agent ${agentId}. Error:`, walletDeductError);
-      return res.status(400).json({ 
-        status: 'error', 
-        message: 'Insufficient balance or transaction failed' 
+      return res.status(400).json({
+        status: 'error',
+        message: 'Insufficient balance or transaction failed'
       });
     }
 
@@ -326,23 +328,18 @@ export const payBill = async (req: Request, res: Response) => {
     const customTxnId = `USEPAY${Math.floor(1000000000 + Math.random() * 9000000000)}`;
 
     // Log the transaction attempt in b2b_api_logs
-    const { data: logData, error: logError } = await supabaseAdmin
+    const { data: logData } = await supabaseAdmin
       .from('b2b_api_logs')
       .insert({
         agent_id: agentId,
         endpoint: '/api/b2b/pay-bill',
+        method: 'POST',
         request_body: { ...req.body, transaction_id: customTxnId, totalDeduction, chargeDeducted: chargePerBill },
         status_code: 202
       })
       .select('id')
       .single();
-      
-    if (logError) {
-      console.error('[B2B PayBill - LOG ERROR] Failed to log transaction. Refunding amount. Error:', logError);
-      await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
-      return res.status(500).json({ status: 'error', message: 'Internal Server Error' });
-    }
-      
+
     const logId = logData?.id;
 
     // Convert array format to Record format if needed
@@ -358,11 +355,11 @@ export const payBill = async (req: Request, res: Response) => {
     }
     let rawBillerResp = { ...billerResponseInfo };
     if (rawBillerResp.billAmount && String(rawBillerResp.billAmount).includes('.')) {
-        rawBillerResp.billAmount = String(Math.round(Number(rawBillerResp.billAmount) * 100));
+      rawBillerResp.billAmount = String(Math.round(Number(rawBillerResp.billAmount) * 100));
     }
     // Delete the extra 'amount' field injected by fetchBill to prevent BBPS strict XML validation errors
     if ('amount' in rawBillerResp) {
-        delete rawBillerResp.amount;
+      delete rawBillerResp.amount;
     }
 
     // Format additionalInfo to always be an array of { infoName, infoValue }
@@ -379,7 +376,7 @@ export const payBill = async (req: Request, res: Response) => {
       } else {
         // Just in case they pass { infoName: "...", infoValue: "..." }
         if (additionalInfo.infoName) {
-           formattedAdditionalInfo = [additionalInfo];
+          formattedAdditionalInfo = [additionalInfo];
         }
       }
     }
@@ -408,12 +405,12 @@ export const payBill = async (req: Request, res: Response) => {
       // Refund user if API failed completely (Refund total including charge)
       await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
       console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to API failure.`);
-      
+
       if (logId) {
-          await supabaseAdmin.from('b2b_api_logs').update({ 
-            status_code: 500, 
-            response_body: { error: payErr.message, transaction_id: customTxnId } 
-          }).eq('id', logId);
+        await supabaseAdmin.from('b2b_api_logs').update({
+          status_code: 500,
+          response_body: { error: payErr.message, transaction_id: customTxnId }
+        }).eq('id', logId);
       }
       return res.status(500).json({ status: 'error', message: payErr.message || 'Payment failed at gateway' });
     }
@@ -421,31 +418,31 @@ export const payBill = async (req: Request, res: Response) => {
     // 3. Process the response
     const payJson = apiResponse.json;
     const bpr = payJson?.billPayResponse;
-    
+
     // Log the BBPS status
     let finalStatus = 'pending';
     if (bpr?.txnStatus?.toUpperCase() === 'SUCCESS' || payJson?.responseCode === '000') {
-       finalStatus = 'success';
+      finalStatus = 'success';
     } else if (bpr?.txnStatus?.toUpperCase() === 'FAILED' || payJson?.responseCode === '999') {
-       finalStatus = 'failed';
-       // Initiate refund (Refund total including charge)
-       await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
-       console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to FAILED status from BillAvenue.`);
+      finalStatus = 'failed';
+      // Initiate refund (Refund total including charge)
+      await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
+      console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to FAILED status from BillAvenue.`);
     }
 
     console.log(`[B2B PayBill - FINAL STATUS] ${finalStatus.toUpperCase()} for txn ${customTxnId}`);
 
     // Update log
     if (logId) {
-        const updatePayload: any = {
-            status_code: 200, 
-            response_body: { ...payJson, finalStatus, payment_status: finalStatus, transaction_id: customTxnId }
-        };
-        // Only log the charge as deducted if payment is successful
-        if (finalStatus === 'success') {
-           updatePayload.charge_deducted = chargePerBill;
-        }
-        await supabaseAdmin.from('b2b_api_logs').update(updatePayload).eq('id', logId);
+      const updatePayload: any = {
+        status_code: 200,
+        response_body: { ...payJson, finalStatus, payment_status: finalStatus, transaction_id: customTxnId }
+      };
+      // Only log the charge as deducted if payment is successful
+      if (finalStatus === 'success') {
+        updatePayload.charge_deducted = chargePerBill;
+      }
+      await supabaseAdmin.from('b2b_api_logs').update(updatePayload).eq('id', logId);
     }
 
     res.json({
