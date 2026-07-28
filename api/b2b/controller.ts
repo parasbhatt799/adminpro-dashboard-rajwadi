@@ -238,7 +238,7 @@ export const getBalance = async (req: Request, res: Response) => {
 
 export const payBill = async (req: Request, res: Response) => {
   try {
-    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId } = req.body;
+    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
 
@@ -317,6 +317,25 @@ export const payBill = async (req: Request, res: Response) => {
         delete rawBillerResp.amount;
     }
 
+    // Format additionalInfo to always be an array of { infoName, infoValue }
+    let formattedAdditionalInfo: any[] = [];
+    if (additionalInfo) {
+      if (Array.isArray(additionalInfo)) {
+        formattedAdditionalInfo = additionalInfo;
+      } else if (additionalInfo.info) {
+        if (Array.isArray(additionalInfo.info)) {
+          formattedAdditionalInfo = additionalInfo.info;
+        } else {
+          formattedAdditionalInfo = [additionalInfo.info];
+        }
+      } else {
+        // Just in case they pass { infoName: "...", infoValue: "..." }
+        if (additionalInfo.infoName) {
+           formattedAdditionalInfo = [additionalInfo];
+        }
+      }
+    }
+
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
@@ -329,7 +348,7 @@ export const payBill = async (req: Request, res: Response) => {
         'Cash', // paymentMode (Agent typically uses Cash/Wallet)
         'N', // quickPay
         undefined, // ccf1
-        { rawBillerResponse: rawBillerResp }, // billDetails
+        { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails
         undefined, // remitterName
         'AGT', // initChannel
         fetchRequestId, // fetchRequestId
