@@ -307,7 +307,7 @@ export const payBill = async (req: Request, res: Response) => {
         formattedParams,
         mobile,
         parsedAmount,
-        paymentMode || 'Wallet', // paymentMode (Agent typically uses Wallet)
+        paymentMode || 'Cash', // paymentMode (Agent typically uses Cash)
         quickPay || (billerResponseInfo ? 'N' : 'Y'), // quickPay
         undefined, // ccf1
         billerResponseInfo, // billDetails
