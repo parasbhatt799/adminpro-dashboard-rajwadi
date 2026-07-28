@@ -181,12 +181,12 @@ export const fetchBill = async (req: Request, res: Response) => {
         response_body: finalJsonResponse
       });
 
-    const responseCode = finalJsonResponse?.billFetchResponse?.responseCode;
+    const finalResponseCode = finalJsonResponse?.billFetchResponse?.responseCode;
     const billerResp = finalJsonResponse?.billFetchResponse?.billerResponse || finalJsonResponse?.billFetchResponse || {};
     
     res.json({
-      status: (responseCode === '000' || responseCode === '0000') ? 'SUCCESS' : 'ERROR',
-      message: responseCode === '000' ? 'Bill fetched successfully' : (billerResp.responseReason || 'Failed to fetch bill'),
+      status: (finalResponseCode === '000' || finalResponseCode === '0000') ? 'SUCCESS' : 'ERROR',
+      message: finalResponseCode === '000' ? 'Bill fetched successfully' : (billerResp.responseReason || 'Failed to fetch bill'),
       data: {
         ...finalJsonResponse,
         billerResponse: billerResp,
