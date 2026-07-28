@@ -459,12 +459,8 @@ export async function payBill(
     const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
     xml += `\n    <billerResponse>`;
 
-    // billDetails could be the raw object itself, or contain rawBillerResponse
-    const raw = billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object' 
-      ? { ...billDetails.rawBillerResponse } 
-      : { ...billDetails };
-
-    if (Object.keys(raw).length > 0) {
+    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
+      const raw = { ...billDetails.rawBillerResponse };
       // Do NOT override raw.billAmount. BBPS requires the billerResponse block to be passed
       // EXACTLY as received from the fetch call. The actual payment amount is in <amountInfo>.
 
@@ -482,7 +478,6 @@ export async function payBill(
         ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
         ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
     }
-
     xml += `\n    </billerResponse>`;
   }
 
