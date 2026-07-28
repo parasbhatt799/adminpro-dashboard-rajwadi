@@ -107,9 +107,21 @@ export const fetchBill = async (req: Request, res: Response) => {
       return res.status(400).json({ status: 'error', message: 'billerId, customerParams, and mobile are required' });
     }
 
+    // Convert array format to Record format if needed
+    let formattedParams: Record<string, string> = {};
+    if (Array.isArray(customerParams)) {
+      customerParams.forEach((p: any) => {
+        if (p.name && p.value !== undefined) {
+          formattedParams[p.name] = String(p.value);
+        }
+      });
+    } else {
+      formattedParams = customerParams;
+    }
+
     // Call BillAvenue Service
     const billavenueAgentId = (req as any).billavenueAgentId;
-    const response = await billAvenue.fetchBill(billerId, customerParams, mobile, 'AGT', billavenueAgentId);
+    const response = await billAvenue.fetchBill(billerId, formattedParams, mobile, 'AGT', billavenueAgentId);
     
     res.json({
       status: 'success',
@@ -191,12 +203,24 @@ export const payBill = async (req: Request, res: Response) => {
       
     const logId = logData?.id;
 
+    // Convert array format to Record format if needed
+    let formattedParams: Record<string, string> = {};
+    if (Array.isArray(customerParams)) {
+      customerParams.forEach((p: any) => {
+        if (p.name && p.value !== undefined) {
+          formattedParams[p.name] = String(p.value);
+        }
+      });
+    } else {
+      formattedParams = customerParams;
+    }
+
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
       apiResponse = await billAvenue.payBill(
         billerId,
-        customerParams,
+        formattedParams,
         mobile,
         parsedAmount,
         'Cash', // paymentMode (Agent typically uses Cash/Wallet)
