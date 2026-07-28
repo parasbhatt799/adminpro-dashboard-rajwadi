@@ -81,22 +81,46 @@ cron.schedule('*/10 * * * *', async () => {
             .single();
 
           if (creds?.webhook_url && creds.webhook_url.startsWith('http')) {
+             const webhookPayload = {
+               event: 'PAYMENT_STATUS_UPDATE',
+               transaction_id: transactionId,
+               status: newStatus,
+               amount: log.request_body?.amount || 0,
+               bbps_status: bbpsStatus,
+               timestamp: new Date().toISOString()
+             };
+             
              try {
                 console.log(`[CRON] Firing webhook for agent ${log.agent_id} at ${creds.webhook_url}`);
-                await fetch(creds.webhook_url, {
+                const webhookRes = await fetch(creds.webhook_url, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                     event: 'PAYMENT_STATUS_UPDATE',
-                     transaction_id: transactionId,
-                     status: newStatus,
-                     amount: log.request_body?.amount || 0,
-                     bbps_status: bbpsStatus,
-                     timestamp: new Date().toISOString()
-                  })
+                  body: JSON.stringify(webhookPayload)
                 });
-             } catch (webhookError) {
+                
+                const responseBody = await webhookRes.text();
+                
+                // Log webhook success
+                await supabaseAdmin.from('b2b_webhook_logs').insert({
+                  agent_id: log.agent_id,
+                  transaction_id: transactionId,
+                  webhook_url: creds.webhook_url,
+                  payload: webhookPayload,
+                  response_status: webhookRes.status,
+                  response_body: responseBody
+                });
+                
+             } catch (webhookError: any) {
                 console.error(`[CRON] Webhook failed for agent ${log.agent_id}:`, webhookError);
+                
+                // Log webhook failure
+                await supabaseAdmin.from('b2b_webhook_logs').insert({
+                  agent_id: log.agent_id,
+                  transaction_id: transactionId,
+                  webhook_url: creds.webhook_url,
+                  payload: webhookPayload,
+                  error_message: webhookError.message
+                });
              }
           }
         }
