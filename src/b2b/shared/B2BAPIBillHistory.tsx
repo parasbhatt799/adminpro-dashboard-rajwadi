@@ -238,24 +238,24 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 
                 {/* Summary Header */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Amount</div>
                     <div className="text-lg font-bold text-white">₹ {Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                   </div>
-                  <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Status</div>
                     <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${statusInfo.color}`}>
                       {statusInfo.icon} {statusInfo.text}
                     </div>
                   </div>
-                  <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Transaction ID</div>
                     <div className="text-sm font-mono text-slate-300 break-all" title="API Txn ID">{res.transaction_id || 'N/A'}</div>
                     {bbpsTxnId && (
                        <div className="text-xs font-mono text-indigo-400 mt-1" title="BillAvenue Ref ID">BBPS: {bbpsTxnId}</div>
                     )}
                   </div>
-                  <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Date</div>
                     <div className="text-sm text-slate-300">{format(parseISO(selectedLog.created_at), 'dd MMM yyyy, hh:mm:ss a')}</div>
                   </div>
