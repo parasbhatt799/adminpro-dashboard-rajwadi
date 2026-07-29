@@ -33,7 +33,7 @@ cron.schedule('*/10 * * * *', async () => {
     console.log(`[CRON] Found ${pendingLogs.length} pending transactions. Checking status...`);
 
     for (const log of pendingLogs) {
-      const transactionId = log.request_body?.transaction_id || log.request_body?.requestId;
+      const transactionId = log.request_payload?.transaction_id || log.request_payload?.requestId;
       if (!transactionId) continue;
 
       try {
@@ -63,7 +63,7 @@ cron.schedule('*/10 * * * *', async () => {
 
           // If failed, refund the wallet
           if (newStatus === 'failed') {
-            const refundAmount = log.request_body?.totalDeduction || 0;
+            const refundAmount = log.request_payload?.totalDeduction || 0;
             if (refundAmount > 0) {
               await supabaseAdmin.rpc('add_b2b_wallet_balance', {
                 p_agent_id: log.agent_id,
@@ -85,7 +85,7 @@ cron.schedule('*/10 * * * *', async () => {
                event: 'PAYMENT_STATUS_UPDATE',
                transaction_id: transactionId,
                status: newStatus,
-               amount: log.request_body?.amount || 0,
+               amount: log.request_payload?.amount || 0,
                bbps_status: bbpsStatus,
                timestamp: new Date().toISOString()
              };

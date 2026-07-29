@@ -141,8 +141,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               </thead>
               <tbody className="divide-y divide-slate-700/50">
                 {filteredLogs.map((log) => {
-                  const reqBody = log.request_body || {};
-                  const resBody = log.response_body || {};
+                  const reqBody = log.request_payload || {};
+                  const resBody = log.response_payload || {};
                   const statusInfo = getStatusInfo(log.status_code, resBody);
                   const txnId = resBody?.transaction_id || 'N/A';
                   

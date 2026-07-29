@@ -295,7 +295,7 @@ export const payBill = async (req: Request, res: Response) => {
     // Fetch agent's charge_per_bill
     const { data: agentData } = await supabaseAdmin
       .from('b2b_api_credentials')
-      .select('charge_per_bill')
+      .select('charge_per_bill, webhook_url')
       .eq('id', agentId)
       .single();
 
@@ -455,6 +455,45 @@ export const payBill = async (req: Request, res: Response) => {
       payment_status: finalStatus,
       charge_deducted: finalStatus === 'success' ? chargePerBill : 0
     });
+
+    // Fire webhook asynchronously
+    if (agentData?.webhook_url && agentData.webhook_url.startsWith('http')) {
+      const webhookPayload = {
+        event: 'PAYMENT_STATUS_UPDATE',
+        transaction_id: customTxnId,
+        status: finalStatus,
+        amount: parsedAmount,
+        bbps_status: bpr?.txnStatus?.toUpperCase() || '',
+        timestamp: new Date().toISOString()
+      };
+      
+      // Async fetch without awaiting to not block the API response
+      fetch(agentData.webhook_url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(webhookPayload)
+      })
+      .then(async (webhookRes) => {
+        const responseBody = await webhookRes.text();
+        await supabaseAdmin.from('b2b_webhook_logs').insert({
+          agent_id: agentId,
+          transaction_id: customTxnId,
+          webhook_url: agentData.webhook_url,
+          payload: webhookPayload,
+          response_status: webhookRes.status,
+          response_body: responseBody
+        });
+      })
+      .catch(async (webhookError) => {
+        await supabaseAdmin.from('b2b_webhook_logs').insert({
+          agent_id: agentId,
+          transaction_id: customTxnId,
+          webhook_url: agentData.webhook_url,
+          payload: webhookPayload,
+          error_message: webhookError.message
+        });
+      });
+    }
 
   } catch (err: any) {
     console.error('[B2B PayBill - FATAL EXCEPTION]', err);
