@@ -145,6 +145,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   const resBody = log.response_payload || {};
                   const statusInfo = getStatusInfo(log.status_code, resBody);
                   const txnId = resBody?.transaction_id || 'N/A';
+                  const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId;
+                  
+                  // Extract the primary customer parameter (like Credit Card number, Consumer Number)
+                  const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
+                    ? reqBody.customerParams[0].value 
+                    : null;
                   
                   return (
                     <tr key={log.id} className="hover:bg-slate-700/20 transition-colors">
@@ -161,6 +167,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       
                       <td className="px-6 py-4">
                         <div className="font-medium text-indigo-400">{reqBody.billerId || 'Unknown Biller'}</div>
+                        {primaryParam && (
+                          <div className="text-white text-xs mt-0.5 font-mono">{primaryParam}</div>
+                        )}
                         <div className="text-slate-400 text-xs mt-0.5">Mobile: {reqBody.mobile || 'N/A'}</div>
                       </td>
                       
@@ -174,8 +183,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                           {statusInfo.text}
                         </div>
                         {txnId !== 'N/A' && (
-                          <div className="text-[10px] font-mono text-slate-500 mt-1" title="Transaction ID">
-                            {txnId.substring(0, 15)}...
+                          <div className="text-[10px] font-mono text-slate-500 mt-1" title="API Transaction ID">
+                            API: {txnId.substring(0, 15)}...
+                          </div>
+                        )}
+                        {bbpsTxnId && (
+                          <div className="text-[10px] font-mono text-indigo-400/70 mt-0.5" title="BillAvenue Ref ID">
+                            BBPS: {bbpsTxnId}
                           </div>
                         )}
                       </td>
@@ -206,9 +220,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           size="4xl" // Large size for detailed JSON viewing
         >
           {(() => {
-            const req = selectedLog.request_body || {};
-            const res = selectedLog.response_body || {};
+            const req = selectedLog.request_payload || {};
+            const res = selectedLog.response_payload || {};
             const statusInfo = getStatusInfo(selectedLog.status_code, res);
+            const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId;
 
             return (
               <div className="space-y-6">
@@ -227,7 +242,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   </div>
                   <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Transaction ID</div>
-                    <div className="text-sm font-mono text-slate-300 break-all">{res.transaction_id || 'N/A'}</div>
+                    <div className="text-sm font-mono text-slate-300 break-all" title="API Txn ID">{res.transaction_id || 'N/A'}</div>
+                    {bbpsTxnId && (
+                       <div className="text-xs font-mono text-indigo-400 mt-1" title="BillAvenue Ref ID">BBPS: {bbpsTxnId}</div>
+                    )}
                   </div>
                   <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Date</div>
@@ -249,6 +267,18 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                            <dt className="text-slate-500 text-xs uppercase font-bold">Biller ID</dt>
                            <dd className="text-white font-medium">{req.billerId || 'N/A'}</dd>
                          </div>
+                         
+                         {req.customerParams && req.customerParams.length > 0 && (
+                           <div>
+                             <dt className="text-slate-500 text-xs uppercase font-bold">Parameters</dt>
+                             <dd className="text-white font-medium text-sm mt-1">
+                               {req.customerParams.map((p: any, i: number) => (
+                                 <div key={i} className="mb-1"><span className="text-slate-400 text-xs">{p.name}:</span> <span className="font-mono">{p.value}</span></div>
+                               ))}
+                             </dd>
+                           </div>
+                         )}
+
                          <div>
                            <dt className="text-slate-500 text-xs uppercase font-bold">Mobile</dt>
                            <dd className="text-white font-medium">{req.mobile || 'N/A'}</dd>
