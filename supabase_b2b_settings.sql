@@ -13,18 +13,9 @@ WHERE NOT EXISTS (SELECT 1 FROM public.b2b_settings);
 -- Enable RLS
 ALTER TABLE public.b2b_settings ENABLE ROW LEVEL SECURITY;
 
--- Allow read access for authenticated users (agents and admins need to read it)
-CREATE POLICY "Allow public read access to b2b_settings" ON public.b2b_settings
-  FOR SELECT USING (true);
-
--- Allow admins to update settings
-CREATE POLICY "Allow admins to update b2b_settings" ON public.b2b_settings
-  FOR UPDATE USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE public.users.id = auth.uid() AND public.users.role = 'admin'
-    )
-  );
+-- Allow all access to b2b_settings (simplified policy for this project)
+CREATE POLICY "b2b_settings_all_access" ON public.b2b_settings
+  FOR ALL USING (true) WITH CHECK (true);
 
 -- Function to handle timestamp update
 CREATE OR REPLACE FUNCTION public.handle_updated_at_b2b_settings()
