@@ -321,8 +321,9 @@ export const payBill = async (req: Request, res: Response) => {
 
     console.log(`[B2B PayBill - WALLET SUCCESS] Successfully deducted ₹${totalDeduction} from agent ${agentId}.`);
 
-    // Generate custom transaction ID
-    const customTxnId = `USEPAY${Math.floor(1000000000 + Math.random() * 9000000000)}`;
+    // 1. Generate Custom Transaction ID for tracing
+    // If the client provides their own transaction ID, we use it. Otherwise, we generate one starting with BBPSU.
+    const customTxnId = req.body.client_transaction_id || `BBPSU${Math.floor(1000000000 + Math.random() * 9000000000)}`;
 
     // Log the transaction attempt in b2b_api_logs
     const { data: logData, error: logError } = await supabaseAdmin
