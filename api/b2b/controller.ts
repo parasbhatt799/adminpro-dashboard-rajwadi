@@ -77,9 +77,9 @@ export const getBillers = async (req: Request, res: Response) => {
       .insert({
         agent_id: agentId,
         endpoint: '/api/b2b/billers',
-        request_body: req.query,
+        request_payload: req.query,
         status_code: 200,
-        response_body: { message: `Fetched page ${pageNum} with ${data?.length} billers` }
+        response_payload: { message: `Fetched page ${pageNum} with ${data?.length} billers` }
       });
 
     res.json({
@@ -174,9 +174,9 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
-        request_body: req.body,
+        request_payload: req.body,
         status_code: 200,
-        response_body: finalJsonResponse
+        response_payload: finalJsonResponse
       });
 
     const finalResponseCode = finalJsonResponse?.billFetchResponse?.responseCode;
@@ -208,9 +208,9 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
-        request_body: req.body,
+        request_payload: req.body,
         status_code: 500,
-        response_body: { error: err.message || 'Failed to fetch bill' }
+        response_payload: { error: err.message || 'Failed to fetch bill' }
       });
     res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch bill' });
   }
@@ -251,7 +251,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
       .select('*')
       .eq('agent_id', agentId)
       .eq('endpoint', '/api/b2b/pay-bill')
-      .contains('request_body', { transaction_id })
+      .contains('request_payload', { transaction_id })
       .single();
 
     if (logError || !log) {
@@ -330,7 +330,7 @@ export const payBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: agentId,
         endpoint: '/api/b2b/pay-bill',
-        request_body: { ...req.body, transaction_id: customTxnId, totalDeduction, chargeDeducted: chargePerBill },
+        request_payload: { ...req.body, transaction_id: customTxnId, totalDeduction, chargeDeducted: chargePerBill },
         status_code: 202
       })
       .select('id')
@@ -411,7 +411,7 @@ export const payBill = async (req: Request, res: Response) => {
       if (logId) {
         await supabaseAdmin.from('b2b_api_logs').update({
           status_code: 500,
-          response_body: { error: payErr.message, transaction_id: customTxnId }
+          response_payload: { error: payErr.message, transaction_id: customTxnId }
         }).eq('id', logId);
       }
       return res.status(500).json({ status: 'error', message: payErr.message || 'Payment failed at gateway' });
@@ -438,7 +438,7 @@ export const payBill = async (req: Request, res: Response) => {
     if (logId) {
       const updatePayload: any = {
         status_code: 200,
-        response_body: { ...payJson, finalStatus, payment_status: finalStatus, transaction_id: customTxnId }
+        response_payload: { ...payJson, finalStatus, payment_status: finalStatus, transaction_id: customTxnId }
       };
       // Only log the charge as deducted if payment is successful
       if (finalStatus === 'success') {
