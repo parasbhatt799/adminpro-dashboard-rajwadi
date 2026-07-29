@@ -133,8 +133,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 <tr>
                   <th className="px-6 py-4">Date & Time</th>
                   {isAdmin && <th className="px-6 py-4">Agent ID</th>}
-                  <th className="px-6 py-4">Biller Details</th>
+                  <th className="px-6 py-4">Biller ID</th>
+                  <th className="px-6 py-4">Parameters</th>
                   <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4">Transaction IDs</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -167,14 +169,30 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       
                       <td className="px-6 py-4">
                         <div className="font-medium text-indigo-400">{reqBody.billerId || 'Unknown Biller'}</div>
+                      </td>
+                      
+                      <td className="px-6 py-4">
                         {primaryParam && (
-                          <div className="text-white text-xs mt-0.5 font-mono">{primaryParam}</div>
+                          <div className="text-white text-xs font-mono mb-1">{primaryParam}</div>
                         )}
-                        <div className="text-slate-400 text-xs mt-0.5">Mobile: {reqBody.mobile || 'N/A'}</div>
+                        <div className="text-slate-400 text-xs">Mobile: {reqBody.mobile || 'N/A'}</div>
                       </td>
                       
                       <td className="px-6 py-4">
                         <div className="font-bold text-white">₹ {Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        {txnId !== 'N/A' && (
+                          <div className="text-xs font-mono text-slate-400 mb-1" title="API Transaction ID">
+                            API: <span className="text-slate-300">{txnId}</span>
+                          </div>
+                        )}
+                        {bbpsTxnId && (
+                          <div className="text-xs font-mono text-indigo-400/80" title="BillAvenue Ref ID">
+                            BBPS: <span className="text-indigo-300">{bbpsTxnId}</span>
+                          </div>
+                        )}
                       </td>
                       
                       <td className="px-6 py-4">
@@ -182,16 +200,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                           {statusInfo.icon}
                           {statusInfo.text}
                         </div>
-                        {txnId !== 'N/A' && (
-                          <div className="text-[10px] font-mono text-slate-500 mt-1" title="API Transaction ID">
-                            API: {txnId.substring(0, 15)}...
-                          </div>
-                        )}
-                        {bbpsTxnId && (
-                          <div className="text-[10px] font-mono text-indigo-400/70 mt-0.5" title="BillAvenue Ref ID">
-                            BBPS: {bbpsTxnId}
-                          </div>
-                        )}
                       </td>
                       
                       <td className="px-6 py-4 text-right">
