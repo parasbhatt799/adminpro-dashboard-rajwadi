@@ -299,7 +299,22 @@ export const payBill = async (req: Request, res: Response) => {
       .eq('id', agentId)
       .single();
 
-    const chargePerBill = parseFloat(agentData?.charge_per_bill || '0');
+    let chargePerBill = 0;
+    if (agentData?.charge_per_bill !== null && agentData?.charge_per_bill !== undefined) {
+      chargePerBill = parseFloat(agentData.charge_per_bill);
+    } else {
+      // Fetch global setting
+      const { data: globalSettings, error: globalErr } = await supabaseAdmin
+        .from('b2b_settings')
+        .select('global_charge_per_bill')
+        .limit(1)
+        .maybeSingle();
+      
+      if (!globalErr && globalSettings) {
+        chargePerBill = parseFloat(globalSettings.global_charge_per_bill || '0');
+      }
+    }
+
     const parsedAmount = parseFloat(amount);
     const totalDeduction = parsedAmount + chargePerBill;
 

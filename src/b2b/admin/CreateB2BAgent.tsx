@@ -87,7 +87,7 @@ export default function CreateB2BAgent() {
       address: agent.address || '',
       b2bLoginId: agent.b2b_login_id || '',
       b2bPassword: '', // keep empty by default, only update if typed
-      chargePerBill: agent.charge_per_bill?.toString() || '0'
+      chargePerBill: agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? agent.charge_per_bill.toString() : ''
     });
     setView('edit');
   };
@@ -282,7 +282,7 @@ export default function CreateB2BAgent() {
             address: formData.address,
             b2b_login_id: formData.b2bLoginId,
             b2b_password: formData.b2bPassword,
-            charge_per_bill: parseFloat(formData.chargePerBill) || 0,
+            charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0),
             is_active: true
           });
 
@@ -303,7 +303,7 @@ export default function CreateB2BAgent() {
           mobile: formData.mobile,
           address: formData.address,
           b2b_login_id: formData.b2bLoginId,
-          charge_per_bill: parseFloat(formData.chargePerBill) || 0
+          charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0)
         };
         
         if (formData.b2bPassword) {
@@ -328,7 +328,7 @@ export default function CreateB2BAgent() {
       }
 
       setFormData({
-        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '0'
+        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: ''
       });
       setEditingId(null);
       setView('list');
@@ -350,7 +350,7 @@ export default function CreateB2BAgent() {
         </div>
         <button
           onClick={() => {
-            setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '0' });
+            setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '' });
             setView('create');
           }}
           className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm"
@@ -395,7 +395,7 @@ export default function CreateB2BAgent() {
                     <td className="p-4 text-slate-600">{agent.b2b_login_id}</td>
                     <td className="p-4 text-slate-600">{agent.mobile}</td>
                     <td className="p-4 text-right font-medium text-amber-600">
-                      ₹{parseFloat(agent.charge_per_bill?.toString() || '0').toFixed(2)}
+                      {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? `₹${parseFloat(agent.charge_per_bill.toString()).toFixed(2)}` : <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Global</span>}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-1 font-semibold text-emerald-600">
@@ -838,12 +838,12 @@ export default function CreateB2BAgent() {
                   name="chargePerBill"
                   value={formData.chargePerBill}
                   onChange={handleChange}
-                  required
                   min="0"
                   step="0.01"
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all font-mono"
-                  placeholder="e.g. 10"
+                  placeholder="Leave empty to use Global Charge"
                 />
+                <p className="text-xs text-gray-500 mt-1">If left empty, the Global Charge set in the Dashboard will apply.</p>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Full Address</label>

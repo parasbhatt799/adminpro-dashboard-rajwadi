@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ShieldCheck, Activity } from 'lucide-react';
+import { ShieldCheck, Activity, Settings, Save } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
 export default function B2BAdminDashboard() {
   const [totalEarnings, setTotalEarnings] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [savingCharge, setSavingCharge] = useState(false);
   const [activeAgentsCount, setActiveAgentsCount] = useState(0);
+  const [globalCharge, setGlobalCharge] = useState<string>('0');
+  const [globalChargeId, setGlobalChargeId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchStats();
@@ -31,11 +34,48 @@ export default function B2BAdminDashboard() {
         .eq('is_active', true);
         
       setActiveAgentsCount(count || 0);
+
+      // Fetch global charge
+      const { data: settingsData } = await supabase
+        .from('b2b_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (settingsData) {
+        setGlobalCharge(settingsData.global_charge_per_bill?.toString() || '0');
+        setGlobalChargeId(settingsData.id);
+      }
+
     } catch (e) {
       console.error('Failed to fetch stats', e);
     }
 
     setLoading(false);
+  };
+
+  const handleSaveGlobalCharge = async () => {
+    setSavingCharge(true);
+    try {
+      if (globalChargeId) {
+        await supabase
+          .from('b2b_settings')
+          .update({ global_charge_per_bill: parseFloat(globalCharge) })
+          .eq('id', globalChargeId);
+      } else {
+        const { data } = await supabase
+          .from('b2b_settings')
+          .insert({ global_charge_per_bill: parseFloat(globalCharge) })
+          .select('id')
+          .single();
+        if (data) setGlobalChargeId(data.id);
+      }
+      alert('Global charge updated successfully!');
+    } catch (e) {
+      console.error('Failed to update global charge', e);
+      alert('Error updating global charge');
+    }
+    setSavingCharge(false);
   };
 
   return (
@@ -77,6 +117,36 @@ export default function B2BAdminDashboard() {
                 <p className="text-3xl font-bold text-indigo-700">{activeAgentsCount}</p>
               </div>
             </div>
+          </div>
+
+          {/* Global Settings Card */}
+          <div className="bg-orange-50 border border-orange-100 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-sm">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="bg-orange-100 p-3 rounded-full text-orange-600">
+                <Settings className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-orange-600 uppercase tracking-wider mb-1">Global Charge Per Bill</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl font-bold text-orange-700">₹</span>
+              <input
+                type="number"
+                value={globalCharge}
+                onChange={(e) => setGlobalCharge(e.target.value)}
+                step="0.01"
+                className="w-full bg-white border border-orange-200 text-orange-900 rounded-lg px-3 py-2 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+              <button
+                onClick={handleSaveGlobalCharge}
+                disabled={savingCharge}
+                className="bg-orange-600 hover:bg-orange-700 text-white p-2.5 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50"
+              >
+                {savingCharge ? <LoadingSpinner size="sm" /> : <Save className="w-5 h-5" />}
+              </button>
+            </div>
+            <p className="text-xs text-orange-600/80">Default deduction applied if an agent has no custom charge set.</p>
           </div>
         </div>
       )}

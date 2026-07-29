@@ -12,6 +12,7 @@ export default function B2BAgentDashboard() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [credentials, setCredentials] = useState<any>(null);
+  const [globalCharge, setGlobalCharge] = useState<number>(0);
   const [logs, setLogs] = useState<any[]>([]);
   const [showSecret, setShowSecret] = useState(false);
   const [stats, setStats] = useState({ fetchCount: 0, successCount: 0 });
@@ -31,16 +32,20 @@ export default function B2BAgentDashboard() {
   const fetchDashboardData = async (agentId: string) => {
     setLoading(true);
     try {
-      const [credRes, logsRes, fetchCountRes, payCountRes] = await Promise.all([
+      const [credRes, logsRes, fetchCountRes, payCountRes, settingsRes] = await Promise.all([
         supabase.from('b2b_api_credentials').select('*').eq('id', agentId).single(),
         supabase.from('b2b_api_logs').select('*').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20),
         supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('endpoint', '/api/b2b/fetch-bill'),
-        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('endpoint', '/api/b2b/pay-bill').eq('status_code', 200)
+        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('endpoint', '/api/b2b/pay-bill').eq('status_code', 200),
+        supabase.from('b2b_settings').select('global_charge_per_bill').limit(1).maybeSingle()
       ]);
 
       if (credRes.data) {
         setCredentials(credRes.data);
         setWebhookUrl(credRes.data.webhook_url || '');
+      }
+      if (settingsRes.data) {
+        setGlobalCharge(parseFloat(settingsRes.data.global_charge_per_bill?.toString() || '0'));
       }
       if (logsRes.data) setLogs(logsRes.data);
       setStats({
@@ -131,7 +136,22 @@ export default function B2BAgentDashboard() {
           <div className="lg:col-span-2 space-y-6">
             
             {/* Stats Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
+                <div className="flex items-center justify-between relative z-10">
+                  <div>
+                    <p className="text-slate-400 text-sm font-medium mb-1">Charge Per Bill</p>
+                    <h3 className="text-3xl font-bold text-amber-400">
+                      ₹{credentials.charge_per_bill !== null && credentials.charge_per_bill !== undefined 
+                          ? parseFloat(credentials.charge_per_bill).toFixed(2) 
+                          : globalCharge.toFixed(2)}
+                    </h3>
+                  </div>
+                  <div className="p-3 bg-amber-500/20 rounded-xl text-amber-400">
+                    <Shield className="h-6 w-6" />
+                  </div>
+                </div>
+              </div>
               <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
                 <div className="flex items-center justify-between relative z-10">
                   <div>
