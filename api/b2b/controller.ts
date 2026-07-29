@@ -419,13 +419,13 @@ export const payBill = async (req: Request, res: Response) => {
 
     // 3. Process the response
     const payJson = apiResponse.json;
-    const bpr = payJson?.billPayResponse;
+    const bpr = payJson?.billPayResponse || payJson?.ExtBillPayResponse || payJson;
 
     // Log the BBPS status
     let finalStatus = 'pending';
-    if (bpr?.txnStatus?.toUpperCase() === 'SUCCESS' || payJson?.responseCode === '000') {
+    if (bpr?.txnStatus?.toUpperCase() === 'SUCCESS' || bpr?.responseCode === '000' || payJson?.responseCode === '000') {
       finalStatus = 'success';
-    } else if (bpr?.txnStatus?.toUpperCase() === 'FAILED' || payJson?.responseCode === '999') {
+    } else if (bpr?.txnStatus?.toUpperCase() === 'FAILED' || bpr?.responseCode === '999' || payJson?.responseCode === '999') {
       finalStatus = 'failed';
       // Initiate refund (Refund total including charge)
       await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
