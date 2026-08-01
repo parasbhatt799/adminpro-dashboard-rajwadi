@@ -172,32 +172,21 @@ cron.schedule('*/10 * * * *', async () => {
         console.log(`Metadata:`, JSON.stringify(log.metadata || {}));
         console.log(`Rejection Reason (Txn Ref):`, log.rejection_reason);
 
-        // Identify if it's BillAvenue
-        const gateway = log.metadata?.gateway;
-        let isBillAvenue = false;
-        if (gateway === 'BillAvenue') {
-          isBillAvenue = true;
-        } else if (log.rejection_reason && String(log.rejection_reason).startsWith('CC01')) {
-          isBillAvenue = true;
-        }
+        // Identify if it's BillAvenue by checking if the reference ID starts with CC01
+        // (User confirmed BillAvenue IDs always start with CC01)
+        const referenceId = log.rejection_reason || log.metadata?.requestId;
         
-        if (!isBillAvenue) {
-           console.log(`-> Skipping ID ${log.id} - Not a BillAvenue transaction.`);
+        if (!referenceId || !String(referenceId).startsWith('CC01')) {
+           console.log(`-> Skipping ID ${log.id} - Not a BillAvenue transaction (ID does not start with CC01). Found: ${referenceId}`);
            continue;
         }
         
-        const requestId = log.metadata?.requestId || log.rejection_reason;
-        if (!requestId) {
-           console.log(`-> Skipping ID ${log.id} - No Request ID or Txn Ref ID found.`);
-           continue;
-        }
-        
-        const trackType = String(requestId).startsWith('CC01') ? 'TXN_REF_ID' : 'REQUEST_ID';
+        const trackType = 'TXN_REF_ID';
 
         try {
-          console.log(`-> Checking B2C status via API with ${trackType}: ${requestId}`);
-          const statusResult = await getTransactionStatus(requestId, trackType);
-          console.log(`-> API Response received for ${requestId}. Parsing status...`);
+          console.log(`-> Checking B2C status via API with ${trackType}: ${referenceId}`);
+          const statusResult = await getTransactionStatus(String(referenceId), trackType);
+          console.log(`-> API Response received for ${referenceId}. Parsing status...`);
           
           const statusResponse = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse || statusResult?.json?.billPayResponse;
           
@@ -217,7 +206,7 @@ cron.schedule('*/10 * * * *', async () => {
             }
 
             if (mappedStatus !== 'pending') {
-              console.log(`-> Updating B2C Transaction ${requestId} in DB to ${mappedStatus}`);
+              console.log(`-> Updating B2C Transaction ${referenceId} in DB to ${mappedStatus}`);
 
               // Update bbps_submissions and handle refund
               await supabaseAdmin
@@ -245,14 +234,14 @@ cron.schedule('*/10 * * * *', async () => {
                       .update({ wallet_balance: refundedBalance })
                       .eq("id", log.user_id);
                       
-                    console.log(`[CRON] Refunded ₹${totalDeducted} to user ${log.user_id} for failed B2C transaction ${requestId}`);
+                    console.log(`[CRON] Refunded ₹${totalDeducted} to user ${log.user_id} for failed B2C transaction ${referenceId}`);
                   }
                 }
               }
             }
           }
         } catch (err) {
-          console.error(`[CRON] Error processing B2C transaction ${requestId}:`, err);
+          console.error(`[CRON] Error processing B2C transaction ${referenceId}:`, err);
         }
       }
     }
