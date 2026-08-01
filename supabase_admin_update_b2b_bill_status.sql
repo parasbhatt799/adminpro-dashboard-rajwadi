@@ -85,9 +85,20 @@ BEGIN
   v_res := jsonb_set(v_res, '{admin_updated}', to_jsonb(true));
   v_res := jsonb_set(v_res, '{admin_updated_at}', to_jsonb(now()));
 
-  UPDATE b2b_api_logs 
-  SET response_payload = v_res
-  WHERE id = p_log_id;
+  -- Update b2b_api_logs with new payload, status code, and charge deducted
+  IF p_status = 'success' THEN
+      UPDATE b2b_api_logs 
+      SET response_payload = v_res, 
+          status_code = 200, 
+          charge_deducted = v_charge_deducted
+      WHERE id = p_log_id;
+  ELSE
+      UPDATE b2b_api_logs 
+      SET response_payload = v_res, 
+          status_code = 500, 
+          charge_deducted = 0
+      WHERE id = p_log_id;
+  END IF;
 
   RETURN json_build_object('success', true, 'message', 'Status updated to ' || p_status || ' successfully. ' || CASE WHEN p_status = 'failed' THEN 'Wallet refunded.' ELSE '' END);
 END;
