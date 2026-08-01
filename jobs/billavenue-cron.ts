@@ -149,6 +149,101 @@ cron.schedule('*/10 * * * *', async () => {
         console.error(`[CRON] Error processing transaction ${transactionId}:`, err);
       }
     }
+
+    // ==========================================
+    // 2. Process B2C Transactions (Main App)
+    // ==========================================
+    const { data: b2cPendingLogs, error: b2cError } = await supabaseAdmin
+      .from('billavenue_transactions')
+      .select('*')
+      .eq('status', 'pending')
+      .lt('created_at', fifteenMinutesAgo);
+
+    if (b2cError) {
+      console.error('[CRON] Error fetching B2C pending transactions:', b2cError);
+    } else if (b2cPendingLogs && b2cPendingLogs.length > 0) {
+      console.log(`[CRON] Found ${b2cPendingLogs.length} B2C pending transactions. Checking status...`);
+      
+      for (const log of b2cPendingLogs) {
+        const requestId = log.request_id;
+        if (!requestId) continue;
+
+        try {
+          console.log(`[CRON] Checking B2C status for request ID: ${requestId}`);
+          const statusResult = await getTransactionStatus(requestId, 'REQUEST_ID');
+          const statusResponse = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse;
+          
+          if (statusResponse) {
+            const txnStatus = statusResponse.status?.toLowerCase();
+            let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
+            let mappedSubmissionStatus = 'pending';
+            
+            if (txnStatus === 'success' || txnStatus === 'approved') {
+              mappedStatus = 'success';
+              mappedSubmissionStatus = 'approved';
+            } else if (txnStatus === 'failed' || txnStatus === 'rejected') {
+              mappedStatus = 'failed';
+              mappedSubmissionStatus = 'rejected';
+            }
+
+            if (mappedStatus !== 'pending') {
+              console.log(`[CRON] B2C Transaction ${requestId} status changed to ${mappedStatus}`);
+
+              // Update the billavenue_transactions record
+              await supabaseAdmin
+                .from('billavenue_transactions')
+                .update({
+                  txn_ref_id: statusResponse.txnRefId,
+                  status: mappedStatus,
+                  response: statusResult.json
+                })
+                .eq('request_id', requestId);
+
+              // Update bbps_submissions and handle refund
+              const { data: existingSubmission } = await supabaseAdmin
+                .from("bbps_submissions")
+                .select("id, status, user_id, metadata")
+                .eq("metadata->>requestId", requestId)
+                .maybeSingle();
+
+              if (existingSubmission) {
+                await supabaseAdmin
+                  .from("bbps_submissions")
+                  .update({
+                    status: mappedSubmissionStatus,
+                    rejection_reason: statusResponse.txnRefId || requestId
+                  })
+                  .eq("id", existingSubmission.id);
+
+                // Refund Logic if Failed
+                if (existingSubmission.status === 'pending' && mappedSubmissionStatus === 'rejected') {
+                  const totalDeducted = existingSubmission.metadata?.totalDeducted;
+                  if (totalDeducted && typeof totalDeducted === 'number') {
+                    const { data: userProfile } = await supabaseAdmin
+                      .from("users_profiles")
+                      .select("wallet_balance")
+                      .eq("id", existingSubmission.user_id)
+                      .single();
+                    
+                    if (userProfile) {
+                      const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
+                      await supabaseAdmin
+                        .from("users_profiles")
+                        .update({ wallet_balance: refundedBalance })
+                        .eq("id", existingSubmission.user_id);
+                        
+                      console.log(`[CRON] Refunded ₹${totalDeducted} to user ${existingSubmission.user_id} for failed B2C transaction ${requestId}`);
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`[CRON] Error processing B2C transaction ${requestId}:`, err);
+        }
+      }
+    }
   } catch (err) {
     console.error('[CRON] Global error in cron job:', err);
   }
