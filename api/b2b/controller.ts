@@ -255,14 +255,20 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
       return res.status(404).json({ status: 'error', message: 'Transaction not found in logs' });
     }
 
-    const statusResult = await billAvenue.getTransactionStatus(transaction_id);
+    const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
+    const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
+    const targetId = cc01RefId || transaction_id;
+    const trackType = String(targetId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+
+    const statusResult = await billAvenue.getTransactionStatus(String(targetId), trackType);
     let bbpsStatus = 'UNKNOWN';
     
     if (statusResult?.json) {
-       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes;
+       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
        if (root) {
          if (root.responseCode !== '000') {
-           bbpsStatus = 'FAILED';
+           console.warn(`[B2B Admin CheckStatus] Non-000 response code (${root.responseCode}) received for ${targetId}`);
+           bbpsStatus = 'PENDING';
          } else {
            const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
            bbpsStatus = txnList?.txnStatus?.toUpperCase() || 'UNKNOWN';
@@ -345,14 +351,20 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
       return res.status(404).json({ status: 'error', message: 'Transaction not found for this agent' });
     }
 
-    const statusResult = await billAvenue.getTransactionStatus(transaction_id);
+    const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
+    const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
+    const targetId = cc01RefId || transaction_id;
+    const trackType = String(targetId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+
+    const statusResult = await billAvenue.getTransactionStatus(String(targetId), trackType);
     let bbpsStatus = 'UNKNOWN';
     
     if (statusResult?.json) {
-       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes;
+       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
        if (root) {
          if (root.responseCode !== '000') {
-           bbpsStatus = 'FAILED';
+           console.warn(`[B2B CheckStatus] Non-000 response code (${root.responseCode}) received for ${targetId}`);
+           bbpsStatus = 'PENDING';
          } else {
            const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
            bbpsStatus = txnList?.txnStatus?.toUpperCase() || 'UNKNOWN';

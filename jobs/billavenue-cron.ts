@@ -33,29 +33,32 @@ cron.schedule('*/10 * * * *', async () => {
     console.log(`[CRON] Found ${pendingLogs.length} pending transactions. Checking status...`);
 
     for (const log of pendingLogs) {
-      const transactionId = log.request_payload?.transaction_id || log.request_payload?.requestId;
+      const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
+      const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
+      const transactionId = cc01RefId || log.request_payload?.transaction_id || log.request_payload?.requestId;
       if (!transactionId) continue;
 
       try {
-        console.log(`[CRON] Checking status for transaction ID: ${transactionId}`);
-        const statusResult = await getTransactionStatus(transactionId);
+        const trackType = String(transactionId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+        console.log(`[CRON] Checking status for B2B transaction ID: ${transactionId} (trackType: ${trackType})`);
+        const statusResult = await getTransactionStatus(String(transactionId), trackType);
         
         let newStatus = 'pending';
         let bbpsStatus = '';
 
         if (statusResult?.json) {
-           const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes;
+           const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
            if (root) {
              if (root.responseCode !== '000') {
-               bbpsStatus = 'FAILED';
+               console.log(`[CRON] BillAvenue returned non-000 code (${root.responseCode}) for B2B txn ${transactionId}. Keeping status as pending.`);
              } else {
                const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
                bbpsStatus = txnList?.txnStatus?.toUpperCase() || '';
              }
              
-             if (bbpsStatus === 'SUCCESS') {
+             if (bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') {
                newStatus = 'success';
-             } else if (bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE') {
+             } else if (bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') {
                newStatus = 'failed';
              }
            }
