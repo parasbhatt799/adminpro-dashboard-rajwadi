@@ -24,6 +24,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     fetchLogs();
@@ -51,6 +52,32 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       console.error('Error fetching API logs:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleStatusChange = async (logId: string, newStatus: 'success' | 'failed') => {
+    if (!confirm(`Are you sure you want to mark this bill as ${newStatus.toUpperCase()}?\n${newStatus === 'failed' ? 'The agent\\'s wallet will be refunded.' : ''}`)) return;
+    
+    try {
+      setUpdatingStatus(logId);
+      const { data, error } = await supabase.rpc('admin_update_b2b_bill_status', {
+        p_log_id: logId,
+        p_status: newStatus
+      });
+
+      if (error) throw error;
+      
+      if (data && data.success) {
+        alert(data.message || 'Status updated successfully');
+        fetchLogs(); // Refresh the list
+      } else {
+        alert(data?.message || 'Failed to update status');
+      }
+    } catch (err: any) {
+      console.error('Error updating status:', err);
+      alert('Error updating status: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUpdatingStatus(null);
     }
   };
 
@@ -203,12 +230,42 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       </td>
                       
                       <td className="px-6 py-4 text-right">
-                        <button 
-                          onClick={() => setSelectedLog(log)}
-                          className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors"
-                        >
-                          <FileText className="w-3.5 h-3.5" /> View Details
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {isAdmin && (
+                            <>
+                              <button 
+                                onClick={() => handleStatusChange(log.id, 'success')}
+                                disabled={updatingStatus === log.id || statusInfo.text === 'Success'}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                                  statusInfo.text === 'Success' 
+                                    ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed' 
+                                    : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
+                                }`}
+                                title="Mark as Success"
+                              >
+                                {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                              </button>
+                              <button 
+                                onClick={() => handleStatusChange(log.id, 'failed')}
+                                disabled={updatingStatus === log.id || statusInfo.text === 'Failed'}
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                                  statusInfo.text === 'Failed' 
+                                    ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed' 
+                                    : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/20'
+                                }`}
+                                title="Reject & Refund"
+                              >
+                                {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <XCircle className="w-3.5 h-3.5" />}
+                              </button>
+                            </>
+                          )}
+                          <button 
+                            onClick={() => setSelectedLog(log)}
+                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors"
+                          >
+                            <FileText className="w-3.5 h-3.5" /> {isAdmin ? 'Details' : 'View Details'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
