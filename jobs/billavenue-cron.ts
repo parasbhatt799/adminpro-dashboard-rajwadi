@@ -164,45 +164,60 @@ cron.schedule('*/10 * * * *', async () => {
     if (b2cError) {
       console.error('[CRON] Error fetching B2C pending transactions:', b2cError);
     } else if (b2cPendingLogs && b2cPendingLogs.length > 0) {
-      console.log(`[CRON] Found ${b2cPendingLogs.length} B2C pending transactions. Checking status...`);
+      console.log(`[CRON] Found ${b2cPendingLogs.length} B2C pending transactions. Analyzing...`);
       
       for (const log of b2cPendingLogs) {
-        // Only process BillAvenue transactions
-        if (log.metadata?.gateway !== 'BillAvenue') continue;
+        console.log(`\n--- [CRON B2C] Analyzing Pending ID: ${log.id} ---`);
+        console.log(`Amount: ${log.amount}, Provider: ${log.provider}, Service: ${log.service_type}`);
+        console.log(`Metadata:`, JSON.stringify(log.metadata || {}));
+        console.log(`Rejection Reason (Txn Ref):`, log.rejection_reason);
+
+        // Identify if it's BillAvenue
+        const gateway = log.metadata?.gateway;
+        let isBillAvenue = false;
+        if (gateway === 'BillAvenue') {
+          isBillAvenue = true;
+        } else if (log.rejection_reason && String(log.rejection_reason).startsWith('CC01')) {
+          isBillAvenue = true;
+        }
         
-        const requestId = log.metadata?.requestId;
-        if (!requestId) continue;
+        if (!isBillAvenue) {
+           console.log(`-> Skipping ID ${log.id} - Not a BillAvenue transaction.`);
+           continue;
+        }
+        
+        const requestId = log.metadata?.requestId || log.rejection_reason;
+        if (!requestId) {
+           console.log(`-> Skipping ID ${log.id} - No Request ID or Txn Ref ID found.`);
+           continue;
+        }
+        
+        const trackType = String(requestId).startsWith('CC01') ? 'TXN_REF_ID' : 'REQUEST_ID';
 
         try {
-          console.log(`[CRON] Checking B2C status for request ID: ${requestId}`);
-          const statusResult = await getTransactionStatus(requestId, 'REQUEST_ID');
-          const statusResponse = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse;
+          console.log(`-> Checking B2C status via API with ${trackType}: ${requestId}`);
+          const statusResult = await getTransactionStatus(requestId, trackType);
+          console.log(`-> API Response received for ${requestId}. Parsing status...`);
+          
+          const statusResponse = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse || statusResult?.json?.billPayResponse;
           
           if (statusResponse) {
-            const txnStatus = statusResponse.status?.toLowerCase();
+            const txnStatus = statusResponse.status?.toLowerCase() || statusResponse.txnStatus?.toLowerCase();
+            console.log(`-> Parsed status from API: ${txnStatus}`);
+            
             let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
             let mappedSubmissionStatus = 'pending';
             
             if (txnStatus === 'success' || txnStatus === 'approved') {
               mappedStatus = 'success';
               mappedSubmissionStatus = 'approved';
-            } else if (txnStatus === 'failed' || txnStatus === 'rejected') {
+            } else if (txnStatus === 'failed' || txnStatus === 'failure' || txnStatus === 'rejected') {
               mappedStatus = 'failed';
               mappedSubmissionStatus = 'rejected';
             }
 
             if (mappedStatus !== 'pending') {
-              console.log(`[CRON] B2C Transaction ${requestId} status changed to ${mappedStatus}`);
-
-              // Update the billavenue_transactions record
-              await supabaseAdmin
-                .from('billavenue_transactions')
-                .update({
-                  txn_ref_id: statusResponse.txnRefId,
-                  status: mappedStatus,
-                  response: statusResult.json
-                })
-                .eq('request_id', requestId);
+              console.log(`-> Updating B2C Transaction ${requestId} in DB to ${mappedStatus}`);
 
               // Update bbps_submissions and handle refund
               await supabaseAdmin
