@@ -234,6 +234,80 @@ export const getBalance = async (req: Request, res: Response) => {
 };
 
 /**
+ * Check BBPS Transaction Status (Admin/Global trigger)
+ */
+export const checkStatusAdmin = async (req: Request, res: Response): Promise<any> => {
+  const { transaction_id } = req.params;
+
+  if (!transaction_id) {
+    return res.status(400).json({ status: 'error', message: 'Transaction ID is required' });
+  }
+
+  try {
+    const { data: log, error: logError } = await supabaseAdmin
+      .from('b2b_api_logs')
+      .select('*')
+      .eq('endpoint', '/api/b2b/pay-bill')
+      .contains('request_payload', { transaction_id })
+      .single();
+
+    if (logError || !log) {
+      return res.status(404).json({ status: 'error', message: 'Transaction not found in logs' });
+    }
+
+    const statusResult = await billAvenue.getTransactionStatus(transaction_id);
+    let bbpsStatus = statusResult?.json?.transactionStatusRes?.txnStatus?.toUpperCase() || 'UNKNOWN';
+    let localStatus = log.payment_status || 'pending';
+    
+    // If BBPS Status is terminal but our local status is still pending, update it!
+    if (localStatus === 'pending' && (bbpsStatus === 'SUCCESS' || bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE')) {
+      let newStatus = bbpsStatus === 'SUCCESS' ? 'success' : 'failed';
+      let newStatusCode = newStatus === 'success' ? 200 : 500;
+      let chargeDeducted = log.request_payload?.chargeDeducted || 0;
+      let updatedPayload = log.response_payload || {};
+      updatedPayload = { ...updatedPayload, finalStatus: newStatus, payment_status: newStatus };
+
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({ 
+          payment_status: newStatus,
+          status_code: newStatusCode,
+          charge_deducted: newStatus === 'success' ? chargeDeducted : 0,
+          response_payload: updatedPayload
+        })
+        .eq('id', log.id);
+
+      if (newStatus === 'failed') {
+        const refundAmount = log.request_payload?.totalDeduction || 0;
+        if (refundAmount > 0) {
+          await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: log.agent_id, p_amount: refundAmount });
+        }
+      } else if (newStatus === 'success') {
+        if (chargeDeducted > 0) {
+          await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargeDeducted });
+        }
+      }
+      
+      localStatus = newStatus;
+    }
+
+    return res.json({
+      status: 'success',
+      data: {
+        transaction_id,
+        current_status: localStatus,
+        bbps_status: bbpsStatus,
+        polled_at: new Date().toISOString()
+      }
+    });
+
+  } catch (error: any) {
+    console.error('[B2B Admin CheckStatus Error]', error);
+    return res.status(500).json({ status: 'error', message: 'Failed to check transaction status', details: error.message });
+  }
+};
+
+/**
  * Check BBPS Transaction Status
  */
 export const checkStatus = async (req: Request, res: Response): Promise<any> => {
@@ -259,8 +333,45 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
     }
 
     const statusResult = await billAvenue.getTransactionStatus(transaction_id);
-    let bbpsStatus = statusResult?.json?.transactionStatusRes?.txnStatus || 'UNKNOWN';
+    let bbpsStatus = statusResult?.json?.transactionStatusRes?.txnStatus?.toUpperCase() || 'UNKNOWN';
     let localStatus = log.payment_status || 'pending';
+    
+    // If BBPS Status is terminal but our local status is still pending, update it!
+    if (localStatus === 'pending' && (bbpsStatus === 'SUCCESS' || bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE')) {
+      let newStatus = bbpsStatus === 'SUCCESS' ? 'success' : 'failed';
+      let newStatusCode = newStatus === 'success' ? 200 : 500;
+      let chargeDeducted = log.request_payload?.chargeDeducted || 0;
+      let updatedPayload = log.response_payload || {};
+      updatedPayload = { ...updatedPayload, finalStatus: newStatus, payment_status: newStatus };
+
+      // Update the b2b_api_logs record
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({ 
+          payment_status: newStatus,
+          status_code: newStatusCode,
+          charge_deducted: newStatus === 'success' ? chargeDeducted : 0,
+          response_payload: updatedPayload
+        })
+        .eq('id', log.id);
+
+      // Handle Wallets & Profits
+      if (newStatus === 'failed') {
+        const refundAmount = log.request_payload?.totalDeduction || 0;
+        if (refundAmount > 0) {
+          await supabaseAdmin.rpc('add_b2b_wallet_balance', {
+            p_agent_id: log.agent_id,
+            p_amount: refundAmount
+          });
+        }
+      } else if (newStatus === 'success') {
+        if (chargeDeducted > 0) {
+          await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargeDeducted });
+        }
+      }
+      
+      localStatus = newStatus;
+    }
 
     return res.json({
       status: 'success',

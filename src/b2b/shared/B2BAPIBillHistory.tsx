@@ -4,6 +4,7 @@ import { Activity, Clock, CheckCircle2, XCircle, FileText, Search, CreditCard } 
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
+import { RefreshCw } from 'lucide-react';
 
 interface B2BAPIBillHistoryProps {
   isAdmin: boolean;
@@ -28,6 +29,23 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
   useEffect(() => {
     fetchLogs();
+
+    // Enable Supabase Realtime
+    const channel = supabase
+      .channel('b2b_api_logs_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'b2b_api_logs' },
+        (payload) => {
+          console.log('Realtime change received:', payload);
+          fetchLogs(); // Auto refresh when data changes
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [isAdmin, agentId]);
 
   const fetchLogs = async () => {
@@ -79,6 +97,38 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     } catch (err: any) {
       console.error('Error updating status:', err);
       alert('Error updating status: ' + (err.message || 'Unknown error'));
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const handleLiveCheck = async (log: LogEntry) => {
+    try {
+      const transactionId = log.request_payload?.transaction_id || log.request_payload?.requestId || log.response_payload?.transaction_id;
+      if (!transactionId) {
+        alert('Transaction ID not found for this log.');
+        return;
+      }
+
+      setUpdatingStatus(log.id);
+      
+      // Use the API route URL directly. Depending on env, use relative path.
+      // Assuming frontend and backend run on same domain or API URL is configured.
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      
+      const res = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+        alert(`Current BBPS Status: ${data.data.bbps_status}\nOur DB was updated automatically!`);
+        fetchLogs();
+      } else {
+        alert(`Failed: ${data.message}`);
+      }
+
+    } catch (error: any) {
+      console.error('Live check error:', error);
+      alert('Error checking status online');
     } finally {
       setUpdatingStatus(null);
     }
@@ -236,6 +286,17 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                         <div className="flex items-center justify-end gap-2">
                           {isAdmin && (
                             <>
+                              {statusInfo.text === 'Pending' && (
+                                <button 
+                                  onClick={() => handleLiveCheck(log)}
+                                  disabled={updatingStatus === log.id}
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors mr-1"
+                                  title="Check Live BBPS Status"
+                                >
+                                  {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                  <span>Check</span>
+                                </button>
+                              )}
                               <button 
                                 onClick={() => handleStatusChange(log.id, 'success')}
                                 disabled={updatingStatus === log.id || statusInfo.text === 'Success'}

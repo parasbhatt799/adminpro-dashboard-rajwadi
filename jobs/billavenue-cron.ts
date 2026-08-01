@@ -55,13 +55,29 @@ cron.schedule('*/10 * * * *', async () => {
         if (newStatus !== 'pending') {
           console.log(`[CRON] Transaction ${transactionId} status changed to ${newStatus}`);
           
+          // Determine status code and charge
+          let newStatusCode = 200; // Success code by default
+          let chargeDeducted = log.request_payload?.chargeDeducted || 0;
+          let updatedPayload = log.response_payload || {};
+          
+          updatedPayload = { ...updatedPayload, finalStatus: newStatus, payment_status: newStatus };
+
+          if (newStatus === 'failed') {
+            newStatusCode = 500;
+          }
+
           // Update the b2b_api_logs record
           await supabaseAdmin
             .from('b2b_api_logs')
-            .update({ payment_status: newStatus })
+            .update({ 
+              payment_status: newStatus,
+              status_code: newStatusCode,
+              charge_deducted: newStatus === 'success' ? chargeDeducted : 0,
+              response_payload: updatedPayload
+            })
             .eq('id', log.id);
 
-          // If failed, refund the wallet
+          // Handle Wallets & Profits
           if (newStatus === 'failed') {
             const refundAmount = log.request_payload?.totalDeduction || 0;
             if (refundAmount > 0) {
@@ -70,6 +86,11 @@ cron.schedule('*/10 * * * *', async () => {
                 p_amount: refundAmount
               });
               console.log(`[CRON] Refunded ₹${refundAmount} to agent ${log.agent_id} for failed transaction ${transactionId}`);
+            }
+          } else if (newStatus === 'success') {
+            if (chargeDeducted > 0) {
+              await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargeDeducted });
+              console.log(`[CRON] Credited ₹${chargeDeducted} to admin balance for successful transaction ${transactionId}`);
             }
           }
 

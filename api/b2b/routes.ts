@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { b2bAuthMiddleware } from './middleware';
-import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus } from './controller';
+import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus, checkStatusAdmin } from './controller';
 
 const router = Router();
 
@@ -15,6 +15,9 @@ router.use((req, res, next) => {
   }
   next();
 });
+
+// Admin/Global route to trigger status check (does not require agent auth)
+router.get('/admin/status/:transaction_id', checkStatusAdmin);
 
 // Apply B2B Auth Middleware to all B2B routes
 router.use(b2bAuthMiddleware);
