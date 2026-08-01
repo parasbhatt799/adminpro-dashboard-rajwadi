@@ -7,7 +7,7 @@ DECLARE
   v_log RECORD;
   v_current_status TEXT;
   v_total_deduction NUMERIC;
-  v_agent_id TEXT;
+  v_agent_id UUID;
   v_res JSONB;
 BEGIN
   -- Fetch the log and lock it
@@ -18,7 +18,7 @@ BEGIN
   END IF;
 
   v_current_status := v_log.response_payload->>'payment_status';
-  v_agent_id := v_log.agent_id;
+  v_agent_id := v_log.agent_id::UUID;
   
   -- Extract totalDeduction or amount from request_payload
   v_total_deduction := (v_log.request_payload->>'totalDeduction')::NUMERIC;
