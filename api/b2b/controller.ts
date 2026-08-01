@@ -256,7 +256,20 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
     }
 
     const statusResult = await billAvenue.getTransactionStatus(transaction_id);
-    let bbpsStatus = statusResult?.json?.transactionStatusRes?.txnStatus?.toUpperCase() || 'UNKNOWN';
+    let bbpsStatus = 'UNKNOWN';
+    
+    if (statusResult?.json) {
+       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes;
+       if (root) {
+         if (root.responseCode !== '000') {
+           bbpsStatus = 'FAILED';
+         } else {
+           const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
+           bbpsStatus = txnList?.txnStatus?.toUpperCase() || 'UNKNOWN';
+         }
+       }
+    }
+    
     let localStatus = log.payment_status || 'pending';
     
     // If BBPS Status is terminal but our local status is still pending, update it!
@@ -333,7 +346,19 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
     }
 
     const statusResult = await billAvenue.getTransactionStatus(transaction_id);
-    let bbpsStatus = statusResult?.json?.transactionStatusRes?.txnStatus?.toUpperCase() || 'UNKNOWN';
+    let bbpsStatus = 'UNKNOWN';
+    
+    if (statusResult?.json) {
+       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes;
+       if (root) {
+         if (root.responseCode !== '000') {
+           bbpsStatus = 'FAILED';
+         } else {
+           const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
+           bbpsStatus = txnList?.txnStatus?.toUpperCase() || 'UNKNOWN';
+         }
+       }
+    }
     let localStatus = log.payment_status || 'pending';
     
     // If BBPS Status is terminal but our local status is still pending, update it!

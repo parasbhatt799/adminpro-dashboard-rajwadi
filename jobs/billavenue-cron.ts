@@ -43,12 +43,21 @@ cron.schedule('*/10 * * * *', async () => {
         let newStatus = 'pending';
         let bbpsStatus = '';
 
-        if (statusResult?.json?.transactionStatusRes) {
-           bbpsStatus = statusResult.json.transactionStatusRes.txnStatus?.toUpperCase() || '';
-           if (bbpsStatus === 'SUCCESS') {
-             newStatus = 'success';
-           } else if (bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE') {
-             newStatus = 'failed';
+        if (statusResult?.json) {
+           const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes;
+           if (root) {
+             if (root.responseCode !== '000') {
+               bbpsStatus = 'FAILED';
+             } else {
+               const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
+               bbpsStatus = txnList?.txnStatus?.toUpperCase() || '';
+             }
+             
+             if (bbpsStatus === 'SUCCESS') {
+               newStatus = 'success';
+             } else if (bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE') {
+               newStatus = 'failed';
+             }
            }
         }
 
@@ -188,10 +197,20 @@ cron.schedule('*/10 * * * *', async () => {
           const statusResult = await getTransactionStatus(String(referenceId), trackType);
           console.log(`-> API Response received for ${referenceId}. Parsing status...`);
           
-          const statusResponse = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse || statusResult?.json?.billPayResponse;
+          const root = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse || statusResult?.json?.transactionStatusRes;
           
-          if (statusResponse) {
-            const txnStatus = statusResponse.status?.toLowerCase() || statusResponse.txnStatus?.toLowerCase();
+          if (root) {
+            let txnStatus = '';
+            let txnReferenceId = referenceId;
+
+            if (root.responseCode !== '000') {
+              txnStatus = 'failed';
+            } else {
+              const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
+              txnStatus = txnList?.txnStatus?.toLowerCase() || '';
+              txnReferenceId = txnList?.txnReferenceId || referenceId;
+            }
+            
             console.log(`-> Parsed status from API: ${txnStatus}`);
             
             let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
@@ -213,7 +232,7 @@ cron.schedule('*/10 * * * *', async () => {
                 .from("bbps_submissions")
                 .update({
                   status: mappedSubmissionStatus,
-                  rejection_reason: statusResponse.txnRefId || referenceId
+                  rejection_reason: txnReferenceId
                 })
                 .eq("id", log.id);
 
