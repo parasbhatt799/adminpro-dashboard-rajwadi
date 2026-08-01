@@ -56,7 +56,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   };
 
   const handleStatusChange = async (logId: string, newStatus: 'success' | 'failed') => {
-    if (!confirm(`Are you sure you want to mark this bill as ${newStatus.toUpperCase()}?\n${newStatus === 'failed' ? 'The agent\\'s wallet will be refunded.' : ''}`)) return;
+    const promptMsg = newStatus === 'failed' 
+      ? `Are you sure you want to mark this bill as FAILED?\nThe agent's wallet will be refunded.` 
+      : `Are you sure you want to mark this bill as SUCCESS?`;
+    if (!confirm(promptMsg)) return;
     
     try {
       setUpdatingStatus(logId);
