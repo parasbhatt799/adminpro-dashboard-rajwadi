@@ -35,6 +35,7 @@ cron.schedule('*/10 * * * *', async () => {
     for (const log of pendingLogs) {
       const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
       const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
+      const transactionId = log.request_payload?.transaction_id || log.id;
       
       // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
       if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {

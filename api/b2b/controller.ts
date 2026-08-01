@@ -273,7 +273,7 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
        const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
        if (root) {
          if (root.responseCode !== '000') {
-           console.warn(`[B2B Admin CheckStatus] Non-000 response code (${root.responseCode}) received for ${targetId}`);
+           console.warn(`[B2B Admin CheckStatus] Non-000 response code (${root.responseCode}) received for ${transaction_id}`);
            bbpsStatus = 'PENDING';
          } else {
            const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
@@ -375,7 +375,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
        const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
        if (root) {
          if (root.responseCode !== '000') {
-           console.warn(`[B2B CheckStatus] Non-000 response code (${root.responseCode}) received for ${targetId}`);
+           console.warn(`[B2B CheckStatus] Non-000 response code (${root.responseCode}) received for ${transaction_id}`);
            bbpsStatus = 'PENDING';
          } else {
            const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
