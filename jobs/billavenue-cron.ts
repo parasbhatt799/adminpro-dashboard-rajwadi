@@ -153,11 +153,13 @@ cron.schedule('*/10 * * * *', async () => {
     // ==========================================
     // 2. Process B2C Transactions (Main App)
     // ==========================================
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    
     const { data: b2cPendingLogs, error: b2cError } = await supabaseAdmin
-      .from('billavenue_transactions')
+      .from('bbps_submissions')
       .select('*')
       .eq('status', 'pending')
-      .lt('created_at', fifteenMinutesAgo);
+      .lt('created_at', fiveMinutesAgo);
 
     if (b2cError) {
       console.error('[CRON] Error fetching B2C pending transactions:', b2cError);
@@ -165,7 +167,10 @@ cron.schedule('*/10 * * * *', async () => {
       console.log(`[CRON] Found ${b2cPendingLogs.length} B2C pending transactions. Checking status...`);
       
       for (const log of b2cPendingLogs) {
-        const requestId = log.request_id;
+        // Only process BillAvenue transactions
+        if (log.metadata?.gateway !== 'BillAvenue') continue;
+        
+        const requestId = log.metadata?.requestId;
         if (!requestId) continue;
 
         try {
@@ -200,40 +205,32 @@ cron.schedule('*/10 * * * *', async () => {
                 .eq('request_id', requestId);
 
               // Update bbps_submissions and handle refund
-              const { data: existingSubmission } = await supabaseAdmin
+              await supabaseAdmin
                 .from("bbps_submissions")
-                .select("id, status, user_id, metadata")
-                .eq("metadata->>requestId", requestId)
-                .maybeSingle();
+                .update({
+                  status: mappedSubmissionStatus,
+                  rejection_reason: statusResponse.txnRefId || requestId
+                })
+                .eq("id", log.id);
 
-              if (existingSubmission) {
-                await supabaseAdmin
-                  .from("bbps_submissions")
-                  .update({
-                    status: mappedSubmissionStatus,
-                    rejection_reason: statusResponse.txnRefId || requestId
-                  })
-                  .eq("id", existingSubmission.id);
-
-                // Refund Logic if Failed
-                if (existingSubmission.status === 'pending' && mappedSubmissionStatus === 'rejected') {
-                  const totalDeducted = existingSubmission.metadata?.totalDeducted;
-                  if (totalDeducted && typeof totalDeducted === 'number') {
-                    const { data: userProfile } = await supabaseAdmin
+              // Refund Logic if Failed
+              if (mappedSubmissionStatus === 'rejected') {
+                const totalDeducted = log.metadata?.totalDeducted || (Number(log.amount) + Number(log.charges));
+                if (totalDeducted && typeof totalDeducted === 'number' && !isNaN(totalDeducted)) {
+                  const { data: userProfile } = await supabaseAdmin
+                    .from("users_profiles")
+                    .select("wallet_balance")
+                    .eq("id", log.user_id)
+                    .single();
+                  
+                  if (userProfile) {
+                    const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
+                    await supabaseAdmin
                       .from("users_profiles")
-                      .select("wallet_balance")
-                      .eq("id", existingSubmission.user_id)
-                      .single();
-                    
-                    if (userProfile) {
-                      const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
-                      await supabaseAdmin
-                        .from("users_profiles")
-                        .update({ wallet_balance: refundedBalance })
-                        .eq("id", existingSubmission.user_id);
-                        
-                      console.log(`[CRON] Refunded ₹${totalDeducted} to user ${existingSubmission.user_id} for failed B2C transaction ${requestId}`);
-                    }
+                      .update({ wallet_balance: refundedBalance })
+                      .eq("id", log.user_id);
+                      
+                    console.log(`[CRON] Refunded ₹${totalDeducted} to user ${log.user_id} for failed B2C transaction ${requestId}`);
                   }
                 }
               }
