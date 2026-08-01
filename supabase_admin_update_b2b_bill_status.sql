@@ -7,6 +7,7 @@ DECLARE
   v_log RECORD;
   v_current_status TEXT;
   v_total_deduction NUMERIC;
+  v_charge_deducted NUMERIC;
   v_agent_id UUID;
   v_res JSONB;
 BEGIN
@@ -26,6 +27,12 @@ BEGIN
     v_total_deduction := (v_log.request_payload->>'amount')::NUMERIC;
   END IF;
 
+  -- Extract charge_deducted (API charge / Admin Profit)
+  v_charge_deducted := (v_log.request_payload->>'chargeDeducted')::NUMERIC;
+  IF v_charge_deducted IS NULL THEN
+    v_charge_deducted := 0;
+  END IF;
+
   -- Ensure we have an amount if we need to refund
   IF v_total_deduction IS NULL OR v_total_deduction <= 0 THEN
     -- Try to fallback to response_payload billAmount if missing
@@ -39,11 +46,15 @@ BEGIN
     RETURN json_build_object('success', false, 'message', 'Status is already ' || p_status);
   END IF;
 
-  -- Wallet Logic
+  -- Wallet & Profit Logic
   IF p_status = 'failed' THEN
     IF v_current_status = 'success' THEN
-        -- It was success, now changing to failed. Need to refund.
+        -- It was success, now changing to failed. Need to refund agent.
         PERFORM add_b2b_wallet_balance(v_agent_id, v_total_deduction);
+        -- Revert the admin profit (subtract the charge)
+        IF v_charge_deducted > 0 THEN
+            PERFORM add_admin_balance(-v_charge_deducted);
+        END IF;
     ELSIF v_current_status = 'pending' OR v_current_status IS NULL THEN
         -- It was pending (money was already deducted when placed), need to refund.
         PERFORM add_b2b_wallet_balance(v_agent_id, v_total_deduction);
@@ -52,8 +63,17 @@ BEGIN
     IF v_current_status = 'failed' THEN
         -- It was failed (and refunded previously). Now changing back to success. Need to deduct again.
         PERFORM deduct_b2b_wallet_balance(v_agent_id, v_total_deduction);
+        -- Add admin profit
+        IF v_charge_deducted > 0 THEN
+            PERFORM add_admin_balance(v_charge_deducted);
+        END IF;
+    ELSIF v_current_status = 'pending' OR v_current_status IS NULL THEN
+        -- If it was pending, money was already deducted from agent, so do nothing to agent wallet.
+        -- BUT we need to credit the admin profit now.
+        IF v_charge_deducted > 0 THEN
+            PERFORM add_admin_balance(v_charge_deducted);
+        END IF;
     END IF;
-    -- If it was pending, money was already deducted, so do nothing to wallet.
   END IF;
 
   -- Update the response payload to reflect the new status

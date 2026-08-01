@@ -459,6 +459,11 @@ export const payBill = async (req: Request, res: Response) => {
       // Only log the charge as deducted if payment is successful
       if (finalStatus === 'success') {
         updatePayload.charge_deducted = chargePerBill;
+        // Credit the API charge to the Admin's Profit Balance
+        if (chargePerBill > 0) {
+          await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargePerBill });
+          console.log(`[B2B PayBill - ADMIN PROFIT] Credited ₹${chargePerBill} to admin balance for successful bill.`);
+        }
       }
       await supabaseAdmin.from('b2b_api_logs').update(updatePayload).eq('id', logId);
     }
