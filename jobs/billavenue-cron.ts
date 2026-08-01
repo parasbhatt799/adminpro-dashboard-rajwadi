@@ -213,7 +213,7 @@ cron.schedule('*/10 * * * *', async () => {
                 .from("bbps_submissions")
                 .update({
                   status: mappedSubmissionStatus,
-                  rejection_reason: statusResponse.txnRefId || requestId
+                  rejection_reason: statusResponse.txnRefId || referenceId
                 })
                 .eq("id", log.id);
 
