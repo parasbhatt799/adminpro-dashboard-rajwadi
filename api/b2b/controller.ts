@@ -257,10 +257,16 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
 
     const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
     const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
-    const targetId = cc01RefId || transaction_id;
-    const trackType = String(targetId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+    
+    // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
+    if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
+      return res.status(400).json({
+        status: 'error',
+        message: `BillAvenue CC01 Transaction Reference ID not found for transaction ${transaction_id}. Status check is only supported via CC01 ID.`
+      });
+    }
 
-    const statusResult = await billAvenue.getTransactionStatus(String(targetId), trackType);
+    const statusResult = await billAvenue.getTransactionStatus(String(cc01RefId), 'TRANS_REF_ID');
     let bbpsStatus = 'UNKNOWN';
     
     if (statusResult?.json) {
@@ -353,10 +359,16 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
 
     const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
     const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
-    const targetId = cc01RefId || transaction_id;
-    const trackType = String(targetId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+    
+    // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
+    if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
+      return res.status(400).json({
+        status: 'error',
+        message: `BillAvenue CC01 Transaction Reference ID not found for transaction ${transaction_id}. Status check is only supported via CC01 ID.`
+      });
+    }
 
-    const statusResult = await billAvenue.getTransactionStatus(String(targetId), trackType);
+    const statusResult = await billAvenue.getTransactionStatus(String(cc01RefId), 'TRANS_REF_ID');
     let bbpsStatus = 'UNKNOWN';
     
     if (statusResult?.json) {
