@@ -190,7 +190,7 @@ cron.schedule('*/10 * * * *', async () => {
            continue;
         }
         
-        const trackType = 'TXN_REF_ID';
+        const trackType = 'TRANS_REF_ID';
 
         try {
           console.log(`-> Checking B2C status via API with ${trackType}: ${referenceId}`);
