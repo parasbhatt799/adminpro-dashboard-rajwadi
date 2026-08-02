@@ -46,11 +46,11 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
           setLoading(false);
         } else {
           localStorage.setItem('b2bAdminId', adminUser.id);
-          // Trigger Rocket Launch Animation
+          // Trigger Rocket Launch Animation (Orbit around screen then blast off)
           setIsLaunching(true);
           setTimeout(() => {
             navigate('/b2b/admin');
-          }, 2400);
+          }, 3100);
         }
       } else {
         // Agent Login - Check b2b_api_credentials
@@ -69,11 +69,11 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
           setLoading(false);
         } else {
           localStorage.setItem('b2bAgentId', b2bCred.id);
-          // Trigger Rocket Launch Animation
+          // Trigger Rocket Launch Animation (Orbit around screen then blast off)
           setIsLaunching(true);
           setTimeout(() => {
             navigate('/b2b/agent');
-          }, 2400);
+          }, 3100);
         }
       }
     } catch (err) {
@@ -104,33 +104,33 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
         </svg>
       </div>
 
-      {/* Rocket Launch Overlay Animation (with 360 Spin Loop & Blast Off) */}
+      {/* Rocket Launch Overlay Animation (Full Orbital Circle Around Login Card) */}
       <AnimatePresence>
         {isLaunching && (
           <motion.div
-            initial={{ y: 120, scale: 0.8, opacity: 1, rotate: -20 }}
+            initial={{ x: 0, y: 240, scale: 0.9, opacity: 1, rotate: 0 }}
             animate={{ 
-              y: [120, -30, -120, -1100], 
-              x: [0, -40, 40, 0],
-              scale: [0.9, 1.2, 1.6, 3.2], 
-              rotate: [-20, 160, 340, 325],
-              opacity: [1, 1, 1, 0] 
+              x: [0, 280, 0, -280, 100, -300], 
+              y: [240, 0, -260, 0, 180, -1300],
+              scale: [0.9, 1.1, 1.3, 1.2, 1.5, 4.2], 
+              rotate: [0, -90, -180, -270, -315, -315],
+              opacity: [1, 1, 1, 1, 1, 0] 
             }}
             exit={{ opacity: 0 }}
             transition={{ 
-              duration: 2.3, 
-              times: [0, 0.35, 0.65, 1],
+              duration: 3.0, 
+              times: [0, 0.22, 0.44, 0.66, 0.8, 1],
               ease: "easeInOut" 
             }}
             className="fixed z-50 pointer-events-none flex flex-col items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
           >
             <div className="relative flex flex-col items-center">
-              <Rocket className="h-24 w-24 text-white drop-shadow-[0_0_40px_rgba(192,132,252,1)]" />
-              {/* Glowing Rocket Flame */}
+              <Rocket className="h-24 w-24 text-white drop-shadow-[0_0_45px_rgba(192,132,252,1)]" />
+              {/* Glowing Rocket Flame & Trail */}
               <motion.div
                 animate={{ scaleY: [1, 1.8, 1], opacity: [0.9, 1, 0.9] }}
-                transition={{ repeat: Infinity, duration: 0.15 }}
-                className="w-6 h-20 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent rounded-full -mt-2 blur-[2px] shadow-[0_0_30px_#f97316]"
+                transition={{ repeat: Infinity, duration: 0.12 }}
+                className="w-6 h-24 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent rounded-full -mt-2 blur-[2px] shadow-[0_0_35px_#f97316]"
               />
             </div>
           </motion.div>
