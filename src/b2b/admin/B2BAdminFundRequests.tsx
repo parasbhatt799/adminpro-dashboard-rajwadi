@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar } from 'lucide-react';
+import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { format } from 'date-fns';
 
@@ -125,8 +125,47 @@ export default function B2BAdminFundRequests() {
     return matchesSearch && matchesDate;
   });
 
+  // Calculate summary metrics
+  const stats = useMemo(() => {
+    let approvedCount = 0;
+    let approvedAmount = 0;
+    let pendingCount = 0;
+    let pendingAmount = 0;
+    let rejectedCount = 0;
+    let rejectedAmount = 0;
+
+    filteredRequests.forEach(req => {
+      const amt = Number(req.amount || 0);
+      if (req.status === 'approved') {
+        approvedCount++;
+        approvedAmount += amt;
+      } else if (req.status === 'pending') {
+        pendingCount++;
+        pendingAmount += amt;
+      } else if (req.status === 'rejected') {
+        rejectedCount++;
+        rejectedAmount += amt;
+      }
+    });
+
+    const totalCount = filteredRequests.length;
+    const totalAmount = approvedAmount + pendingAmount + rejectedAmount;
+
+    return {
+      approvedCount,
+      approvedAmount,
+      pendingCount,
+      pendingAmount,
+      rejectedCount,
+      rejectedAmount,
+      totalCount,
+      totalAmount
+    };
+  }, [filteredRequests]);
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -134,6 +173,85 @@ export default function B2BAdminFundRequests() {
             Fund Load Requests
           </h2>
           <p className="text-slate-600">Approve or reject B2B API agent top-ups.</p>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Approved Card */}
+        <div className="bg-white border border-emerald-200 rounded-2xl p-5 shadow-sm relative overflow-hidden group hover:border-emerald-300 transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Approved Amount</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-slate-900 tracking-tight mb-1">
+            ₹ {stats.approvedAmount.toLocaleString('en-IN')}
+          </div>
+          <div className="text-xs text-slate-500 flex items-center justify-between">
+            <span>Approved Count</span>
+            <span className="font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              {stats.approvedCount} Requests
+            </span>
+          </div>
+        </div>
+
+        {/* Pending Card */}
+        <div className="bg-white border border-amber-200 rounded-2xl p-5 shadow-sm relative overflow-hidden group hover:border-amber-300 transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-amber-700 uppercase tracking-wider">Pending Amount</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-amber-600" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-slate-900 tracking-tight mb-1">
+            ₹ {stats.pendingAmount.toLocaleString('en-IN')}
+          </div>
+          <div className="text-xs text-slate-500 flex items-center justify-between">
+            <span>Pending Count</span>
+            <span className="font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+              {stats.pendingCount} Requests
+            </span>
+          </div>
+        </div>
+
+        {/* Rejected Card */}
+        <div className="bg-white border border-red-200 rounded-2xl p-5 shadow-sm relative overflow-hidden group hover:border-red-300 transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-red-700 uppercase tracking-wider">Rejected Amount</span>
+            <div className="w-9 h-9 rounded-xl bg-red-50 border border-red-200 flex items-center justify-center">
+              <XCircle className="w-5 h-5 text-red-600" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-slate-900 tracking-tight mb-1">
+            ₹ {stats.rejectedAmount.toLocaleString('en-IN')}
+          </div>
+          <div className="text-xs text-slate-500 flex items-center justify-between">
+            <span>Rejected Count</span>
+            <span className="font-bold text-red-700 bg-red-50 px-2.5 py-0.5 rounded-full border border-red-200">
+              {stats.rejectedCount} Requests
+            </span>
+          </div>
+        </div>
+
+        {/* Total Volume Card */}
+        <div className="bg-white border border-indigo-200 rounded-2xl p-5 shadow-sm relative overflow-hidden group hover:border-indigo-300 transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-indigo-700 uppercase tracking-wider">Total Requested</span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center">
+              <Wallet className="w-5 h-5 text-indigo-600" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-slate-900 tracking-tight mb-1">
+            ₹ {stats.totalAmount.toLocaleString('en-IN')}
+          </div>
+          <div className="text-xs text-slate-500 flex items-center justify-between">
+            <span>Total Requests</span>
+            <span className="font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-200">
+              {stats.totalCount} Requests
+            </span>
+          </div>
         </div>
       </div>
 
