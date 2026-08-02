@@ -81,6 +81,7 @@ export default function B2BAgentLayout() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             
+            <div className="flex items-center gap-6">
               <Link to="/b2b/agent/dashboard" className="flex items-center gap-3">
                 <img src="/logo.png" alt="Logo" className="h-10 max-h-12 object-contain" />
               </Link>
