@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Activity, Clock, CheckCircle2, XCircle, FileText, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -257,6 +257,48 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     return matchesDate && matchesStatus && matchesAmount && matchesTxnId && matchesSearch;
   });
 
+  // Calculate summary metrics for current filtered logs
+  const stats = useMemo(() => {
+    let successCount = 0;
+    let successAmount = 0;
+    let pendingCount = 0;
+    let pendingAmount = 0;
+    let failedCount = 0;
+    let failedAmount = 0;
+
+    filteredLogs.forEach(log => {
+      const reqBody = log.request_payload || log.request_body || {};
+      const resBody = log.response_payload || log.response_body || {};
+      const amt = Number(reqBody.amount || 0);
+      const statusInfo = getStatusInfo(log.status_code, resBody);
+
+      if (statusInfo.text === 'Success') {
+        successCount++;
+        successAmount += amt;
+      } else if (statusInfo.text === 'Pending') {
+        pendingCount++;
+        pendingAmount += amt;
+      } else {
+        failedCount++;
+        failedAmount += amt;
+      }
+    });
+
+    const totalCount = filteredLogs.length;
+    const totalAmount = successAmount + pendingAmount + failedAmount;
+
+    return {
+      successCount,
+      successAmount,
+      pendingCount,
+      pendingAmount,
+      failedCount,
+      failedAmount,
+      totalCount,
+      totalAmount
+    };
+  }, [filteredLogs]);
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Page Title Header */}
@@ -267,6 +309,89 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             API Bill Payments History
           </h2>
           <p className="text-slate-400">View detailed history of all bill payments processed via the B2B API.</p>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Success Card */}
+        <div className="bg-slate-800/90 border border-emerald-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Success Payments</span>
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <CheckCircle2 className="w-5 h-5 text-emerald-400" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white tracking-tight mb-1">
+            ₹ {stats.successAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-slate-400 flex items-center justify-between">
+            <span>Successful Count</span>
+            <span className="font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+              {stats.successCount} Entries
+            </span>
+          </div>
+        </div>
+
+        {/* Pending Card */}
+        <div className="bg-slate-800/90 border border-amber-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-amber-500/40 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-all"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Pending Payments</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Clock className="w-5 h-5 text-amber-400" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white tracking-tight mb-1">
+            ₹ {stats.pendingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-slate-400 flex items-center justify-between">
+            <span>Pending Count</span>
+            <span className="font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+              {stats.pendingCount} Entries
+            </span>
+          </div>
+        </div>
+
+        {/* Failed Card */}
+        <div className="bg-slate-800/90 border border-rose-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-rose-500/40 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/5 rounded-full blur-xl group-hover:bg-rose-500/10 transition-all"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-rose-400 uppercase tracking-wider">Failed Payments</span>
+            <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+              <XCircle className="w-5 h-5 text-rose-400" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white tracking-tight mb-1">
+            ₹ {stats.failedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-slate-400 flex items-center justify-between">
+            <span>Failed Count</span>
+            <span className="font-bold text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-full border border-rose-500/20">
+              {stats.failedCount} Entries
+            </span>
+          </div>
+        </div>
+
+        {/* Total Volume Card */}
+        <div className="bg-slate-800/90 border border-indigo-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/5 rounded-full blur-xl group-hover:bg-indigo-500/10 transition-all"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Total Volume</span>
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+              <CreditCard className="w-5 h-5 text-indigo-400" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-white tracking-tight mb-1">
+            ₹ {stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-slate-400 flex items-center justify-between">
+            <span>Total Entries</span>
+            <span className="font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
+              {stats.totalCount} Entries
+            </span>
+          </div>
         </div>
       </div>
 
