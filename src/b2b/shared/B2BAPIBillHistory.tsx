@@ -25,7 +25,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all'>('today');
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
   const [amountFilter, setAmountFilter] = useState('');
   const [txnIdFilter, setTxnIdFilter] = useState('');
@@ -198,6 +199,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     if (filter === 'thisMonth') {
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       return createdDate >= firstDayOfMonth;
+    }
+
+    if (filter === 'custom') {
+      if (!customRange.start && !customRange.end) return true;
+      const start = customRange.start ? new Date(`${customRange.start}T00:00:00`) : new Date(0);
+      const end = customRange.end ? new Date(`${customRange.end}T23:59:59.999`) : new Date();
+      return createdDate >= start && createdDate <= end;
     }
     
     return true;
@@ -414,9 +422,34 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <option value="7days">Last 7 Days</option>
               <option value="30days">Last 30 Days</option>
               <option value="thisMonth">This Month</option>
+              <option value="custom">Custom Range</option>
               <option value="all">All Time</option>
             </select>
           </div>
+
+          {/* Custom Date Range Inputs */}
+          {dateFilter === 'custom' && (
+            <div className="col-span-full grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-900/60 p-3 rounded-xl border border-slate-700/80">
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-400 font-semibold uppercase block">From Date</label>
+                <input
+                  type="date"
+                  value={customRange.start}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-400 font-semibold uppercase block">To Date</label>
+                <input
+                  type="date"
+                  value={customRange.end}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-1.5 px-3 text-xs text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Status Filter Dropdown */}
           <div className="space-y-1">

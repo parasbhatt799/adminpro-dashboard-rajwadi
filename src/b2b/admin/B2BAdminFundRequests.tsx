@@ -11,7 +11,8 @@ export default function B2BAdminFundRequests() {
   const [requests, setRequests] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all'>('today');
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
+  const [customRange, setCustomRange] = useState({ start: '', end: '' });
 
   useEffect(() => {
     fetchRequests();
@@ -105,6 +106,13 @@ export default function B2BAdminFundRequests() {
     if (filter === 'thisMonth') {
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       return createdDate >= firstDayOfMonth;
+    }
+
+    if (filter === 'custom') {
+      if (!customRange.start && !customRange.end) return true;
+      const start = customRange.start ? new Date(`${customRange.start}T00:00:00`) : new Date(0);
+      const end = customRange.end ? new Date(`${customRange.end}T23:59:59.999`) : new Date();
+      return createdDate >= start && createdDate <= end;
     }
     
     return true;
@@ -281,6 +289,7 @@ export default function B2BAdminFundRequests() {
                 <option value="7days">Last 7 Days</option>
                 <option value="30days">Last 30 Days</option>
                 <option value="thisMonth">This Month</option>
+                <option value="custom">Custom Range</option>
                 <option value="all">All Time</option>
               </select>
             </div>
@@ -297,6 +306,30 @@ export default function B2BAdminFundRequests() {
               <option value="rejected">Rejected</option>
             </select>
           </div>
+
+          {/* Custom Date Range Inputs */}
+          {dateFilter === 'custom' && (
+            <div className="w-full flex flex-col sm:flex-row gap-3 pt-3 border-t border-slate-200">
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">From Date</label>
+                <input
+                  type="date"
+                  value={customRange.start}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, start: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500 bg-white"
+                />
+              </div>
+              <div className="flex-1 space-y-1">
+                <label className="text-xs font-semibold text-slate-500 uppercase">To Date</label>
+                <input
+                  type="date"
+                  value={customRange.end}
+                  onChange={(e) => setCustomRange(prev => ({ ...prev, end: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-700 focus:ring-2 focus:ring-indigo-500 bg-white"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="overflow-x-auto">
