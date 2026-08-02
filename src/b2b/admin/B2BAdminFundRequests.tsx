@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, Check, X, Search, Clock, ExternalLink } from 'lucide-react';
+import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { format } from 'date-fns';
 
@@ -11,6 +11,7 @@ export default function B2BAdminFundRequests() {
   const [requests, setRequests] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all'>('today');
 
   useEffect(() => {
     fetchRequests();
@@ -69,15 +70,59 @@ export default function B2BAdminFundRequests() {
     }
   };
 
+  const checkDateFilter = (createdAtStr: string, filter: string) => {
+    if (filter === 'all') return true;
+    
+    const createdDate = new Date(createdAtStr);
+    const now = new Date();
+    
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    
+    if (filter === 'today') {
+      return createdDate >= todayStart && createdDate <= todayEnd;
+    }
+    
+    if (filter === 'yesterday') {
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const yesterdayEnd = new Date(todayStart.getTime() - 1);
+      return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
+    }
+    
+    if (filter === '7days') {
+      const sevenDaysAgo = new Date(todayStart);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return createdDate >= sevenDaysAgo;
+    }
+    
+    if (filter === '30days') {
+      const thirtyDaysAgo = new Date(todayStart);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return createdDate >= thirtyDaysAgo;
+    }
+    
+    if (filter === 'thisMonth') {
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return createdDate >= firstDayOfMonth;
+    }
+    
+    return true;
+  };
+
   const filteredRequests = requests.filter(req => {
     const term = searchTerm.toLowerCase();
     const cred = req.b2b_api_credentials;
-    return (
+    const matchesSearch = (
       req.utr_number?.toLowerCase().includes(term) ||
       cred?.b2b_login_id?.toLowerCase().includes(term) ||
       cred?.first_name?.toLowerCase().includes(term) ||
       cred?.mobile?.includes(term)
     );
+
+    const matchesDate = checkDateFilter(req.created_at, dateFilter);
+
+    return matchesSearch && matchesDate;
   });
 
   return (
@@ -93,7 +138,7 @@ export default function B2BAdminFundRequests() {
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-4 justify-between bg-slate-50">
+        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-50">
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
             <input
@@ -101,20 +146,39 @@ export default function B2BAdminFundRequests() {
               placeholder="Search by Agent ID, Name, UTR..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
             />
           </div>
           
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 bg-white"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="approved">Approved</option>
-            <option value="rejected">Rejected</option>
-          </select>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            {/* Date Range Dropdown Filter */}
+            <div className="relative flex-1 sm:flex-none">
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value as any)}
+                className="w-full sm:w-auto border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 bg-white text-sm font-medium text-slate-700 cursor-pointer"
+              >
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="thisMonth">This Month</option>
+                <option value="all">All Time</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full sm:w-auto border border-slate-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-500 bg-white text-sm font-medium text-slate-700 cursor-pointer"
+            >
+              <option value="all">All Status</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
