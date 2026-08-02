@@ -33,7 +33,7 @@ export default function B2BAdminLayout() {
   useEffect(() => {
     const id = localStorage.getItem('b2bAdminId');
     if (!id) {
-      navigate('/b2b/login');
+      navigate('/b2b/admin-login');
       return;
     }
     setAdminId(id);
@@ -41,7 +41,7 @@ export default function B2BAdminLayout() {
 
   const handleLogout = () => {
     localStorage.removeItem('b2bAdminId');
-    navigate('/b2b/login');
+    navigate('/b2b/admin-login');
   };
 
   return (

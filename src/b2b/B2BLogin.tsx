@@ -1,16 +1,24 @@
 import React, { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, ArrowRight, Lock, User, Loader2, KeyRound } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { ShieldCheck, ArrowRight, Lock, User, Loader2, KeyRound, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
-export default function B2BLogin() {
+interface B2BLoginProps {
+  mode?: 'agent' | 'admin' | 'both';
+}
+
+export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
   const navigate = useNavigate();
-  const [loginType, setLoginType] = useState<'agent' | 'admin'>('agent');
+  const [loginType, setLoginType] = useState<'agent' | 'admin'>(
+    mode === 'admin' ? 'admin' : 'agent'
+  );
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const currentMode = mode !== 'both' ? mode : loginType;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -23,7 +31,7 @@ export default function B2BLogin() {
     setError('');
 
     try {
-      if (loginType === 'admin') {
+      if (currentMode === 'admin') {
         // Admin Login - Check admin_profiles table
         const { data: adminUser, error: adminError } = await supabase
           .from('admin_profiles')
@@ -74,44 +82,48 @@ export default function B2BLogin() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="flex justify-center">
           <div className="h-16 w-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            <KeyRound className="h-8 w-8 text-white" />
+            {currentMode === 'admin' ? <Shield className="h-8 w-8 text-white" /> : <KeyRound className="h-8 w-8 text-white" />}
           </div>
         </div>
         <h2 className="mt-6 text-center text-3xl font-extrabold text-white tracking-tight">
-          B2B API Portal
+          {currentMode === 'admin' ? 'B2B Admin Portal' : 'B2B API Agent Portal'}
         </h2>
         <p className="mt-2 text-center text-sm text-indigo-200">
-          Sign in to access your API integrations
+          {currentMode === 'admin' 
+            ? 'Sign in to access your B2B Admin Dashboard' 
+            : 'Sign in to access your Agent API Dashboard'}
         </p>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
         <div className="bg-white/10 backdrop-blur-xl py-8 px-4 shadow-2xl sm:rounded-2xl sm:px-10 border border-white/10">
           
-          <div className="flex p-1 bg-black/20 rounded-lg mb-8">
-            <button
-              type="button"
-              onClick={() => setLoginType('agent')}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                loginType === 'agent' 
-                  ? 'bg-indigo-600 text-white shadow-lg' 
-                  : 'text-indigo-200 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              API Agent
-            </button>
-            <button
-              type="button"
-              onClick={() => setLoginType('admin')}
-              className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
-                loginType === 'admin' 
-                  ? 'bg-indigo-600 text-white shadow-lg' 
-                  : 'text-indigo-200 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              B2B Admin
-            </button>
-          </div>
+          {mode === 'both' && (
+            <div className="flex p-1 bg-black/20 rounded-lg mb-8">
+              <button
+                type="button"
+                onClick={() => setLoginType('agent')}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                  loginType === 'agent' 
+                    ? 'bg-indigo-600 text-white shadow-lg' 
+                    : 'text-indigo-200 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                API Agent
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginType('admin')}
+                className={`flex-1 py-2 text-sm font-medium rounded-md transition-all ${
+                  loginType === 'admin' 
+                    ? 'bg-indigo-600 text-white shadow-lg' 
+                    : 'text-indigo-200 hover:text-white hover:bg-white/5'
+                }`}
+              >
+                B2B Admin
+              </button>
+            </div>
+          )}
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <AnimatePresence mode="wait">
@@ -130,7 +142,7 @@ export default function B2BLogin() {
 
             <div>
               <label className="block text-sm font-medium text-indigo-100">
-                {loginType === 'admin' ? 'Admin Mobile Number' : 'B2B Login ID'}
+                {currentMode === 'admin' ? 'Admin Mobile Number' : 'B2B Login ID'}
               </label>
               <div className="mt-2 relative rounded-lg shadow-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -142,7 +154,7 @@ export default function B2BLogin() {
                   value={loginId}
                   onChange={(e) => setLoginId(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-white/10 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-black/20 text-white placeholder-indigo-300/50 sm:text-sm transition-colors"
-                  placeholder={loginType === 'admin' ? 'Enter your mobile number' : 'Enter your B2B Login ID'}
+                  placeholder={currentMode === 'admin' ? 'Enter your mobile number' : 'Enter your B2B Login ID'}
                 />
               </div>
             </div>
@@ -180,6 +192,19 @@ export default function B2BLogin() {
                 </>
               )}
             </button>
+
+            {/* Link to switch between Admin Login & Agent Login */}
+            <div className="pt-2 text-center">
+              {currentMode === 'admin' ? (
+                <Link to="/b2b/agent-login" className="text-xs text-indigo-300 hover:text-white transition-colors">
+                  Are you an Agent? <span className="underline font-semibold">B2B Agent Login →</span>
+                </Link>
+              ) : (
+                <Link to="/b2b/admin-login" className="text-xs text-indigo-300 hover:text-white transition-colors">
+                  Are you an Admin? <span className="underline font-semibold">B2B Admin Login →</span>
+                </Link>
+              )}
+            </div>
           </form>
         </div>
       </div>

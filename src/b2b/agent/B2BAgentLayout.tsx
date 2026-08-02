@@ -13,7 +13,7 @@ export default function B2BAgentLayout() {
   useEffect(() => {
     const agentId = localStorage.getItem('b2bAgentId');
     if (!agentId) {
-      navigate('/b2b/login');
+      navigate('/b2b/agent-login');
       return;
     }
 
@@ -61,7 +61,7 @@ export default function B2BAgentLayout() {
 
   const handleLogout = () => {
     localStorage.removeItem('b2bAgentId');
-    navigate('/b2b/login');
+    navigate('/b2b/agent-login');
   };
 
   if (loading) {

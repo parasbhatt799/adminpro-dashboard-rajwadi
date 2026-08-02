@@ -1324,7 +1324,11 @@ export default function App() {
         />
         
         {/* Standalone B2B Portal Routes */}
-        <Route path="/b2b/login" element={<B2BLogin />} />
+        <Route path="/b2b/login" element={<B2BLogin mode="agent" />} />
+        <Route path="/b2b/agent-login" element={<B2BLogin mode="agent" />} />
+        <Route path="/b2b/agent/login" element={<B2BLogin mode="agent" />} />
+        <Route path="/b2b/admin-login" element={<B2BLogin mode="admin" />} />
+        <Route path="/b2b/admin/login" element={<B2BLogin mode="admin" />} />
         
         {/* B2B Admin Routes */}
         <Route path="/b2b/admin" element={<B2BAdminLayout />}>
