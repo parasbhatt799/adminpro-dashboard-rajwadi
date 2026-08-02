@@ -46,11 +46,11 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
           setLoading(false);
         } else {
           localStorage.setItem('b2bAdminId', adminUser.id);
-          // Trigger Rocket Launch Animation (Orbit around screen then blast off)
+          // Trigger Rocket Launch Animation (Orbit around login box like Earth around Sun, then blast off)
           setIsLaunching(true);
           setTimeout(() => {
             navigate('/b2b/admin');
-          }, 3100);
+          }, 3200);
         }
       } else {
         // Agent Login - Check b2b_api_credentials
@@ -69,11 +69,11 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
           setLoading(false);
         } else {
           localStorage.setItem('b2bAgentId', b2bCred.id);
-          // Trigger Rocket Launch Animation (Orbit around screen then blast off)
+          // Trigger Rocket Launch Animation (Orbit around login box like Earth around Sun, then blast off)
           setIsLaunching(true);
           setTimeout(() => {
             navigate('/b2b/agent');
-          }, 3100);
+          }, 3200);
         }
       }
     } catch (err) {
@@ -99,40 +99,55 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
       {/* Mountain Silhouettes at Bottom (Matching Design 2) */}
       <div className="absolute bottom-0 left-0 right-0 w-full pointer-events-none z-0">
         <svg className="w-full h-40 sm:h-56 lg:h-72 object-cover opacity-85" viewBox="0 0 1440 320" preserveAspectRatio="none">
-          <path fill="#0a001a" fillOpacity="1" d="M0,192L48,176C96,160,192,128,288,138.7C384,149,480,203,576,213.3C672,224,768,192,864,165.3C960,139,1056,117,1152,128C1248,139,1344,181,1392,202.7L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
+          <path fill="#0a001a" fillOpacity="1" d="M0,192L48,176C96,160,192,128,288,138.7C384,149,480,203,576,213.3C672,224,768,192,864,165.3C960,139,1056,117,1152,128C1248,139,1344,181,1392,202.7L1440,224L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
           <path fill="#170133" fillOpacity="0.7" d="M0,256L60,229.3C120,203,240,149,360,149.3C480,149,600,203,720,218.7C840,235,960,213,1080,192C1200,171,1320,149,1380,138.7L1440,128L1440,320L1380,320C1320,320,1200,320,1080,320C960,320,840,320,720,320C600,320,480,320,360,320C240,320,120,320,60,320L0,320Z"></path>
         </svg>
       </div>
 
-      {/* Rocket Launch Overlay Animation (Full Orbital Circle Around Login Card) */}
+      {/* Rocket Launch Overlay Animation (Revolving Around Login Box like Earth around Sun) */}
       <AnimatePresence>
         {isLaunching && (
           <motion.div
-            initial={{ x: 0, y: 240, scale: 0.9, opacity: 1, rotate: 0 }}
-            animate={{ 
-              x: [0, 280, 0, -280, 100, -300], 
-              y: [240, 0, -260, 0, 180, -1300],
-              scale: [0.9, 1.1, 1.3, 1.2, 1.5, 4.2], 
-              rotate: [0, -90, -180, -270, -315, -315],
-              opacity: [1, 1, 1, 1, 1, 0] 
-            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ 
-              duration: 3.0, 
-              times: [0, 0.22, 0.44, 0.66, 0.8, 1],
-              ease: "easeInOut" 
-            }}
-            className="fixed z-50 pointer-events-none flex flex-col items-center justify-center left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+            className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center"
           >
-            <div className="relative flex flex-col items-center">
-              <Rocket className="h-24 w-24 text-white drop-shadow-[0_0_45px_rgba(192,132,252,1)]" />
-              {/* Glowing Rocket Flame & Trail */}
+            {/* Orbit Axis Container Centered at Login Card */}
+            <motion.div
+              animate={{ rotate: [0, 360, 360] }}
+              transition={{
+                duration: 3.2,
+                times: [0, 0.75, 1],
+                ease: "easeInOut"
+              }}
+              className="relative w-1 h-1 flex items-center justify-center"
+            >
+              {/* Rocket Traveling on 260px Radius Ring around Card */}
               <motion.div
-                animate={{ scaleY: [1, 1.8, 1], opacity: [0.9, 1, 0.9] }}
-                transition={{ repeat: Infinity, duration: 0.12 }}
-                className="w-6 h-24 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent rounded-full -mt-2 blur-[2px] shadow-[0_0_35px_#f97316]"
-              />
-            </div>
+                animate={{
+                  y: [-250, -250, -1400],
+                  scale: [1, 1.25, 4.0],
+                  opacity: [1, 1, 0]
+                }}
+                transition={{
+                  duration: 3.2,
+                  times: [0, 0.75, 1],
+                  ease: "easeInOut"
+                }}
+                className="absolute flex flex-col items-center justify-center -rotate-90"
+              >
+                <div className="relative flex flex-col items-center">
+                  <Rocket className="h-20 w-20 text-white drop-shadow-[0_0_40px_rgba(192,132,252,1)]" />
+                  {/* Glowing Rocket Flame */}
+                  <motion.div
+                    animate={{ scaleY: [1, 1.8, 1], opacity: [0.9, 1, 0.9] }}
+                    transition={{ repeat: Infinity, duration: 0.12 }}
+                    className="w-5 h-20 bg-gradient-to-b from-yellow-300 via-orange-500 to-transparent rounded-full -mt-2 blur-[2px] shadow-[0_0_35px_#f97316]"
+                  />
+                </div>
+              </motion.div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
