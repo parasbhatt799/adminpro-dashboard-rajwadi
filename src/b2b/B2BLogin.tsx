@@ -80,12 +80,10 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
       </div>
 
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="flex justify-center">
-          <div className="h-16 w-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-            {currentMode === 'admin' ? <Shield className="h-8 w-8 text-white" /> : <KeyRound className="h-8 w-8 text-white" />}
-          </div>
+        <div className="flex justify-center mb-4">
+          <img src="/logo.png" alt="Logo" className="h-16 max-h-20 object-contain drop-shadow-xl" />
         </div>
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-white tracking-tight">
+        <h2 className="mt-2 text-center text-3xl font-extrabold text-white tracking-tight">
           {currentMode === 'admin' ? 'B2B Admin Portal' : 'B2B API Agent Portal'}
         </h2>
         <p className="mt-2 text-center text-sm text-indigo-200">

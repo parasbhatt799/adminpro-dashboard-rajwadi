@@ -81,13 +81,9 @@ export default function B2BAgentLayout() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-2 rounded-lg shadow-inner">
-                  <Terminal className="h-6 w-6 text-white" />
-                </div>
-                <h1 className="text-xl font-bold text-white tracking-tight hidden sm:block">B2B Portal</h1>
-              </div>
+              <Link to="/b2b/agent/dashboard" className="flex items-center gap-3">
+                <img src="/logo.png" alt="Logo" className="h-10 max-h-12 object-contain" />
+              </Link>
 
               {/* Navigation Links */}
               <nav className="hidden md:flex items-center gap-1 ml-4 border-l border-slate-700 pl-6">

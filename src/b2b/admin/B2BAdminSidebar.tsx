@@ -25,17 +25,10 @@ export default function B2BAdminSidebar({ onLogout, isCollapsed }: B2BAdminSideb
     >
       <div className="px-4 h-20 flex items-center justify-center border-b border-slate-800 shrink-0">
         <Link to="/b2b/admin/dashboard" className="flex items-center gap-3 group w-full justify-center">
-          <div className="bg-indigo-600 p-2 rounded-lg shrink-0">
-            <Terminal className="h-6 w-6 text-white" />
-          </div>
-          {!isCollapsed && (
-            <motion.h1
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="font-bold text-white whitespace-nowrap text-lg"
-            >
-              B2B Admin
-            </motion.h1>
+          {isCollapsed ? (
+            <img src="/fav.png" alt="Logo" className="h-9 w-9 object-contain" />
+          ) : (
+            <img src="/logo.png" alt="Logo" className="h-10 max-h-12 max-w-full object-contain" />
           )}
         </Link>
       </div>
