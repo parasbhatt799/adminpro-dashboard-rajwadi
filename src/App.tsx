@@ -1327,7 +1327,7 @@ export default function App() {
         <Route path="/b2b/login" element={<B2BLogin />} />
         
         {/* B2B Admin Routes */}
-        <Route path="/b2b/admin" element={isAdmin ? <B2BAdminLayout /> : <Navigate to="/b2b/login" replace />}>
+        <Route path="/b2b/admin" element={<B2BAdminLayout />}>
           <Route index element={<Navigate to="/b2b/admin/dashboard" replace />} />
           <Route path="dashboard" element={<B2BAdminDashboard />} />
           <Route path="create-agent" element={<CreateB2BAgent />} />
