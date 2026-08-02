@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Clock, CheckCircle2, XCircle, FileText, Search, CreditCard } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, FileText, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
-import { RefreshCw } from 'lucide-react';
 
 interface B2BAPIBillHistoryProps {
   isAdmin: boolean;
@@ -15,8 +14,10 @@ interface LogEntry {
   id: string;
   created_at: string;
   agent_id: string;
-  request_body: any;
-  response_body: any;
+  request_payload?: any;
+  response_payload?: any;
+  request_body?: any;
+  response_body?: any;
   status_code: number;
 }
 
@@ -24,6 +25,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all'>('today');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
+  const [amountFilter, setAmountFilter] = useState('');
+  const [txnIdFilter, setTxnIdFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
@@ -104,7 +109,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
   const handleLiveCheck = async (log: LogEntry) => {
     try {
-      const transactionId = log.request_payload?.transaction_id || log.request_payload?.requestId || log.response_payload?.transaction_id;
+      const req = log.request_payload || log.request_body || {};
+      const res = log.response_payload || log.response_body || {};
+      const transactionId = req?.transaction_id || req?.requestId || res?.transaction_id;
       if (!transactionId) {
         alert('Transaction ID not found for this log.');
         return;
@@ -112,12 +119,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
       setUpdatingStatus(log.id);
       
-      // Use the API route URL directly. Depending on env, use relative path.
-      // Assuming frontend and backend run on same domain or API URL is configured.
       const API_URL = import.meta.env.VITE_API_URL || '';
       
-      const res = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
-      const data = await res.json();
+      const resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
+      const data = await resData.json();
       
       if (data.status === 'success') {
         alert(`Current BBPS Status: ${data.data.bbps_status}\nOur DB was updated automatically!`);
@@ -135,7 +140,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   };
 
   const getStatusInfo = (statusCode: number, responseBody: any) => {
-    // If it's a 200, it might still be a business logic failure (e.g., if responseBody.status === 'failed')
     const status = responseBody?.payment_status || (statusCode === 200 ? 'success' : 'failed');
     
     if (status === 'success' && statusCode === 200) {
@@ -159,18 +163,103 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     }
   };
 
+  const checkDateFilter = (createdAtStr: string, filter: string) => {
+    if (filter === 'all') return true;
+    
+    const createdDate = new Date(createdAtStr);
+    const now = new Date();
+    
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    
+    if (filter === 'today') {
+      return createdDate >= todayStart && createdDate <= todayEnd;
+    }
+    
+    if (filter === 'yesterday') {
+      const yesterdayStart = new Date(todayStart);
+      yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+      const yesterdayEnd = new Date(todayStart.getTime() - 1);
+      return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
+    }
+    
+    if (filter === '7days') {
+      const sevenDaysAgo = new Date(todayStart);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      return createdDate >= sevenDaysAgo;
+    }
+    
+    if (filter === '30days') {
+      const thirtyDaysAgo = new Date(todayStart);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      return createdDate >= thirtyDaysAgo;
+    }
+    
+    if (filter === 'thisMonth') {
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      return createdDate >= firstDayOfMonth;
+    }
+    
+    return true;
+  };
+
   const filteredLogs = logs.filter(log => {
-    const searchString = `
-      ${log.agent_id} 
-      ${log.request_body?.billerId} 
-      ${log.request_body?.mobile} 
-      ${log.response_body?.transaction_id}
-    `.toLowerCase();
-    return searchString.includes(searchTerm.toLowerCase());
+    const reqBody = log.request_payload || log.request_body || {};
+    const resBody = log.response_payload || log.response_body || {};
+
+    const amount = reqBody?.amount !== undefined && reqBody?.amount !== null ? String(reqBody.amount) : '';
+    const txnId = resBody?.transaction_id || reqBody?.transaction_id || reqBody?.requestId || '';
+    const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || '';
+    const statusInfo = getStatusInfo(log.status_code, resBody);
+
+    // Date Filter
+    const matchesDate = checkDateFilter(log.created_at, dateFilter);
+
+    // Status Filter (All, Success, Pending, Failed)
+    let matchesStatus = true;
+    if (statusFilter !== 'all') {
+      matchesStatus = statusInfo.text.toLowerCase() === statusFilter.toLowerCase();
+    }
+
+    // Amount Filter
+    const amountTrimmed = amountFilter.trim();
+    let matchesAmount = true;
+    if (amountTrimmed) {
+      const numericFilter = Number(amountTrimmed);
+      if (!isNaN(numericFilter)) {
+        matchesAmount = amount.includes(amountTrimmed) || Math.abs(Number(amount) - numericFilter) < 0.01;
+      } else {
+        matchesAmount = amount.includes(amountTrimmed);
+      }
+    }
+
+    // Transaction ID Filter
+    const txnTrimmed = txnIdFilter.trim().toLowerCase();
+    let matchesTxnId = true;
+    if (txnTrimmed) {
+      matchesTxnId = txnId.toLowerCase().includes(txnTrimmed) || bbpsTxnId.toLowerCase().includes(txnTrimmed);
+    }
+
+    // General Search
+    const searchTrimmed = searchTerm.trim().toLowerCase();
+    let matchesSearch = true;
+    if (searchTrimmed) {
+      const searchString = `
+        ${log.agent_id || ''} 
+        ${reqBody.billerId || ''} 
+        ${reqBody.mobile || ''} 
+        ${txnId}
+        ${bbpsTxnId}
+      `.toLowerCase();
+      matchesSearch = searchString.includes(searchTrimmed);
+    }
+
+    return matchesDate && matchesStatus && matchesAmount && matchesTxnId && matchesSearch;
   });
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
+      {/* Page Title Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
@@ -179,16 +268,146 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           </h2>
           <p className="text-slate-400">View detailed history of all bill payments processed via the B2B API.</p>
         </div>
-        <div className="relative w-full sm:w-auto">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search Biller ID, Mobile, Txn ID..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full sm:w-72 bg-slate-900 border border-slate-700 rounded-xl py-2 pl-10 pr-4 text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500"
-          />
+      </div>
+
+      {/* Filter Controls Bar */}
+      <div className="bg-slate-800/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-700 space-y-3 shadow-xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Date Filter Dropdown (Default: Today) */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+              <Calendar className="w-3.5 h-3.5 text-indigo-400" />
+              Date Range
+            </label>
+            <select
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value as any)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all cursor-pointer outline-none"
+            >
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7days">Last 7 Days</option>
+              <option value="30days">Last 30 Days</option>
+              <option value="thisMonth">This Month</option>
+              <option value="all">All Time</option>
+            </select>
+          </div>
+
+          {/* Status Filter Dropdown */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+              <Filter className="w-3.5 h-3.5 text-indigo-400" />
+              Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as any)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all cursor-pointer outline-none"
+            >
+              <option value="all">All Status</option>
+              <option value="success">Success</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+
+          {/* Transaction ID Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+              <Hash className="w-3.5 h-3.5 text-indigo-400" />
+              Transaction ID
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Txn ID / BBPS ID..."
+                value={txnIdFilter}
+                onChange={(e) => setTxnIdFilter(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500 outline-none font-mono"
+              />
+              {txnIdFilter && (
+                <button
+                  onClick={() => setTxnIdFilter('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Amount Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+              <IndianRupee className="w-3.5 h-3.5 text-indigo-400" />
+              Amount
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Filter by amount..."
+                value={amountFilter}
+                onChange={(e) => setAmountFilter(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500 outline-none font-mono"
+              />
+              {amountFilter && (
+                <button
+                  onClick={() => setAmountFilter('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Search Details (Biller, Mobile, Agent) */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+              <Search className="w-3.5 h-3.5 text-indigo-400" />
+              Search Details
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Biller ID, Mobile, Agent..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500 outline-none"
+              />
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
+
+        {/* Filter Summary & Reset Button */}
+        {(dateFilter !== 'today' || statusFilter !== 'all' || amountFilter || txnIdFilter || searchTerm) && (
+          <div className="flex items-center justify-between pt-2 border-t border-slate-700/60 text-xs">
+            <span className="text-slate-400">
+              Showing <span className="font-bold text-indigo-400">{filteredLogs.length}</span> of <span className="font-bold text-slate-300">{logs.length}</span> payments
+            </span>
+            <button
+              onClick={() => {
+                setDateFilter('today');
+                setStatusFilter('all');
+                setAmountFilter('');
+                setTxnIdFilter('');
+                setSearchTerm('');
+              }}
+              className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 hover:underline transition-all"
+            >
+              <X className="w-3.5 h-3.5" />
+              Reset Filters (Back to Today)
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -202,7 +421,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           </div>
           <h3 className="text-lg font-medium text-slate-300 mb-1">No API Bill Payments Found</h3>
           <p className="text-slate-500 text-sm">
-            {searchTerm ? 'No payments match your search criteria.' : 'There are currently no bill payments made via the API.'}
+            {(dateFilter !== 'today' || statusFilter !== 'all' || searchTerm || amountFilter || txnIdFilter)
+              ? 'No payments match your selected filter criteria.'
+              : 'There are currently no bill payments made today.'}
           </p>
         </div>
       ) : (
