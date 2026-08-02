@@ -192,19 +192,6 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
                 </>
               )}
             </button>
-
-            {/* Link to switch between Admin Login & Agent Login */}
-            <div className="pt-2 text-center">
-              {currentMode === 'admin' ? (
-                <Link to="/b2b/agent-login" className="text-xs text-indigo-300 hover:text-white transition-colors">
-                  Are you an Agent? <span className="underline font-semibold">B2B Agent Login →</span>
-                </Link>
-              ) : (
-                <Link to="/b2b/admin-login" className="text-xs text-indigo-300 hover:text-white transition-colors">
-                  Are you an Admin? <span className="underline font-semibold">B2B Admin Login →</span>
-                </Link>
-              )}
-            </div>
           </form>
         </div>
       </div>
