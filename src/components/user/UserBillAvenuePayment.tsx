@@ -557,8 +557,22 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       )
       .subscribe();
 
+    const profileChannel = supabase
+      .channel(`billavenue_tester_guard_${userId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'users_profiles', filter: `id=eq.${userId}` },
+        (payload) => {
+          if (payload.new && 'is_tester' in payload.new) {
+            setIsTester(!!payload.new.is_tester);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(settingsChannel);
+      supabase.removeChannel(profileChannel);
     };
   }, [userId]);
 
@@ -1371,7 +1385,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     );
   }
 
-  if (!isBillAvenueEnabled) {
+  if (!isBillAvenueEnabled && !isTester) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 relative overflow-hidden">
         <motion.div

@@ -133,7 +133,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       if (!isBbpsEnabled && item.id === 'bill-payment' && !isTester) {
         return false;
       }
-      if (!isBillAvenueEnabled && (item.id === 'billavenue-payment' || item.id === 'billavenue-search')) {
+      if (!isBillAvenueEnabled && (item.id === 'billavenue-payment' || item.id === 'billavenue-search') && !isTester) {
         return false;
       }
       if (!isCsplEnabled && (item.id === 'cspl-payment' || item.id === 'cspl-search') && !isTester) {
