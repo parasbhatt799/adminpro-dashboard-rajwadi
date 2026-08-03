@@ -1355,7 +1355,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   // Removed complaint handlers as they are now on a dedicated page
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto p-4">
+    <div className="space-y-8 w-full p-4">
       {/* Dynamic Print Receipt Style */}
       <AnimatePresence>
         {step === 3 && receipt && (

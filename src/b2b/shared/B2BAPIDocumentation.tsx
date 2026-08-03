@@ -30,7 +30,7 @@ export default function B2BAPIDocumentation() {
   );
 
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="space-y-8 w-full">
       <div>
         <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2">
           <Book className="h-6 w-6 text-indigo-400" />

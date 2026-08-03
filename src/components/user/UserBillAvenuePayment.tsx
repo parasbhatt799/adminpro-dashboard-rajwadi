@@ -1432,7 +1432,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto p-4">
+    <div className="space-y-8 w-full p-4">
       {/* Dynamic Print Receipt Style */}
       <AnimatePresence>
         {step === 3 && receipt && (
