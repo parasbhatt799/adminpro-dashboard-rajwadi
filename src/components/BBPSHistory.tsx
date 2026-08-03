@@ -553,7 +553,7 @@ export default function BBPSHistory() {
           {/* BillAvenue Toggle Switch */}
           <div className="flex items-center gap-2.5 bg-slate-100/80 px-4 py-2 rounded-xl border border-slate-200/50 shadow-sm h-[42px] select-none">
             <span className={`text-[10px] font-black uppercase tracking-widest ${isBillAvenueEnabled ? 'text-indigo-600' : 'text-slate-500'}`}>
-              BillAvenue {isBillAvenueEnabled ? 'ON' : 'OFF'}
+              Bill Payment 2 {isBillAvenueEnabled ? 'ON' : 'OFF'}
             </span>
             <button
               type="button"

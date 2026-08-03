@@ -1404,11 +1404,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           </span>
 
           <h2 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-tight">
-            BillAvenue Service Disabled
+            Bill Payment Service Disabled
           </h2>
 
           <p className="text-slate-400 text-sm leading-relaxed mb-6">
-            BillAvenue payment service is currently turned <strong className="text-red-400 font-semibold">OFF</strong> by Administrator. Access via direct URL endpoint is restricted until re-enabled.
+            Bill payment service is currently turned <strong className="text-red-400 font-semibold">OFF</strong> by Administrator. Access via direct URL endpoint is restricted until re-enabled.
           </p>
 
           <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700/60 mb-6 text-left flex items-start gap-3 text-xs text-slate-300">
