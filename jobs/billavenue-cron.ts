@@ -36,7 +36,7 @@ cron.schedule('*/10 * * * *', async () => {
       const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
       const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
       const transactionId = log.request_payload?.transaction_id || log.id;
-      
+
       // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
       if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
         console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing valid BillAvenue CC01 reference ID. Found: ${cc01RefId}`);
@@ -47,36 +47,36 @@ cron.schedule('*/10 * * * *', async () => {
         const trackType = 'TRANS_REF_ID';
         console.log(`[CRON] Checking status for B2B transaction via CC01 ID: ${cc01RefId}`);
         const statusResult = await getTransactionStatus(String(cc01RefId), trackType);
-        
+
         let newStatus = 'pending';
         let bbpsStatus = '';
 
         if (statusResult?.json) {
-           const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
-           if (root) {
-             if (root.responseCode !== '000') {
-               console.log(`[CRON] BillAvenue returned non-000 code (${root.responseCode}) for B2B txn ${transactionId}. Keeping status as pending.`);
-             } else {
-               const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
-               bbpsStatus = txnList?.txnStatus?.toUpperCase() || '';
-             }
-             
-             if (bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') {
-               newStatus = 'success';
-             } else if (bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') {
-               newStatus = 'failed';
-             }
-           }
+          const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
+          if (root) {
+            if (root.responseCode !== '000') {
+              console.log(`[CRON] BillAvenue returned non-000 code (${root.responseCode}) for B2B txn ${transactionId}. Keeping status as pending.`);
+            } else {
+              const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
+              bbpsStatus = txnList?.txnStatus?.toUpperCase() || '';
+            }
+
+            if (bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') {
+              newStatus = 'success';
+            } else if (bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') {
+              newStatus = 'failed';
+            }
+          }
         }
 
         if (newStatus !== 'pending') {
           console.log(`[CRON] Transaction ${transactionId} status changed to ${newStatus}`);
-          
+
           // Determine status code and charge
           let newStatusCode = 200; // Success code by default
           let chargeDeducted = log.request_payload?.chargeDeducted || 0;
           let updatedPayload = log.response_payload || {};
-          
+
           updatedPayload = { ...updatedPayload, finalStatus: newStatus, payment_status: newStatus };
 
           if (newStatus === 'failed') {
@@ -86,7 +86,7 @@ cron.schedule('*/10 * * * *', async () => {
           // Update the b2b_api_logs record
           await supabaseAdmin
             .from('b2b_api_logs')
-            .update({ 
+            .update({
               payment_status: newStatus,
               status_code: newStatusCode,
               charge_deducted: newStatus === 'success' ? chargeDeducted : 0,
@@ -119,47 +119,47 @@ cron.schedule('*/10 * * * *', async () => {
             .single();
 
           if (creds?.webhook_url && creds.webhook_url.startsWith('http')) {
-             const webhookPayload = {
-               event: 'PAYMENT_STATUS_UPDATE',
-               transaction_id: transactionId,
-               status: newStatus,
-               amount: log.request_payload?.amount || 0,
-               bbps_status: bbpsStatus,
-               timestamp: new Date().toISOString()
-             };
-             
-             try {
-                console.log(`[CRON] Firing webhook for agent ${log.agent_id} at ${creds.webhook_url}`);
-                const webhookRes = await fetch(creds.webhook_url, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(webhookPayload)
-                });
-                
-                const responseBody = await webhookRes.text();
-                
-                // Log webhook success
-                await supabaseAdmin.from('b2b_webhook_logs').insert({
-                  agent_id: log.agent_id,
-                  transaction_id: transactionId,
-                  webhook_url: creds.webhook_url,
-                  payload: webhookPayload,
-                  response_status: webhookRes.status,
-                  response_body: responseBody
-                });
-                
-             } catch (webhookError: any) {
-                console.error(`[CRON] Webhook failed for agent ${log.agent_id}:`, webhookError);
-                
-                // Log webhook failure
-                await supabaseAdmin.from('b2b_webhook_logs').insert({
-                  agent_id: log.agent_id,
-                  transaction_id: transactionId,
-                  webhook_url: creds.webhook_url,
-                  payload: webhookPayload,
-                  error_message: webhookError.message
-                });
-             }
+            const webhookPayload = {
+              event: 'PAYMENT_STATUS_UPDATE',
+              transaction_id: transactionId,
+              status: newStatus,
+              amount: log.request_payload?.amount || 0,
+              bbps_status: bbpsStatus,
+              timestamp: new Date().toISOString()
+            };
+
+            try {
+              console.log(`[CRON] Firing webhook for agent ${log.agent_id} at ${creds.webhook_url}`);
+              const webhookRes = await fetch(creds.webhook_url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(webhookPayload)
+              });
+
+              const responseBody = await webhookRes.text();
+
+              // Log webhook success
+              await supabaseAdmin.from('b2b_webhook_logs').insert({
+                agent_id: log.agent_id,
+                transaction_id: transactionId,
+                webhook_url: creds.webhook_url,
+                payload: webhookPayload,
+                response_status: webhookRes.status,
+                response_body: responseBody
+              });
+
+            } catch (webhookError: any) {
+              console.error(`[CRON] Webhook failed for agent ${log.agent_id}:`, webhookError);
+
+              // Log webhook failure
+              await supabaseAdmin.from('b2b_webhook_logs').insert({
+                agent_id: log.agent_id,
+                transaction_id: transactionId,
+                webhook_url: creds.webhook_url,
+                payload: webhookPayload,
+                error_message: webhookError.message
+              });
+            }
           }
         }
       } catch (err) {
@@ -171,7 +171,7 @@ cron.schedule('*/10 * * * *', async () => {
     // 2. Process B2C Transactions (Main App)
     // ==========================================
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
-    
+
     const { data: b2cPendingLogs, error: b2cError } = await supabaseAdmin
       .from('bbps_submissions')
       .select('*')
@@ -182,7 +182,7 @@ cron.schedule('*/10 * * * *', async () => {
       console.error('[CRON] Error fetching B2C pending transactions:', b2cError);
     } else if (b2cPendingLogs && b2cPendingLogs.length > 0) {
       console.log(`[CRON] Found ${b2cPendingLogs.length} B2C pending transactions. Analyzing...`);
-      
+
       for (const log of b2cPendingLogs) {
         console.log(`\n--- [CRON B2C] Analyzing Pending ID: ${log.id} ---`);
         console.log(`Amount: ${log.amount}, Provider: ${log.provider}, Service: ${log.service_type}`);
@@ -192,21 +192,21 @@ cron.schedule('*/10 * * * *', async () => {
         // Identify if it's BillAvenue by checking if the reference ID starts with CC01
         // (User confirmed BillAvenue IDs always start with CC01)
         const referenceId = log.rejection_reason || log.metadata?.requestId;
-        
+
         if (!referenceId || !String(referenceId).startsWith('CC01')) {
-           console.log(`-> Skipping ID ${log.id} - Not a BillAvenue transaction (ID does not start with CC01). Found: ${referenceId}`);
-           continue;
+          console.log(`-> Skipping ID ${log.id} - Not a BillAvenue transaction (ID does not start with CC01). Found: ${referenceId}`);
+          continue;
         }
-        
+
         const trackType = 'TRANS_REF_ID';
 
         try {
           console.log(`-> Checking B2C status via API with ${trackType}: ${referenceId}`);
           const statusResult = await getTransactionStatus(String(referenceId), trackType);
           console.log(`-> API Response received for ${referenceId}. Parsing status...`);
-          
+
           const root = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse || statusResult?.json?.transactionStatusRes;
-          
+
           if (root) {
             let txnStatus = '';
             let txnReferenceId = referenceId;
@@ -218,12 +218,12 @@ cron.schedule('*/10 * * * *', async () => {
               txnStatus = txnList?.txnStatus?.toLowerCase() || '';
               txnReferenceId = txnList?.txnReferenceId || referenceId;
             }
-            
+
             console.log(`-> Parsed status from API: ${txnStatus}`);
-            
+
             let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
             let mappedSubmissionStatus = 'pending';
-            
+
             if (txnStatus === 'success' || txnStatus === 'approved') {
               mappedStatus = 'success';
               mappedSubmissionStatus = 'approved';
@@ -253,14 +253,14 @@ cron.schedule('*/10 * * * *', async () => {
                     .select("wallet_balance")
                     .eq("id", log.user_id)
                     .single();
-                  
+
                   if (userProfile) {
                     const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
                     await supabaseAdmin
                       .from("users_profiles")
                       .update({ wallet_balance: refundedBalance })
                       .eq("id", log.user_id);
-                      
+
                     console.log(`[CRON] Refunded ₹${totalDeducted} to user ${log.user_id} for failed B2C transaction ${referenceId}`);
                   }
                 }

@@ -265,6 +265,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
+  const [isTester, setIsTester] = useState<boolean>(false);
+
+  // BillAvenue Service Toggle & Realtime Guard State
+  const [isBillAvenueEnabled, setIsBillAvenueEnabled] = useState<boolean>(true);
+  const [isBillAvenueSettingsLoading, setIsBillAvenueSettingsLoading] = useState<boolean>(true);
 
   // CCF1 Convenience Fee Configuration
   const [billerConfig, setBillerConfig] = useState<any>(null);
@@ -537,7 +542,25 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   useEffect(() => {
     fetchProfileData();
     fetchBillersAndCategories();
-  }, []);
+    fetchBillAvenueSetting();
+
+    const settingsChannel = supabase
+      .channel('billavenue_realtime_guard')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'qr_settings', filter: 'id=eq.1' },
+        (payload) => {
+          if (payload.new && 'is_billavenue_enabled' in payload.new) {
+            setIsBillAvenueEnabled(payload.new.is_billavenue_enabled ?? true);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(settingsChannel);
+    };
+  }, [userId]);
 
   useEffect(() => {
     if (lockoutSeconds <= 0) return;
@@ -608,16 +631,35 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     return `${d}/${m}/${y} ${hrStr}:${min} ${ampm}`;
   };
 
+  const fetchBillAvenueSetting = async () => {
+    setIsBillAvenueSettingsLoading(true);
+    try {
+      const { data } = await supabase
+        .from('qr_settings')
+        .select('is_billavenue_enabled')
+        .eq('id', 1)
+        .single();
+      if (data) {
+        setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
+      }
+    } catch (err) {
+      console.error('Error fetching BillAvenue setting:', err);
+    } finally {
+      setIsBillAvenueSettingsLoading(false);
+    }
+  };
+
   const fetchProfileData = async () => {
     try {
       const { data, error } = await supabase
         .from('users_profiles')
-        .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until, mobile_number')
+        .select('wallet_balance, service_charge_enabled, custom_service_charge, tpin, tpin_attempts, tpin_locked_until, mobile_number, is_tester')
         .eq('id', userId)
         .single();
       if (!error && data) {
         setWalletBalance(Number(data.wallet_balance) || 0);
         setUserProfile(data);
+        setIsTester(!!data.is_tester);
         setDbTpinValue(data.tpin || null);
         setTpinAttempts(Number(data.tpin_attempts) || 0);
         setCustomerMobile(data.mobile_number || '');
@@ -1318,7 +1360,62 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     }
   };
 
-  // Removed complaint handlers as they are now on a dedicated page
+  if (isBillAvenueSettingsLoading) {
+    return (
+      <div className="min-h-[400px] flex items-center justify-center p-8">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-medium text-slate-400">Loading service status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isBillAvenueEnabled) {
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 15 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="max-w-lg w-full bg-slate-900/95 backdrop-blur-2xl border border-red-500/20 rounded-3xl p-8 sm:p-10 shadow-2xl text-center relative z-10"
+        >
+          <div className="w-20 h-20 bg-red-500/10 border border-red-500/20 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-inner">
+            <AlertTriangle className="w-10 h-10 text-red-400 animate-pulse" />
+          </div>
+
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-500/10 text-red-400 border border-red-500/20 text-xs font-bold uppercase tracking-wider rounded-full mb-4">
+            <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+            Service Off / સેવા બંધ છે
+          </span>
+
+          <h2 className="text-2xl sm:text-3xl font-black text-white mb-3 tracking-tight">
+            BillAvenue Service Disabled
+          </h2>
+
+          <p className="text-slate-400 text-sm leading-relaxed mb-6">
+            BillAvenue payment service is currently turned <strong className="text-red-400 font-semibold">OFF</strong> by Administrator. Access via direct URL endpoint is restricted until re-enabled.
+          </p>
+
+          <div className="p-4 bg-slate-800/80 rounded-2xl border border-slate-700/60 mb-6 text-left flex items-start gap-3 text-xs text-slate-300">
+            <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5" />
+            <div>
+              <span className="font-bold text-white block mb-0.5">Real-time Auto Re-activation</span>
+              When Administrator turns the toggle back ON, this page will automatically unlock and open in real-time.
+            </div>
+          </div>
+
+          <button
+            onClick={() => navigate('/user/dashboard')}
+            className="w-full py-3.5 px-6 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Dashboard
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto p-4">

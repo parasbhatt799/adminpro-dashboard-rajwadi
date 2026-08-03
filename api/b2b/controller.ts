@@ -100,6 +100,16 @@ export const getBillers = async (req: Request, res: Response) => {
 
 export const fetchBill = async (req: Request, res: Response) => {
   try {
+    const { data: qrSettings } = await supabaseAdmin
+      .from('qr_settings')
+      .select('is_billavenue_enabled')
+      .eq('id', 1)
+      .single();
+
+    if (qrSettings && qrSettings.is_billavenue_enabled === false) {
+      return res.status(403).json({ status: 'error', message: 'BillAvenue service is currently disabled by Admin.' });
+    }
+
     const { billerId, customerParams, mobile } = req.body;
 
     if (!billerId || !customerParams || !mobile) {
@@ -440,6 +450,16 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
 
 export const payBill = async (req: Request, res: Response) => {
   try {
+    const { data: qrSettings } = await supabaseAdmin
+      .from('qr_settings')
+      .select('is_billavenue_enabled')
+      .eq('id', 1)
+      .single();
+
+    if (qrSettings && qrSettings.is_billavenue_enabled === false) {
+      return res.status(403).json({ status: 'error', message: 'BillAvenue service is currently disabled by Admin.' });
+    }
+
     const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
