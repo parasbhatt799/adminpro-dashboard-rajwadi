@@ -88,6 +88,31 @@ export default function AdminCamlenioPayoutHistory() {
     }
   };
 
+  const [syncing, setSyncing] = useState(false);
+
+  const handleSyncPendingStatuses = async () => {
+    setSyncing(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/payout/sync-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: `Sync complete! ${data.updatedCount || 0} transactions updated.` });
+        fetchData();
+      } else {
+        throw new Error(data.message || 'Sync failed');
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Failed to sync statuses' });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -103,13 +128,23 @@ export default function AdminCamlenioPayoutHistory() {
           <h1 className="text-2xl font-bold text-slate-900">Camlenio AEPS Payouts</h1>
           <p className="text-slate-500">Manage settings and view all payout transactions</p>
         </div>
-        <button
-          onClick={fetchData}
-          className="p-2 bg-white text-slate-600 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-sm"
-          title="Refresh Data"
-        >
-          <RefreshCw className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncPendingStatuses}
+            disabled={syncing}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-sm text-sm font-semibold disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing Live Status...' : 'Sync Processing Transactions'}
+          </button>
+          <button
+            onClick={fetchData}
+            className="p-2 bg-white text-slate-600 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-sm"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {message && (

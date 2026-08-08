@@ -211,3 +211,19 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
     Buffer.from(signature)
   );
 }
+
+/**
+ * Check Payout Transaction Status from Camlenio
+ */
+export async function checkPayoutStatus(reference: string): Promise<any> {
+  try {
+    const data = await callPayoutApi('/api/v1/aer/payout/status', {
+      reference: reference
+    });
+    return data;
+  } catch (error: any) {
+    console.error('[Payout Service] Check status API call failed:', error);
+    return { success: false, status: 'UNKNOWN', message: error.message };
+  }
+}
+

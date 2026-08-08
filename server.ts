@@ -4383,10 +4383,14 @@ async function startServer() {
             return;
           }
 
-          // Verify existing status (lookup by bank_ref, NOT id, since Camlenio returns our shortRef)
-          const { data: existing } = await supabaseAdmin.from('payout_submissions').select('id, status, amount, charge_amount, user_id').eq('bank_ref', reference).single();
+          // Verify existing status (lookup by bank_ref or utr_number)
+          const { data: existing } = await supabaseAdmin
+            .from('payout_submissions')
+            .select('id, status, amount, charge_amount, user_id, bank_ref')
+            .or(`bank_ref.eq.${reference},utr_number.eq.${reference}`)
+            .maybeSingle();
 
-          if (!existing || existing.status !== 'processing') {
+          if (!existing || (existing.status !== 'processing' && existing.status !== 'pending')) {
             console.log(`[Webhook] Skipping. Payout not found or already processed for Ref: ${reference}. Found: ${existing ? existing.status : 'None'}`);
             return;
           }
@@ -4395,9 +4399,10 @@ async function startServer() {
             await supabaseAdmin.from('payout_submissions').update({
               status: 'approved',
               txn_id: actualTxnId,
-              utr_number: utr,
+              utr_number: utr || reference,
               remark: JSON.stringify(req.body)
             }).eq('id', existing.id);
+            console.log(`[Webhook] Payout APPROVED for ID: ${existing.id}`);
           } else if (statusUpper === 'FAILED' || statusUpper === 'FAILURE' || statusUpper === 'REJECTED') {
             console.warn(`[Webhook] Camlenio reported failure for bank_ref ${reference}. Refunding user ${existing.user_id}`);
             
@@ -4408,8 +4413,7 @@ async function startServer() {
             }).eq('id', existing.id);
 
             // Refund User Wallet
-            const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount);
-            // Secure Refund
+            const totalRefund = parseFloat(existing.amount) + parseFloat(existing.charge_amount || 0);
             const { data: existingUser } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', existing.user_id).single();
             if (existingUser) {
               const newBalance = Number(existingUser.wallet_balance || 0) + totalRefund;
@@ -4423,10 +4427,68 @@ async function startServer() {
       })();
     } catch (err: any) {
       console.error("Webhook Route Error:", err);
-      // Only send 500 if we haven't already sent a response (i.e., error parsing JSON)
       if (!res.headersSent) {
         return res.status(500).send("Server Error");
       }
+    }
+  });
+
+  // Sync Payout Status API
+  app.post("/api/payout/sync-status", async (req: any, res) => {
+    try {
+      const { payoutId } = req.body;
+      let query = supabaseAdmin.from('payout_submissions').select('*');
+      if (payoutId) {
+        query = query.eq('id', payoutId);
+      } else {
+        query = query.in('status', ['processing', 'pending']);
+      }
+
+      const { data: records, error } = await query;
+      if (error || !records || records.length === 0) {
+        return res.json({ success: true, updatedCount: 0, message: 'No processing transactions found.' });
+      }
+
+      let updatedCount = 0;
+      for (const rec of records) {
+        const refToSearch = rec.bank_ref || rec.utr_number;
+        if (!refToSearch) continue;
+
+        const statusRes = await camlenioPayout.checkPayoutStatus(refToSearch);
+        console.log(`[Status Sync] Polled Camlenio for Ref: ${refToSearch}`, JSON.stringify(statusRes));
+
+        if (statusRes && statusRes.status) {
+          const stUpper = statusRes.status.toUpperCase();
+          if (stUpper === 'SUCCESS') {
+            await supabaseAdmin.from('payout_submissions').update({
+              status: 'approved',
+              utr_number: statusRes.utr || rec.utr_number,
+              txn_id: statusRes.txnId || rec.txn_id,
+              remark: statusRes.message || 'Approved via Sync'
+            }).eq('id', rec.id);
+            updatedCount++;
+          } else if (stUpper === 'FAILED' || stUpper === 'FAILURE' || stUpper === 'REJECTED') {
+            await supabaseAdmin.from('payout_submissions').update({
+              status: 'rejected',
+              remark: statusRes.message || 'Rejected via Sync'
+            }).eq('id', rec.id);
+
+            // Refund User
+            const totalRefund = parseFloat(rec.amount || '0') + parseFloat(rec.charge_amount || '0');
+            const { data: userProf } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', rec.user_id).single();
+            if (userProf) {
+              const newBal = Number(userProf.wallet_balance || 0) + totalRefund;
+              await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBal }).eq('id', rec.user_id);
+            }
+            updatedCount++;
+          }
+        }
+      }
+
+      return res.json({ success: true, updatedCount, message: `Synced ${updatedCount} transactions.` });
+    } catch (err: any) {
+      console.error('[Sync Status Error]:', err);
+      return res.status(500).json({ success: false, message: err.message });
     }
   });
 
@@ -4800,6 +4862,53 @@ async function startServer() {
       console.error("[T+1 Settlement] Scheduler error:", err);
     }
   }, 30000); // Check every 30 seconds
+
+  // Automated Payout Status Sync for PROCESSING / PENDING transactions (Every 2 minutes)
+  setInterval(async () => {
+    try {
+      const { data: pendingTx } = await supabaseAdmin
+        .from('payout_submissions')
+        .select('*')
+        .in('status', ['processing', 'pending']);
+
+      if (pendingTx && pendingTx.length > 0) {
+        console.log(`[Auto Payout Sync] Checking status for ${pendingTx.length} pending/processing transactions...`);
+        for (const rec of pendingTx) {
+          const refToSearch = rec.bank_ref || rec.utr_number;
+          if (!refToSearch) continue;
+
+          const statusRes = await camlenioPayout.checkPayoutStatus(refToSearch);
+          if (statusRes && statusRes.status) {
+            const stUpper = statusRes.status.toUpperCase();
+            if (stUpper === 'SUCCESS') {
+              await supabaseAdmin.from('payout_submissions').update({
+                status: 'approved',
+                utr_number: statusRes.utr || rec.utr_number,
+                txn_id: statusRes.txnId || rec.txn_id,
+                remark: statusRes.message || 'Approved via Auto-Sync'
+              }).eq('id', rec.id);
+              console.log(`[Auto Payout Sync] Transaction ${rec.id} (Ref: ${refToSearch}) APPROVED.`);
+            } else if (stUpper === 'FAILED' || stUpper === 'FAILURE' || stUpper === 'REJECTED') {
+              await supabaseAdmin.from('payout_submissions').update({
+                status: 'rejected',
+                remark: statusRes.message || 'Rejected via Auto-Sync'
+              }).eq('id', rec.id);
+
+              const totalRefund = parseFloat(rec.amount || '0') + parseFloat(rec.charge_amount || '0');
+              const { data: userProf } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', rec.user_id).single();
+              if (userProf) {
+                const newBal = Number(userProf.wallet_balance || 0) + totalRefund;
+                await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBal }).eq('id', rec.user_id);
+              }
+              console.log(`[Auto Payout Sync] Transaction ${rec.id} (Ref: ${refToSearch}) REJECTED & REFUNDED ₹${totalRefund}.`);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[Auto Payout Sync] Error:", err);
+    }
+  }, 120000); // Run every 2 minutes
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
