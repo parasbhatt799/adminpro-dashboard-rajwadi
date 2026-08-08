@@ -588,7 +588,7 @@ function PWARootRedirector() {
         } else if (hasAdminSession) {
           navigate('/b2b/admin/dashboard', { replace: true });
         } else {
-          navigate('/b2b/login', { replace: true });
+          navigate('/b2b/admin-login', { replace: true });
         }
       }
     }
