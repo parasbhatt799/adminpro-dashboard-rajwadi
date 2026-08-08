@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Wallet, Upload, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
+import { sendAdminPushNotification } from '../../lib/notifications';
 import { format } from 'date-fns';
 
 export default function B2BAgentFundRequest() {
@@ -10,6 +11,7 @@ export default function B2BAgentFundRequest() {
   const [fetchingRequests, setFetchingRequests] = useState(true);
   const [requests, setRequests] = useState<any[]>([]);
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [agentName, setAgentName] = useState<string>('B2B Agent');
 
   const [formData, setFormData] = useState({
     amount: '',
@@ -28,14 +30,25 @@ export default function B2BAgentFundRequest() {
   const fetchRequests = async (id: string) => {
     setFetchingRequests(true);
     try {
-      const { data, error } = await supabase
-        .from('b2b_fund_requests')
-        .select('*')
-        .eq('agent_id', id)
-        .order('created_at', { ascending: false });
+      const [reqRes, agentRes] = await Promise.all([
+        supabase
+          .from('b2b_fund_requests')
+          .select('*')
+          .eq('agent_id', id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('b2b_api_credentials')
+          .select('client_id, company_name, name')
+          .eq('id', id)
+          .maybeSingle()
+      ]);
 
-      if (error) throw error;
-      if (data) setRequests(data);
+      if (reqRes.error) throw reqRes.error;
+      if (reqRes.data) setRequests(reqRes.data);
+
+      if (agentRes.data) {
+        setAgentName(agentRes.data.company_name || agentRes.data.name || agentRes.data.client_id || 'B2B Agent');
+      }
     } catch (err) {
       console.error('Error fetching fund requests:', err);
       toast.error('Failed to load request history');
@@ -101,6 +114,13 @@ export default function B2BAgentFundRequest() {
         });
 
       if (error) throw error;
+
+      // 🔔 Send OneSignal Push Notification to Admins
+      sendAdminPushNotification(
+        '💰 New B2B Fund Request',
+        `${agentName} requested wallet top-up of ₹${formData.amount} (UTR: ${formData.utrNumber})`,
+        '/b2b/admin/fund-requests'
+      );
 
       toast.success('Fund request submitted successfully');
       setFormData({ amount: '', utrNumber: '', proofUrl: '' });

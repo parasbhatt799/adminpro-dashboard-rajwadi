@@ -4,6 +4,8 @@ import { Terminal, LogOut, Wallet, Book, LayoutDashboard, Activity } from 'lucid
 import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
+import B2BPWAInstallButton from '../components/B2BPWAInstallButton';
+
 export default function B2BAgentLayout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -115,7 +117,10 @@ export default function B2BAgentLayout() {
               </nav>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* B2B PWA Install Button */}
+              <B2BPWAInstallButton variant="header" />
+
               {/* Wallet Balance Display */}
               <div className="flex items-center gap-2 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
                 <Wallet className="h-4 w-4 text-emerald-400" />
@@ -137,7 +142,8 @@ export default function B2BAgentLayout() {
         </div>
         
         {/* Mobile Nav */}
-        <div className="md:hidden border-t border-slate-700 bg-slate-800 px-4 py-2 flex overflow-x-auto gap-2">
+        <div className="md:hidden border-t border-slate-700 bg-slate-800 px-4 py-2 flex items-center overflow-x-auto gap-2">
+          <B2BPWAInstallButton variant="badge" className="flex-shrink-0" />
            <Link to="/b2b/agent/dashboard" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('dashboard') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
               <LayoutDashboard className="h-4 w-4" /> Dashboard
             </Link>

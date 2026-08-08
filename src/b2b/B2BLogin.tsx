@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { ShieldCheck, Lock, User, Loader2, KeyRound, Shield, Rocket, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
+import B2BPWAInstallButton from './components/B2BPWAInstallButton';
 
 interface B2BLoginProps {
   mode?: 'agent' | 'admin' | 'both';
@@ -337,6 +338,11 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
         )}
       </AnimatePresence>
 
+      {/* Top Right Floating Install App Button */}
+      <div className="absolute top-4 right-4 z-20">
+        <B2BPWAInstallButton variant="header" />
+      </div>
+
       {/* Header Logo (UsePay Logo Kept Intact!) */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10 mb-6 text-center">
         <div className="flex justify-center mb-3">
@@ -354,6 +360,10 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
             ? 'Sign in to access your B2B Admin Dashboard' 
             : 'Sign in to access your Agent API Dashboard'}
         </p>
+
+        <div className="mt-3 flex justify-center">
+          <B2BPWAInstallButton variant="badge" />
+        </div>
       </div>
 
       {/* Glassmorphism Login Card (Matching Design 2) */}

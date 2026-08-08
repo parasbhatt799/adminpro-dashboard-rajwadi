@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, User, Clock } from 'lucide-react';
 import B2BAdminSidebar from './B2BAdminSidebar';
+import B2BPWAInstallButton from '../components/B2BPWAInstallButton';
 import { format } from 'date-fns';
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
@@ -69,6 +70,7 @@ export default function B2BAdminLayout() {
 
           <div className="flex items-center gap-4">
             <LiveClock />
+            <B2BPWAInstallButton variant="header" />
 
             <div className="h-8 w-px bg-slate-200 mx-2"></div>
             <div className="flex items-center gap-3 pl-2">

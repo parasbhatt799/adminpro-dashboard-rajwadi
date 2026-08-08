@@ -78,7 +78,11 @@ BEGIN
         RAISE EXCEPTION 'API Access is disabled for this account';
     END IF;
 
-    IF array_length(v_ip_whitelist, 1) > 0 AND NOT (p_ip_address = ANY(v_ip_whitelist)) THEN
+    IF v_ip_whitelist IS NULL OR array_length(v_ip_whitelist, 1) IS NULL OR array_length(v_ip_whitelist, 1) = 0 THEN
+        RAISE EXCEPTION 'IP Whitelist is empty. Please ask administrator to whitelist your server IP address.';
+    END IF;
+
+    IF NOT (p_ip_address = ANY(v_ip_whitelist)) THEN
         RAISE EXCEPTION 'IP Address % is not whitelisted', p_ip_address;
     END IF;
 
