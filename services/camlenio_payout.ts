@@ -217,7 +217,7 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
  */
 export async function checkPayoutStatus(reference: string): Promise<any> {
   try {
-    const data = await callPayoutApi('/api/v1/aer/payout/status', {
+    const data = await callPayoutApi('/api/v1/aer/payout/check-status', {
       reference: reference
     });
     return data;

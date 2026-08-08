@@ -4441,7 +4441,7 @@ async function startServer() {
       if (payoutId) {
         query = query.eq('id', payoutId);
       } else {
-        query = query.in('status', ['processing', 'pending']);
+        query = query.in('status', ['processing', 'pending', 'PROCESSING', 'PENDING']);
       }
 
       const { data: records, error } = await query;
@@ -4869,7 +4869,7 @@ async function startServer() {
       const { data: pendingTx } = await supabaseAdmin
         .from('payout_submissions')
         .select('*')
-        .in('status', ['processing', 'pending']);
+        .in('status', ['processing', 'pending', 'PROCESSING', 'PENDING']);
 
       if (pendingTx && pendingTx.length > 0) {
         console.log(`[Auto Payout Sync] Checking status for ${pendingTx.length} pending/processing transactions...`);
