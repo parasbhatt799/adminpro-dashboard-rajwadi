@@ -583,10 +583,10 @@ function PWARootRedirector() {
     // Redirect when opening '/' or '/login' in standalone PWA or when B2B session/portal marker exists
     if (location.pathname === '/' || location.pathname === '/login') {
       if (isB2BUrl || (isPWA && (lastPortal === 'b2b' || hasAgentSession || hasAdminSession))) {
-        if (hasAgentSession) {
-          navigate('/b2b/agent/dashboard', { replace: true });
-        } else if (hasAdminSession) {
+        if (hasAdminSession) {
           navigate('/b2b/admin/dashboard', { replace: true });
+        } else if (hasAgentSession) {
+          navigate('/b2b/agent/dashboard', { replace: true });
         } else {
           navigate('/b2b/admin-login', { replace: true });
         }

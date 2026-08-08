@@ -193,6 +193,24 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
 
   const currentMode = mode !== 'both' ? mode : loginType;
 
+  // Auto-redirect if already logged in as Admin or Agent
+  useEffect(() => {
+    const b2bAdminId = localStorage.getItem('b2bAdminId');
+    const b2bAgentId = localStorage.getItem('b2bAgentId');
+
+    if (currentMode === 'admin' && b2bAdminId) {
+      navigate('/b2b/admin/dashboard', { replace: true });
+    } else if (currentMode === 'agent' && b2bAgentId) {
+      navigate('/b2b/agent/dashboard', { replace: true });
+    } else if (mode === 'both') {
+      if (b2bAdminId) {
+        navigate('/b2b/admin/dashboard', { replace: true });
+      } else if (b2bAgentId) {
+        navigate('/b2b/agent/dashboard', { replace: true });
+      }
+    }
+  }, [currentMode, mode, navigate]);
+
   const handleContainerMouseMove = (e: React.MouseEvent) => {
     setMousePos({ x: e.clientX, y: e.clientY });
   };
