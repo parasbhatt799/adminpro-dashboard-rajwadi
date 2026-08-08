@@ -1,8 +1,9 @@
 {
+  "id": "/b2b/login",
   "name": "UsePay B2B Portal",
   "short_name": "UsePay B2B",
   "description": "UsePay B2B Agent & Admin Portal for Financial Services and Utilities",
-  "start_url": "/b2b/login",
+  "start_url": "/b2b/login?utm_source=b2b_pwa",
   "scope": "/b2b/",
   "display": "standalone",
   "orientation": "any",

@@ -558,6 +558,32 @@ const AdminLayout = ({
 
 // --- Main App Component ---
 
+function PWARootRedirector() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
+    const isB2BUrl = location.search.includes('utm_source=b2b_pwa') || location.search.includes('b2b_pwa');
+    const lastPortal = localStorage.getItem('lastPortal');
+
+    if (location.pathname === '/' && (isB2BUrl || (isPWA && lastPortal === 'b2b'))) {
+      const hasAgentSession = localStorage.getItem('b2bAgentId');
+      const hasAdminSession = localStorage.getItem('b2bAdminId');
+
+      if (hasAgentSession) {
+        navigate('/b2b/agent/dashboard', { replace: true });
+      } else if (hasAdminSession) {
+        navigate('/b2b/admin/dashboard', { replace: true });
+      } else {
+        navigate('/b2b/login', { replace: true });
+      }
+    }
+  }, [location, navigate]);
+
+  return null;
+}
+
 export default function App() {
   const [isAdmin, setIsAdmin] = useState(() => localStorage.getItem('userType') === 'admin');
   const [soundSettings, setSoundSettings] = useState<any>(null);
@@ -1164,6 +1190,7 @@ export default function App() {
 
   return (
     <Router>
+      <PWARootRedirector />
       <Routes>
         <Route path="/" element={<HomePage isAdmin={isAdmin} isUser={isUser} onLogout={handleLogout} />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />

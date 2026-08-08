@@ -6,7 +6,12 @@ export function useB2BPWA() {
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // 1. Switch HTML <link rel="manifest"> to B2B Manifest dynamically
+    // 1. Mark B2B as active portal for standalone PWA launch routing
+    try {
+      localStorage.setItem('lastPortal', 'b2b');
+    } catch (e) {}
+
+    // 2. Switch HTML <link rel="manifest"> to B2B Manifest dynamically
     const manifestLink = document.querySelector('link[rel="manifest"]');
     
     if (manifestLink) {
