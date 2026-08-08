@@ -563,20 +563,33 @@ function PWARootRedirector() {
   const location = useLocation();
 
   useEffect(() => {
-    const isPWA = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone === true;
-    const isB2BUrl = location.search.includes('utm_source=b2b_pwa') || location.search.includes('b2b_pwa');
+    const isPWA = 
+      window.matchMedia('(display-mode: standalone)').matches || 
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://');
+
+    const isB2BUrl = location.search.includes('b2b_pwa') || location.pathname.startsWith('/b2b');
     const lastPortal = localStorage.getItem('lastPortal');
+    const hasAgentSession = localStorage.getItem('b2bAgentId');
+    const hasAdminSession = localStorage.getItem('b2bAdminId');
 
-    if (location.pathname === '/' && (isB2BUrl || (isPWA && lastPortal === 'b2b'))) {
-      const hasAgentSession = localStorage.getItem('b2bAgentId');
-      const hasAdminSession = localStorage.getItem('b2bAdminId');
+    // Automatically set lastPortal = b2b when visiting any b2b route
+    if (location.pathname.startsWith('/b2b')) {
+      try {
+        localStorage.setItem('lastPortal', 'b2b');
+      } catch (e) {}
+    }
 
-      if (hasAgentSession) {
-        navigate('/b2b/agent/dashboard', { replace: true });
-      } else if (hasAdminSession) {
-        navigate('/b2b/admin/dashboard', { replace: true });
-      } else {
-        navigate('/b2b/login', { replace: true });
+    // Redirect when opening '/' or '/login' in standalone PWA or when B2B session/portal marker exists
+    if (location.pathname === '/' || location.pathname === '/login') {
+      if (isB2BUrl || (isPWA && (lastPortal === 'b2b' || hasAgentSession || hasAdminSession))) {
+        if (hasAgentSession) {
+          navigate('/b2b/agent/dashboard', { replace: true });
+        } else if (hasAdminSession) {
+          navigate('/b2b/admin/dashboard', { replace: true });
+        } else {
+          navigate('/b2b/login', { replace: true });
+        }
       }
     }
   }, [location, navigate]);

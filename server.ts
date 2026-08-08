@@ -4736,6 +4736,20 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), "dist");
+
+    // Serve B2B SPA routes with B2B PWA manifest injected in HTML
+    app.get(["/b2b", "/b2b/*"], (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      const indexPath = path.join(distPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        let html = fs.readFileSync(indexPath, "utf8");
+        html = html.replace('href="/manifest.json"', 'href="/b2b-manifest.json"');
+        res.setHeader("Content-Type", "text/html");
+        return res.send(html);
+      }
+      res.sendFile(indexPath);
+    });
+
     app.use(express.static(distPath, {
       maxAge: "1y",
       setHeaders: (res, filePath) => {
