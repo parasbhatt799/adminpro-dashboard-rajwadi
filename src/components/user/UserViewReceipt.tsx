@@ -4,9 +4,7 @@ import {
   Printer,
   ShieldCheck,
   ArrowLeft,
-  CheckCircle2,
-  XCircle,
-  Clock
+  CheckCircle2
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
@@ -102,9 +100,6 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
         const code = Math.abs(hash % 900000) + 100000;
         const approvalNumber = `AP${code}`;
 
-        const subStatus = (subData.status || '').toLowerCase();
-        const transactionStatusText = (subStatus === 'approved' || subStatus === 'success') ? 'Successful' : (subStatus === 'failed' || subStatus === 'rejected') ? 'Failed' : 'Pending';
-
         setBillAvenueReceipt({
           bConnectTxnId: subData.transaction_id,
           billerId: subData.provider,
@@ -121,7 +116,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
           date: subData.metadata?.date || format(parseISO(subData.created_at), 'dd/MM/yyyy, hh:mm a'),
           initiatingChannel: 'Internet (WEB)',
           paymentMode: subData.metadata?.paymentMode || 'UPI',
-          transactionStatus: transactionStatusText,
+          transactionStatus: 'Successful',
           approvalNumber: approvalNumber,
           consumerDetails: subData.metadata?.customerParams || {}
         });
@@ -299,28 +294,16 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
                 <img id="pdf-assured-logo" src="/assured_logo.png" alt="Be-Assured Logo" style={{ width: '80px', height: '80px', objectFit: 'contain' }} className="opacity-100 brightness-110 filter drop-shadow-sm" />
               </div>
 
-              {(() => {
-                const status = (submission?.status || '').toLowerCase();
-                const isApproved = status === 'approved' || status === 'success';
-                const isFailed = status === 'failed' || status === 'rejected';
-                const statusText = isApproved ? 'Transaction Success' : isFailed ? 'Transaction Failed' : 'Transaction Pending';
-                const statusTextColor = isApproved ? 'text-emerald-600' : isFailed ? 'text-rose-600' : 'text-amber-600';
-                const IconComponent = isApproved ? CheckCircle2 : isFailed ? XCircle : Clock;
-                const iconColor = isApproved ? 'text-emerald-500' : isFailed ? 'text-rose-500' : 'text-amber-500';
-
-                return (
-                  <div className="text-center border-b border-dashed border-slate-100 pb-5">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <IconComponent className={iconColor} size={40} />
-                      <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Receipt</span>
-                    </div>
-                    <div className="text-2xl font-black text-slate-800 mt-4">
-                      ₹{billAvenueReceipt.totalAmount.toFixed(2)}
-                    </div>
-                    <p className={`text-[10px] font-black ${statusTextColor} uppercase tracking-widest mt-1`}>{statusText}</p>
-                  </div>
-                );
-              })()}
+              <div className="text-center border-b border-dashed border-slate-100 pb-5">
+                <div className="flex flex-col items-center justify-center gap-2">
+                  <CheckCircle2 className="text-emerald-500" size={40} />
+                  <span className="text-[10px] bg-slate-900 text-white px-2.5 py-0.5 rounded-full font-black uppercase tracking-wider">Receipt</span>
+                </div>
+                <div className="text-2xl font-black text-slate-800 mt-4">
+                  ₹{billAvenueReceipt.totalAmount.toFixed(2)}
+                </div>
+                <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
+              </div>
 
               <div className="grid grid-cols-2 gap-x-6 gap-y-3.5 text-xs font-semibold text-slate-600 mt-6 text-left">
                 <div className="flex flex-col border-b border-slate-100 pb-1.5 col-span-2">
@@ -425,26 +408,16 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
               id="print-receipt-container"
             >
               {/* E-receipt layout header */}
-              {(() => {
-                const status = (submission.status || '').toLowerCase();
-                const isApproved = status === 'approved' || status === 'success';
-                const isFailed = status === 'failed' || status === 'rejected';
-                const statusText = isApproved ? 'Transaction Success' : isFailed ? 'Transaction Failed' : 'Transaction Pending';
-                const statusTextColor = isApproved ? 'text-emerald-600' : isFailed ? 'text-rose-600' : 'text-amber-600';
-
-                return (
-                  <div className="text-center border-b border-dashed border-slate-200 pb-6">
-                    <div className="flex flex-col items-center justify-center gap-3">
-                      <img src="/logo_receipt.png" alt="UsePay" className="h-10 w-auto object-contain" />
-                      <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">BBPS E-Receipt</span>
-                    </div>
-                    <div className="text-3xl font-black text-slate-800 mt-4">
-                      ₹{Number(submission.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                    </div>
-                    <p className={`text-xs font-black ${statusTextColor} uppercase tracking-widest mt-1`}>{statusText}</p>
-                  </div>
-                );
-              })()}
+              <div className="text-center border-b border-dashed border-slate-200 pb-6">
+                <div className="flex flex-col items-center justify-center gap-3">
+                  <img src="/logo_receipt.png" alt="UsePay" className="h-10 w-auto object-contain" />
+                  <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">BBPS E-Receipt</span>
+                </div>
+                <div className="text-3xl font-black text-slate-800 mt-4">
+                  ₹{Number(submission.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </div>
+                <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
+              </div>
 
               {/* Slate Receipt detail rows */}
               <div className="space-y-4 text-xs font-medium text-slate-600">
