@@ -343,15 +343,16 @@ export default function UserPayment({ userId }: UserPaymentProps) {
     }
   };
 
-  const refreshActiveQr = React.useCallback(async () => {
+  const refreshActiveQr = React.useCallback(async (targetTab?: 'qr' | 't1_qr' | 'bill' | 'payout') => {
     try {
+      const currentTab = targetTab || activeTab;
       const { data: qrData } = await supabase
         .from('qr_settings')
         .select('qr_url, is_enabled, is_service_enabled, is_t_plus_one_enabled, is_t_plus_one_service_enabled, qr_min_limit, qr_max_limit, t_plus_one_limit, upi_id, is_bill_enabled, daily_normal_bill_limit')
         .eq('id', 1)
         .single();
 
-      const isT1 = activeTab === 't1_qr';
+      const isT1 = currentTab === 't1_qr';
       const { data: activeQRs } = await supabase
         .from('qr_history')
         .select('id, qr_name, upi_id, qr_url')
@@ -393,6 +394,18 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       console.error('Error refreshing active QR:', err);
     }
   }, [activeTab]);
+
+  const handleTabSwitch = (targetTab: 'qr' | 't1_qr' | 'bill' | 'payout') => {
+    if (targetTab === activeTab) return;
+    if (targetTab === 'qr' || targetTab === 't1_qr') {
+      setQrUrl(null);
+      setUpiId(null);
+      setQrName(null);
+      setActiveQrId(null);
+      refreshActiveQr(targetTab);
+    }
+    setActiveTab(targetTab);
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1096,7 +1109,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100 flex-wrap">
           <button
-            onClick={() => setActiveTab('qr')}
+            onClick={() => handleTabSwitch('qr')}
             className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'qr'
               ? 'text-emerald-600 bg-emerald-50/50 border-b-2 border-emerald-600'
               : 'text-slate-500 hover:bg-slate-50'
@@ -1107,7 +1120,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           </button>
 
           <button
-            onClick={() => setActiveTab('bill')}
+            onClick={() => handleTabSwitch('bill')}
             className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 'bill'
               ? 'text-indigo-600 bg-indigo-50/50 border-b-2 border-indigo-600'
               : 'text-slate-500 hover:bg-slate-50'
@@ -1118,7 +1131,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           </button>
 
           <button
-            onClick={() => setActiveTab('t1_qr')}
+            onClick={() => handleTabSwitch('t1_qr')}
             className={`flex-1 min-w-[120px] flex items-center justify-center gap-2 py-4 font-bold text-sm transition-all ${activeTab === 't1_qr'
               ? 'text-amber-600 bg-amber-50/50 border-b-2 border-amber-600'
               : 'text-slate-500 hover:bg-slate-50'
@@ -1131,7 +1144,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
           <button
             onClick={() => {
               if (payoutSettings?.is_enabled !== false) {
-                setActiveTab('payout');
+                handleTabSwitch('payout');
               }
             }}
             disabled={payoutSettings?.is_enabled === false}
