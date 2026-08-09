@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Edit3,
   X,
   AlertTriangle,
   Lightbulb,
@@ -704,10 +703,10 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       // Fetch category settings from the backend
       const settingsRes = await fetch('/api/biller-categories');
       const settingsData = await settingsRes.json();
-      
+
       // Start with our comprehensive standard categories list
       let mergedCats = [...STANDARD_CATEGORIES];
-      
+
       if (Array.isArray(settingsData)) {
         mergedCats = mergedCats.filter(cat => {
           const setting = settingsData.find(s => s.provider === 'billavenue' && s.category_name === cat.name);
@@ -764,9 +763,9 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
     try {
       const searchLower = catName.toLowerCase();
-      
+
       let query = supabase.from('billavenue_billers').select('*').limit(10000);
-      
+
       if (searchLower === 'mobile prepaid') {
         query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
       } else {
@@ -880,11 +879,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           if (!response.ok) throw new Error('Failed to fetch from live API');
           const data = await response.json();
           const apiBiller = data?.billerInfoResponse?.biller;
-          
+
           if (apiBiller && apiBiller.billerInputParams) {
             bDetail = { ...apiBiller, mdm_fetched: true };
             // Silently update database so we don't fetch next time
-            supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then(({error}) => {
+            supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then(({ error }) => {
               if (error) console.warn('Failed to cache biller params:', error.message);
             });
           } else {
@@ -908,7 +907,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
       const isAdhocTrue = bDetail?.billerAcceptsAdhoc === 'true' || bDetail?.billerAcceptsAdhoc === true;
       const isAdhocMissing = bDetail?.billerAcceptsAdhoc === undefined;
-      
+
       setBillerConfig({
         billerAcceptsAdhoc: isAdhocTrue || isAdhocMissing || selectedCategory === 'Credit Card',
         fetchRequirement: bDetail?.fetchRequirement || 'OPTIONAL'
@@ -917,13 +916,13 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       // Map parameters
       const paramsList: BillerInputParam[] = [];
       let rawParams: any[] = [];
-      
+
       if (bDetail?.billerInputParams) {
         // BillAvenue XML parsed format: billerInputParams.paramInfo
         if (bDetail.billerInputParams.paramInfo) {
           const info = bDetail.billerInputParams.paramInfo;
           rawParams = Array.isArray(info) ? info : [info];
-        } 
+        }
         // BillAvenue JSON format: billerInputParams[0].paramsList or billerInputParams.paramsList
         else if (Array.isArray(bDetail.billerInputParams) && bDetail.billerInputParams[0]?.paramsList) {
           rawParams = bDetail.billerInputParams[0].paramsList;
@@ -973,7 +972,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         ) {
           fallbackParams = [{ paramName: 'Consumer Number', dataType: 'NUMERIC', optional: false }];
         } else if (
-          nameStr.toLowerCase().includes('torrent') || 
+          nameStr.toLowerCase().includes('torrent') ||
           bIdStr.toUpperCase().startsWith('TORR')
         ) {
           fallbackParams = [{ paramName: 'Service Number', dataType: 'NUMERIC', optional: false }];
@@ -1097,7 +1096,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       });
 
       const data = await res.json();
-      
+
       if (!res.ok || data.status === 'ERROR') {
         const errorMsg = data.message || 'Error fetching bill. Please check your details.';
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
@@ -1120,7 +1119,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       const response = data?.billFetchResponse;
       const billerResp = response?.billerResponse || response; // Sometimes nested under billerResponse
       const respCode = billerResp?.responseCode || response?.responseCode;
-      
+
       if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success') {
         const billAmountStr = billerResp?.billAmount || response?.billAmount;
         const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs
@@ -1364,7 +1363,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           consumerDetails: formInputs
         });
         setWalletBalance(data.new_balance);
-        setStep(4);
+        setStep(3);
       } else {
         toast.error(data.message || 'Payment execution failed.');
       }
@@ -1495,15 +1494,13 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         {/* Step Header */}
         <div className="bg-slate-50 border-b border-slate-100 px-8 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            {step > 1 && !receipt && (
+            {step > 1 && (
               <button
                 onClick={() => {
-                  if (step === 3) {
-                    setStep(2);
-                  } else if (step === 2) {
-                    setStep(1);
-                  } else {
+                  if (step === 3 || step === 2) {
                     resetForm();
+                  } else {
+                    setStep(step - 1);
                   }
                 }}
                 className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-900 cursor-pointer"
@@ -1512,13 +1509,13 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
               </button>
             )}
             <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
-              {viewMode === 'search' ? 'Search Bharat Connect Transactions' : receipt ? 'Receipt Generated' : `Step ${Math.min(step, 3)} of 3: ${step === 1 ? 'Select Utility Service' :
-                step === 2 ? 'Select Provider' :
-                  'Enter Details & Pay'
+              {viewMode === 'search' ? 'Search Bharat Connect Transactions' : `Step ${step} of 3: ${step === 1 ? 'Select Utility Service' :
+                step === 2 ? `Select Provider & Enter Details` :
+                  'Receipt generated'
                 }`}
             </span>
           </div>
-          {!receipt && (
+          {step !== 3 && (
             <img
               src="/bharat_connect.png"
               alt="Bharat Connect"
@@ -1751,208 +1748,221 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                 </div>
               )}
 
-              {/* Step 2: Select Provider (Cards Grid UI) */}
+              {/* Step 2: Billers */}
               {step === 2 && (
-                <div className="space-y-6 animate-in fade-in duration-300">
+                <div className="space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                    <div>
-                      <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">Choose your provider to enter details and pay</p>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="relative w-full sm:w-80">
-                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input
-                        type="text"
-                        placeholder={`Search ${selectedCategory.toLowerCase()} provider...`}
-                        value={searchBillerQuery}
-                        onChange={(e) => setSearchBillerQuery(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
-                      />
-                      {searchBillerQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchBillerQuery('')}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition-all cursor-pointer"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
+                    <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
                   </div>
 
-                  {filteredBillers.length === 0 ? (
-                    <div className="text-center py-16 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 space-y-2">
-                      <HelpCircle size={32} className="mx-auto text-slate-300" />
-                      <p className="text-sm font-black text-slate-600">No Providers Found</p>
-                      <p className="text-xs text-slate-400">No {selectedCategory} providers matching "{searchBillerQuery}"</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {filteredBillers.map((b) => {
-                        const initials = (b.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
-                        const isSelected = selectedBiller?.billerId === b.billerId;
-                        return (
-                          <div
-                            key={b.billerId}
-                            onClick={() => {
-                              selectBiller(b);
-                              setStep(3);
-                            }}
-                            className={`group relative bg-white hover:bg-indigo-50/20 border ${isSelected ? 'border-indigo-600 ring-2 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-500/60'} rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden`}
-                          >
-                            <div className="flex items-center gap-3.5 mb-3">
-                              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-md shrink-0 group-hover:scale-105 transition-transform">
-                                {initials}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h4 className="font-bold text-slate-800 text-xs sm:text-sm group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug" title={b.billerName}>
-                                  {b.billerName}
-                                </h4>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1 text-[11px] font-bold text-indigo-600">
-                              <span>Select Provider</span>
-                              <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Step 3: Enter Details & Pay */}
-              {step === 3 && !receipt && (
-                <div className="animate-in fade-in duration-300">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Left Column: Form Inputs & Provider Header */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
+                    {/* Left Column: Biller Selection & Form Inputs */}
                     <div className="lg:col-span-7 space-y-6 bg-white border border-slate-200/80 p-6 md:p-8 rounded-2xl shadow-sm">
-                      {/* Selected Provider Header Card inside Left Column */}
-                      {selectedBiller && (
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-                          <div className="flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center shadow-sm shrink-0">
-                              {(selectedBiller.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      <div className="space-y-4">
+                        {/* Select Provider Dropdown */}
+                        <div className="space-y-1.5">
+                          <label className="text-sm font-semibold text-slate-700 block">
+                            {getFieldLabel('Biller name')}
+                          </label>
+                          <div className="relative">
+                            {/* Custom Dropdown Trigger Button */}
+                            <div
+                              onClick={() => setBillerDropdownOpen(!billerDropdownOpen)}
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all cursor-pointer flex justify-between items-center select-none shadow-sm hover:border-slate-300"
+                            >
+                              <span className={selectedBiller ? "text-slate-800 font-semibold" : "text-slate-400 font-medium"}>
+                                {selectedBiller ? selectedBiller.billerName : `-- ${getFieldLabel('Select Biller')} --`}
+                              </span>
+                              <svg
+                                className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${billerDropdownOpen ? 'transform rotate-180' : ''}`}
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
                             </div>
-                            <div>
-                              <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">{selectedCategory} Provider</span>
-                              <h4 className="font-black text-slate-800 text-sm mt-0.5">{selectedBiller.billerName}</h4>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setStep(2)}
-                            className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-indigo-600 text-xs font-bold rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          >
-                            <Edit3 size={13} />
-                            Change Provider
-                          </button>
-                        </div>
-                      )}
-                      {billerParamsLoading ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-3">
-                          <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading billing fields...</p>
-                        </div>
-                      ) : (
-                        selectedBiller && (
-                          <form onSubmit={handleFetchBill} className="space-y-4">
-                            {inputParams.map((param, idx) => {
-                              const labelText = param.paramName;
-                              return (
-                                <div key={idx} className="space-y-1.5">
-                                  <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
-                                    {labelText}
-                                    {!param.optional && <span className="text-rose-500 font-bold ml-1">*</span>}
-                                  </label>
+
+                            {/* Dropdown Menu Overlay Click-Outside Catcher */}
+                            {billerDropdownOpen && (
+                              <div
+                                className="fixed inset-0 z-40 bg-transparent cursor-default"
+                                onClick={() => setBillerDropdownOpen(false)}
+                              />
+                            )}
+
+                            {/* Dropdown Menu Card */}
+                            {billerDropdownOpen && (
+                              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl z-50 overflow-hidden flex flex-col max-h-[300px] animate-in slide-in-from-top-2 duration-200">
+                                {/* Search Field */}
+                                <div className="p-3 border-b border-slate-100 bg-slate-50 sticky top-0 z-10 flex items-center gap-2">
+                                  <svg className="w-4 h-4 text-slate-400 shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                  </svg>
                                   <input
                                     type="text"
-                                    required={!param.optional}
-                                    value={formInputs[param.paramName] || ''}
-                                    onChange={(e) => setFormInputs({ ...formInputs, [param.paramName]: e.target.value })}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                    placeholder={`Enter ${labelText}`}
+                                    placeholder={`Search ${getFieldLabel('Biller name').toLowerCase()}...`}
+                                    value={searchBillerQuery}
+                                    onChange={(e) => setSearchBillerQuery(e.target.value)}
+                                    className="w-full text-xs font-semibold text-slate-700 bg-transparent outline-none placeholder:text-slate-300"
+                                    onClick={(e) => e.stopPropagation()}
+                                    autoFocus
                                   />
+                                  {searchBillerQuery && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSearchBillerQuery('');
+                                      }}
+                                      className="p-1 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  )}
                                 </div>
-                              );
-                            })}
 
-                            {(() => {
-                              const hasMobileParam = inputParams.some(p => p.paramName.toLowerCase().includes('mobile') || p.paramName.toLowerCase().includes('phone'));
-                              if (hasMobileParam) return null;
-                              return (
-                                <div className="space-y-1.5">
-                                  <label className="text-sm font-semibold text-slate-700">
-                                    {getFieldLabel('Mobile number')} <span className="text-rose-500 font-bold ml-1">*</span>
-                                  </label>
-                                  <input
-                                    type="tel"
-                                    required
-                                    maxLength={10}
-                                    value={customerMobile}
-                                    onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                    placeholder={`Enter ${getFieldLabel('Mobile number').toLowerCase()}`}
-                                  />
+                                {/* Biller Option List */}
+                                <div className="overflow-y-auto divide-y divide-slate-50/50 max-h-[260px] text-left">
+                                  {filteredBillers.length === 0 ? (
+                                    <div className="p-6 text-center text-xs text-slate-400 font-medium">
+                                      No providers found matching "{searchBillerQuery}"
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="px-4 py-2 text-[9px] font-black text-slate-400 uppercase tracking-widest bg-slate-50/30 sticky top-0 select-none">
+                                        {selectedCategory} Providers
+                                      </div>
+                                      {filteredBillers.map((b) => (
+                                        <div
+                                          key={b.billerId}
+                                          onClick={() => {
+                                            selectBiller(b);
+                                            setBillerDropdownOpen(false);
+                                            setSearchBillerQuery('');
+                                          }}
+                                          className={`px-4 py-3 text-xs font-semibold cursor-pointer transition-all flex items-center justify-between ${selectedBiller?.billerId === b.billerId
+                                            ? 'bg-indigo-50/70 text-indigo-700 font-bold border-l-4 border-indigo-600'
+                                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 border-l-4 border-transparent'
+                                            }`}
+                                        >
+                                          <span>{b.billerName}</span>
+                                          {selectedBiller?.billerId === b.billerId && (
+                                            <CheckCircle2 size={14} className="text-indigo-600 shrink-0 ml-2 animate-in zoom-in-50 duration-150" />
+                                          )}
+                                        </div>
+                                      ))}
+                                    </>
+                                  )}
                                 </div>
-                              );
-                            })()}
-
-
-                            {selectedCategory !== 'Mobile Prepaid' && (
-                              <button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-100 mt-4"
-                              >
-                                {loading ? 'Fetching Bill...' : 'Fetch Bill Details'}
-                                <ArrowRight size={16} />
-                              </button>
-                            )}
-                          </form>
-                        )
-                      )}
-
-                      {/* Prepaid Plan List for mobile recharge */}
-                      {selectedBiller && selectedCategory === 'Mobile Prepaid' && (
-                        <div className="space-y-4 border-t border-slate-100/80 pt-4">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Select Recharge Plan</h4>
-                            {planLoading && <span className="text-[10px] text-indigo-600 animate-pulse font-bold">Loading plans...</span>}
-                          </div>
-
-                          <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 no-scrollbar border border-slate-100 rounded-2xl p-3 bg-slate-50/50">
-                            {plans.length === 0 && !planLoading ? (
-                              <div className="text-center py-10 text-slate-400 text-xs">
-                                No plans retrieved. You can enter transaction amount manually.
                               </div>
-                            ) : (
-                              plans.map((p, idx) => (
-                                <div
-                                  key={idx}
-                                  onClick={() => {
-                                    setSelectedPlan(p);
-                                    setManualAmount(p.amount);
-                                  }}
-                                  className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${selectedPlan === p ? 'bg-indigo-50/50 border-indigo-500 shadow-sm' : 'bg-white border-slate-200/60 hover:bg-slate-50'
-                                    }`}
-                                >
-                                  <div className="space-y-1 pr-4">
-                                    <p className="text-xs font-black text-slate-800">
-                                      ₹{p.amount} <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold">{p.validity}</span>
-                                    </p>
-                                    <p className="text-[11px] text-slate-500 leading-normal">{p.description}</p>
-                                  </div>
-                                  <ChevronRight size={16} className={selectedPlan === p ? 'text-indigo-600' : 'text-slate-400'} />
-                                </div>
-                              ))
                             )}
                           </div>
                         </div>
-                      )}
+
+                        {/* Inline billing form loaded on selection */}
+                        {billerParamsLoading ? (
+                          <div className="flex flex-col items-center justify-center py-8 gap-2 border-t border-slate-100/80 pt-4">
+                            <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading billing details...</p>
+                          </div>
+                        ) : (
+                          selectedBiller && (
+                            <form onSubmit={handleFetchBill} className="space-y-4 border-t border-slate-100/80 pt-4 animate-in fade-in duration-300">
+                              {inputParams.map((param, idx) => {
+                                const labelText = param.paramName;
+                                return (
+                                  <div key={idx} className="space-y-1.5">
+                                    <label className="text-sm font-semibold text-slate-700 flex items-center gap-1">
+                                      {labelText}
+                                      {!param.optional && <span className="text-rose-500 font-bold ml-1">*</span>}
+                                    </label>
+                                    <input
+                                      type="text"
+                                      required={!param.optional}
+                                      value={formInputs[param.paramName] || ''}
+                                      onChange={(e) => setFormInputs({ ...formInputs, [param.paramName]: e.target.value })}
+                                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                                      placeholder={`Enter ${labelText}`}
+                                    />
+                                  </div>
+                                );
+                              })}
+
+                              {(() => {
+                                const hasMobileParam = inputParams.some(p => p.paramName.toLowerCase().includes('mobile') || p.paramName.toLowerCase().includes('phone'));
+                                if (hasMobileParam) return null;
+                                return (
+                                  <div className="space-y-1.5">
+                                    <label className="text-sm font-semibold text-slate-700">
+                                      {getFieldLabel('Mobile number')} <span className="text-rose-500 font-bold ml-1">*</span>
+                                    </label>
+                                    <input
+                                      type="tel"
+                                      required
+                                      maxLength={10}
+                                      value={customerMobile}
+                                      onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, ''))}
+                                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
+                                      placeholder={`Enter ${getFieldLabel('Mobile number').toLowerCase()}`}
+                                    />
+                                  </div>
+                                );
+                              })()}
+
+
+                              {selectedCategory !== 'Mobile Prepaid' && (
+                                <button
+                                  type="submit"
+                                  disabled={loading}
+                                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-100"
+                                >
+                                  {loading ? 'Fetching Bill...' : 'Fetch Bill'}
+                                  <ArrowRight size={16} />
+                                </button>
+                              )}
+                            </form>
+                          )
+                        )}
+
+                        {/* Prepaid Plan List for mobile recharge */}
+                        {selectedBiller && selectedCategory === 'Mobile Prepaid' && (
+                          <div className="space-y-4 border-t border-slate-100/80 pt-4">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Select Recharge Plan</h4>
+                              {planLoading && <span className="text-[10px] text-indigo-600 animate-pulse font-bold">Loading plans...</span>}
+                            </div>
+
+                            <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 no-scrollbar border border-slate-100 rounded-2xl p-3 bg-slate-50/50">
+                              {plans.length === 0 && !planLoading ? (
+                                <div className="text-center py-10 text-slate-400 text-xs">
+                                  No plans retrieved. You can enter transaction amount manually.
+                                </div>
+                              ) : (
+                                plans.map((p, idx) => (
+                                  <div
+                                    key={idx}
+                                    onClick={() => {
+                                      setSelectedPlan(p);
+                                      setManualAmount(p.amount);
+                                    }}
+                                    className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${selectedPlan === p ? 'bg-indigo-50/50 border-indigo-500 shadow-sm' : 'bg-white border-slate-200/60 hover:bg-slate-50'
+                                      }`}
+                                  >
+                                    <div className="space-y-1 pr-4">
+                                      <p className="text-xs font-black text-slate-800">
+                                        ₹{p.amount} <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-bold">{p.validity}</span>
+                                      </p>
+                                      <p className="text-[11px] text-slate-500 leading-normal">{p.description}</p>
+                                    </div>
+                                    <ChevronRight size={16} className={selectedPlan === p ? 'text-indigo-600' : 'text-slate-400'} />
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Right Column: Bill Summary and Payment Summary */}
@@ -2170,8 +2180,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                 </div>
               )}
 
-              {/* Step 4: Success Receipt */}
-              {receipt && (
+              {/* Step 3: Success Receipt */}
+              {step === 3 && receipt && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start justify-center max-w-6xl mx-auto py-8">
                   {/* Left Column: Receipt Card */}
                   <div className="lg:col-span-7 flex flex-col items-center justify-center w-full">
