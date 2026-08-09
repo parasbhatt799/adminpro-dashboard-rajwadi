@@ -27,6 +27,7 @@
   "exclude": [
     "node_modules",
     "dist",
-    "adminpro-dashboard-rajwadi"
+    "adminpro-dashboard-rajwadi",
+    "apply_rls.js"
   ]
 }

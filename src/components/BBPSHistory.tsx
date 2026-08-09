@@ -944,24 +944,38 @@ export default function BBPSHistory() {
               </button>
 
               {/* Secure logo decoration */}
-              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-bl-full flex items-center justify-center pointer-events-none print:hidden">
-                <ShieldCheck size={18} className="text-emerald-500/20 translate-x-3 -translate-y-3" />
-              </div>
+              {(() => {
+                const status = (selectedReceipt.status || '').toLowerCase();
+                const isApproved = status === 'approved' || status === 'success';
+                const isFailed = status === 'failed' || status === 'rejected';
+                const statusText = isApproved ? 'Transaction Success' : isFailed ? 'Transaction Failed' : 'Transaction Pending';
+                const statusTextColor = isApproved ? 'text-emerald-600' : isFailed ? 'text-rose-600' : 'text-amber-600';
+                const statusBgColor = isApproved ? 'bg-emerald-500/5' : isFailed ? 'bg-rose-500/5' : 'bg-amber-500/5';
+                const statusIconColor = isApproved ? 'text-emerald-500/20' : isFailed ? 'text-rose-500/20' : 'text-amber-500/20';
 
-              {/* Receipt Header */}
-              <div className="text-center border-b border-dashed border-slate-200 pb-6">
-                <div className="flex flex-col items-center justify-center gap-3">
-                  <img src="/logo_receipt.png" alt="UsePay" className="h-10 w-auto object-contain" />
-                  <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">BBPS E-Receipt</span>
-                </div>
-                <div className="text-3xl font-black text-slate-800 mt-4">
-                  ₹{(Number(selectedReceipt.amount) + Number(selectedReceipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </div>
-                <p className="text-[10px] text-slate-400 font-bold mt-1">
-                  (Base: ₹{Number(selectedReceipt.amount).toLocaleString('en-IN')} + Commission: ₹{Number(selectedReceipt.charges).toLocaleString('en-IN')})
-                </p>
-                <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mt-2">Transaction Success</p>
-              </div>
+                return (
+                  <>
+                    <div className={`absolute top-0 right-0 w-24 h-24 ${statusBgColor} rounded-bl-full flex items-center justify-center pointer-events-none print:hidden`}>
+                      <ShieldCheck size={18} className={`${statusIconColor} translate-x-3 -translate-y-3`} />
+                    </div>
+
+                    {/* Receipt Header */}
+                    <div className="text-center border-b border-dashed border-slate-200 pb-6">
+                      <div className="flex flex-col items-center justify-center gap-3">
+                        <img src="/logo_receipt.png" alt="UsePay" className="h-10 w-auto object-contain" />
+                        <span className="text-[10px] bg-slate-900 text-white px-3 py-1 rounded-full font-black uppercase tracking-[0.2em]">BBPS E-Receipt</span>
+                      </div>
+                      <div className="text-3xl font-black text-slate-800 mt-4">
+                        ₹{(Number(selectedReceipt.amount) + Number(selectedReceipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-bold mt-1">
+                        (Base: ₹{Number(selectedReceipt.amount).toLocaleString('en-IN')} + Commission: ₹{Number(selectedReceipt.charges).toLocaleString('en-IN')})
+                      </p>
+                      <p className={`text-xs font-black ${statusTextColor} uppercase tracking-widest mt-2`}>{statusText}</p>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Slate Receipt detail rows */}
               <div className="space-y-4 text-xs font-medium text-slate-600">
