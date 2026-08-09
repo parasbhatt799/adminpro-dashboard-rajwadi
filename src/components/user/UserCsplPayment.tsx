@@ -1749,7 +1749,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
               {/* Step 3: Enter Details & Pay */}
               {step === 3 && !receipt && (
-                <div className="animate-in fade-in duration-300">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 animate-in fade-in duration-300">
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     {/* Left Column: Form Inputs & Provider Header */}
                     <div className="lg:col-span-7 space-y-6 bg-white border border-slate-200/80 p-6 md:p-8 rounded-2xl shadow-sm">
