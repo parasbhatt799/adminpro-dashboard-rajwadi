@@ -783,6 +783,14 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         metadata: b.metadata
       }));
 
+      // Strict filtering for Credit Card category
+      if (searchLower === 'credit card') {
+        filtered = filtered.filter(b => {
+          const name = b.billerName.toLowerCase();
+          return !name.includes('postpaid') && !name.includes('fastag') && !name.includes('ugvcl') && !name.includes('broadband') && !name.includes('dth');
+        });
+      }
+
       // Sort alphabetically
       filtered.sort((a, b) => a.billerName.localeCompare(b.billerName));
 
