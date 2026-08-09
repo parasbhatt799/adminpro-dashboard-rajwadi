@@ -4586,6 +4586,46 @@ async function startServer() {
     }
   });
 
+  // PUT CC Biller status (Admin only)
+  app.put('/api/admin/cc-billers-status', express.json(), async (req, res) => {
+    try {
+      const items = req.body;
+      if (!Array.isArray(items)) {
+        return res.status(400).json({ error: 'Expected array of biller status items' });
+      }
+
+      for (const item of items) {
+        if (!item.biller_id) continue;
+
+        const { data: dbBiller } = await supabaseAdmin
+          .from('billavenue_billers')
+          .select('metadata')
+          .eq('biller_id', item.biller_id)
+          .maybeSingle();
+
+        const currentMetadata = dbBiller?.metadata || {};
+        const updatedMetadata = {
+          ...currentMetadata,
+          is_enabled: item.is_enabled !== false
+        };
+
+        const { error: updateErr } = await supabaseAdmin
+          .from('billavenue_billers')
+          .update({ metadata: updatedMetadata })
+          .eq('biller_id', item.biller_id);
+
+        if (updateErr) {
+          console.error(`Failed to update ${item.biller_id}:`, updateErr);
+        }
+      }
+
+      return res.json({ success: true, count: items.length });
+    } catch (err: any) {
+      console.error('Exception updating CC biller status:', err);
+      return res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+
 
   app.get("/api/full-backup", async (req, res) => {
     const debugLog = (msg: string) => {

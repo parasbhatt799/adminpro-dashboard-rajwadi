@@ -137,23 +137,18 @@ export default function AdminCCBillerManagement() {
         return;
       }
 
-      // Batch update metadata for changed billers
-      for (const item of changedItems) {
-        const updatedMetadata = {
-          ...(item.metadata || {}),
-          is_enabled: item.is_enabled
-        };
+      const payload = changedItems.map(b => ({
+        biller_id: b.biller_id,
+        is_enabled: b.is_enabled
+      }));
 
-        const { error } = await supabase
-          .from('billavenue_billers')
-          .update({ metadata: updatedMetadata })
-          .eq('biller_id', item.biller_id);
+      const res = await fetch('/api/admin/cc-billers-status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
 
-        if (error) {
-          console.error(`Failed to update ${item.biller_name}:`, error);
-          throw error;
-        }
-      }
+      if (!res.ok) throw new Error('Failed to save settings via server API');
 
       toast.success(`Successfully updated ${changedItems.length} Credit Card biller(s)!`);
       setInitialBillers(JSON.parse(JSON.stringify(billers)));
