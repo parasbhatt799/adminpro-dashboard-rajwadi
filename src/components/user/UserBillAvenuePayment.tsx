@@ -249,6 +249,40 @@ const getBillerGradient = (name: string) => {
   return gradients[hash % gradients.length];
 };
 
+const getBankLogoUrl = (billerName: string): string | null => {
+  const name = billerName.toLowerCase().trim();
+  if (name.includes('au bank') || name.includes('au_bank')) return '/bank_logos/au.png';
+  if (name.includes('axis')) return '/bank_logos/axis.png';
+  if (name.includes('bandhan')) return '/bank_logos/bandhan.png';
+  if (name.includes('bob') || name.includes('baroda') || name.includes('bobcard')) return '/bank_logos/bob.png';
+  if (name.includes('bank of india') || name.includes('boi')) return '/bank_logos/boi.png';
+  if (name.includes('canara')) return '/bank_logos/canara.png';
+  if (name.includes('csb')) return '/bank_logos/csb.png';
+  if (name.includes('cub') || name.includes('city union')) return '/bank_logos/cub.png';
+  if (name.includes('dcb')) return '/bank_logos/dcb.png';
+  if (name.includes('dhanlaxmi') || name.includes('dhanbank')) return '/bank_logos/dhanlaxmi.png';
+  if (name.includes('esaf')) return '/bank_logos/esaf.png';
+  if (name.includes('federal')) return '/bank_logos/federal.png';
+  if (name.includes('icici')) return '/bank_logos/icici.png';
+  if (name.includes('idbi')) return '/bank_logos/idbi.png';
+  if (name.includes('idfc')) return '/bank_logos/idfc.png';
+  if (name.includes('indian bank') || name.includes('indianbank')) return '/bank_logos/indian.png';
+  if (name.includes('indusind')) return '/bank_logos/indusind.png';
+  if (name.includes('iob') || name.includes('overseas')) return '/bank_logos/iob.png';
+  if (name.includes('j and k') || name.includes('j&k') || name.includes('jammu')) return '/bank_logos/jk.png';
+  if (name.includes('onecard') || name.includes('slice') || name.includes('one credit')) return '/bank_logos/onecard.png';
+  if (name.includes('pnb') || name.includes('punjab')) return '/bank_logos/pnb.png';
+  if (name.includes('saraswat')) return '/bank_logos/saraswat.png';
+  if (name.includes('sbi') || name.includes('state bank')) return '/bank_logos/sbi.png';
+  if (name.includes('sbm')) return '/bank_logos/sbm.png';
+  if (name.includes('sib') || name.includes('south indian')) return '/bank_logos/sib.png';
+  if (name.includes('suryoday')) return '/bank_logos/suryoday.png';
+  if (name.includes('tmb') || name.includes('tamilnad')) return '/bank_logos/tmb.png';
+  if (name.includes('union bank')) return '/bank_logos/union.png';
+  if (name.includes('kotak')) return '/kotak_logo.png';
+  return null;
+};
+
 export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { userId: string; mode?: 'payment' | 'search' }) {
   const toast = useToast();
   const navigate = useNavigate();
@@ -1801,6 +1835,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                       {filteredBillers.map((b) => {
                         const initials = (b.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
                         const isSelected = selectedBiller?.billerId === b.billerId;
+                        const logoUrl = getBankLogoUrl(b.billerName);
                         return (
                           <div
                             key={b.billerId}
@@ -1808,10 +1843,16 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                               selectBiller(b);
                               setStep(3);
                             }}
-                            className={`group relative bg-white hover:bg-indigo-50/20 border ${isSelected ? 'border-indigo-600 ring-2 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-500/60'} rounded-2xl p-4 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex items-center gap-3 overflow-hidden`}
+                            className={`group relative bg-white hover:bg-indigo-50/20 border ${isSelected ? 'border-indigo-600 ring-2 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-500/60'} rounded-2xl p-3.5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex items-center gap-3 overflow-hidden`}
                           >
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center shadow-md shrink-0 group-hover:scale-105 transition-transform">
-                              {initials}
+                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform overflow-hidden shadow-sm">
+                              {logoUrl ? (
+                                <img src={logoUrl} alt={b.billerName} className="w-full h-full object-contain" />
+                              ) : (
+                                <div className="w-full h-full rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center">
+                                  {initials}
+                                </div>
+                              )}
                             </div>
                             <div className="min-w-0 flex-1">
                               <h4 className="font-bold text-slate-800 text-xs group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug" title={b.billerName}>
@@ -1833,27 +1874,36 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                     {/* Left Column: Form Inputs & Provider Header */}
                     <div className="lg:col-span-7 space-y-6 bg-white border border-slate-200/80 p-6 md:p-8 rounded-2xl shadow-sm">
                       {/* Selected Provider Header Card inside Left Column */}
-                      {selectedBiller && (
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-                          <div className="flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center shadow-sm shrink-0">
-                              {(selectedBiller.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                      {selectedBiller && (() => {
+                        const headerLogo = getBankLogoUrl(selectedBiller.billerName);
+                        return (
+                          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3.5">
+                              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-sm">
+                                {headerLogo ? (
+                                  <img src={headerLogo} alt={selectedBiller.billerName} className="w-full h-full object-contain" />
+                                ) : (
+                                  <div className="w-full h-full rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center">
+                                    {(selectedBiller.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              <div>
+                                <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">{selectedCategory} Provider</span>
+                                <h4 className="font-black text-slate-800 text-sm mt-0.5">{selectedBiller.billerName}</h4>
+                              </div>
                             </div>
-                            <div>
-                              <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">{selectedCategory} Provider</span>
-                              <h4 className="font-black text-slate-800 text-sm mt-0.5">{selectedBiller.billerName}</h4>
-                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setStep(2)}
+                              className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-indigo-600 text-xs font-bold rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                            >
+                              <Edit3 size={13} />
+                              Change Provider
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setStep(2)}
-                            className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-indigo-600 text-xs font-bold rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          >
-                            <Edit3 size={13} />
-                            Change Provider
-                          </button>
-                        </div>
-                      )}
+                        );
+                      })()}
                       {billerParamsLoading ? (
                         <div className="flex flex-col items-center justify-center py-16 gap-3">
                           <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
