@@ -250,7 +250,7 @@ export default function UserBBPSComplaints({ userId }: UserBBPSComplaintsProps) 
   };
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto p-4">
+    <div className="space-y-8 max-w-[1500px] mx-auto p-4">
       {/* Header card */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-8 rounded-[32px] border border-slate-700/50 shadow-xl relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
