@@ -352,20 +352,23 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .single();
 
       const isT1 = activeTab === 't1_qr';
-      const { data: activeQR } = await supabase
+      const { data: activeQRs } = await supabase
         .from('qr_history')
         .select('id, qr_name, upi_id, qr_url')
         .eq('is_active', true)
         .eq('t_plus_one', isT1)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const activeQR = activeQRs && activeQRs.length > 0 ? activeQRs[0] : null;
 
       if (qrData) {
         const qrServiceActive = isT1 ? (qrData.is_t_plus_one_service_enabled ?? true) : (qrData.is_service_enabled ?? true);
         const qrVisible = isT1 ? (qrData.is_t_plus_one_enabled ?? true) : (qrData.is_enabled ?? true);
 
         setIsQrEnabled(qrServiceActive);
-        if (qrVisible && activeQR) {
-          setQrUrl(activeQR.qr_url || qrData.qr_url);
+        if (qrVisible) {
+          setQrUrl(activeQR?.qr_url || qrData.qr_url || null);
         } else {
           setQrUrl(null);
         }
