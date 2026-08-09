@@ -1833,7 +1833,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                       <p className="text-xs text-slate-400">No {selectedCategory} providers matching "{searchBillerQuery}"</p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4.5">
                       {filteredBillers.map((b) => {
                         const initials = (b.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
                         const isSelected = selectedBiller?.billerId === b.billerId;
@@ -1845,19 +1845,19 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                               selectBiller(b);
                               setStep(3);
                             }}
-                            className={`group relative bg-white hover:bg-indigo-50/20 border ${isSelected ? 'border-indigo-600 ring-2 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-500/60'} rounded-2xl p-3.5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex items-center gap-3 overflow-hidden`}
+                            className={`group relative bg-white hover:bg-indigo-50/30 border ${isSelected ? 'border-indigo-600 ring-2 ring-indigo-500/20' : 'border-slate-200/90 hover:border-indigo-500/60'} rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex items-center gap-3.5 overflow-hidden`}
                           >
-                            <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center p-1 shrink-0 group-hover:scale-105 transition-transform overflow-hidden shadow-sm">
+                            <div className="w-12 h-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center p-1.5 shrink-0 group-hover:scale-105 transition-transform overflow-hidden shadow-sm">
                               {logoUrl ? (
                                 <img src={logoUrl} alt={b.billerName} className="w-full h-full object-contain" />
                               ) : (
-                                <div className="w-full h-full rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center">
+                                <div className="w-full h-full rounded-lg bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-sm flex items-center justify-center">
                                   {initials}
                                 </div>
                               )}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h4 className="font-bold text-slate-800 text-xs group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug" title={b.billerName}>
+                              <h4 className="font-extrabold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug" title={b.billerName}>
                                 {b.billerName}
                               </h4>
                             </div>
