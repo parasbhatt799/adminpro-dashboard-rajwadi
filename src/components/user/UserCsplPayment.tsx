@@ -7,7 +7,6 @@ import {
   ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  Edit3,
   X,
   AlertTriangle,
   Lightbulb,
@@ -36,7 +35,8 @@ import {
   FileText,
   GraduationCap,
   Activity,
-  Home
+  Home,
+  Building2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '../../context/ToastContext';
@@ -821,6 +821,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         setManualAmount('100');
       }
       setBillerParamsLoading(false);
+      setStep(3);
       return;
     }
 
@@ -976,6 +977,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       }
     } finally {
       setBillerParamsLoading(false);
+      setStep(3);
     }
   };
 
@@ -1340,7 +1342,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           consumerDetails: formInputs
         });
         setWalletBalance(data.new_balance);
-        setStep(3);
+        setStep(4);
       } else {
         console.error("CSPL Payment Error:", data);
         const errMsg = data.message || data.reason || data.error || data.responseMessage || (data.responseCode ? `Error Code: ${data.responseCode}` : JSON.stringify(data));
@@ -1418,15 +1420,19 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         {/* Step Header */}
         <div className="bg-slate-50 border-b border-slate-100 px-8 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            {step > 1 && !receipt && (
+            {step > 1 && (
               <button
                 onClick={() => {
-                  if (step === 3) {
+                  if (step === 4) {
+                    resetForm();
+                  } else if (step === 3) {
+                    setSelectedBiller(null);
                     setStep(2);
                   } else if (step === 2) {
+                    resetForm();
                     setStep(1);
                   } else {
-                    resetForm();
+                    setStep(step - 1);
                   }
                 }}
                 className="p-2 hover:bg-slate-200 rounded-full transition-colors text-slate-500 hover:text-slate-900 cursor-pointer"
@@ -1435,13 +1441,14 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
               </button>
             )}
             <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
-              {viewMode === 'search' ? 'Search Bharat Connect Transactions' : receipt ? 'Receipt Generated' : `Step ${Math.min(step, 3)} of 3: ${step === 1 ? 'Select Utility Service' :
+              {viewMode === 'search' ? 'Search Bharat Connect Transactions' : `Step ${step} of 4: ${step === 1 ? 'Select Utility Service' :
                 step === 2 ? 'Select Provider' :
-                  'Enter Details & Pay'
+                  step === 3 ? 'Enter Details & Fetch Bill' :
+                    'Receipt generated'
                 }`}
             </span>
           </div>
-          {!receipt && (
+          {step !== 4 && (
             <img
               src="/bharat_connect.png"
               alt="Bharat Connect"
@@ -1674,30 +1681,30 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                 </div>
               )}
 
-              {/* Step 2: Select Provider (Cards Grid UI) */}
+              {/* Step 2: Biller Card Grid Selection */}
               {step === 2 && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
                     <div>
                       <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">Choose your provider to enter details and pay</p>
+                      <p className="text-xs text-slate-400 font-semibold mt-0.5">Select your biller or service operator below to proceed</p>
                     </div>
 
-                    {/* Search Bar */}
-                    <div className="relative w-full sm:w-80">
+                    {/* Real-time Biller Search Bar */}
+                    <div className="relative w-full md:w-80">
                       <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                       <input
                         type="text"
-                        placeholder={`Search ${selectedCategory.toLowerCase()} provider...`}
+                        placeholder={`Search ${selectedCategory.toLowerCase()} billers...`}
                         value={searchBillerQuery}
                         onChange={(e) => setSearchBillerQuery(e.target.value)}
-                        className="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400 shadow-sm"
+                        className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all"
                       />
                       {searchBillerQuery && (
                         <button
                           type="button"
                           onClick={() => setSearchBillerQuery('')}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition-all cursor-pointer"
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
                         >
                           <X size={14} />
                         </button>
@@ -1705,39 +1712,48 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                     </div>
                   </div>
 
+                  {/* Biller Cards Grid */}
                   {filteredBillers.length === 0 ? (
-                    <div className="text-center py-16 bg-slate-50/50 rounded-3xl border border-dashed border-slate-200 space-y-2">
-                      <HelpCircle size={32} className="mx-auto text-slate-300" />
-                      <p className="text-sm font-black text-slate-600">No Providers Found</p>
-                      <p className="text-xs text-slate-400">No {selectedCategory} providers matching "{searchBillerQuery}"</p>
+                    <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-3xl space-y-2">
+                      <HelpCircle size={28} className="mx-auto text-slate-300" />
+                      <p className="text-sm font-black text-slate-600">No providers found matching "{searchBillerQuery}"</p>
+                      <p className="text-xs text-slate-400">Try adjusting your search terms or select another category.</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {filteredBillers.map((b) => {
-                        const initials = (b.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
                         const isSelected = selectedBiller?.billerId === b.billerId;
                         return (
                           <div
                             key={b.billerId}
-                            onClick={() => {
-                              selectBiller(b);
-                              setStep(3);
-                            }}
-                            className={`group relative bg-white hover:bg-indigo-50/20 border ${isSelected ? 'border-indigo-600 ring-2 ring-indigo-500/20' : 'border-slate-200/80 hover:border-indigo-500/60'} rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer flex flex-col justify-between overflow-hidden`}
+                            onClick={() => selectBiller(b)}
+                            className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden bg-white ${
+                              isSelected
+                                ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/30 shadow-md'
+                                : 'border-slate-200/80 hover:border-indigo-400 hover:shadow-lg hover:-translate-y-1'
+                            }`}
                           >
-                            <div className="flex items-center gap-3.5 mb-3">
-                              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs sm:text-sm flex items-center justify-center shadow-md shrink-0 group-hover:scale-105 transition-transform">
-                                {initials}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0 border border-indigo-100/60 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
+                                <Building2 size={20} />
                               </div>
-                              <div className="min-w-0 flex-1">
-                                <h4 className="font-bold text-slate-800 text-xs sm:text-sm group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug" title={b.billerName}>
-                                  {b.billerName}
-                                </h4>
-                              </div>
+                              {isSelected && (
+                                <span className="bg-indigo-600 text-white p-1 rounded-full text-xs">
+                                  <CheckCircle2 size={14} />
+                                </span>
+                              )}
                             </div>
-                            <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-1 text-[11px] font-bold text-indigo-600">
+                            <div>
+                              <h4 className="text-sm font-extrabold text-slate-800 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">
+                                {b.billerName}
+                              </h4>
+                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 truncate">
+                                {b.categoryName || selectedCategory}
+                              </p>
+                            </div>
+                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600 group-hover:text-indigo-700">
                               <span>Select Provider</span>
-                              <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                              <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
                             </div>
                           </div>
                         );
@@ -1747,38 +1763,42 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                 </div>
               )}
 
-              {/* Step 3: Enter Details & Pay */}
-              {step === 3 && !receipt && (
-                <div className="animate-in fade-in duration-300">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Left Column: Form Inputs & Provider Header */}
-                    <div className="lg:col-span-7 space-y-6 bg-white border border-slate-200/80 p-6 md:p-8 rounded-2xl shadow-sm">
-                      {/* Selected Provider Header Card inside Left Column */}
-                      {selectedBiller && (
-                        <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex items-center justify-between shadow-sm">
-                          <div className="flex items-center gap-3.5">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-purple-600 text-white font-black text-xs flex items-center justify-center shadow-sm shrink-0">
-                              {(selectedBiller.billerName || 'UB').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()}
-                            </div>
-                            <div>
-                              <span className="text-[9px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wider">{selectedCategory} Provider</span>
-                              <h4 className="font-black text-slate-800 text-sm mt-0.5">{selectedBiller.billerName}</h4>
-                            </div>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setStep(2)}
-                            className="px-3.5 py-2 bg-white hover:bg-slate-100 text-slate-700 hover:text-indigo-600 text-xs font-bold rounded-xl border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                          >
-                            <Edit3 size={13} />
-                            Change Provider
-                          </button>
+              {/* Step 3: Input Parameters & Bill Summary */}
+              {step === 3 && (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                  {/* Selected Biller Header Banner */}
+                  {selectedBiller && (
+                    <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex items-center gap-3.5">
+                        <div className="w-11 h-11 bg-indigo-600 text-white rounded-xl flex items-center justify-center shadow-sm shrink-0">
+                          <Building2 size={22} />
                         </div>
-                      )}
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Selected Provider</p>
+                          <h4 className="text-base font-black text-slate-800">{selectedBiller.billerName}</h4>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedBiller(null);
+                          setStep(2);
+                        }}
+                        className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold border border-slate-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      >
+                        <ArrowLeft size={14} />
+                        Change Provider
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Left Column: Form Inputs */}
+                    <div className="lg:col-span-7 space-y-6 bg-white border border-slate-200/80 p-6 md:p-8 rounded-2xl shadow-sm">
                       {billerParamsLoading ? (
-                        <div className="flex flex-col items-center justify-center py-16 gap-3">
+                        <div className="flex flex-col items-center justify-center py-12 gap-2">
                           <div className="w-8 h-8 border-4 border-slate-100 border-t-indigo-600 rounded-full animate-spin"></div>
-                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading billing fields...</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading billing details...</p>
                         </div>
                       ) : (
                         selectedBiller && (
@@ -1835,9 +1855,9 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                               <button
                                 type="submit"
                                 disabled={loading}
-                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-100 mt-4"
+                                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-indigo-100"
                               >
-                                {loading ? 'Fetching Bill...' : 'Fetch Bill Details'}
+                                {loading ? 'Fetching Bill...' : 'Fetch Bill'}
                                 <ArrowRight size={16} />
                               </button>
                             )}
@@ -1848,26 +1868,30 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                       {/* Prepaid Plan List for mobile recharge */}
                       {selectedBiller && selectedCategory === 'Mobile Prepaid' && (
                         <div className="space-y-4 border-t border-slate-100/80 pt-4">
-                          <div className="flex items-center justify-between">
-                            <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider">Select Recharge Plan</h4>
-                            {planLoading && <span className="text-[10px] text-indigo-600 animate-pulse font-bold">Loading plans...</span>}
-                          </div>
-
-                          <div className="max-h-[300px] overflow-y-auto space-y-3 pr-2 no-scrollbar border border-slate-100 rounded-2xl p-3 bg-slate-50/50">
-                            {plans.length === 0 && !planLoading ? (
-                              <div className="text-center py-10 text-slate-400 text-xs">
-                                No plans retrieved. You can enter transaction amount manually.
+                          <h4 className="text-sm font-black text-slate-700 uppercase tracking-wider">Select Recharge Plan</h4>
+                          <div className="max-h-[350px] overflow-y-auto space-y-2 pr-1">
+                            {planLoading ? (
+                              <div className="flex flex-col items-center justify-center py-8 gap-2">
+                                <div className="w-6 h-6 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin"></div>
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">Loading plans...</p>
+                              </div>
+                            ) : plans.length === 0 ? (
+                              <div className="p-6 text-center text-xs text-slate-400 font-medium bg-slate-50 rounded-xl">
+                                No prepaid plans available for this operator. Enter amount manually.
                               </div>
                             ) : (
-                              plans.map((p, idx) => (
+                              plans.map((p: any, idx: number) => (
                                 <div
                                   key={idx}
                                   onClick={() => {
                                     setSelectedPlan(p);
-                                    setManualAmount(p.amount);
+                                    setManualAmount(String(p.amount));
                                   }}
-                                  className={`p-4 rounded-xl border transition-all cursor-pointer flex justify-between items-center ${selectedPlan === p ? 'bg-indigo-50/50 border-indigo-500 shadow-sm' : 'bg-white border-slate-200/60 hover:bg-slate-50'
-                                    }`}
+                                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                                    selectedPlan === p
+                                      ? 'border-indigo-600 bg-indigo-50/50 shadow-sm'
+                                      : 'border-slate-200/80 hover:border-slate-300 hover:bg-slate-50'
+                                  }`}
                                 >
                                   <div className="space-y-1 pr-4">
                                     <p className="text-xs font-black text-slate-800">
@@ -2127,7 +2151,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
               )}
 
               {/* Step 4: Success Receipt */}
-              {receipt && (
+              {step === 4 && receipt && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start justify-center max-w-6xl mx-auto py-8">
                   {/* Left Column: Receipt Card */}
                   <div className="lg:col-span-7 flex flex-col items-center justify-center w-full">
