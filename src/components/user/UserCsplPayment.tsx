@@ -1681,85 +1681,101 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                 </div>
               )}
 
-              {/* Step 2: Biller Card Grid Selection */}
+              {/* Step 2: Biller Card Selection */}
               {step === 2 && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                    <div>
-                      <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
-                      <p className="text-xs text-slate-400 font-semibold mt-0.5">Select your biller or service operator below to proceed</p>
-                    </div>
-
-                    {/* Real-time Biller Search Bar */}
-                    <div className="relative w-full md:w-80">
-                      <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                      <input
-                        type="text"
-                        placeholder={`Search ${selectedCategory.toLowerCase()} billers...`}
-                        value={searchBillerQuery}
-                        onChange={(e) => setSearchBillerQuery(e.target.value)}
-                        className="w-full pl-10 pr-9 py-2.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all"
-                      />
-                      {searchBillerQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchBillerQuery('')}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                    <h3 className="text-lg font-black text-slate-800 tracking-tight">{selectedCategory} Providers</h3>
                   </div>
 
-                  {/* Biller Cards Grid */}
-                  {filteredBillers.length === 0 ? (
-                    <div className="p-12 text-center bg-slate-50 border border-dashed border-slate-200 rounded-3xl space-y-2">
-                      <HelpCircle size={28} className="mx-auto text-slate-300" />
-                      <p className="text-sm font-black text-slate-600">No providers found matching "{searchBillerQuery}"</p>
-                      <p className="text-xs text-slate-400">Try adjusting your search terms or select another category.</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {filteredBillers.map((b) => {
-                        const isSelected = selectedBiller?.billerId === b.billerId;
-                        return (
-                          <div
-                            key={b.billerId}
-                            onClick={() => selectBiller(b)}
-                            className={`p-5 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden bg-white ${
-                              isSelected
-                                ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/30 shadow-md'
-                                : 'border-slate-200/80 hover:border-indigo-400 hover:shadow-lg hover:-translate-y-1'
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div className="w-11 h-11 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-sm shrink-0 border border-indigo-100/60 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
-                                <Building2 size={20} />
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Left Column: Biller Selection Cards */}
+                    <div className="lg:col-span-7 space-y-6 bg-white border border-slate-200/80 p-6 md:p-8 rounded-2xl shadow-sm">
+                      {/* Search Bar */}
+                      <div className="space-y-1.5">
+                        <label className="text-sm font-semibold text-slate-700 block">
+                          Select Provider
+                        </label>
+                        <div className="relative">
+                          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                          <input
+                            type="text"
+                            placeholder={`Search ${selectedCategory.toLowerCase()} provider...`}
+                            value={searchBillerQuery}
+                            onChange={(e) => setSearchBillerQuery(e.target.value)}
+                            className="w-full pl-10 pr-9 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs font-semibold text-slate-700 focus:border-indigo-500 focus:bg-white focus:ring-2 focus:ring-indigo-500/10 transition-all"
+                          />
+                          {searchBillerQuery && (
+                            <button
+                              type="button"
+                              onClick={() => setSearchBillerQuery('')}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-all cursor-pointer"
+                            >
+                              <X size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Biller Option Cards */}
+                      {filteredBillers.length === 0 ? (
+                        <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-2xl space-y-2">
+                          <HelpCircle size={24} className="mx-auto text-slate-300" />
+                          <p className="text-xs font-bold text-slate-600">No providers found matching "{searchBillerQuery}"</p>
+                          <p className="text-[10px] text-slate-400">Try checking the spelling or clear search query.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                          {filteredBillers.map((b) => {
+                            const isSelected = selectedBiller?.billerId === b.billerId;
+                            return (
+                              <div
+                                key={b.billerId}
+                                onClick={() => selectBiller(b)}
+                                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between group bg-white ${
+                                  isSelected
+                                    ? 'border-indigo-600 ring-2 ring-indigo-500/20 bg-indigo-50/40 shadow-sm'
+                                    : 'border-slate-200/80 hover:border-indigo-400 hover:shadow-md hover:bg-slate-50/50'
+                                }`}
+                              >
+                                <div className="flex items-center gap-3.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0 border border-indigo-100/60 group-hover:bg-indigo-600 group-hover:text-white transition-all shadow-sm">
+                                    <Building2 size={18} />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <h4 className="text-xs font-extrabold text-slate-800 truncate group-hover:text-indigo-600 transition-colors">
+                                      {b.billerName}
+                                    </h4>
+                                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-0.5 truncate">
+                                      {b.categoryName || selectedCategory}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 shrink-0 ml-3">
+                                  <span className="text-xs font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">Select</span>
+                                  <ChevronRight size={16} className="text-slate-400 group-hover:text-indigo-600 group-hover:translate-x-0.5 transition-all" />
+                                </div>
                               </div>
-                              {isSelected && (
-                                <span className="bg-indigo-600 text-white p-1 rounded-full text-xs">
-                                  <CheckCircle2 size={14} />
-                                </span>
-                              )}
-                            </div>
-                            <div>
-                              <h4 className="text-sm font-extrabold text-slate-800 line-clamp-2 leading-snug group-hover:text-indigo-600 transition-colors">
-                                {b.billerName}
-                              </h4>
-                              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1 truncate">
-                                {b.categoryName || selectedCategory}
-                              </p>
-                            </div>
-                            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-indigo-600 group-hover:text-indigo-700">
-                              <span>Select Provider</span>
-                              <ChevronRight size={16} className="group-hover:translate-x-1 transition-transform" />
-                            </div>
-                          </div>
-                        );
-                      })}
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Right Column: Bill Summary Placeholder */}
+                    <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-100 lg:pl-8 pt-8 lg:pt-0">
+                      <div className="space-y-6">
+                        <h3 className="text-sm font-black text-slate-700 uppercase tracking-wider">Bill Summary</h3>
+
+                        <div className="p-8 border border-dashed border-slate-200 rounded-3xl text-center text-slate-400 space-y-2">
+                          <HelpCircle size={24} className="mx-auto text-slate-300" />
+                          <p className="text-xs font-black text-slate-600">No Details Fetched</p>
+                          <p className="text-[10px]">Select provider and enter account parameters to fetch bill details.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
