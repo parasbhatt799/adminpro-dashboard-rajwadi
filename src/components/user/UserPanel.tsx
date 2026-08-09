@@ -939,7 +939,7 @@ export default function UserPanel({ onLogout, userId }: UserPanelProps) {
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="w-full">
+          <div className="max-w-7xl mx-auto">
             <React.Suspense fallback={<div className="flex items-center justify-center p-12"><LogoLoader size="md" /></div>}>
               <ErrorBoundary>
                 <Outlet />

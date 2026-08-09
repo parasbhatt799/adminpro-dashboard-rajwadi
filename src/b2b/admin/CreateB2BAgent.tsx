@@ -342,7 +342,7 @@ export default function CreateB2BAgent() {
   };
 
   const renderList = () => (
-    <div className="w-full">
+    <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">B2B Agents</h2>

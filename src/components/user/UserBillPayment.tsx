@@ -1007,7 +1007,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
   };
 
   return (
-    <div className="space-y-8 select-none w-full p-4">
+    <div className="space-y-8 select-none max-w-6xl mx-auto p-4">
 
       {/* Dynamic Print Receipt Style */}
       <AnimatePresence>
