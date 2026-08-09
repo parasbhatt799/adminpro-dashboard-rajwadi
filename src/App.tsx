@@ -49,6 +49,7 @@ const AgreementManagement = lazy(() => import('./components/AgreementManagement'
 const QRScreenshotGallery = lazy(() => import('./components/QRScreenshotGallery'));
 const Settings = lazy(() => import('./components/Settings'));
 const AdminBillerCategories = lazy(() => import('./components/AdminBillerCategories'));
+const AdminCCBillerManagement = lazy(() => import('./components/AdminCCBillerManagement'));
 const AdminWithdrawal = lazy(() => import('./components/AdminWithdrawal'));
 const PayoutManagement = lazy(() => import('./components/PayoutManagement'));
 const AdminCamlenioPayoutHistory = lazy(() => import('./components/AdminCamlenioPayoutHistory'));
@@ -1304,6 +1305,7 @@ export default function App() {
               <Route path="settings" element={<Settings />} />
               <Route path="advertising" element={<Advertising />} />
               <Route path="category-settings" element={<AdminBillerCategories />} />
+              <Route path="cc-biller-settings" element={<AdminCCBillerManagement />} />
               <Route path="developer-logs" element={<DeveloperLogs />} />
             </>
           )}

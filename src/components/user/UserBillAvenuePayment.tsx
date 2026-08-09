@@ -817,11 +817,13 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         metadata: b.metadata
       }));
 
-      // Strict filtering for Credit Card category
+      // Strict filtering for Credit Card category (Check is_enabled toggle from Admin)
       if (searchLower === 'credit card') {
         filtered = filtered.filter(b => {
+          const isEnabled = b.metadata?.is_enabled !== false;
           const name = b.billerName.toLowerCase();
-          return !name.includes('postpaid') && !name.includes('fastag') && !name.includes('ugvcl') && !name.includes('broadband') && !name.includes('dth');
+          const isNotPostpaid = !name.includes('postpaid') && !name.includes('fastag') && !name.includes('ugvcl') && !name.includes('broadband') && !name.includes('dth');
+          return isEnabled && isNotPostpaid;
         });
       }
 
