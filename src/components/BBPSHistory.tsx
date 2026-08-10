@@ -15,7 +15,8 @@ import {
   Shield,
   IndianRupee,
   User,
-  Phone
+  Phone,
+  Loader2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -23,6 +24,7 @@ import { format, parseISO } from 'date-fns';
 import { LogoLoader } from './shared/LoadingSpinner';
 import * as XLSX from 'xlsx';
 import { Link } from 'react-router-dom';
+import UserDetails from './UserDetails';
 
 interface BBPSTransaction {
   id: string;
@@ -68,6 +70,32 @@ export default function BBPSHistory() {
   const [selectedReceipt, setSelectedReceipt] = useState<BBPSTransaction | null>(null);
   const [adminMap, setAdminMap] = useState<Record<string, string>>({});
   const [currentPage, setCurrentPage] = useState(1);
+
+  const [selectedUserProfile, setSelectedUserProfile] = useState<any | null>(null);
+  const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
+
+  const handleViewUserProfile = async (userId: string, profileObj?: any) => {
+    if (!userId) return;
+    setLoadingProfileId(userId);
+    try {
+      const { data, error } = await supabase
+        .from('users_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (error) throw error;
+      if (data) {
+        setSelectedUserProfile(data);
+      } else if (profileObj) {
+        setSelectedUserProfile(profileObj);
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      if (profileObj) setSelectedUserProfile(profileObj);
+    } finally {
+      setLoadingProfileId(null);
+    }
+  };
 
   const getConsumerDetailsList = (item: BBPSTransaction) => {
     if (item.metadata?.consumerDetails && typeof item.metadata.consumerDetails === 'object') {
@@ -141,9 +169,22 @@ export default function BBPSHistory() {
     else setFetchingHistory(true);
 
     try {
+      // 1. Pre-query users_profiles if searchQuery is provided to match firm_name, name, mobile
+      let userIds: string[] = [];
+      if (searchQuery.trim()) {
+        const term = searchQuery.trim();
+        const { data: matchedUsers } = await supabase
+          .from('users_profiles')
+          .select('id')
+          .or(`firm_name.ilike.%${term}%,name.ilike.%${term}%,mobile_number.ilike.%${term}%`);
+        if (matchedUsers && matchedUsers.length > 0) {
+          userIds = matchedUsers.map(u => u.id);
+        }
+      }
+
       let query = supabase
         .from('bbps_submissions')
-        .select('*, users_profiles!bbps_submissions_user_id_fkey(name, firm_name, profile_photo_url)');
+        .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
       // Apply Status Filter
       if (filter !== 'all') {
@@ -156,33 +197,35 @@ export default function BBPSHistory() {
       }
 
       // Apply Search Filter (on user firm/name or biller details)
-      if (searchQuery) {
-        query = query.or(`consumer_number.ilike.%${searchQuery}%,provider.ilike.%${searchQuery}%,transaction_id.ilike.%${searchQuery}%,service_type.ilike.%${searchQuery}%`);
+      if (searchQuery.trim()) {
+        const term = searchQuery.trim();
+        if (userIds.length > 0) {
+          query = query.or(`consumer_number.ilike.%${term}%,provider.ilike.%${term}%,transaction_id.ilike.%${term}%,service_type.ilike.%${term}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+        } else {
+          query = query.or(`consumer_number.ilike.%${term}%,provider.ilike.%${term}%,transaction_id.ilike.%${term}%,service_type.ilike.%${term}%`);
+        }
       }
 
       // Apply Date Filters
       if (startDate) {
         const [y, m, d] = startDate.split('-').map(Number);
         const startLocal = new Date(y, m - 1, d, 0, 0, 0, 0);
-        console.log("[BBPSHistory] GTE Date:", startLocal.toISOString());
         query = query.gte('created_at', startLocal.toISOString());
       }
       if (endDate) {
         const [y, m, d] = endDate.split('-').map(Number);
         const endLocal = new Date(y, m - 1, d, 23, 59, 59, 999);
-        console.log("[BBPSHistory] LTE Date:", endLocal.toISOString());
         query = query.lte('created_at', endLocal.toISOString());
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
-      console.log("[BBPSHistory] Fetched Rows count:", data?.length, "Error:", error);
 
       if (error) throw error;
 
       // Filter locally for firm_name/name if search query is active
       let filteredData = data || [];
-      if (searchQuery) {
-        const term = searchQuery.toLowerCase();
+      if (searchQuery.trim()) {
+        const term = searchQuery.toLowerCase().trim();
         filteredData = filteredData.filter(item => 
           (item.users_profiles?.firm_name || '').toLowerCase().includes(term) ||
           (item.users_profiles?.name || '').toLowerCase().includes(term) ||
@@ -791,17 +834,34 @@ export default function BBPSHistory() {
                     {/* User Profile / Date */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 overflow-hidden shrink-0">
-                          {item.users_profiles?.profile_photo_url ? (
-                            <img src={item.users_profiles.profile_photo_url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleViewUserProfile(item.user_id, item.users_profiles)}
+                          className="w-8 h-8 bg-indigo-50 hover:bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 shrink-0 transition-colors cursor-pointer"
+                          title="Click to view User Profile"
+                        >
+                          {loadingProfileId === item.user_id ? (
+                            <Loader2 size={14} className="animate-spin text-indigo-600" />
+                          ) : item.users_profiles?.profile_photo_url ? (
+                            <img src={item.users_profiles.profile_photo_url} alt="" className="w-full h-full object-cover rounded-full" />
                           ) : (
                             <User size={16} />
                           )}
-                        </div>
+                        </button>
                         <div>
-                          <p className="text-xs font-bold text-slate-900 leading-none">
+                          <button
+                            type="button"
+                            onClick={() => handleViewUserProfile(item.user_id, item.users_profiles)}
+                            className="text-xs font-bold text-slate-900 hover:text-indigo-600 hover:underline leading-none text-left cursor-pointer transition-colors block"
+                            title="Click to view User Profile"
+                          >
                             {item.users_profiles?.firm_name || item.users_profiles?.name || `User #${item.user_id?.slice(0, 8) || 'N/A'}`}
-                          </p>
+                          </button>
+                          {item.users_profiles?.firm_name && item.users_profiles?.name && (
+                            <p className="text-[10px] text-slate-500 font-medium leading-none mt-1">
+                              {item.users_profiles.name}
+                            </p>
+                          )}
                           <p className="text-[9px] text-slate-400 font-bold uppercase mt-1 leading-none">
                             {format(parseISO(item.created_at), 'dd MMM yyyy')} • {format(parseISO(item.created_at), 'hh:mm a')}
                           </p>
@@ -1036,6 +1096,18 @@ export default function BBPSHistory() {
                 </button>
               </div>
             </motion.div>
+          </div>
+        {/* User Details Profile Modal Overlay */}
+        {selectedUserProfile && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 overflow-y-auto p-4 flex justify-center items-start">
+            <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative border border-slate-100 my-8">
+              <UserDetails
+                user={selectedUserProfile}
+                onBack={() => setSelectedUserProfile(null)}
+                onEdit={() => {}}
+                onDelete={() => setSelectedUserProfile(null)}
+              />
+            </div>
           </div>
         )}
       </AnimatePresence>

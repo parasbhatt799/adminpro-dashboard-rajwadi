@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Search, Calendar, X, RotateCcw, Clock, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
+import UserDetails from './UserDetails';
 
 const getTodayStr = () => {
   const date = new Date();
@@ -33,6 +34,33 @@ export default function AdminCamlenioPayoutHistory() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+
+  // User Profile Modal State
+  const [selectedUserProfile, setSelectedUserProfile] = useState<any | null>(null);
+  const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
+
+  const handleViewUserProfile = async (userId: string, profileObj?: any) => {
+    if (!userId) return;
+    setLoadingProfileId(userId);
+    try {
+      const { data, error } = await supabase
+        .from('users_profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      if (error) throw error;
+      if (data) {
+        setSelectedUserProfile(data);
+      } else if (profileObj) {
+        setSelectedUserProfile(profileObj);
+      }
+    } catch (err) {
+      console.error('Error fetching user profile:', err);
+      if (profileObj) setSelectedUserProfile(profileObj);
+    } finally {
+      setLoadingProfileId(null);
+    }
+  };
 
   // Auto reset to Page 1 when filters change
   useEffect(() => {
@@ -90,6 +118,7 @@ export default function AdminCamlenioPayoutHistory() {
       // 3. Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
+        const firmName = (tx.users_profiles?.firm_name || '').toLowerCase();
         const userName = (tx.users_profiles?.name || '').toLowerCase();
         const userMobile = (tx.users_profiles?.mobile_number || '').toLowerCase();
         const bankRef = (tx.bank_ref || '').toLowerCase();
@@ -97,6 +126,7 @@ export default function AdminCamlenioPayoutHistory() {
         const amountStr = (tx.amount || '').toString();
 
         const matches =
+          firmName.includes(q) ||
           userName.includes(q) ||
           userMobile.includes(q) ||
           bankRef.includes(q) ||
@@ -157,6 +187,7 @@ export default function AdminCamlenioPayoutHistory() {
       }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
+        const firmName = (tx.users_profiles?.firm_name || '').toLowerCase();
         const userName = (tx.users_profiles?.name || '').toLowerCase();
         const userMobile = (tx.users_profiles?.mobile_number || '').toLowerCase();
         const bankRef = (tx.bank_ref || '').toLowerCase();
@@ -164,6 +195,7 @@ export default function AdminCamlenioPayoutHistory() {
         const amountStr = (tx.amount || '').toString();
 
         const matches =
+          firmName.includes(q) ||
           userName.includes(q) ||
           userMobile.includes(q) ||
           bankRef.includes(q) ||
@@ -247,7 +279,7 @@ export default function AdminCamlenioPayoutHistory() {
       // They are recorded in payout_submissions
       const { data: txData, error: txError } = await supabase
         .from('payout_submissions')
-        .select('*, users_profiles(name, mobile_number)')
+        .select('*, users_profiles(id, name, firm_name, mobile_number, email)')
         .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded'])
         .order('created_at', { ascending: false });
 
@@ -675,8 +707,18 @@ export default function AdminCamlenioPayoutHistory() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-slate-800">{tx.users_profiles?.name}</div>
-                      <div className="text-xs text-slate-500">{tx.users_profiles?.mobile_number}</div>
+                      <button
+                        type="button"
+                        onClick={() => handleViewUserProfile(tx.user_id, tx.users_profiles)}
+                        className="font-bold text-slate-900 hover:text-indigo-600 hover:underline leading-none text-left cursor-pointer transition-colors block"
+                        title="Click to view User Profile"
+                      >
+                        {tx.users_profiles?.firm_name || tx.users_profiles?.name || `User #${tx.user_id?.slice(0, 8) || 'N/A'}`}
+                      </button>
+                      {tx.users_profiles?.firm_name && tx.users_profiles?.name && (
+                        <div className="text-xs text-slate-500 font-medium mt-0.5">{tx.users_profiles.name}</div>
+                      )}
+                      <div className="text-xs text-slate-400 font-mono mt-0.5">{tx.users_profiles?.mobile_number}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-slate-900">
@@ -780,6 +822,19 @@ export default function AdminCamlenioPayoutHistory() {
         </div>
       </div>
 
+      {/* User Details Profile Modal Overlay */}
+      {selectedUserProfile && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 overflow-y-auto p-4 flex justify-center items-start">
+          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative border border-slate-100 my-8">
+            <UserDetails
+              user={selectedUserProfile}
+              onBack={() => setSelectedUserProfile(null)}
+              onEdit={() => {}}
+              onDelete={() => setSelectedUserProfile(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
