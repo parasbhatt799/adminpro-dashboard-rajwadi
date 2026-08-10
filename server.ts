@@ -1922,6 +1922,10 @@ async function startServer() {
         }
       }
 
+      if (fetchedBillerResponse && typeof fetchedBillerResponse === 'object' && Object.keys(fetchedBillerResponse).length > 0) {
+        payload.billerResponse = fetchedBillerResponse;
+      }
+
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
       fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - REQUEST: " + JSON.stringify(payload) + "\n");
 
