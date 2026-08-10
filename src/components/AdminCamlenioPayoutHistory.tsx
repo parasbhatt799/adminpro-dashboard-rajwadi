@@ -824,15 +824,43 @@ export default function AdminCamlenioPayoutHistory() {
 
       {/* User Details Profile Modal Overlay */}
       {selectedUserProfile && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 overflow-y-auto p-4 flex justify-center items-start">
-          <div className="bg-white rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative border border-slate-100 my-8">
-            <UserDetails
-              user={selectedUserProfile}
-              onBack={() => setSelectedUserProfile(null)}
-              onEdit={() => {}}
-              onDelete={() => setSelectedUserProfile(null)}
-            />
-          </div>
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md"
+          onClick={() => setSelectedUserProfile(null)}
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            transition={{ duration: 0.2 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-[32px] w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl relative border border-slate-200 overflow-hidden my-auto"
+          >
+            {/* Modal Top Sticky Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 backdrop-blur-sm shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <h3 className="font-bold text-slate-800 text-sm tracking-wide">User Profile & Account Details</h3>
+              </div>
+              <button
+                onClick={() => setSelectedUserProfile(null)}
+                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-full transition-all cursor-pointer"
+                title="Close Profile Modal"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Content Body */}
+            <div className="p-6 md:p-8 pb-12 overflow-y-auto flex-1">
+              <UserDetails
+                user={selectedUserProfile}
+                onBack={() => setSelectedUserProfile(null)}
+                onEdit={() => {}}
+                onDelete={() => setSelectedUserProfile(null)}
+              />
+            </div>
+          </motion.div>
         </div>
       )}
     </div>
