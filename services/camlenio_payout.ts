@@ -1,5 +1,11 @@
 import { randomUUID } from 'crypto';
 import dotenv from 'dotenv';
+import dns from 'dns';
+
+try {
+  dns.setDefaultResultOrder('ipv4first');
+} catch (_) {}
+
 dotenv.config();
 
 const BASE_URL = (process.env.CAMLENIO_AEPS_BASE_URL || 'https://cspl.camlenio.com').replace(/['"]/g, '').trim().replace(/\/$/, '');

@@ -4424,8 +4424,8 @@ async function startServer() {
 
       // If status is returned inside result.data
       const statusData = result.data || {};
-      const statusStr = (statusData.status || result.status || '').toString().toLowerCase();
-      const utr = statusData.utr || result.utr;
+      const statusStr = (statusData.status || (result as any).status || '').toString().toLowerCase();
+      const utr = statusData.utr || (result as any).utr;
 
       // Sync status to database if payoutRecord is found or found by bank_ref / txn_id
       if (!payoutRecord) {
@@ -4465,6 +4465,7 @@ async function startServer() {
 
       return res.json({
         success: result.success !== false,
+        message: result.message || statusData.status_message || statusData.message || (result.success === false ? 'Status check failed' : 'Status checked'),
         data: statusData,
         apiResult: result,
         payoutRecord
