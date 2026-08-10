@@ -173,12 +173,17 @@ export default function BBPSHistory() {
       let userIds: string[] = [];
       if (searchQuery.trim()) {
         const term = searchQuery.trim();
-        const { data: matchedUsers } = await supabase
-          .from('users_profiles')
-          .select('id')
-          .or(`firm_name.ilike.%${term}%,name.ilike.%${term}%,mobile_number.ilike.%${term}%`);
-        if (matchedUsers && matchedUsers.length > 0) {
-          userIds = matchedUsers.map(u => u.id);
+        const safeTerm = term.replace(/"/g, '""');
+        try {
+          const { data: matchedUsers } = await supabase
+            .from('users_profiles')
+            .select('id')
+            .or(`firm_name.ilike."%${safeTerm}%",name.ilike."%${safeTerm}%",mobile_number.ilike."%${safeTerm}%"`);
+          if (matchedUsers && matchedUsers.length > 0) {
+            userIds = matchedUsers.map(u => u.id);
+          }
+        } catch (uErr) {
+          console.warn('Pre-query user profiles search warn:', uErr);
         }
       }
 
@@ -199,10 +204,11 @@ export default function BBPSHistory() {
       // Apply Search Filter (on user firm/name or biller details)
       if (searchQuery.trim()) {
         const term = searchQuery.trim();
+        const safeTerm = term.replace(/"/g, '""');
         if (userIds.length > 0) {
-          query = query.or(`consumer_number.ilike.%${term}%,provider.ilike.%${term}%,transaction_id.ilike.%${term}%,service_type.ilike.%${term}%,user_id.in.(${userIds.join(',')})`);
+          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%",user_id.in.(${userIds.join(',')})`);
         } else {
-          query = query.or(`consumer_number.ilike.%${term}%,provider.ilike.%${term}%,transaction_id.ilike.%${term}%,service_type.ilike.%${term}%`);
+          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%"`);
         }
       }
 
@@ -218,7 +224,32 @@ export default function BBPSHistory() {
         query = query.lte('created_at', endLocal.toISOString());
       }
 
-      const { data, error } = await query.order('created_at', { ascending: false });
+      let { data, error } = await query.order('created_at', { ascending: false });
+
+      // Fallback: If DB search query fails, fetch base filtered rows and let client-side JS filter handle search term
+      if (error && searchQuery.trim()) {
+        console.warn('DB search query failed, using client-side search fallback:', error);
+        let fallbackQuery = supabase
+          .from('bbps_submissions')
+          .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
+
+        if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
+        if (categoryFilter !== 'all') fallbackQuery = fallbackQuery.eq('service_type', categoryFilter);
+        if (startDate) {
+          const [y, m, d] = startDate.split('-').map(Number);
+          fallbackQuery = fallbackQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
+        }
+        if (endDate) {
+          const [y, m, d] = endDate.split('-').map(Number);
+          fallbackQuery = fallbackQuery.lte('created_at', new Date(y, m - 1, d, 23, 59, 59, 999).toISOString());
+        }
+
+        const fallbackRes = await fallbackQuery.order('created_at', { ascending: false });
+        if (!fallbackRes.error && fallbackRes.data) {
+          data = fallbackRes.data;
+          error = null;
+        }
+      }
 
       if (error) throw error;
 

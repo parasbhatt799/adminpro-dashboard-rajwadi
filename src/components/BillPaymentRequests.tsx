@@ -124,10 +124,11 @@ export default function BillPaymentRequests() {
       // Pre-resolve matching user IDs if search query is active to prevent PGRST100 logic tree errors on joins
       let userIds: string[] = [];
       if (searchQuery) {
+        const safeSearch = searchQuery.replace(/"/g, '""');
         const { data: matchedUsers } = await supabase
           .from('users_profiles')
           .select('id')
-          .or(`name.ilike.%${searchQuery}%,firm_name.ilike.%${searchQuery}%`);
+          .or(`name.ilike."%${safeSearch}%",firm_name.ilike."%${safeSearch}%"`);
         userIds = (matchedUsers || []).map(u => u.id);
       }
 
@@ -141,10 +142,11 @@ export default function BillPaymentRequests() {
       }
 
       if (searchQuery) {
+        const safeSearch = searchQuery.replace(/"/g, '""');
         if (userIds.length > 0) {
-          query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.join(',')})`);
+          query = query.or(`customer_mobile.ilike."%${safeSearch}%",card_number.ilike."%${safeSearch}%",card_owner_name.ilike."%${safeSearch}%",user_id.in.(${userIds.join(',')})`);
         } else {
-          query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%`);
+          query = query.or(`customer_mobile.ilike."%${safeSearch}%",card_number.ilike."%${safeSearch}%",card_owner_name.ilike."%${safeSearch}%"`);
         }
       }
 
@@ -182,10 +184,11 @@ export default function BillPaymentRequests() {
         .eq('status', 'approved');
 
       if (searchQuery) {
+        const safeSearch = searchQuery.replace(/"/g, '""');
         if (userIds.length > 0) {
-          sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.join(',')})`);
+          sumQuery = sumQuery.or(`customer_mobile.ilike."%${safeSearch}%",card_number.ilike."%${safeSearch}%",card_owner_name.ilike."%${safeSearch}%",user_id.in.(${userIds.join(',')})`);
         } else {
-          sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%`);
+          sumQuery = sumQuery.or(`customer_mobile.ilike."%${safeSearch}%",card_number.ilike."%${safeSearch}%",card_owner_name.ilike."%${safeSearch}%"`);
         }
       }
       if (startDate) {
