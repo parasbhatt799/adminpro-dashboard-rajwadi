@@ -826,7 +826,7 @@ export default function AdminCamlenioPayoutHistory() {
       {/* User Details Profile Modal Overlay */}
       {selectedUserProfile && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-slate-950/65 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-slate-950/65 backdrop-blur-md no-scrollbar"
           onClick={() => setSelectedUserProfile(null)}
         >
           <motion.div 
@@ -860,7 +860,7 @@ export default function AdminCamlenioPayoutHistory() {
             </div>
 
             {/* Modal Content Body */}
-            <div className="p-6 md:p-8 pb-12 overflow-y-auto flex-1">
+            <div className="p-6 md:p-8 pb-16 overflow-y-auto no-scrollbar flex-1">
               <UserDetails
                 user={selectedUserProfile}
                 isModal={true}
