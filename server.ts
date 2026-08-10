@@ -1791,10 +1791,18 @@ async function startServer() {
         inputParams
       };
 
+      console.log("[CSPL BBPS] Bill Fetch Payload:", JSON.stringify(payload));
+      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - FETCH REQUEST: " + JSON.stringify(payload) + "\n");
+
       const data = await camlenioBbps.fetchBill(payload);
+
+      console.log("[CSPL BBPS] Bill Fetch Response:", JSON.stringify(data));
+      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - FETCH RESPONSE: " + JSON.stringify(data) + "\n\n");
+
       res.json(data);
     } catch (err: any) {
       console.error("[CSPL BBPS] Bill Fetch Error:", err);
+      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - FETCH ERROR: " + err.message + "\n\n");
       res.status(500).json({ error: err.message });
     }
   });
@@ -1812,12 +1820,10 @@ async function startServer() {
     try {
       const { userId, billerId, billerName, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
 
-
-
       const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
       const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse || rawData;
 
-      const fetchRequestId = billDetails?.fetchRequestId || rawData?.requestId || rawData?.request_id || rawData?.data?.requestId || rawData?.data?.request_id;
+      const fetchRequestId = billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || rawData?.request_id || rawData?.data?.requestId || rawData?.data?.request_id || rawData?.data?.billerResponse?.requestId || rawData?.data?.refid || rawData?.data?.txnId;
       const requestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
 
       let additionalInfo: any[] = [];
@@ -1873,8 +1879,8 @@ async function startServer() {
       const cleanCustomerName = String(billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer")
         .replace(/[^a-zA-Z0-9 ]/g, "").trim() || "BBPS Customer";
 
-      const cleanCatName = String(billDetails?.catname || billDetails?.categoryName || billerName || "Electricity")
-        .replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Electricity";
+      const rawCat = billDetails?.catname || billDetails?.categoryName || (billerName && billerName.toLowerCase().includes("card") ? "Credit Card" : billerName) || "Electricity";
+      const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Electricity";
 
       const payload: any = {
         requestId,

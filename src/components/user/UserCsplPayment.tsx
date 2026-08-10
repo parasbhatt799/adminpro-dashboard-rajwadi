@@ -1079,7 +1079,10 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         const addInfo = billerResp?.additionalInfo?.info || response?.additionalInfo?.info || data?.data?.billerResponse?.additionalInfo || [];
         const additionalInfoArray = Array.isArray(addInfo) ? addInfo : [addInfo].filter((i: any) => i && i.infoName);
 
+        const fetchReqId = billerResp?.requestId || response?.requestId || data?.requestId || data?.data?.requestId || data?.refid || data?.data?.refid || data?.txnId || data?.data?.txnId;
+
         setBillDetails({
+          fetchRequestId: fetchReqId,
           customerName: billerResp?.customerName || response?.customerName || 'Valued Customer',
           billAmount: billAmount,
           dueDate: billerResp?.dueDate || response?.dueDate,
