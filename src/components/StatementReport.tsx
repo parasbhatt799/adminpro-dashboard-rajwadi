@@ -66,6 +66,21 @@ export default function StatementReport() {
     setLoading(true);
 
     try {
+      const fetchAll = async (query: any) => {
+        let allData: any[] = [];
+        let from = 0;
+        const step = 1000;
+        while (true) {
+          const { data, error } = await query.range(from, from + step - 1);
+          if (error) throw error;
+          if (!data || data.length === 0) break;
+          allData = [...allData, ...data];
+          if (data.length < step) break;
+          from += step;
+        }
+        return allData;
+      };
+
       let openingBalance = 0;
 
       // Calculate Opening Balance client-side to ensure bbps_submissions are included
@@ -81,9 +96,9 @@ export default function StatementReport() {
         }
 
         let qrPreQuery = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
-        let billPreQuery = supabase.from('bill_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
-        let bbpsPreQuery = supabase.from('bbps_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
-        let payoutPreQuery = supabase.from('payout_submissions').select('amount, charge_amount, status').in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
+        let billPreQuery = supabase.from('bill_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
+        let bbpsPreQuery = supabase.from('bbps_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
+        let payoutPreQuery = supabase.from('payout_submissions').select('amount, charge_amount, status').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
 
         if (userId) {
           qrPreQuery = qrPreQuery.eq('user_id', userId);
@@ -93,26 +108,26 @@ export default function StatementReport() {
         }
 
         const [qrPre, billPre, bbpsPre, payoutPre] = await Promise.all([
-          qrPreQuery,
-          billPreQuery,
-          bbpsPreQuery,
-          payoutPreQuery
+          fetchAll(qrPreQuery),
+          fetchAll(billPreQuery),
+          fetchAll(bbpsPreQuery),
+          fetchAll(payoutPreQuery)
         ]);
 
-        const qrTotal = (qrPre.data || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
-        const billNet = (billPre.data || []).reduce((acc, r) => {
+        const qrTotal = (qrPre || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
+        const billNet = (billPre || []).reduce((acc, r) => {
           if (r.status === 'approved' || r.status === 'pending') {
             return acc + (Number(r.amount) + Number(r.charges || 0));
           }
           return acc;
-        }, 0) + (bbpsPre.data || []).reduce((acc, r) => {
+        }, 0) + (bbpsPre || []).reduce((acc, r) => {
           if (r.status === 'approved' || r.status === 'pending') {
             return acc + (Number(r.amount) + Number(r.charges || 0));
           }
           return acc;
         }, 0);
 
-        const payoutNet = (payoutPre.data || []).reduce((acc, r) => {
+        const payoutNet = (payoutPre || []).reduce((acc, r) => {
           if (r.status === 'approved' || r.status === 'pending' || r.status === 'processing') {
             return acc + (Number(r.amount) + Number(r.charge_amount || 0));
           }
@@ -144,9 +159,8 @@ export default function StatementReport() {
         if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
 
-        const { data, error } = await qrQuery;
-        if (error) throw error;
-        qrMapped = (data || []).map(r => ({
+        const qrData = await fetchAll(qrQuery);
+        qrMapped = (qrData || []).map(r => ({
           id: String(r.id || ''),
           numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
           type: 'QR',
@@ -183,13 +197,11 @@ export default function StatementReport() {
           bbpsQuery = bbpsQuery.lte('created_at', `${endDate}T23:59:59`);
         }
 
-        const [billRes, bbpsRes] = await Promise.all([billQuery, bbpsQuery]);
-        if (billRes.error) throw billRes.error;
-        if (bbpsRes.error) throw bbpsRes.error;
+        const [billRes, bbpsRes] = await Promise.all([fetchAll(billQuery), fetchAll(bbpsQuery)]);
         
         const combinedBills = [
-          ...(billRes.data || []).map(b => ({ ...b, is_bbps: false })),
-          ...(bbpsRes.data || []).map(b => ({ ...b, is_bbps: true }))
+          ...(billRes || []).map(b => ({ ...b, is_bbps: false })),
+          ...(bbpsRes || []).map(b => ({ ...b, is_bbps: true }))
         ];
         
         combinedBills.forEach(r => {
@@ -243,10 +255,9 @@ export default function StatementReport() {
         if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
 
-        const { data, error } = await payoutQuery;
-        if (error) throw error;
+        const payoutData = await fetchAll(payoutQuery);
 
-        (data || []).forEach(r => {
+        (payoutData || []).forEach(r => {
           payoutMapped.push({
             id: String(r.id || ''),
             numericId: String(r.id || '').split('-')[0].toUpperCase(),
