@@ -1922,7 +1922,9 @@ async function startServer() {
         }
       }
 
-      if (fetchedBillerResponse && typeof fetchedBillerResponse === 'object' && Object.keys(fetchedBillerResponse).length > 0) {
+      const isExactFetchedAmount = fetchedBillerResponse?.billAmount && Number(fetchedBillerResponse.billAmount) === payload.billamount;
+
+      if (isExactFetchedAmount && typeof fetchedBillerResponse === 'object' && Object.keys(fetchedBillerResponse).length > 0) {
         payload.billerResponse = fetchedBillerResponse;
       }
 
