@@ -32,9 +32,10 @@ interface UserDetailsProps {
   onEdit: (user: any) => void;
   onDelete: () => void;
   isDistributorView?: boolean;
+  isModal?: boolean;
 }
 
-export default function UserDetails({ user, onBack, onEdit, onDelete, isDistributorView }: UserDetailsProps) {
+export default function UserDetails({ user, onBack, onEdit, onDelete, isDistributorView, isModal }: UserDetailsProps) {
   const toast = useToast();
   const [activeTab, setActiveTab] = useState<string>('firm');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -325,18 +326,20 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
           </div>
         )}
       </AnimatePresence>
-      <div className="flex items-center gap-4">
-        <button 
-          onClick={onBack}
-          className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
-        >
-          <ArrowLeft size={24} />
-        </button>
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900">User Profile</h2>
-          <p className="text-slate-500 text-sm">Detailed information for {user.name}</p>
+      {!isModal && (
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={onBack}
+            className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-500"
+          >
+            <ArrowLeft size={24} />
+          </button>
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900">User Profile</h2>
+            <p className="text-slate-500 text-sm">Detailed information for {user.name}</p>
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Profile Card */}

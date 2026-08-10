@@ -826,26 +826,33 @@ export default function AdminCamlenioPayoutHistory() {
       {/* User Details Profile Modal Overlay */}
       {selectedUserProfile && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 bg-slate-950/60 backdrop-blur-md"
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-6 bg-slate-950/65 backdrop-blur-md"
           onClick={() => setSelectedUserProfile(null)}
         >
           <motion.div 
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            initial={{ opacity: 0, scale: 0.96, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+            exit={{ opacity: 0, scale: 0.96, y: 15 }}
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-[32px] w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl relative border border-slate-200 overflow-hidden my-auto"
+            className="bg-white rounded-[32px] w-[94vw] max-w-6xl max-h-[90vh] flex flex-col shadow-2xl relative border border-slate-200 overflow-hidden my-auto"
           >
             {/* Modal Top Sticky Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80 backdrop-blur-sm shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <h3 className="font-bold text-slate-800 text-sm tracking-wide">User Profile & Account Details</h3>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/90 backdrop-blur-sm shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="font-black text-slate-900 text-base tracking-tight">
+                    User Profile & Account Details
+                  </h3>
+                  <span className="text-xs font-bold text-slate-400 hidden sm:inline-block">
+                    — {selectedUserProfile.firm_name || selectedUserProfile.name} ({selectedUserProfile.name})
+                  </span>
+                </div>
               </div>
               <button
                 onClick={() => setSelectedUserProfile(null)}
-                className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-full transition-all cursor-pointer"
+                className="p-2 text-slate-400 hover:text-slate-800 hover:bg-slate-200/60 rounded-full transition-all cursor-pointer"
                 title="Close Profile Modal"
               >
                 <X size={20} />
@@ -856,6 +863,7 @@ export default function AdminCamlenioPayoutHistory() {
             <div className="p-6 md:p-8 pb-12 overflow-y-auto flex-1">
               <UserDetails
                 user={selectedUserProfile}
+                isModal={true}
                 onBack={() => setSelectedUserProfile(null)}
                 onEdit={() => {}}
                 onDelete={() => setSelectedUserProfile(null)}
