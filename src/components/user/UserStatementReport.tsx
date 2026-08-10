@@ -45,17 +45,25 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
     }
     setLoading(true);
     try {
-      const fetchAll = async (query: any) => {
+      const fetchAll = async (buildQuery: (rangeFrom: number, rangeTo: number) => any) => {
         let allData: any[] = [];
         let from = 0;
         const step = 1000;
         while (true) {
-          const { data, error } = await query.range(from, from + step - 1);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          allData = [...allData, ...data];
-          if (data.length < step) break;
-          from += step;
+          try {
+            const { data, error } = await buildQuery(from, from + step - 1);
+            if (error) {
+              console.error('FetchAll batch error:', error);
+              break;
+            }
+            if (!data || data.length === 0) break;
+            allData = [...allData, ...data];
+            if (data.length < step) break;
+            from += step;
+          } catch (e) {
+            console.error('FetchAll exception:', e);
+            break;
+          }
         }
         return allData;
       };
@@ -65,11 +73,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         const startDateTime = `${startDate}T00:00:00`;
         
         const [qrPre, billPre, bbpsPre, payoutPre, fundPre] = await Promise.all([
-          fetchAll(supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', startDateTime)),
-          fetchAll(supabase.from('bill_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime)),
-          fetchAll(supabase.from('bbps_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime)),
-          fetchAll(supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime)),
-          fetchAll(supabase.from('fund_transfers').select('amount, sender_id, receiver_id').or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).lt('created_at', startDateTime))
+          fetchAll((f, t) => supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', startDateTime).range(f, t)),
+          fetchAll((f, t) => supabase.from('bill_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
+          fetchAll((f, t) => supabase.from('bbps_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
+          fetchAll((f, t) => supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
+          fetchAll((f, t) => supabase.from('fund_transfers').select('amount, sender_id, receiver_id').or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).lt('created_at', startDateTime).range(f, t))
         ]);
 
         const qrTotal = (qrPre || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
@@ -111,16 +119,18 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
 
       // 1. Fetch QR Payments for this user (approved only)
       {
-        let qrQuery = supabase
-          .from('payment_submissions')
-          .select('*, qr_history(qr_name)')
-          .eq('user_id', userId)
-          .eq('status', 'approved');
+        const qrData = await fetchAll((f, t) => {
+          let q = supabase
+            .from('payment_submissions')
+            .select('*, qr_history(qr_name)')
+            .eq('user_id', userId)
+            .eq('status', 'approved');
 
-        if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
+          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+          return q.range(f, t);
+        });
 
-        const qrData = await fetchAll(qrQuery);
         qrMapped = (qrData || []).map(r => ({
           id: String(r.id || ''),
           numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
@@ -137,28 +147,28 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
 
       // 2. Fetch Bill Payments for this user (All statuses)
       {
-        let billQuery = supabase
-          .from('bill_submissions')
-          .select('*')
-          .eq('user_id', userId)
-          .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-
-        let bbpsQuery = supabase
-          .from('bbps_submissions')
-          .select('*')
-          .eq('user_id', userId)
-          .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-
-        if (startDate) {
-          billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
-          bbpsQuery = bbpsQuery.gte('created_at', `${startDate}T00:00:00`);
-        }
-        if (endDate) {
-          billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
-          bbpsQuery = bbpsQuery.lte('created_at', `${endDate}T23:59:59`);
-        }
-
-        const [billRes, bbpsRes] = await Promise.all([fetchAll(billQuery), fetchAll(bbpsQuery)]);
+        const [billRes, bbpsRes] = await Promise.all([
+          fetchAll((f, t) => {
+            let q = supabase
+              .from('bill_submissions')
+              .select('*')
+              .eq('user_id', userId)
+              .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
+            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+            return q.range(f, t);
+          }),
+          fetchAll((f, t) => {
+            let q = supabase
+              .from('bbps_submissions')
+              .select('*')
+              .eq('user_id', userId)
+              .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
+            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+            return q.range(f, t);
+          })
+        ]);
         
         const combinedBills = [
           ...(billRes || []).map(b => ({ ...b, is_bbps: false })),
@@ -211,16 +221,17 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
 
       // 3. Fetch Payouts for this user (All statuses)
       {
-        let payoutQuery = supabase
-          .from('payout_submissions')
-          .select('*')
-          .eq('user_id', userId)
-          .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
+        const payoutData = await fetchAll((f, t) => {
+          let q = supabase
+            .from('payout_submissions')
+            .select('*')
+            .eq('user_id', userId)
+            .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
 
-        if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
-
-        const payoutData = await fetchAll(payoutQuery);
+          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+          return q.range(f, t);
+        });
         
         (payoutData || []).forEach(r => {
           // Deduction
@@ -258,15 +269,17 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       let ftMapped: any[] = [];
       // 4. Fetch Fund Transfers for this user (All sender/receiver entries)
       {
-        let ftQuery = supabase
-          .from('fund_transfers')
-          .select('*, sender:sender_id(name, firm_name), receiver:receiver_id(name, firm_name)')
-          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+        const ftData = await fetchAll((f, t) => {
+          let q = supabase
+            .from('fund_transfers')
+            .select('*, sender:sender_id(name, firm_name), receiver:receiver_id(name, firm_name)')
+            .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
 
-        if (startDate) ftQuery = ftQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) ftQuery = ftQuery.lte('created_at', `${endDate}T23:59:59`);
+          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+          return q.range(f, t);
+        });
 
-        const ftData = await fetchAll(ftQuery);
         ftMapped = (ftData || []).map(r => {
           const isSender = r.sender_id === userId;
           return {

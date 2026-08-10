@@ -66,17 +66,25 @@ export default function StatementReport() {
     setLoading(true);
 
     try {
-      const fetchAll = async (query: any) => {
+      const fetchAll = async (buildQuery: (rangeFrom: number, rangeTo: number) => any) => {
         let allData: any[] = [];
         let from = 0;
         const step = 1000;
         while (true) {
-          const { data, error } = await query.range(from, from + step - 1);
-          if (error) throw error;
-          if (!data || data.length === 0) break;
-          allData = [...allData, ...data];
-          if (data.length < step) break;
-          from += step;
+          try {
+            const { data, error } = await buildQuery(from, from + step - 1);
+            if (error) {
+              console.error('FetchAll batch error:', error);
+              break;
+            }
+            if (!data || data.length === 0) break;
+            allData = [...allData, ...data];
+            if (data.length < step) break;
+            from += step;
+          } catch (e) {
+            console.error('FetchAll exception:', e);
+            break;
+          }
         }
         return allData;
       };
@@ -95,23 +103,29 @@ export default function StatementReport() {
           if (userProfile) userId = userProfile.id;
         }
 
-        let qrPreQuery = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
-        let billPreQuery = supabase.from('bill_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
-        let bbpsPreQuery = supabase.from('bbps_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
-        let payoutPreQuery = supabase.from('payout_submissions').select('amount, charge_amount, status').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']).lt('created_at', `${startDate}T00:00:00`);
-
-        if (userId) {
-          qrPreQuery = qrPreQuery.eq('user_id', userId);
-          billPreQuery = billPreQuery.eq('user_id', userId);
-          bbpsPreQuery = bbpsPreQuery.eq('user_id', userId);
-          payoutPreQuery = payoutPreQuery.eq('user_id', userId);
-        }
+        const startDateTime = `${startDate}T00:00:00`;
 
         const [qrPre, billPre, bbpsPre, payoutPre] = await Promise.all([
-          fetchAll(qrPreQuery),
-          fetchAll(billPreQuery),
-          fetchAll(bbpsPreQuery),
-          fetchAll(payoutPreQuery)
+          fetchAll((f, t) => {
+            let q = supabase.from('payment_submissions').select('amount, charges').eq('status', 'approved').lt('created_at', startDateTime);
+            if (userId) q = q.eq('user_id', userId);
+            return q.range(f, t);
+          }),
+          fetchAll((f, t) => {
+            let q = supabase.from('bill_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime);
+            if (userId) q = q.eq('user_id', userId);
+            return q.range(f, t);
+          }),
+          fetchAll((f, t) => {
+            let q = supabase.from('bbps_submissions').select('amount, charges, status').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime);
+            if (userId) q = q.eq('user_id', userId);
+            return q.range(f, t);
+          }),
+          fetchAll((f, t) => {
+            let q = supabase.from('payout_submissions').select('amount, charge_amount, status').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime);
+            if (userId) q = q.eq('user_id', userId);
+            return q.range(f, t);
+          })
         ]);
 
         const qrTotal = (qrPre || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
@@ -143,23 +157,25 @@ export default function StatementReport() {
 
       // 1. Fetch QR Payments
       if (typeFilter === 'all' || typeFilter === 'QR') {
-        let qrQuery = supabase.from('payment_submissions').select(`
-          *, 
-          users_profiles!payment_submissions_user_id_fkey!inner(
-            firm_name, 
-            distributor_id, 
-            admin_base_qr_charge, 
-            charge_percentage
-          ), 
-          qr_history(qr_name)
-        `).in('status', ['approved', 'rejected']); 
+        const qrData = await fetchAll((f, t) => {
+          let q = supabase.from('payment_submissions').select(`
+            *, 
+            users_profiles!payment_submissions_user_id_fkey!inner(
+              firm_name, 
+              distributor_id, 
+              admin_base_qr_charge, 
+              charge_percentage
+            ), 
+            qr_history(qr_name)
+          `).in('status', ['approved', 'rejected']); 
 
-        if (firmName) qrQuery = qrQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
-        if (exactAmount) qrQuery = qrQuery.eq('amount', Number(exactAmount));
-        if (startDate) qrQuery = qrQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) qrQuery = qrQuery.lte('created_at', `${endDate}T23:59:59`);
+          if (firmName) q = q.ilike('users_profiles.firm_name', `%${firmName}%`);
+          if (exactAmount) q = q.eq('amount', Number(exactAmount));
+          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+          return q.range(f, t);
+        });
 
-        const qrData = await fetchAll(qrQuery);
         qrMapped = (qrData || []).map(r => ({
           id: String(r.id || ''),
           numericId: String(r.payment_id || r.id || '').split('-')[0].toUpperCase(),
@@ -177,27 +193,24 @@ export default function StatementReport() {
 
       // 2. Fetch Bill Payments (both standard and BBPS)
       if (typeFilter === 'all' || typeFilter === 'BILL') {
-        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!bill_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-        let bbpsQuery = supabase.from('bbps_submissions').select('*, users_profiles!bbps_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-
-        if (firmName) {
-          billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
-          bbpsQuery = bbpsQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
-        }
-        if (exactAmount) {
-          billQuery = billQuery.eq('amount', Number(exactAmount));
-          bbpsQuery = bbpsQuery.eq('amount', Number(exactAmount));
-        }
-        if (startDate) {
-          billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
-          bbpsQuery = bbpsQuery.gte('created_at', `${startDate}T00:00:00`);
-        }
-        if (endDate) {
-          billQuery = billQuery.lte('created_at', `${endDate}T23:59:59`);
-          bbpsQuery = bbpsQuery.lte('created_at', `${endDate}T23:59:59`);
-        }
-
-        const [billRes, bbpsRes] = await Promise.all([fetchAll(billQuery), fetchAll(bbpsQuery)]);
+        const [billRes, bbpsRes] = await Promise.all([
+          fetchAll((f, t) => {
+            let q = supabase.from('bill_submissions').select('*, users_profiles!bill_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
+            if (firmName) q = q.ilike('users_profiles.firm_name', `%${firmName}%`);
+            if (exactAmount) q = q.eq('amount', Number(exactAmount));
+            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+            return q.range(f, t);
+          }),
+          fetchAll((f, t) => {
+            let q = supabase.from('bbps_submissions').select('*, users_profiles!bbps_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
+            if (firmName) q = q.ilike('users_profiles.firm_name', `%${firmName}%`);
+            if (exactAmount) q = q.eq('amount', Number(exactAmount));
+            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+            return q.range(f, t);
+          })
+        ]);
         
         const combinedBills = [
           ...(billRes || []).map(b => ({ ...b, is_bbps: false })),
@@ -248,14 +261,14 @@ export default function StatementReport() {
 
       // 3. Fetch Payouts
       if (typeFilter === 'all' || typeFilter === 'PAYOUT') {
-        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
-
-        if (firmName) payoutQuery = payoutQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
-        if (exactAmount) payoutQuery = payoutQuery.eq('amount', Number(exactAmount));
-        if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
-
-        const payoutData = await fetchAll(payoutQuery);
+        const payoutData = await fetchAll((f, t) => {
+          let q = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
+          if (firmName) q = q.ilike('users_profiles.firm_name', `%${firmName}%`);
+          if (exactAmount) q = q.eq('amount', Number(exactAmount));
+          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+          return q.range(f, t);
+        });
 
         (payoutData || []).forEach(r => {
           payoutMapped.push({
