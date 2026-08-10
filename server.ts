@@ -1923,7 +1923,10 @@ async function startServer() {
       }
 
       if (fetchedBillerResponse && typeof fetchedBillerResponse === 'object' && Object.keys(fetchedBillerResponse).length > 0) {
-        payload.billerResponse = fetchedBillerResponse;
+        payload.billerResponse = {
+          ...fetchedBillerResponse,
+          billAmount: String(payload.billamount)
+        };
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
