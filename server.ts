@@ -1855,27 +1855,41 @@ async function startServer() {
         }));
       }
 
+      const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
+      const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse || rawData;
+
       const payload: any = {
         requestId,
         customerMobile: customerMobile || "9999999999",
-        customerName: billDetails?.customerName || billDetails?.consumerName || "BBPS Customer",
+        customerName: billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer",
         catname: billDetails?.catname || billDetails?.categoryName || billerName || "Electricity",
         billerId,
         billamount: Math.round(Number(amount) * 100), // Convert to Paise
         inputParams: paramArray
       };
 
-      if (billDetails?.dueDate) payload.dueDate = billDetails.dueDate;
-      if (billDetails?.billDate) payload.billDate = billDetails.billDate;
-      if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
-      if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
+      const dueDate = billDetails?.dueDate || fetchedBillerResponse?.dueDate;
+      if (dueDate) payload.dueDate = dueDate;
 
-      if (billDetails?.billerResponse) {
-        payload.billerResponse = billDetails.billerResponse;
+      const billDate = billDetails?.billDate || fetchedBillerResponse?.billDate;
+      if (billDate) payload.billDate = billDate;
+
+      const billPeriod = billDetails?.billPeriod || fetchedBillerResponse?.billPeriod || (safeBillPeriod !== "NA" ? safeBillPeriod : undefined);
+      if (billPeriod) payload.billPeriod = billPeriod;
+
+      const billNumber = billDetails?.billNumber || fetchedBillerResponse?.billNumber || (safeBillNumber !== "NA" ? safeBillNumber : undefined);
+      if (billNumber) payload.billNumber = billNumber;
+
+      if (fetchedBillerResponse && typeof fetchedBillerResponse === 'object') {
+        payload.billerResponse = fetchedBillerResponse;
       }
 
-      if (additionalInfo && Array.isArray(additionalInfo) && additionalInfo.length > 0) {
-        payload.additionalInfo = additionalInfo;
+      const finalAddInfo = (additionalInfo && Array.isArray(additionalInfo) && additionalInfo.length > 0)
+        ? additionalInfo
+        : (fetchedBillerResponse?.additionalInfo || rawData?.additionalInfo);
+
+      if (finalAddInfo) {
+        payload.additionalInfo = finalAddInfo;
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));

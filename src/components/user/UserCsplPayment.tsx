@@ -1088,7 +1088,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           billPeriod: billerResp?.billPeriod || response?.billPeriod,
           additionalInfo: additionalInfoArray,
           fetchSupported: true,
-          billerResponse: billerResp
+          billerResponse: billerResp,
+          rawFetchData: data
         });
         setManualAmount(billAmount.toString());
 
