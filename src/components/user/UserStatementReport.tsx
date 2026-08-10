@@ -118,7 +118,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       let payoutMapped: any[] = [];
 
       // 1. Fetch QR Payments for this user (approved only)
-      {
+      try {
         const qrData = await fetchAll((f, t) => {
           let q = supabase
             .from('payment_submissions')
@@ -143,12 +143,15 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           status: r.status,
           raw_data: { ...r, qr_name: r.qr_history?.qr_name, card_number: r.card_number }
         }));
+      } catch (err) {
+        console.error('Error fetching QR payments:', err);
       }
 
       // 2. Fetch Bill Payments for this user (All statuses)
-      {
-        const [billRes, bbpsRes] = await Promise.all([
-          fetchAll((f, t) => {
+      try {
+        let billData: any[] = [];
+        try {
+          billData = await fetchAll((f, t) => {
             let q = supabase
               .from('bill_submissions')
               .select('*')
@@ -157,8 +160,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
             if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
             return q.range(f, t);
-          }),
-          fetchAll((f, t) => {
+          });
+        } catch (e) { console.error('Bill sub fetch error:', e); }
+
+        let bbpsData: any[] = [];
+        try {
+          bbpsData = await fetchAll((f, t) => {
             let q = supabase
               .from('bbps_submissions')
               .select('*')
@@ -167,14 +174,14 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
             if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
             return q.range(f, t);
-          })
-        ]);
-        
+          });
+        } catch (e) { console.error('BBPS sub fetch error:', e); }
+
         const combinedBills = [
-          ...(billRes || []).map(b => ({ ...b, is_bbps: false })),
-          ...(bbpsRes || []).map(b => ({ ...b, is_bbps: true }))
+          ...billData.map(b => ({ ...b, is_bbps: false })),
+          ...bbpsData.map(b => ({ ...b, is_bbps: true }))
         ];
-        
+
         combinedBills.forEach(r => {
           const isBbps = r.is_bbps;
           let mobile = '0000000000';
@@ -187,7 +194,6 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
 
           const cardNo = isBbps ? r.consumer_number : r.card_number;
 
-          // Deduction
           billMapped.push({
             id: String(r.id || ''),
             numericId: String(r.id || '').split('-')[0].toUpperCase(),
@@ -201,7 +207,6 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             raw_data: { ...r, card_number: cardNo }
           });
 
-          // Refund synthesis for rejected, failed, or refunded bills
           if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             billMapped.push({
               id: `${r.id}-refund`,
@@ -217,10 +222,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             });
           }
         });
+      } catch (err) {
+        console.error('Error fetching bill payments:', err);
       }
 
       // 3. Fetch Payouts for this user (All statuses)
-      {
+      try {
         const payoutData = await fetchAll((f, t) => {
           let q = supabase
             .from('payout_submissions')
@@ -234,7 +241,6 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         });
         
         (payoutData || []).forEach(r => {
-          // Deduction
           payoutMapped.push({
             id: String(r.id || ''),
             numericId: String(r.id || '').split('-')[0].toUpperCase(),
@@ -248,7 +254,6 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             raw_data: r
           });
 
-          // Refund synthesis
           if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             payoutMapped.push({
               id: `${r.id}-refund`,
@@ -264,11 +269,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             });
           }
         });
+      } catch (err) {
+        console.error('Error fetching payouts:', err);
       }
 
       let ftMapped: any[] = [];
-      // 4. Fetch Fund Transfers for this user (All sender/receiver entries)
-      {
+      // 4. Fetch Fund Transfers for this user
+      try {
         const ftData = await fetchAll((f, t) => {
           let q = supabase
             .from('fund_transfers')
@@ -295,6 +302,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             raw_data: r
           };
         });
+      } catch (err) {
+        console.error('Error fetching fund transfers:', err);
       }
 
       // Merge oldest first for running balance calculation with deterministic tie-breaker (Credits first on same timestamp)

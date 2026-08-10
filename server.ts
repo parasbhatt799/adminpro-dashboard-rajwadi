@@ -76,6 +76,37 @@ async function startServer() {
   // Mount B2B API Routes
   app.use("/api/v1/b2b", b2bRoutes);
 
+  // Secure Proxy Endpoint for bbps_submissions table queries (uses service role key to bypass RLS)
+  app.use('/api/bbps-proxy', async (req, res) => {
+    try {
+      const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://malrqshegrrovyrhflup.supabase.co';
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+      const targetUrl = `${supabaseUrl}/rest/v1/bbps_submissions${req.url}`;
+      
+      const response = await fetch(targetUrl, {
+        method: req.method,
+        headers: {
+          'apikey': serviceRoleKey,
+          'Authorization': `Bearer ${serviceRoleKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': (req.headers['prefer'] as string) || ''
+        },
+        body: ['POST', 'PUT', 'PATCH'].includes(req.method) ? JSON.stringify(req.body) : undefined
+      });
+
+      const data = await response.text();
+      res.status(response.status);
+      const contentType = response.headers.get('content-type');
+      if (contentType) res.set('Content-Type', contentType);
+      const contentRange = response.headers.get('content-range');
+      if (contentRange) res.set('Content-Range', contentRange);
+      res.send(data);
+    } catch (err: any) {
+      console.error('[BBPS Proxy Error]:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
 
   async function sendResendEmail(to: string, subject: string, text: string, html: string) {
     const host = process.env.SMTP_HOST;
