@@ -81,7 +81,15 @@ async function startServer() {
     try {
       const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://malrqshegrrovyrhflup.supabase.co';
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-      const targetUrl = `${supabaseUrl}/rest/v1/bbps_submissions${req.url}`;
+      
+      let subPath = req.url || '';
+      if (subPath.startsWith('/')) {
+        subPath = subPath.substring(1);
+      }
+      if (subPath && !subPath.startsWith('?')) {
+        subPath = `/${subPath}`;
+      }
+      const targetUrl = `${supabaseUrl}/rest/v1/bbps_submissions${subPath}`;
       
       const response = await fetch(targetUrl, {
         method: req.method,
