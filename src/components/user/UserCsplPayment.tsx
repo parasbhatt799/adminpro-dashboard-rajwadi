@@ -324,6 +324,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     billPeriod?: string;
     additionalInfo?: { infoName: string; infoValue: string }[];
     fetchSupported: boolean;
+    fetchRequestId?: string;
+    rawFetchData?: any;
   } | null>(null);
 
   // UAT Multiple Amount and Payment Mode states
