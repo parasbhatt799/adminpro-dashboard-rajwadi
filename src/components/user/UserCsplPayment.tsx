@@ -1167,6 +1167,11 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       return;
     }
 
+    if (amt >= 50000) {
+      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
+      return;
+    }
+
     // Enforce daily Live BBPS limit
     try {
       const userLimit = Number(userProfile?.custom_daily_live_bbps_limit) > 0
@@ -1963,10 +1968,10 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                   </div>
 
                                   {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                    Number(manualAmount) > bbpsMaxLimit ? (
+                                    Number(manualAmount) >= 50000 ? (
                                       <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
                                         <AlertTriangle size={16} className="shrink-0" />
-                                        <span>Amount must be less than ₹{bbpsMaxLimit.toLocaleString()} per transaction. Please split your payment.</span>
+                                        <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
                                       </div>
                                     ) : (
                                       <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -2057,10 +2062,10 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                   </div>
 
                                   {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                    Number(manualAmount) > bbpsMaxLimit ? (
+                                    Number(manualAmount) >= 50000 ? (
                                       <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
                                         <AlertTriangle size={16} className="shrink-0" />
-                                        <span>Amount must be less than ₹{bbpsMaxLimit.toLocaleString()} per transaction. Please split your payment.</span>
+                                        <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
                                       </div>
                                     ) : (
                                       <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
@@ -2490,5 +2495,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         )}
       </AnimatePresence>
     </div>
+  );
+}
+    </div >
   );
 }

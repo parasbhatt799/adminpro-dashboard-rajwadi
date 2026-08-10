@@ -720,7 +720,10 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       return;
     }
 
-
+    if (finalAmount >= 50000) {
+      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
+      return;
+    }
 
     // Enforce daily Live BBPS limit
     try {
@@ -880,7 +883,10 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       return;
     }
 
-
+    if (finalAmount >= 50000) {
+      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
+      return;
+    }
 
     // Enforce daily Live BBPS limit
     try {
@@ -1483,7 +1489,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                               <button
                                 type="button"
                                 onClick={handlePrePayCheck}
-                                disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit}
+                                disabled={loading || lockoutSeconds > 0 || (!billDetails.fetchSupported && !manualAmount) || Number(manualAmount) > bbpsMaxLimit || Number(manualAmount) >= 50000}
                                 className={`w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer ${lockoutSeconds > 0
                                   ? "bg-rose-600 hover:bg-rose-700 shadow-rose-100"
                                   : "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
