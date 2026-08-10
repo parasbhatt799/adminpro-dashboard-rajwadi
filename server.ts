@@ -1847,23 +1847,6 @@ async function startServer() {
 
 
 
-      const isAdhoc = billDetails?.billerAdhoc === true || billDetails?.billerFetchRequirement === "NOT_SUPPORTED";
-
-      const payload: any = {
-        requestId,
-        billerId,
-        customerName: billDetails?.customerName || "BBPS Customer",
-        customerMobile: customerMobile || "9999999999",
-        billamount: Math.round(Number(amount) * 100), // Convert to Paise
-        client_referenceId: "REF-" + requestId,
-        paymentMode: "UPI",
-        paymentChannel: "AGT",
-        billerAdhoc: isAdhoc ? true : false,
-      };
-
-      payload.placeholderValue = firstParamName;
-      payload.paramValue = paramValue;
-
       let paramArray: any[] = [];
       if (typeof customerParams === "object" && customerParams !== null) {
         paramArray = Object.entries(customerParams).map(([name, value]) => ({
@@ -1872,12 +1855,18 @@ async function startServer() {
         }));
       }
 
-      if (paramArray.length > 0) {
-        payload.inputParams = {
-          input: paramArray
-        };
-      }
+      const payload: any = {
+        requestId,
+        customerMobile: customerMobile || "9999999999",
+        customerName: billDetails?.customerName || billDetails?.consumerName || "BBPS Customer",
+        catname: billDetails?.catname || billDetails?.categoryName || billerName || "Electricity",
+        billerId,
+        billamount: Math.round(Number(amount) * 100), // Convert to Paise
+        inputParams: paramArray
+      };
 
+      if (billDetails?.dueDate) payload.dueDate = billDetails.dueDate;
+      if (billDetails?.billDate) payload.billDate = billDetails.billDate;
       if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
       if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
 
@@ -1885,7 +1874,7 @@ async function startServer() {
         payload.billerResponse = billDetails.billerResponse;
       }
 
-      if (additionalInfo && additionalInfo.length > 0) {
+      if (additionalInfo && Array.isArray(additionalInfo) && additionalInfo.length > 0) {
         payload.additionalInfo = additionalInfo;
       }
 
