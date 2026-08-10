@@ -1907,7 +1907,7 @@ async function startServer() {
       const data = await camlenioBbps.payBill(payload);
       fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - RESPONSE: " + JSON.stringify(data) + "\n\n");
 
-      if (data.responseCode === '000' || data.status === 'SUCCESS') {
+      if (data.responseCode === '000' || data?.data?.responseCode === '000' || data.status === 'SUCCESS' || data.status === 'SUCCESSFUL') {
         const newBalance = user.wallet_balance - totalDeduction;
         await supabaseAdmin.from("users_profiles").update({ wallet_balance: newBalance }).eq("id", userId);
         data.new_balance = newBalance;

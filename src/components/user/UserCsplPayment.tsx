@@ -659,10 +659,10 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       // Fetch category settings from the backend
       const settingsRes = await fetch('/api/biller-categories');
       const settingsData = await settingsRes.json();
-      
+
       // Start with our comprehensive standard categories list
       let mergedCats = [...STANDARD_CATEGORIES];
-      
+
       if (Array.isArray(settingsData)) {
         mergedCats = mergedCats.filter(cat => {
           const setting = settingsData.find(s => s.provider === 'camlenio' && s.category_name === cat.name);
@@ -719,9 +719,9 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
     try {
       const searchLower = catName.toLowerCase();
-      
+
       let query = supabase.from('billavenue_billers').select('*').limit(10000);
-      
+
       if (searchLower === 'mobile prepaid') {
         query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
       } else {
@@ -840,15 +840,15 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       // FALLBACK: If the DB doesn't have billerInputParams, fetch from live API
       if (!bDetail?.billerInputParams && !bDetail?.inputParams) {
         console.log('Parameters missing in DB, fetching from live API...');
-        const response = await fetch('/api/cspl/billerinfo', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ billerId: biller.billerId }) });
+        const response = await fetch('/api/cspl/billerinfo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ billerId: biller.billerId }) });
         if (!response.ok) throw new Error('Failed to fetch biller details from API');
-        
+
         const data = await response.json();
         const apiBiller = data?.data?.biller || (Array.isArray(data.biller) ? data.biller[0] : data.biller);
-        
+
         if (apiBiller) {
           bDetail = apiBiller;
-          
+
           // Silently update the database so we don't have to fetch it again next time
           supabase.from('billavenue_billers').update({
             metadata: {
@@ -881,13 +881,13 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       // Map parameters
       const paramsList: BillerInputParam[] = [];
       let rawParams: any[] = [];
-      
+
       if (bDetail?.billerInputParams) {
         // BillAvenue XML parsed format: billerInputParams.paramInfo
         if (bDetail.billerInputParams.paramInfo) {
           const info = bDetail.billerInputParams.paramInfo;
           rawParams = Array.isArray(info) ? info : [info];
-        } 
+        }
         // BillAvenue JSON format: billerInputParams[0].paramsList or billerInputParams.paramsList
         else if (Array.isArray(bDetail.billerInputParams) && bDetail.billerInputParams[0]?.paramsList) {
           rawParams = bDetail.billerInputParams[0].paramsList;
@@ -937,7 +937,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         ) {
           fallbackParams = [{ paramName: 'Consumer Number', dataType: 'NUMERIC', optional: false }];
         } else if (
-          nameStr.toLowerCase().includes('torrent') || 
+          nameStr.toLowerCase().includes('torrent') ||
           bIdStr.toUpperCase().startsWith('TORR')
         ) {
           fallbackParams = [{ paramName: 'Service Number', dataType: 'NUMERIC', optional: false }];
@@ -1049,7 +1049,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       });
 
       const data = await res.json();
-      
+
       if (!res.ok || data.status === 'ERROR' || data.responseCode === '222') {
         const errorMsg = data.message || data.error || data.reason || 'Error fetching bill. Please check your details.';
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
@@ -1072,17 +1072,14 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       const response = data?.data?.billerResponse || data?.data || data?.billFetchResponse;
       const billerResp = response?.billerResponse || response; // Sometimes nested under billerResponse
       const respCode = billerResp?.responseCode || response?.responseCode || data?.data?.responseCode;
-      
+
       if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success' || data?.status === 'SUCCESS') {
         const billAmountStr = billerResp?.billAmount || response?.billAmount || data?.data?.billerResponse?.billAmount;
         const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs
         const addInfo = billerResp?.additionalInfo?.info || response?.additionalInfo?.info || data?.data?.billerResponse?.additionalInfo || [];
         const additionalInfoArray = Array.isArray(addInfo) ? addInfo : [addInfo].filter((i: any) => i && i.infoName);
 
-        const fetchReqId = billerResp?.requestId || response?.requestId || data?.requestId || data?.data?.requestId || data?.refid || data?.data?.refid || data?.txnId || data?.data?.txnId;
-
         setBillDetails({
-          fetchRequestId: fetchReqId,
           customerName: billerResp?.customerName || response?.customerName || 'Valued Customer',
           billAmount: billAmount,
           dueDate: billerResp?.dueDate || response?.dueDate,
@@ -1091,8 +1088,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           billPeriod: billerResp?.billPeriod || response?.billPeriod,
           additionalInfo: additionalInfoArray,
           fetchSupported: true,
-          billerResponse: billerResp,
-          rawFetchData: data
+          billerResponse: billerResp
         });
         setManualAmount(billAmount.toString());
 
@@ -1319,7 +1315,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
       const data = await res.json();
 
-      if (data.status === 'SUCCESS') {
+      if (data.status === 'SUCCESS' || data.status === 'SUCCESSFUL' || data.responseCode === '000' || data?.data?.responseCode === '000') {
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         markBillAsPaid(userId, consumerNumber);
@@ -2016,7 +2012,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                       <span className="font-semibold text-slate-600">{billDetails.billDate}</span>
                                     </div>
                                   )}
-                                  
+
                                   {/* 5. Bill Period */}
                                   {billDetails.billPeriod && billDetails.billPeriod !== 'NA' && (
                                     <div className="flex justify-between items-center text-xs">
@@ -2024,7 +2020,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                       <span className="font-semibold text-slate-600">{billDetails.billPeriod}</span>
                                     </div>
                                   )}
-                                  
+
                                   {/* 6. Bill Number */}
                                   {billDetails.billNumber && billDetails.billNumber !== 'NA' && (
                                     <div className="flex justify-between items-center text-xs">
@@ -2032,7 +2028,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                       <span className="font-semibold text-slate-600">{billDetails.billNumber}</span>
                                     </div>
                                   )}
-                                  
+
                                   {/* 7. Additional Info (Optional) */}
                                   {billDetails.additionalInfo && billDetails.additionalInfo.length > 0 && billDetails.additionalInfo.map((info, idx) => (
                                     <div key={idx} className="flex justify-between items-center text-xs">
@@ -2499,5 +2495,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         )}
       </AnimatePresence>
     </div>
+  );
+}
+    </div >
   );
 }
