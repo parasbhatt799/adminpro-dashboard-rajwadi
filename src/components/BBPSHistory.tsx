@@ -1097,6 +1097,7 @@ export default function BBPSHistory() {
               </div>
             </motion.div>
           </div>
+        )}
         {/* User Details Profile Modal Overlay */}
         {selectedUserProfile && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 overflow-y-auto p-4 flex justify-center items-start">
