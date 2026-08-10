@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Search, Calendar, X, RotateCcw, Clock, XCircle } from 'lucide-react';
+import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Search, Calendar, X, RotateCcw, Clock, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 
 const getTodayStr = () => {
@@ -29,6 +29,15 @@ export default function AdminCamlenioPayoutHistory() {
   const [endDate, setEndDate] = useState(getTodayStr());
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [itemsPerPage, setItemsPerPage] = useState<number>(10);
+
+  // Auto reset to Page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [timeRange, startDate, endDate, statusFilter, searchQuery, itemsPerPage]);
 
   const filteredTransactions = useMemo(() => {
     const now = new Date();
@@ -189,12 +198,25 @@ export default function AdminCamlenioPayoutHistory() {
     };
   }, [transactions, timeRange, startDate, endDate, searchQuery]);
 
+  // Pagination Calculations
+  const totalPages = useMemo(() => {
+    if (itemsPerPage >= filteredTransactions.length || itemsPerPage <= 0) return 1;
+    return Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
+  }, [filteredTransactions.length, itemsPerPage]);
+
+  const paginatedTransactions = useMemo(() => {
+    if (itemsPerPage >= filteredTransactions.length) return filteredTransactions;
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredTransactions, currentPage, itemsPerPage]);
+
   const clearFilters = () => {
     setTimeRange('today');
     setStartDate(getTodayStr());
     setEndDate(getTodayStr());
     setStatusFilter('all');
     setSearchQuery('');
+    setCurrentPage(1);
   };
 
   useEffect(() => {
@@ -634,14 +656,14 @@ export default function AdminCamlenioPayoutHistory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredTransactions.length === 0 ? (
+              {paginatedTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     No transactions found matching the selected filters.
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((tx) => (
+                paginatedTransactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-slate-900">
@@ -698,6 +720,62 @@ export default function AdminCamlenioPayoutHistory() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Pagination Footer */}
+        <div className="p-4 bg-slate-50/70 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          {/* Rows per page Selector */}
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+            <span>Rows per page:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+              className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer focus:ring-2 focus:ring-indigo-500/20"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={999999}>All</option>
+            </select>
+          </div>
+
+          {/* Entries Info Text */}
+          <div className="text-xs font-medium text-slate-500">
+            {filteredTransactions.length === 0 ? (
+              'Showing 0 entries'
+            ) : (
+              `Showing ${Math.min((currentPage - 1) * itemsPerPage + 1, filteredTransactions.length)} to ${Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of ${filteredTransactions.length} entries`
+            )}
+          </div>
+
+          {/* Previous & Next Navigation */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-3 py-1.5 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Previous
+            </button>
+
+            <span className="px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-xl">
+              Page {currentPage} of {totalPages}
+            </span>
+
+            <button
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              disabled={currentPage >= totalPages}
+              className="px-3 py-1.5 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:hover:bg-white text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors inline-flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+            >
+              Next
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
 
