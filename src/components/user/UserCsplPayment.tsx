@@ -324,6 +324,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     billPeriod?: string;
     additionalInfo?: { infoName: string; infoValue: string }[];
     fetchSupported: boolean;
+    fetchRequestId?: string;
+    rawFetchData?: any;
   } | null>(null);
 
   // UAT Multiple Amount and Payment Mode states
@@ -1078,6 +1080,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs
         const addInfo = billerResp?.additionalInfo?.info || response?.additionalInfo?.info || data?.data?.billerResponse?.additionalInfo || [];
         const additionalInfoArray = Array.isArray(addInfo) ? addInfo : [addInfo].filter((i: any) => i && i.infoName);
+        const fetchedReqId = data?.requestId || data?.txnid || data?.data?.requestId || data?.data?.txnid || billerResp?.requestId || response?.requestId;
 
         setBillDetails({
           customerName: billerResp?.customerName || response?.customerName || 'Valued Customer',
@@ -1088,6 +1091,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           billPeriod: billerResp?.billPeriod || response?.billPeriod,
           additionalInfo: additionalInfoArray,
           fetchSupported: true,
+          fetchRequestId: fetchedReqId,
+          rawFetchData: data,
           billerResponse: billerResp
         });
         setManualAmount(billAmount.toString());
