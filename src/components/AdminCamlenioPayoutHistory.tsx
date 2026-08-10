@@ -329,18 +329,42 @@ export default function AdminCamlenioPayoutHistory() {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Camlenio AEPS Payouts</h1>
           <p className="text-slate-500">Manage settings and view all payout transactions</p>
         </div>
-        <button
-          onClick={fetchData}
-          className="p-2 bg-white text-slate-600 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-sm"
-          title="Refresh Data"
-        >
-          <RefreshCw className="w-5 h-5" />
-        </button>
+        
+        <div className="flex items-center gap-3">
+          {/* AEPS Payout Toggle Switch near Refresh Button */}
+          <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs">
+            <span className="text-xs font-bold text-slate-700">AEPS Payout:</span>
+            <button
+              type="button"
+              onClick={() => setSettings({ ...settings, camlenio_is_enabled: !settings.camlenio_is_enabled })}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                settings.camlenio_is_enabled ? 'bg-green-500' : 'bg-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  settings.camlenio_is_enabled ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-xs font-extrabold ${settings.camlenio_is_enabled ? 'text-green-600' : 'text-slate-500'}`}>
+              {settings.camlenio_is_enabled ? 'Active (ON)' : 'Disabled (OFF)'}
+            </span>
+          </div>
+
+          <button
+            onClick={fetchData}
+            className="p-2.5 bg-white text-slate-600 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs cursor-pointer"
+            title="Refresh Data"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {message && (
@@ -350,113 +374,90 @@ export default function AdminCamlenioPayoutHistory() {
         </div>
       )}
 
-      {/* Settings Panel */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-          <Settings2 className="w-5 h-5 text-indigo-600" />
-          <h2 className="text-lg font-bold text-slate-900">System Settings</h2>
+      {/* Settings Panel - Compact 1-Line Grid */}
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Settings2 className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-base font-bold text-slate-900">System Settings</h2>
+          </div>
+          <button
+            onClick={handleSaveSettings}
+            disabled={savingSettings}
+            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
+          >
+            {savingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+            Save Settings
+          </button>
         </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* Toggle AEPS Payout */}
-            <div className="flex flex-col space-y-2 justify-center">
-              <label className="text-sm font-bold text-slate-700">AEPS Payout Status</label>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setSettings({ ...settings, camlenio_is_enabled: !settings.camlenio_is_enabled })}
-                  className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${
-                    settings.camlenio_is_enabled ? 'bg-green-500' : 'bg-slate-300'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                      settings.camlenio_is_enabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-                <span className={`font-medium ${settings.camlenio_is_enabled ? 'text-green-600' : 'text-slate-500'}`}>
-                  {settings.camlenio_is_enabled ? 'Active (ON)' : 'Disabled (OFF)'}
-                </span>
-              </div>
-            </div>
 
+        <div className="p-4 sm:p-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            
             {/* Max Payout Amount */}
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Max Payout Amount (₹)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Max Payout Amount (₹)</label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-4 h-4" />
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                  <IndianRupee className="w-3.5 h-3.5" />
                 </div>
                 <input
                   type="number"
                   value={settings.camlenio_max_payout}
                   onChange={(e) => setSettings({ ...settings, camlenio_max_payout: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Min Payout Amount */}
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Min Payout Amount (₹)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Min Payout Amount (₹)</label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-4 h-4" />
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                  <IndianRupee className="w-3.5 h-3.5" />
                 </div>
                 <input
                   type="number"
                   value={settings.camlenio_min_payout}
                   onChange={(e) => setSettings({ ...settings, camlenio_min_payout: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Verification Charge */}
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">A/c Verify Charge (₹)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">A/c Verify Charge (₹)</label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-4 h-4" />
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                  <IndianRupee className="w-3.5 h-3.5" />
                 </div>
                 <input
                   type="number"
                   value={settings.camlenio_verification_charge}
                   onChange={(e) => setSettings({ ...settings, camlenio_verification_charge: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                 />
               </div>
             </div>
 
             {/* Payout Charge */}
-            <div className="space-y-2">
-              <label className="text-sm font-bold text-slate-700">Payout Charge (₹)</label>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700">Payout Charge (₹)</label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-4 h-4" />
+                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
+                  <IndianRupee className="w-3.5 h-3.5" />
                 </div>
                 <input
                   type="number"
                   value={settings.camlenio_payout_charge}
                   onChange={(e) => setSettings({ ...settings, camlenio_payout_charge: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-10 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
                 />
               </div>
             </div>
 
-          </div>
-
-          <div className="mt-6 pt-6 border-t border-slate-100 flex justify-end">
-            <button
-              onClick={handleSaveSettings}
-              disabled={savingSettings}
-              className="px-6 py-2.5 bg-indigo-600 text-white font-medium rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-2"
-            >
-              {savingSettings ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Settings
-            </button>
           </div>
         </div>
       </div>
