@@ -2492,6 +2492,3 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     </div>
   );
 }
-    </div >
-  );
-}
