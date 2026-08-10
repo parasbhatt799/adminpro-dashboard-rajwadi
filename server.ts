@@ -1847,49 +1847,72 @@ async function startServer() {
 
 
 
+      const formatIsoDate = (dateStr: any): string | undefined => {
+        if (!dateStr || typeof dateStr !== 'string') return undefined;
+        const clean = dateStr.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
+        const dmy = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+        if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
+        const parsed = new Date(clean);
+        if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
+        return undefined;
+      };
+
       let paramArray: any[] = [];
       if (typeof customerParams === "object" && customerParams !== null) {
         paramArray = Object.entries(customerParams).map(([name, value]) => ({
-          paramName: name,
-          paramValue: String(value)
+          paramName: String(name).trim(),
+          paramValue: String(value).trim()
         }));
       }
 
       const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
       const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse || rawData;
 
+      const cleanCustomerName = String(billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer")
+        .replace(/[^a-zA-Z0-9 ]/g, "").trim() || "BBPS Customer";
+
+      const cleanCatName = String(billDetails?.catname || billDetails?.categoryName || billerName || "Electricity")
+        .replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Electricity";
+
       const payload: any = {
         requestId,
-        customerMobile: customerMobile || "9999999999",
-        customerName: billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer",
-        catname: billDetails?.catname || billDetails?.categoryName || billerName || "Electricity",
-        billerId,
+        customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
+        customerName: cleanCustomerName,
+        catname: cleanCatName,
+        billerId: String(billerId).trim(),
         billamount: Math.round(Number(amount) * 100), // Convert to Paise
         inputParams: paramArray
       };
 
-      const dueDate = billDetails?.dueDate || fetchedBillerResponse?.dueDate;
-      if (dueDate) payload.dueDate = dueDate;
+      const rawDueDate = billDetails?.dueDate || fetchedBillerResponse?.dueDate;
+      const formattedDueDate = formatIsoDate(rawDueDate);
+      if (formattedDueDate) payload.dueDate = formattedDueDate;
 
-      const billDate = billDetails?.billDate || fetchedBillerResponse?.billDate;
-      if (billDate) payload.billDate = billDate;
+      const rawBillDate = billDetails?.billDate || fetchedBillerResponse?.billDate;
+      const formattedBillDate = formatIsoDate(rawBillDate);
+      if (formattedBillDate) payload.billDate = formattedBillDate;
 
       const billPeriod = billDetails?.billPeriod || fetchedBillerResponse?.billPeriod || (safeBillPeriod !== "NA" ? safeBillPeriod : undefined);
-      if (billPeriod) payload.billPeriod = billPeriod;
+      if (billPeriod && typeof billPeriod === 'string') payload.billPeriod = billPeriod.replace(/[^a-zA-Z0-9\-_ ]/g, "");
 
       const billNumber = billDetails?.billNumber || fetchedBillerResponse?.billNumber || (safeBillNumber !== "NA" ? safeBillNumber : undefined);
-      if (billNumber) payload.billNumber = billNumber;
+      if (billNumber && typeof billNumber === 'string') payload.billNumber = billNumber.replace(/[^a-zA-Z0-9\-_ ]/g, "");
 
-      if (fetchedBillerResponse && typeof fetchedBillerResponse === 'object') {
-        payload.billerResponse = fetchedBillerResponse;
-      }
-
-      const finalAddInfo = (additionalInfo && Array.isArray(additionalInfo) && additionalInfo.length > 0)
+      const rawAddInfo = (additionalInfo && Array.isArray(additionalInfo) && additionalInfo.length > 0)
         ? additionalInfo
         : (fetchedBillerResponse?.additionalInfo || rawData?.additionalInfo);
 
-      if (finalAddInfo) {
-        payload.additionalInfo = finalAddInfo;
+      if (Array.isArray(rawAddInfo) && rawAddInfo.length > 0) {
+        const cleanAddInfo = rawAddInfo
+          .map((item: any) => ({
+            infoName: String(item?.infoName || item?.name || 'Remarks').replace(/[^a-zA-Z0-9 ]/g, "").trim(),
+            infoValue: String(item?.infoValue || item?.value || '').replace(/[^a-zA-Z0-9 ]/g, "").trim()
+          }))
+          .filter(item => item.infoName && item.infoValue);
+        if (cleanAddInfo.length > 0) {
+          payload.additionalInfo = cleanAddInfo;
+        }
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
