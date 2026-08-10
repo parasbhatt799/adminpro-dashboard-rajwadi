@@ -165,7 +165,7 @@ export default function BBPSHistory() {
   };
 
   const fetchTransactions = async (silent = false) => {
-    if (!silent) setLoading(true);
+    if (!silent && transactions.length === 0) setLoading(true);
     else setFetchingHistory(true);
 
     try {
@@ -200,7 +200,7 @@ export default function BBPSHistory() {
       if (searchQuery.trim()) {
         const term = searchQuery.trim();
         if (userIds.length > 0) {
-          query = query.or(`consumer_number.ilike.%${term}%,provider.ilike.%${term}%,transaction_id.ilike.%${term}%,service_type.ilike.%${term}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+          query = query.or(`consumer_number.ilike.%${term}%,provider.ilike.%${term}%,transaction_id.ilike.%${term}%,service_type.ilike.%${term}%,user_id.in.(${userIds.join(',')})`);
         } else {
           query = query.or(`consumer_number.ilike.%${term}%,provider.ilike.%${term}%,transaction_id.ilike.%${term}%,service_type.ilike.%${term}%`);
         }
@@ -226,14 +226,25 @@ export default function BBPSHistory() {
       let filteredData = data || [];
       if (searchQuery.trim()) {
         const term = searchQuery.toLowerCase().trim();
-        filteredData = filteredData.filter(item => 
-          (item.users_profiles?.firm_name || '').toLowerCase().includes(term) ||
-          (item.users_profiles?.name || '').toLowerCase().includes(term) ||
-          (item.consumer_number || '').toLowerCase().includes(term) ||
-          (item.provider || '').toLowerCase().includes(term) ||
-          (item.transaction_id || '').toLowerCase().includes(term) ||
-          (item.service_type || '').toLowerCase().includes(term)
-        );
+        filteredData = filteredData.filter(item => {
+          const firmName = (item.users_profiles?.firm_name || '').toLowerCase();
+          const userName = (item.users_profiles?.name || '').toLowerCase();
+          const mobile = ((item.users_profiles as any)?.mobile_number || '').toLowerCase();
+          const consumerNo = (item.consumer_number || '').toLowerCase();
+          const provider = (item.provider || '').toLowerCase();
+          const txId = (item.transaction_id || '').toLowerCase();
+          const serviceType = (item.service_type || '').toLowerCase();
+          const consumerDetailsStr = item.metadata?.consumerDetails ? JSON.stringify(item.metadata.consumerDetails).toLowerCase() : '';
+
+          return firmName.includes(term) ||
+            userName.includes(term) ||
+            mobile.includes(term) ||
+            consumerNo.includes(term) ||
+            provider.includes(term) ||
+            txId.includes(term) ||
+            serviceType.includes(term) ||
+            consumerDetailsStr.includes(term);
+        });
       }
 
       setTransactions(filteredData);
@@ -409,11 +420,11 @@ export default function BBPSHistory() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [filter, searchQuery, startDate, endDate]);
+  }, [filter, categoryFilter, searchQuery, startDate, endDate]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filter, searchQuery, startDate, endDate]);
+  }, [filter, categoryFilter, searchQuery, startDate, endDate]);
 
   const handlePrint = () => {
     window.print();

@@ -142,7 +142,7 @@ export default function BillPaymentRequests() {
 
       if (searchQuery) {
         if (userIds.length > 0) {
-          query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+          query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.join(',')})`);
         } else {
           query = query.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%`);
         }
@@ -183,7 +183,7 @@ export default function BillPaymentRequests() {
 
       if (searchQuery) {
         if (userIds.length > 0) {
-          sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+          sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%,user_id.in.(${userIds.join(',')})`);
         } else {
           sumQuery = sumQuery.or(`customer_mobile.ilike.%${searchQuery}%,card_number.ilike.%${searchQuery}%,card_owner_name.ilike.%${searchQuery}%`);
         }

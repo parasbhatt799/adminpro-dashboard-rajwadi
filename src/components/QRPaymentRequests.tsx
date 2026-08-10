@@ -310,7 +310,7 @@ export default function QRPaymentRequests() {
 
       if (searchQuery) {
         if (userIds.length > 0) {
-          query = query.or(`utr_id.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+          query = query.or(`utr_id.ilike.%${searchQuery}%,user_id.in.(${userIds.join(',')})`);
         } else {
           query = query.or(`utr_id.ilike.%${searchQuery}%`);
         }
@@ -355,7 +355,7 @@ export default function QRPaymentRequests() {
 
       if (searchQuery) {
         if (userIds.length > 0) {
-          sumQuery = sumQuery.or(`utr_id.ilike.%${searchQuery}%,user_id.in.(${userIds.map(id => `"${id}"`).join(',')})`);
+          sumQuery = sumQuery.or(`utr_id.ilike.%${searchQuery}%,user_id.in.(${userIds.join(',')})`);
         } else {
           sumQuery = sumQuery.or(`utr_id.ilike.%${searchQuery}%`);
         }
