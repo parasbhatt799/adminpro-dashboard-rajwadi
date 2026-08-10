@@ -1814,7 +1814,11 @@ async function startServer() {
 
 
 
-      const requestId = "CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString();
+      const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
+      const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse || rawData;
+
+      const fetchRequestId = billDetails?.fetchRequestId || rawData?.requestId || rawData?.request_id || rawData?.data?.requestId || rawData?.data?.request_id;
+      const requestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
 
       let additionalInfo: any[] = [];
       if (billDetails && billDetails.additionalInfo) {
