@@ -163,8 +163,8 @@ export default function StatementReport() {
 
       // 2. Fetch Bill Payments (both standard and BBPS)
       if (typeFilter === 'all' || typeFilter === 'BILL') {
-        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!bill_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'refunded']);
-        let bbpsQuery = supabase.from('bbps_submissions').select('*, users_profiles!bbps_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'refunded']);
+        let billQuery = supabase.from('bill_submissions').select('*, users_profiles!bill_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
+        let bbpsQuery = supabase.from('bbps_submissions').select('*, users_profiles!bbps_submissions_user_id_fkey!inner(firm_name)').in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
 
         if (firmName) {
           billQuery = billQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
@@ -216,12 +216,12 @@ export default function StatementReport() {
             raw_data: { ...r, card_number: isBbps ? r.consumer_number : r.card_number }
           });
 
-          if (r.status === 'rejected') {
+          if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             billMapped.push({
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.created_at,
+              date: r.updated_at || r.actioned_at || r.created_at,
               firm_name: r.users_profiles?.firm_name || 'N/A',
               reference: mobile || '0000000000',
               amount: Number(r.amount),
@@ -236,7 +236,7 @@ export default function StatementReport() {
 
       // 3. Fetch Payouts
       if (typeFilter === 'all' || typeFilter === 'PAYOUT') {
-        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']);
+        let payoutQuery = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
 
         if (firmName) payoutQuery = payoutQuery.ilike('users_profiles.firm_name', `%${firmName}%`);
         if (exactAmount) payoutQuery = payoutQuery.eq('amount', Number(exactAmount));
@@ -261,12 +261,12 @@ export default function StatementReport() {
             raw_data: r
           });
 
-          if (r.status === 'rejected') {
+          if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             payoutMapped.push({
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.created_at, 
+              date: r.updated_at || r.actioned_at || r.created_at, 
               firm_name: r.users_profiles?.firm_name || 'N/A',
               reference: r.transaction_id || 'N/A',
               amount: Number(r.amount),
@@ -305,10 +305,16 @@ export default function StatementReport() {
         return r;
       });
 
-      // Merge and Sort (Oldest first for running balance)
-      const merged = [...finalQrMapped, ...billMapped, ...payoutMapped].sort((a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
+      // Merge and Sort (Oldest first for running balance with credit tie-breaker)
+      const isCreditType = (type: string) => ['QR', 'REFUND', 'TRANSFER_CREDIT'].includes(type);
+      const merged = [...finalQrMapped, ...billMapped, ...payoutMapped].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        const creditA = isCreditType(a.type) ? 1 : 0;
+        const creditB = isCreditType(b.type) ? 1 : 0;
+        return creditB - creditA;
+      });
 
       // Compute Running Balance
       let currentBalance = openingBalance;

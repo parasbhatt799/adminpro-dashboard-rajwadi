@@ -342,15 +342,21 @@ export default function DistributorStatementReport({ userId }: { userId: string 
         }));
       }
 
-      // Merge and Sort (Oldest first for running balance)
-      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
+      // Merge and Sort (Oldest first for running balance with credit tie-breaker)
+      const isCreditType = (type: string) => ['QR', 'REFUND', 'TRANSFER_CREDIT'].includes(type);
+      const merged = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        const creditA = isCreditType(a.type) ? 1 : 0;
+        const creditB = isCreditType(b.type) ? 1 : 0;
+        return creditB - creditA;
+      });
 
       // Compute Running Balance
       let currentBalance = openingBalance;
       const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
-        if (r.type === 'QR') {
+        if (r.type === 'QR' || r.type === 'REFUND') {
           currentBalance += r.final_total;
         } else {
           currentBalance -= r.final_total;

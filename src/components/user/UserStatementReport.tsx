@@ -134,13 +134,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           .from('bill_submissions')
           .select('*')
           .eq('user_id', userId)
-          .in('status', ['approved', 'pending', 'rejected', 'refunded']);
+          .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
 
         let bbpsQuery = supabase
           .from('bbps_submissions')
           .select('*')
           .eq('user_id', userId)
-          .in('status', ['approved', 'pending', 'rejected', 'refunded']);
+          .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
 
         if (startDate) {
           billQuery = billQuery.gte('created_at', `${startDate}T00:00:00`);
@@ -186,13 +186,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             raw_data: { ...r, card_number: cardNo }
           });
 
-          // Refund synthesis
-          if (r.status === 'rejected') {
+          // Refund synthesis for rejected, failed, or refunded bills
+          if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             billMapped.push({
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.created_at,
+              date: r.updated_at || r.actioned_at || r.created_at,
               reference: mobile || '0000000000',
               amount: Number(r.amount),
               charges: Number(r.charges || 0),
@@ -210,7 +210,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           .from('payout_submissions')
           .select('*')
           .eq('user_id', userId)
-          .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded']);
+          .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
 
         if (startDate) payoutQuery = payoutQuery.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) payoutQuery = payoutQuery.lte('created_at', `${endDate}T23:59:59`);
@@ -234,12 +234,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
           });
 
           // Refund synthesis
-          if (r.status === 'rejected') {
+          if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             payoutMapped.push({
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.created_at,
+              date: r.updated_at || r.actioned_at || r.created_at,
               reference: r.transaction_id || 'N/A',
               amount: Number(r.amount),
               charges: Number(r.charge_amount || 0),
@@ -281,10 +281,16 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         });
       }
 
-      // Merge oldest first for running balance calculation
-      const merged = [...qrMapped, ...billMapped, ...payoutMapped, ...ftMapped].sort((a, b) =>
-        new Date(a.date).getTime() - new Date(b.date).getTime()
-      );
+      // Merge oldest first for running balance calculation with deterministic tie-breaker (Credits first on same timestamp)
+      const isCreditType = (type: string) => ['QR', 'REFUND', 'TRANSFER_CREDIT'].includes(type);
+      const merged = [...qrMapped, ...billMapped, ...payoutMapped, ...ftMapped].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+        const creditA = isCreditType(a.type) ? 1 : 0;
+        const creditB = isCreditType(b.type) ? 1 : 0;
+        return creditB - creditA;
+      });
 
       // Running Balance
       let currentBalance = openingBalance;

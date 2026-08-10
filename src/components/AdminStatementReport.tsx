@@ -113,7 +113,7 @@ export default function AdminStatementReport() {
         *,
         users_profiles!bill_submissions_user_id_fkey!inner(name, firm_name)
       `)
-      .in('status', ['approved', 'pending', 'rejected', 'refunded'])
+      .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded'])
       .order('created_at', { ascending: false });
 
       // BBPS Payments (All statuses)
@@ -121,7 +121,7 @@ export default function AdminStatementReport() {
         *,
         users_profiles!bbps_submissions_user_id_fkey!inner(name, firm_name)
       `)
-      .in('status', ['approved', 'pending', 'rejected', 'refunded'])
+      .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded'])
       .order('created_at', { ascending: false });
       
       // Payouts (All statuses)
@@ -129,7 +129,7 @@ export default function AdminStatementReport() {
         *,
         users_profiles!inner(name, firm_name)
       `)
-      .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded'])
+      .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded'])
       .order('created_at', { ascending: false });
 
       const [qrData, billData, bbpsData, payoutData] = await Promise.all([
@@ -180,12 +180,12 @@ export default function AdminStatementReport() {
           current_wallet: 0,
         });
 
-        if (r.status === 'rejected') {
+        if (['rejected', 'failed', 'refunded'].includes(r.status)) {
           billMapped.push({
             id: `${r.id}-refund`,
             numericId: String(r.id).split('-')[0].toUpperCase(),
             type: 'ADJUSTMENT',
-            date: r.created_at,
+            date: r.updated_at || r.actioned_at || r.created_at,
             firm_name: r.users_profiles?.firm_name || 'N/A',
             user_name: r.users_profiles?.name || 'N/A',
             reference: isBbps ? r.consumer_number : (r.customer_mobile || '0000000000'),
@@ -226,12 +226,12 @@ export default function AdminStatementReport() {
           current_wallet: 0,
         });
 
-        if (r.status === 'rejected') {
+        if (['rejected', 'failed', 'refunded'].includes(r.status)) {
           payoutMapped.push({
             id: `${r.id}-refund`,
             numericId: String(r.id).split('-')[0].toUpperCase(),
             type: 'ADJUSTMENT',
-            date: r.created_at,
+            date: r.updated_at || r.actioned_at || r.created_at,
             firm_name: r.users_profiles?.firm_name || 'N/A',
             user_name: r.users_profiles?.name || 'N/A',
             reference: r.transaction_id || 'N/A',
@@ -248,10 +248,16 @@ export default function AdminStatementReport() {
         }
       });
 
-      // 5. Sort all by date (Newest First)
-      const allTransactions = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
+      // 5. Sort all by date (Newest First) with tie-breaker
+      const isCreditType = (type: string) => ['QR', 'ADJUSTMENT', 'TRANSFER_CREDIT'].includes(type);
+      const allTransactions = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => {
+        const timeA = new Date(a.date).getTime();
+        const timeB = new Date(b.date).getTime();
+        if (timeA !== timeB) return timeB - timeA;
+        const creditA = isCreditType(a.type) ? 1 : 0;
+        const creditB = isCreditType(b.type) ? 1 : 0;
+        return creditA - creditB;
+      });
 
       // 6. Apply Backward Running Balances (System-wide AND Per-User)
       let systemRunningBalance = totalWallet;
