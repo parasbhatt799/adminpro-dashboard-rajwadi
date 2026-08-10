@@ -81,7 +81,7 @@ async function startServer() {
     try {
       const supabaseUrl = process.env.VITE_SUPABASE_URL || 'https://malrqshegrrovyrhflup.supabase.co';
       const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-      
+
       let subPath = req.url || '';
       if (subPath.startsWith('/')) {
         subPath = subPath.substring(1);
@@ -90,7 +90,7 @@ async function startServer() {
         subPath = `/${subPath}`;
       }
       const targetUrl = `${supabaseUrl}/rest/v1/bbps_submissions${subPath}`;
-      
+
       const response = await fetch(targetUrl, {
         method: req.method,
         headers: {
@@ -1791,18 +1791,10 @@ async function startServer() {
         inputParams
       };
 
-      console.log("[CSPL BBPS] Bill Fetch Payload:", JSON.stringify(payload));
-      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - FETCH REQUEST: " + JSON.stringify(payload) + "\n");
-
       const data = await camlenioBbps.fetchBill(payload);
-
-      console.log("[CSPL BBPS] Bill Fetch Response:", JSON.stringify(data));
-      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - FETCH RESPONSE: " + JSON.stringify(data) + "\n\n");
-
       res.json(data);
     } catch (err: any) {
       console.error("[CSPL BBPS] Bill Fetch Error:", err);
-      fs.appendFileSync('cspl_payload_logs.txt', new Date().toISOString() + " - FETCH ERROR: " + err.message + "\n\n");
       res.status(500).json({ error: err.message });
     }
   });
@@ -1820,16 +1812,17 @@ async function startServer() {
     try {
       const { userId, billerId, billerName, customerParams, customerMobile, amount, paymentMode, billDetails, serviceCharge, ccf1Fee } = req.body;
 
-      const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
-      const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse || rawData;
 
-      const fetchRequestId = billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || rawData?.request_id || rawData?.data?.requestId || rawData?.data?.request_id || rawData?.data?.billerResponse?.requestId || rawData?.data?.refid || rawData?.data?.txnId;
+
+      const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
+      const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse;
+
+      const fetchRequestId = billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
       const requestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
 
-      let additionalInfo: any[] = [];
-      if (billDetails && billDetails.additionalInfo) {
-        additionalInfo = billDetails.additionalInfo;
-      }
+      const rawAddInfo = (billDetails?.additionalInfo && (Array.isArray(billDetails.additionalInfo) ? billDetails.additionalInfo.length > 0 : Object.keys(billDetails.additionalInfo).length > 0))
+        ? billDetails.additionalInfo
+        : (rawData?.additionalInfo || fetchedBillerResponse?.additionalInfo);
 
       const totalDeduction = Number(amount) + Number(serviceCharge || 0) + Number(ccf1Fee || 0);
 
@@ -1844,10 +1837,6 @@ async function startServer() {
         return res.json({ status: "ERROR", message: "Insufficient balance or user not found." });
       }
 
-
-
-
-
       const paramKeys = Object.keys(customerParams || {});
       const firstParamName = paramKeys[0] || "Consumer Number";
       const paramValue = customerParams[firstParamName] || "";
@@ -1855,17 +1844,16 @@ async function startServer() {
       const safeBillPeriod = (billDetails?.billPeriod || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
       const safeBillNumber = (billDetails?.billNumber || "NA").replace(/[^a-zA-Z0-9\-_ ]/g, "");
 
+      const rawCat = billDetails?.catname || billDetails?.categoryName || (billerName && billerName.toLowerCase().includes("card") ? "Credit Card" : billerName) || "Credit Card";
+      const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Credit Card";
 
-
-      const formatIsoDate = (dateStr: any): string | undefined => {
-        if (!dateStr || typeof dateStr !== 'string') return undefined;
-        const clean = dateStr.trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) return clean;
-        const dmy = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
-        if (dmy) return `${dmy[3]}-${dmy[2].padStart(2, '0')}-${dmy[1].padStart(2, '0')}`;
-        const parsed = new Date(clean);
-        if (!isNaN(parsed.getTime())) return parsed.toISOString().split('T')[0];
-        return undefined;
+      const payload: any = {
+        requestId,
+        customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
+        customerName: billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer",
+        catname: cleanCatName,
+        billerId: String(billerId).trim(),
+        billamount: Math.round(Number(amount) * 100), // Convert to Paise
       };
 
       let paramArray: any[] = [];
@@ -1876,56 +1864,25 @@ async function startServer() {
         }));
       }
 
-      const cleanCustomerName = String(billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer")
-        .replace(/[^a-zA-Z0-9 ]/g, "").trim() || "BBPS Customer";
-
-      const rawCat = billDetails?.catname || billDetails?.categoryName || (billerName && billerName.toLowerCase().includes("card") ? "Credit Card" : billerName) || "Electricity";
-      const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Electricity";
-
-      const payload: any = {
-        requestId,
-        customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
-        customerName: cleanCustomerName,
-        catname: cleanCatName,
-        billerId: String(billerId).trim(),
-        billamount: Math.round(Number(amount) * 100), // Convert to Paise
-        inputParams: paramArray
-      };
-
-      const rawDueDate = billDetails?.dueDate || fetchedBillerResponse?.dueDate;
-      const formattedDueDate = formatIsoDate(rawDueDate);
-      if (formattedDueDate) payload.dueDate = formattedDueDate;
-
-      const rawBillDate = billDetails?.billDate || fetchedBillerResponse?.billDate;
-      const formattedBillDate = formatIsoDate(rawBillDate);
-      if (formattedBillDate) payload.billDate = formattedBillDate;
-
-      const billPeriod = billDetails?.billPeriod || fetchedBillerResponse?.billPeriod || (safeBillPeriod !== "NA" ? safeBillPeriod : undefined);
-      if (billPeriod && typeof billPeriod === 'string') payload.billPeriod = billPeriod.replace(/[^a-zA-Z0-9\-_ ]/g, "");
-
-      const billNumber = billDetails?.billNumber || fetchedBillerResponse?.billNumber || (safeBillNumber !== "NA" ? safeBillNumber : undefined);
-      if (billNumber && typeof billNumber === 'string') payload.billNumber = billNumber.replace(/[^a-zA-Z0-9\-_ ]/g, "");
-
-      const rawAddInfo = (additionalInfo && Array.isArray(additionalInfo) && additionalInfo.length > 0)
-        ? additionalInfo
-        : (fetchedBillerResponse?.additionalInfo || rawData?.additionalInfo);
-
-      if (Array.isArray(rawAddInfo) && rawAddInfo.length > 0) {
-        const cleanAddInfo = rawAddInfo
-          .map((item: any) => ({
-            infoName: String(item?.infoName || item?.name || 'Remarks').replace(/[^a-zA-Z0-9 ]/g, "").trim(),
-            infoValue: String(item?.infoValue || item?.value || '').replace(/[^a-zA-Z0-9 ]/g, "").trim()
-          }))
-          .filter(item => item.infoName && item.infoValue);
-        if (cleanAddInfo.length > 0) {
-          payload.additionalInfo = cleanAddInfo;
-        }
+      if (paramArray.length > 0) {
+        payload.inputParams = paramArray;
       }
 
-      const isExactFetchedAmount = fetchedBillerResponse?.billAmount && Number(fetchedBillerResponse.billAmount) === payload.billamount;
+      const dueDate = billDetails?.dueDate || fetchedBillerResponse?.dueDate;
+      if (dueDate) payload.dueDate = dueDate;
 
-      if (isExactFetchedAmount && typeof fetchedBillerResponse === 'object' && Object.keys(fetchedBillerResponse).length > 0) {
+      const billDate = billDetails?.billDate || fetchedBillerResponse?.billDate;
+      if (billDate) payload.billDate = billDate;
+
+      if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
+      if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
+
+      if (fetchedBillerResponse) {
         payload.billerResponse = fetchedBillerResponse;
+      }
+
+      if (rawAddInfo) {
+        payload.additionalInfo = rawAddInfo;
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
@@ -2996,7 +2953,7 @@ async function startServer() {
         } else {
           // API Failed -> Refund Wallet and mark submission failed
           console.warn(`[BillAvenue Proxy] API Exception for Biller ${billerId}. Refunding ${totalDeduction} to User ${userId}`);
-          
+
           await supabaseAdmin.rpc('refund_billavenue_payment', {
             p_user_id: userId,
             p_refund_amount: totalDeduction,
@@ -3016,14 +2973,14 @@ async function startServer() {
       let errorCode = payResponse?.errorInfo?.error?.errorCode;
       let responseReason = payResponse?.responseReason;
 
-      let isSuccess = responseCode === '0000' || responseCode === '000' || 
-                      responseCode?.toString().toLowerCase() === 'success' || 
-                      payResponse?.status?.toString().toLowerCase() === 'success';
+      let isSuccess = responseCode === '0000' || responseCode === '000' ||
+        responseCode?.toString().toLowerCase() === 'success' ||
+        payResponse?.status?.toString().toLowerCase() === 'success';
 
-      let isPending = errorCode === 'PNR001' || errorCode === 'Timeout' || 
-                      responseReason?.toString().toLowerCase() === 'awaited' || 
-                      responseReason?.toString().toLowerCase() === 'pending' || 
-                      responseCode?.toString().toLowerCase() === 'pending';
+      let isPending = errorCode === 'PNR001' || errorCode === 'Timeout' ||
+        responseReason?.toString().toLowerCase() === 'awaited' ||
+        responseReason?.toString().toLowerCase() === 'pending' ||
+        responseCode?.toString().toLowerCase() === 'pending';
 
       if (!isSuccess && !isPending && isStaging) {
         console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} payment failed with ${responseCode}. Mocking success.`);
@@ -3046,9 +3003,9 @@ async function startServer() {
         // Update the existing submission status created by the RPC
         await supabaseAdmin
           .from("bbps_submissions")
-          .update({ 
-            status: finalSubmissionStatus, 
-            rejection_reason: txnRefId || apiResponse.requestId 
+          .update({
+            status: finalSubmissionStatus,
+            rejection_reason: txnRefId || apiResponse.requestId
           })
           .eq("id", submissionId);
 
@@ -3275,7 +3232,7 @@ async function startServer() {
       } else {
         // API Failed -> Refund Wallet and mark submission failed
         console.warn(`[BillAvenue Proxy] API Failed for Biller ${billerId}. Refunding ${totalDeduction} to User ${userId}`);
-        
+
         await supabaseAdmin.rpc('refund_billavenue_payment', {
           p_user_id: userId,
           p_refund_amount: totalDeduction,
@@ -3321,7 +3278,7 @@ async function startServer() {
         const txnStatus = statusResponse.status?.toLowerCase();
         let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
         let mappedSubmissionStatus = 'pending';
-        
+
         if (txnStatus === 'success' || txnStatus === 'approved') {
           mappedStatus = 'success';
           mappedSubmissionStatus = 'approved';
@@ -3362,14 +3319,14 @@ async function startServer() {
                 .select("wallet_balance")
                 .eq("id", existingSubmission.user_id)
                 .single();
-              
+
               if (userProfile) {
                 const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
                 await supabaseAdmin
                   .from("users_profiles")
                   .update({ wallet_balance: refundedBalance })
                   .eq("id", existingSubmission.user_id);
-                  
+
                 console.log(`[BillAvenue Status] Refunded ₹${totalDeducted} to user ${existingSubmission.user_id} for failed pending transaction ${requestId}`);
               }
             }
@@ -4325,7 +4282,7 @@ async function startServer() {
 
       // Check settings first
       const { data: settings } = await supabaseAdmin.from('payout_settings').select('camlenio_is_enabled, camlenio_max_payout, camlenio_min_payout, camlenio_payout_charge').eq('id', 1).single();
-      
+
       // Check if user is tester
       const { data: userProfile } = await supabaseAdmin.from('users_profiles').select('is_tester').eq('id', userId).single();
       const isTester = userProfile?.is_tester || false;
@@ -4376,7 +4333,7 @@ async function startServer() {
 
       const { data: userProfileForPhone } = await supabaseAdmin.from('users_profiles').select('phone').eq('id', userId).single();
       const userPhone = userProfileForPhone?.phone || '9999999999';
-      
+
       // Shorten transactionId to prevent length-based validation failures (e.g. 15 chars)
       const shortRef = `P${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 1000)}`;
 
@@ -4393,8 +4350,8 @@ async function startServer() {
 
       if (impsResult.success && (impsResult.status === 'SUCCESS' || impsResult.status === 'PENDING')) {
         // SUCCESS or PENDING: Update database
-        await supabaseAdmin.from('payout_submissions').update({ 
-          status: impsResult.status === 'SUCCESS' ? 'approved' : 'processing', 
+        await supabaseAdmin.from('payout_submissions').update({
+          status: impsResult.status === 'SUCCESS' ? 'approved' : 'processing',
           bank_ref: impsResult.reference,
           utr_number: impsResult.reference,
           remark: impsResult.message
@@ -4404,7 +4361,7 @@ async function startServer() {
       } else {
         // FAILED: Refund wallet safely and set rejected
         console.warn(`[Payout API] Camlenio direct response failed: ${impsResult.message}. Refunding payout ID: ${payoutId}`);
-        
+
         // 1. Mark as rejected
         await supabaseAdmin.from('payout_submissions').update({ status: 'rejected', remark: impsResult.message }).eq('id', payoutId);
 
@@ -4429,11 +4386,11 @@ async function startServer() {
 
   app.post("/api/webhooks/camlenio/payout", async (req: any, res) => {
     try {
-      const signature = req.headers['x-camlenio-signature'] as string || 
-                        req.headers['x-webhook-signature'] as string || 
-                        req.headers['x-signature'] as string || 
-                        req.headers['signature'] as string || 
-                        req.headers['x-api-key'] as string;
+      const signature = req.headers['x-camlenio-signature'] as string ||
+        req.headers['x-webhook-signature'] as string ||
+        req.headers['x-signature'] as string ||
+        req.headers['signature'] as string ||
+        req.headers['x-api-key'] as string;
       const rawBody = req.rawBody || JSON.stringify(req.body);
 
       console.log("[Webhook] Received Headers:", JSON.stringify(req.headers));
@@ -4478,7 +4435,7 @@ async function startServer() {
             }).eq('id', existing.id);
           } else if (statusUpper === 'FAILED' || statusUpper === 'FAILURE' || statusUpper === 'REJECTED') {
             console.warn(`[Webhook] Camlenio reported failure for bank_ref ${reference}. Refunding user ${existing.user_id}`);
-            
+
             await supabaseAdmin.from('payout_submissions').update({
               status: 'rejected',
               txn_id: actualTxnId,
