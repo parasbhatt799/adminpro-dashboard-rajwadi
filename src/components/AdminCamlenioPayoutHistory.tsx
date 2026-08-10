@@ -454,27 +454,27 @@ export default function AdminCamlenioPayoutHistory() {
         </div>
 
         {/* Metric Summary Cards Box (Success / Pending / Failed) */}
-        <div className="p-4 bg-slate-50/50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="p-4 bg-slate-50/30 border-b border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* SUCCESS BOX */}
           <div
             onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer ${
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               statusFilter === 'approved'
-                ? 'bg-emerald-100/90 border-emerald-400 ring-2 ring-emerald-500/20 shadow-sm'
-                : 'bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100/60'
+                ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/15 shadow-xs'
+                : 'bg-emerald-50/30 border-emerald-100/80 hover:bg-emerald-50/60 hover:border-emerald-200'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-700">Total Success</span>
-              <div className="p-1.5 bg-emerald-200/60 rounded-lg text-emerald-700">
-                <CheckCircle2 className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Total Success</span>
+              <div className="p-1 bg-emerald-100/50 rounded-md text-emerald-600">
+                <CheckCircle2 className="w-3.5 h-3.5" />
               </div>
             </div>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl font-black text-emerald-950">
+              <span className="text-lg font-black text-emerald-950">
                 ₹{stats.success.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-xs font-bold px-2 py-0.5 bg-emerald-200/80 text-emerald-800 rounded-full">
+              <span className="text-xs font-bold px-2 py-0.5 bg-emerald-100/60 text-emerald-800 border border-emerald-200/50 rounded-full">
                 {stats.success.count} Txns
               </span>
             </div>
@@ -483,23 +483,23 @@ export default function AdminCamlenioPayoutHistory() {
           {/* PENDING BOX */}
           <div
             onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer ${
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               statusFilter === 'pending'
-                ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-500/20 shadow-sm'
-                : 'bg-amber-50/70 border-amber-200 hover:bg-amber-100/60'
+                ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-500/15 shadow-xs'
+                : 'bg-amber-50/30 border-amber-100/80 hover:bg-amber-50/60 hover:border-amber-200'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-700">Total Pending</span>
-              <div className="p-1.5 bg-amber-200/60 rounded-lg text-amber-700">
-                <Clock className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-800">Total Pending</span>
+              <div className="p-1 bg-amber-100/50 rounded-md text-amber-600">
+                <Clock className="w-3.5 h-3.5" />
               </div>
             </div>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl font-black text-amber-950">
+              <span className="text-lg font-black text-amber-950">
                 ₹{stats.pending.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-xs font-bold px-2 py-0.5 bg-amber-200/80 text-amber-800 rounded-full">
+              <span className="text-xs font-bold px-2 py-0.5 bg-amber-100/60 text-amber-800 border border-amber-200/50 rounded-full">
                 {stats.pending.count} Txns
               </span>
             </div>
@@ -508,23 +508,23 @@ export default function AdminCamlenioPayoutHistory() {
           {/* FAILED BOX */}
           <div
             onClick={() => setStatusFilter(statusFilter === 'rejected' ? 'all' : 'rejected')}
-            className={`p-4 rounded-xl border transition-all cursor-pointer ${
+            className={`p-3.5 rounded-xl border transition-all cursor-pointer ${
               statusFilter === 'rejected'
-                ? 'bg-red-100/90 border-red-400 ring-2 ring-red-500/20 shadow-sm'
-                : 'bg-red-50/70 border-red-200 hover:bg-red-100/60'
+                ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-500/15 shadow-xs'
+                : 'bg-rose-50/30 border-rose-100/80 hover:bg-rose-50/60 hover:border-rose-200'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold uppercase tracking-wider text-red-700">Total Failed / Rejected</span>
-              <div className="p-1.5 bg-red-200/60 rounded-lg text-red-700">
-                <XCircle className="w-4 h-4" />
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-800">Total Failed / Rejected</span>
+              <div className="p-1 bg-rose-100/50 rounded-md text-rose-600">
+                <XCircle className="w-3.5 h-3.5" />
               </div>
             </div>
             <div className="mt-2 flex items-baseline justify-between">
-              <span className="text-xl font-black text-red-950">
+              <span className="text-lg font-black text-rose-950">
                 ₹{stats.failed.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
-              <span className="text-xs font-bold px-2 py-0.5 bg-red-200/80 text-red-800 rounded-full">
+              <span className="text-xs font-bold px-2 py-0.5 bg-rose-100/60 text-rose-800 border border-rose-200/50 rounded-full">
                 {stats.failed.count} Txns
               </span>
             </div>
