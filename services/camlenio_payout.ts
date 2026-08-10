@@ -234,6 +234,7 @@ export async function checkPayoutStatus(txnId: string): Promise<{
     total_amount?: string | number;
     status?: string;
     status_message?: string;
+    message?: string;
     updated_at?: string;
   };
 }> {
