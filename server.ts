@@ -1912,7 +1912,8 @@ async function startServer() {
         await supabaseAdmin.from("users_profiles").update({ wallet_balance: newBalance }).eq("id", userId);
         data.new_balance = newBalance;
 
-        const txnRefId = data.txnRefId || data.refid || requestId;
+        const txnRefId = data?.data?.txnRefId || data?.txnRefId || data?.refid || requestId;
+        const approvalRefNumber = data?.data?.approvalRefNumber || data?.approvalRefNumber;
 
         const { error: insertError } = await supabaseAdmin.from("bbps_submissions").insert({
           user_id: userId,

@@ -1319,11 +1319,9 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         markBillAsPaid(userId, consumerNumber);
-        const cleanTxnRefId = data.data?.txnRefId && data.data.txnRefId.startsWith("CC01")
-          ? data.data.txnRefId
-          : 'CC01' + Math.floor(1000000000000000 + Math.random() * 9000000000000000).toString().substring(0, 16);
+        const cleanTxnRefId = data.data?.txnRefId || data.txnRefId || data.txnid || ('CC01' + Math.floor(1000000000000000 + Math.random() * 9000000000000000).toString().substring(0, 16));
 
-        const approvalNum = 'AP' + Math.floor(100000 + Math.random() * 900000).toString();
+        const approvalNum = data.data?.approvalRefNumber || data.approvalRefNumber || ('AP' + Math.floor(100000 + Math.random() * 900000).toString());
         const baseAmt = amt;
         const convFee = ccf1Fee;
         const totAmt = baseAmt + convFee;
@@ -1332,12 +1330,12 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           bConnectTxnId: cleanTxnRefId,
           billerId: selectedBiller.billerId,
           billerName: selectedBiller.billerName,
-          customerName: billDetails?.customerName || 'Sumit C Patel',
+          customerName: data.data?.RespCustomerName || billDetails?.customerName || 'Valued Customer',
           customerNumber: customerMobile,
-          billDate: billDetails?.billDate || 'N/A',
+          billDate: data.data?.RespBillDate || billDetails?.billDate || 'N/A',
           billPeriod: billDetails?.billPeriod || 'N/A',
           billNumber: billDetails?.billNumber || 'N/A',
-          dueDate: billDetails?.dueDate || 'N/A',
+          dueDate: data.data?.RespDueDate || billDetails?.dueDate || 'N/A',
           billAmount: baseAmt,
           ccf1Fee: convFee,
           totalAmount: totAmt,
