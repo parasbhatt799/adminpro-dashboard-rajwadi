@@ -1,7 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Search, Calendar, X, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
+
+const getTodayStr = () => {
+  const date = new Date();
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+  return localDate.toISOString().split('T')[0];
+};
 
 export default function AdminCamlenioPayoutHistory() {
   const [loading, setLoading] = useState(true);
@@ -15,6 +22,98 @@ export default function AdminCamlenioPayoutHistory() {
     camlenio_verification_charge: 5
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  // Date & History Filters State
+  const [timeRange, setTimeRange] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom'>('all');
+  const [startDate, setStartDate] = useState(getTodayStr());
+  const [endDate, setEndDate] = useState(getTodayStr());
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const filteredTransactions = useMemo(() => {
+    const now = new Date();
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (timeRange === 'today') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      start = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0, 0, 0);
+      end = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === '7days') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 6);
+      start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === '30days') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 29);
+      start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === 'thisMonth') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === 'custom') {
+      if (startDate) {
+        start = new Date(`${startDate}T00:00:00`);
+      }
+      if (endDate) {
+        end = new Date(`${endDate}T23:59:59.999`);
+      }
+    }
+
+    return transactions.filter(tx => {
+      // 1. Date filter
+      if (start || end) {
+        const txDate = new Date(tx.created_at);
+        if (start && txDate < start) return false;
+        if (end && txDate > end) return false;
+      }
+
+      // 2. Status filter
+      if (statusFilter !== 'all' && tx.status !== statusFilter) {
+        return false;
+      }
+
+      // 3. Search query filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const userName = (tx.users_profiles?.name || '').toLowerCase();
+        const userMobile = (tx.users_profiles?.mobile_number || '').toLowerCase();
+        const bankRef = (tx.bank_ref || '').toLowerCase();
+        const txnId = (tx.txn_id || '').toLowerCase();
+        const amountStr = (tx.amount || '').toString();
+
+        const matches =
+          userName.includes(q) ||
+          userMobile.includes(q) ||
+          bankRef.includes(q) ||
+          txnId.includes(q) ||
+          amountStr.includes(q);
+
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+  }, [transactions, timeRange, startDate, endDate, statusFilter, searchQuery]);
+
+  const totalApprovedAmount = useMemo(() => {
+    return filteredTransactions
+      .filter(tx => tx.status === 'approved')
+      .reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0);
+  }, [filteredTransactions]);
+
+  const clearFilters = () => {
+    setTimeRange('all');
+    setStartDate(getTodayStr());
+    setEndDate(getTodayStr());
+    setStatusFilter('all');
+    setSearchQuery('');
+  };
 
   useEffect(() => {
     fetchData();
@@ -260,9 +359,113 @@ export default function AdminCamlenioPayoutHistory() {
 
       {/* History Table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center gap-2">
-          <Send className="w-5 h-5 text-indigo-600" />
-          <h2 className="text-lg font-bold text-slate-900">Payout & Verification History</h2>
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Send className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Payout & Verification History</h2>
+              <p className="text-xs text-slate-500 font-medium">
+                Showing {filteredTransactions.length} of {transactions.length} records
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs">
+            <CheckCircle2 size={16} className="text-emerald-600" />
+            <span>Approved Total:</span>
+            <span className="font-extrabold text-emerald-900">
+              ₹{totalApprovedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+
+        {/* Filter Controls Bar */}
+        <div className="p-4 bg-slate-50/70 border-b border-slate-200 flex flex-wrap items-center gap-3">
+          {/* Search Box */}
+          <div className="relative flex-1 min-w-[220px]">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search user, mobile, ref, txn ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Status Dropdown */}
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
+          >
+            <option value="all">All Statuses</option>
+            <option value="approved">Approved</option>
+            <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
+            <option value="rejected">Rejected</option>
+            <option value="refunded">Refunded</option>
+          </select>
+
+          {/* Date Filter Dropdown Box */}
+          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1">
+            <Calendar className="w-4 h-4 text-indigo-500" />
+            <select
+              value={timeRange}
+              onChange={(e) => setTimeRange(e.target.value as any)}
+              className="py-1 bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+            >
+              <option value="all">All Time</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7days">Last 7 Days</option>
+              <option value="30days">Last 30 Days</option>
+              <option value="thisMonth">This Month</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+
+          {/* Custom Date Range Pickers */}
+          {timeRange === 'custom' && (
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-1">
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Start</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="text-xs font-bold text-slate-700 outline-none bg-transparent leading-none cursor-pointer"
+                />
+              </div>
+              <div className="w-px h-5 bg-slate-200 mx-1"></div>
+              <div className="flex flex-col">
+                <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">End</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="text-xs font-bold text-slate-700 outline-none bg-transparent leading-none cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Reset Button */}
+          {(timeRange !== 'all' || statusFilter !== 'all' || searchQuery !== '') && (
+            <button
+              onClick={clearFilters}
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-colors inline-flex items-center gap-1.5"
+              title="Reset all filters"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              Reset
+            </button>
+          )}
         </div>
         
         <div className="overflow-x-auto">
@@ -279,14 +482,14 @@ export default function AdminCamlenioPayoutHistory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {transactions.length === 0 ? (
+              {filteredTransactions.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
-                    No transactions found.
+                    No transactions found matching the selected filters.
                   </td>
                 </tr>
               ) : (
-                transactions.map((tx) => (
+                filteredTransactions.map((tx) => (
                   <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-slate-900">
