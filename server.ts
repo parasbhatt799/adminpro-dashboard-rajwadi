@@ -1599,18 +1599,7 @@ async function startServer() {
       // regardless of whether we are paying custom amount (quickPay = "Y") or exact amount (quickPay = "N").
       if (fetchResponse && fetchResponse.data?.billerResponse) {
         payPrimePayload.request_id = fetchResponse.request_id || fetchResponse.data?.request_id;
-        const rawBR = fetchResponse.data.billerResponse;
-        if (typeof rawBR === 'object' && rawBR !== null) {
-          const cleanBR: Record<string, any> = {};
-          for (const [k, v] of Object.entries(rawBR)) {
-            if (v !== null && v !== undefined && v !== "" && v !== "NA" && v !== "N/A") {
-              cleanBR[k] = String(v);
-            }
-          }
-          payPrimePayload.billerResponse = cleanBR;
-        } else {
-          payPrimePayload.billerResponse = rawBR;
-        }
+        payPrimePayload.billerResponse = fetchResponse.data.billerResponse;
         if (fetchResponse.data.additionalInfo) {
           payPrimePayload.additionalInfo = fetchResponse.data.additionalInfo;
         }
@@ -1826,13 +1815,14 @@ async function startServer() {
 
 
       const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
-      const rawBillerResp = rawData?.billerResponse || billDetails?.rawFetchData?.billerResponse || billDetails?.rawFetchData?.data?.billerResponse;
-      const fetchedBillerResponse = rawBillerResp || billDetails?.billerResponse;
+      const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse;
 
-      const fetchRequestId = billDetails?.fetchRequestId || rawBillerResp?.requestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
+      const fetchRequestId = billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
       const requestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
 
-      const rawAddInfo = rawData?.additionalInfo || billDetails?.rawFetchData?.additionalInfo || billDetails?.rawFetchData?.data?.additionalInfo || (billDetails?.additionalInfo && (Array.isArray(billDetails.additionalInfo) ? billDetails.additionalInfo.length > 0 : Object.keys(billDetails.additionalInfo).length > 0) ? billDetails.additionalInfo : undefined);
+      const rawAddInfo = (billDetails?.additionalInfo && (Array.isArray(billDetails.additionalInfo) ? billDetails.additionalInfo.length > 0 : Object.keys(billDetails.additionalInfo).length > 0))
+        ? billDetails.additionalInfo
+        : (rawData?.additionalInfo || fetchedBillerResponse?.additionalInfo);
 
       const totalDeduction = Number(amount) + Number(serviceCharge || 0) + Number(ccf1Fee || 0);
 
@@ -1887,14 +1877,8 @@ async function startServer() {
       if (safeBillPeriod && safeBillPeriod !== "NA") payload.billPeriod = safeBillPeriod;
       if (safeBillNumber && safeBillNumber !== "NA") payload.billNumber = safeBillNumber;
 
-      if (fetchedBillerResponse && typeof fetchedBillerResponse === 'object') {
-        const cleanBillerResp: Record<string, any> = {};
-        for (const [key, val] of Object.entries(fetchedBillerResponse)) {
-          if (val !== null && val !== undefined && val !== "" && val !== "NA" && val !== "N/A") {
-            cleanBillerResp[key] = String(val);
-          }
-        }
-        payload.billerResponse = cleanBillerResp;
+      if (fetchedBillerResponse) {
+        payload.billerResponse = fetchedBillerResponse;
       }
 
       let addInfoList: any[] = [];
