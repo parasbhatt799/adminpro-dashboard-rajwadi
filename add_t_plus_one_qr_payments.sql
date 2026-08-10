@@ -326,11 +326,11 @@ BEGIN
     -- Get today's date in IST (Kolkata timezone)
     v_today_ist := (timezone('Asia/Kolkata', now()))::date;
 
-    -- Lock and process each T+1 Approved request approved before today
+    -- Lock and process each T+1 Approved request approved strictly BEFORE today (before 00:00:00 IST today)
     FOR r IN 
         SELECT * FROM public.payment_submissions 
         WHERE status = 'T+1 Approved' 
-          AND (actioned_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date < v_today_ist
+          AND (COALESCE(actioned_at, created_at) AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date < v_today_ist
         FOR UPDATE
     LOOP
         -- Credit User Wallet (Credit Amount - Total Charges) and deduct from T+1 Wallet
