@@ -1815,14 +1815,13 @@ async function startServer() {
 
 
       const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
-      const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse;
+      const rawBillerResp = rawData?.billerResponse || billDetails?.rawFetchData?.billerResponse || billDetails?.rawFetchData?.data?.billerResponse;
+      const fetchedBillerResponse = rawBillerResp || billDetails?.billerResponse;
 
-      const fetchRequestId = billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
+      const fetchRequestId = billDetails?.fetchRequestId || rawBillerResp?.requestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
       const requestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
 
-      const rawAddInfo = (billDetails?.additionalInfo && (Array.isArray(billDetails.additionalInfo) ? billDetails.additionalInfo.length > 0 : Object.keys(billDetails.additionalInfo).length > 0))
-        ? billDetails.additionalInfo
-        : (rawData?.additionalInfo || fetchedBillerResponse?.additionalInfo);
+      const rawAddInfo = rawData?.additionalInfo || billDetails?.rawFetchData?.additionalInfo || billDetails?.rawFetchData?.data?.additionalInfo || (billDetails?.additionalInfo && (Array.isArray(billDetails.additionalInfo) ? billDetails.additionalInfo.length > 0 : Object.keys(billDetails.additionalInfo).length > 0) ? billDetails.additionalInfo : undefined);
 
       const totalDeduction = Number(amount) + Number(serviceCharge || 0) + Number(ccf1Fee || 0);
 
