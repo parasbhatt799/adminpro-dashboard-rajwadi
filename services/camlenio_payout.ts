@@ -211,3 +211,36 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
     Buffer.from(signature)
   );
 }
+
+/**
+ * Check Payout Transaction Status
+ */
+export async function checkPayoutStatus(txnId: string): Promise<{
+  success: boolean;
+  message?: string;
+  data?: {
+    service?: string;
+    provider?: string;
+    txnid?: string;
+    bankRef?: string | null;
+    utr?: string | null;
+    amount?: string | number;
+    total_amount?: string | number;
+    status?: string;
+    status_message?: string;
+    updated_at?: string;
+  };
+}> {
+  try {
+    const data = await callPayoutApi('/api/v1/aer/payout/check-status', {
+      txn_id: txnId
+    });
+    return data;
+  } catch (error: any) {
+    console.error('[Payout Service] Check Status API Error:', error);
+    return {
+      success: false,
+      message: `API Error: ${error.message}`
+    };
+  }
+}

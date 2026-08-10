@@ -88,7 +88,35 @@ export default function AdminCamlenioPayoutHistory() {
     }
   };
 
+  const [checkingId, setCheckingId] = useState<string | null>(null);
+
+  const handleCheckStatus = async (tx: any) => {
+    const txnId = tx.bank_ref || tx.txn_id || tx.id;
+    setCheckingId(tx.id);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/payout/check-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txn_id: txnId, payoutId: tx.id })
+      });
+      const data = await res.json();
+      if (data.success) {
+        const statusMsg = data.data?.status_message || data.data?.status || 'Status updated';
+        setMessage({ type: 'success', text: `Status for ${txnId}: ${statusMsg}` });
+        fetchData();
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to check status' });
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: `Error checking status: ${err.message}` });
+    } finally {
+      setCheckingId(null);
+    }
+  };
+
   if (loading) {
+
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
@@ -247,12 +275,13 @@ export default function AdminCamlenioPayoutHistory() {
                 <th className="px-6 py-4 text-right">Amount</th>
                 <th className="px-6 py-4 text-right">Charge</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4 text-center">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
                     No transactions found.
                   </td>
                 </tr>
@@ -294,6 +323,20 @@ export default function AdminCamlenioPayoutHistory() {
                       }`}>
                         {tx.status.toUpperCase()}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <button
+                        onClick={() => handleCheckStatus(tx)}
+                        disabled={checkingId === tx.id}
+                        className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
+                      >
+                        {checkingId === tx.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-3 h-3" />
+                        )}
+                        Check Status
+                      </button>
                     </td>
                   </tr>
                 ))

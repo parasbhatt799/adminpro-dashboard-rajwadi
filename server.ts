@@ -4401,6 +4401,81 @@ async function startServer() {
     }
   });
 
+  app.post("/api/payout/check-status", async (req, res) => {
+    try {
+      const { txn_id, payoutId } = req.body;
+      let targetTxnId = txn_id;
+      let payoutRecord: any = null;
+
+      if (payoutId) {
+        const { data } = await supabaseAdmin.from('payout_submissions').select('*').eq('id', payoutId).single();
+        if (data) {
+          payoutRecord = data;
+          targetTxnId = data.bank_ref || data.txn_id || txn_id;
+        }
+      }
+
+      if (!targetTxnId) {
+        return res.status(400).json({ success: false, message: "txn_id or payoutId is required" });
+      }
+
+      // Query Camlenio Payout Status API
+      const result = await camlenioPayout.checkPayoutStatus(targetTxnId);
+
+      // If status is returned inside result.data
+      const statusData = result.data || {};
+      const statusStr = (statusData.status || result.status || '').toString().toLowerCase();
+      const utr = statusData.utr || result.utr;
+
+      // Sync status to database if payoutRecord is found or found by bank_ref / txn_id
+      if (!payoutRecord) {
+        const { data } = await supabaseAdmin.from('payout_submissions').select('*').or(`bank_ref.eq.${targetTxnId},txn_id.eq.${targetTxnId}`).maybeSingle();
+        payoutRecord = data;
+      }
+
+      if (payoutRecord) {
+        if (statusStr === 'success' || statusStr === 'approved' || statusStr === 'successful') {
+          if (payoutRecord.status !== 'approved') {
+            await supabaseAdmin.from('payout_submissions').update({
+              status: 'approved',
+              utr_number: utr || payoutRecord.utr_number,
+              remark: JSON.stringify(result)
+            }).eq('id', payoutRecord.id);
+            payoutRecord.status = 'approved';
+          }
+        } else if (statusStr === 'failed' || statusStr === 'failure' || statusStr === 'rejected') {
+          if (payoutRecord.status !== 'rejected' && payoutRecord.status !== 'refunded') {
+            await supabaseAdmin.from('payout_submissions').update({
+              status: 'rejected',
+              remark: JSON.stringify(result)
+            }).eq('id', payoutRecord.id);
+
+            // Refund User Balance if needed
+            const totalRefund = parseFloat(payoutRecord.amount) + parseFloat(payoutRecord.charge_amount || 0);
+            const { data: user } = await supabaseAdmin.from('users_profiles').select('wallet_balance').eq('id', payoutRecord.user_id).single();
+            if (user) {
+              const newBalance = Number(user.wallet_balance || 0) + totalRefund;
+              await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBalance }).eq('id', payoutRecord.user_id);
+              console.log(`[Payout Status Check] Refunded ${totalRefund} to user ${payoutRecord.user_id}`);
+            }
+            payoutRecord.status = 'rejected';
+          }
+        }
+      }
+
+      return res.json({
+        success: result.success !== false,
+        data: statusData,
+        apiResult: result,
+        payoutRecord
+      });
+
+    } catch (error: any) {
+      console.error("[Payout Status Check Error]:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   app.post("/api/webhooks/camlenio/payout", async (req: any, res) => {
     try {
       const signature = req.headers['x-camlenio-signature'] as string ||
