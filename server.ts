@@ -1870,9 +1870,6 @@ async function startServer() {
         }));
       }
 
-      const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
-      const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse || rawData;
-
       const cleanCustomerName = String(billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer")
         .replace(/[^a-zA-Z0-9 ]/g, "").trim() || "BBPS Customer";
 
