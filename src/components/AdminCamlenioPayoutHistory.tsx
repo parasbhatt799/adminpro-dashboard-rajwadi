@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Search, Calendar, X, RotateCcw, Clock, XCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import UserDetails from './UserDetails';
+import { motion, AnimatePresence } from 'motion/react';
 
 const getTodayStr = () => {
   const date = new Date();
