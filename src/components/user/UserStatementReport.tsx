@@ -68,51 +68,19 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         return allData;
       };
 
-      let openingBalance = 0;
-
-      // 1. Calculate Opening Balance Forward (from beginning of time until startDate)
-      if (startDate) {
-        const startDateTime = `${startDate}T00:00:00`;
-        
-        const [qrPre, billPre, bbpsPre, payoutPre, fundPre] = await Promise.all([
-          fetchAll((f, t) => supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', startDateTime).range(f, t)),
-          fetchAll((f, t) => supabase.from('bill_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
-          fetchAll((f, t) => supabase.from('bbps_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
-          fetchAll((f, t) => supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
-          fetchAll((f, t) => supabase.from('fund_transfers').select('amount, sender_id, receiver_id').or(`sender_id.eq.${userId},receiver_id.eq.${userId}`).lt('created_at', startDateTime).range(f, t))
-        ]);
-
-        const qrTotal = (qrPre || []).reduce((acc, r) => acc + (Number(r.amount) - Number(r.charges || 0)), 0);
-        
-        const billNet = (billPre || []).reduce((acc, r) => {
-          if (r.status === 'approved' || r.status === 'pending') {
-            return acc + (Number(r.amount) + Number(r.charges || 0));
-          }
-          return acc;
-        }, 0) + (bbpsPre || []).reduce((acc, r) => {
-          if (r.status === 'approved' || r.status === 'pending') {
-            return acc + (Number(r.amount) + Number(r.charges || 0));
-          }
-          return acc; 
-        }, 0);
-
-        const payoutNet = (payoutPre || []).reduce((acc, r) => {
-          if (r.status === 'approved' || r.status === 'pending' || r.status === 'processing') {
-            return acc + (Number(r.amount) + Number(r.charge_amount || 0));
-          }
-          return acc; 
-        }, 0);
-
-        const fundTransferNet = (fundPre || []).reduce((acc, r) => {
-          if (r.receiver_id === userId) {
-            return acc + Number(r.amount);
-          } else if (r.sender_id === userId) {
-            return acc - Number(r.amount);
-          }
-          return acc;
-        }, 0);
-
-        openingBalance = qrTotal + fundTransferNet - billNet - payoutNet;
+      // 1. Fetch user profile current wallet balance to anchor statement balance
+      let currentWalletBalance = 0;
+      try {
+        const { data: profile } = await supabase
+          .from('users_profiles')
+          .select('wallet_balance')
+          .eq('id', userId)
+          .single();
+        if (profile?.wallet_balance !== undefined) {
+          currentWalletBalance = Number(profile.wallet_balance) || 0;
+        }
+      } catch (err) {
+        console.error('Error fetching user profile wallet balance:', err);
       }
 
       let qrMapped: any[] = [];
@@ -122,15 +90,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       // 1. Fetch QR Payments for this user (approved only)
       try {
         const qrData = await fetchAll((f, t) => {
-          let q = supabase
+          return supabase
             .from('payment_submissions')
             .select('*, qr_history(qr_name)')
             .eq('user_id', userId)
-            .eq('status', 'approved');
-
-          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
-          return q.range(f, t);
+            .eq('status', 'approved')
+            .range(f, t);
         });
 
         qrMapped = (qrData || []).map(r => ({
@@ -154,28 +119,24 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         let billData: any[] = [];
         try {
           billData = await fetchAll((f, t) => {
-            let q = supabase
+            return supabase
               .from('bill_submissions')
               .select('*')
               .eq('user_id', userId)
-              .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
-            return q.range(f, t);
+              .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded'])
+              .range(f, t);
           });
         } catch (e) { console.error('Bill sub fetch error:', e); }
 
         let bbpsData: any[] = [];
         try {
           bbpsData = await fetchAll((f, t) => {
-            let q = supabase
+            return supabase
               .from('bbps_submissions')
               .select('*')
               .eq('user_id', userId)
-              .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
-            return q.range(f, t);
+              .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded'])
+              .range(f, t);
           });
         } catch (e) { console.error('BBPS sub fetch error:', e); }
 
@@ -231,15 +192,12 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       // 3. Fetch Payouts for this user (All statuses)
       try {
         const payoutData = await fetchAll((f, t) => {
-          let q = supabase
+          return supabase
             .from('payout_submissions')
             .select('*')
             .eq('user_id', userId)
-            .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
-
-          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
-          return q.range(f, t);
+            .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded'])
+            .range(f, t);
         });
         
         (payoutData || []).forEach(r => {
@@ -279,14 +237,11 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       // 4. Fetch Fund Transfers for this user
       try {
         const ftData = await fetchAll((f, t) => {
-          let q = supabase
+          return supabase
             .from('fund_transfers')
             .select('*, sender:sender_id(name, firm_name), receiver:receiver_id(name, firm_name)')
-            .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
-
-          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
-          return q.range(f, t);
+            .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`)
+            .range(f, t);
         });
 
         ftMapped = (ftData || []).map(r => {
@@ -308,9 +263,9 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         console.error('Error fetching fund transfers:', err);
       }
 
-      // Merge oldest first for running balance calculation with deterministic tie-breaker (Credits first on same timestamp)
+      // Merge all transactions chronologically (oldest first) with credit tie-breaker
       const isCreditType = (type: string) => ['QR', 'REFUND', 'TRANSFER_CREDIT'].includes(type);
-      const merged = [...qrMapped, ...billMapped, ...payoutMapped, ...ftMapped].sort((a, b) => {
+      const allMerged = [...qrMapped, ...billMapped, ...payoutMapped, ...ftMapped].sort((a, b) => {
         const timeA = new Date(a.date).getTime();
         const timeB = new Date(b.date).getTime();
         if (timeA !== timeB) return timeA - timeB;
@@ -319,16 +274,42 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         return creditB - creditA;
       });
 
-      // Running Balance
-      let currentBalance = openingBalance;
-      const recordsWithBalance: UnifiedRecord[] = merged.map(r => {
-        if (r.type === 'QR' || r.type === 'REFUND' || r.type === 'TRANSFER_CREDIT') {
-          currentBalance += r.final_total;
-        } else {
-          // BILL, PAYOUT, VERIFICATION, or TRANSFER_DEBIT: Wallet is deducted initially
-          currentBalance -= r.final_total;
+      // Calculate Total All-Time Net Movement
+      let totalAllTimeMovement = 0;
+      allMerged.forEach(r => {
+        if (isCreditType(r.type)) totalAllTimeMovement += r.final_total;
+        else totalAllTimeMovement -= r.final_total;
+      });
+
+      // Base Opening Balance is anchored to the actual DB wallet_balance!
+      const baseOpeningBalance = currentWalletBalance - totalAllTimeMovement;
+
+      // Filter by date range if specified
+      let rangeOpeningBalance = baseOpeningBalance;
+      if (startDate) {
+        const startMs = new Date(`${startDate}T00:00:00`).getTime();
+        allMerged.forEach(r => {
+          if (new Date(r.date).getTime() < startMs) {
+            if (isCreditType(r.type)) rangeOpeningBalance += r.final_total;
+            else rangeOpeningBalance -= r.final_total;
+          }
+        });
+      }
+
+      let running = rangeOpeningBalance;
+      const recordsWithBalance: UnifiedRecord[] = [];
+
+      allMerged.forEach(r => {
+        const time = new Date(r.date).getTime();
+        const startMs = startDate ? new Date(`${startDate}T00:00:00`).getTime() : 0;
+        const endMs = endDate ? new Date(`${endDate}T23:59:59`).getTime() : Infinity;
+
+        if (isCreditType(r.type)) running += r.final_total;
+        else running -= r.final_total;
+
+        if (time >= startMs && time <= endMs) {
+          recordsWithBalance.push({ ...r, balance: running });
         }
-        return { ...r, balance: currentBalance };
       });
 
       setRecords(recordsWithBalance.reverse());
