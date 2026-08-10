@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Search, Calendar, X, RotateCcw } from 'lucide-react';
+import { Loader2, Settings2, Save, IndianRupee, RefreshCw, Send, CheckCircle2, AlertCircle, Search, Calendar, X, RotateCcw, Clock, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 
 const getTodayStr = () => {
@@ -23,8 +23,8 @@ export default function AdminCamlenioPayoutHistory() {
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  // Date & History Filters State
-  const [timeRange, setTimeRange] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom'>('all');
+  // Date & History Filters State (Defaulting to 'today')
+  const [timeRange, setTimeRange] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all' | 'custom'>('today');
   const [startDate, setStartDate] = useState(getTodayStr());
   const [endDate, setEndDate] = useState(getTodayStr());
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -101,14 +101,96 @@ export default function AdminCamlenioPayoutHistory() {
     });
   }, [transactions, timeRange, startDate, endDate, statusFilter, searchQuery]);
 
-  const totalApprovedAmount = useMemo(() => {
-    return filteredTransactions
-      .filter(tx => tx.status === 'approved')
-      .reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0);
-  }, [filteredTransactions]);
+  // Metric Stats Calculation for active date & search scope
+  const stats = useMemo(() => {
+    let successCount = 0;
+    let successAmount = 0;
+    let pendingCount = 0;
+    let pendingAmount = 0;
+    let failedCount = 0;
+    let failedAmount = 0;
+
+    const now = new Date();
+    let start: Date | null = null;
+    let end: Date | null = null;
+
+    if (timeRange === 'today') {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === 'yesterday') {
+      const y = new Date(now);
+      y.setDate(y.getDate() - 1);
+      start = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 0, 0, 0, 0);
+      end = new Date(y.getFullYear(), y.getMonth(), y.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === '7days') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 6);
+      start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === '30days') {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 29);
+      start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === 'thisMonth') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+    } else if (timeRange === 'custom') {
+      if (startDate) start = new Date(`${startDate}T00:00:00`);
+      if (endDate) end = new Date(`${endDate}T23:59:59.999`);
+    }
+
+    const scopeList = transactions.filter(tx => {
+      if (start || end) {
+        const txDate = new Date(tx.created_at);
+        if (start && txDate < start) return false;
+        if (end && txDate > end) return false;
+      }
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const userName = (tx.users_profiles?.name || '').toLowerCase();
+        const userMobile = (tx.users_profiles?.mobile_number || '').toLowerCase();
+        const bankRef = (tx.bank_ref || '').toLowerCase();
+        const txnId = (tx.txn_id || '').toLowerCase();
+        const amountStr = (tx.amount || '').toString();
+
+        const matches =
+          userName.includes(q) ||
+          userMobile.includes(q) ||
+          bankRef.includes(q) ||
+          txnId.includes(q) ||
+          amountStr.includes(q);
+
+        if (!matches) return false;
+      }
+      return true;
+    });
+
+    scopeList.forEach(tx => {
+      const amt = Number(tx.amount) || 0;
+      const st = (tx.status || '').toLowerCase();
+      if (st === 'approved' || st === 'success' || st === 'successful') {
+        successCount++;
+        successAmount += amt;
+      } else if (st === 'pending' || st === 'processing') {
+        pendingCount++;
+        pendingAmount += amt;
+      } else if (st === 'rejected' || st === 'failed' || st === 'refunded') {
+        failedCount++;
+        failedAmount += amt;
+      }
+    });
+
+    return {
+      success: { count: successCount, amount: successAmount },
+      pending: { count: pendingCount, amount: pendingAmount },
+      failed: { count: failedCount, amount: failedAmount },
+      totalCount: scopeList.length
+    };
+  }, [transactions, timeRange, startDate, endDate, searchQuery]);
 
   const clearFilters = () => {
-    setTimeRange('all');
+    setTimeRange('today');
     setStartDate(getTodayStr());
     setEndDate(getTodayStr());
     setStatusFilter('all');
@@ -369,13 +451,83 @@ export default function AdminCamlenioPayoutHistory() {
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 text-emerald-700 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-xs">
-            <CheckCircle2 size={16} className="text-emerald-600" />
-            <span>Approved Total:</span>
-            <span className="font-extrabold text-emerald-900">
-              ₹{totalApprovedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
+        {/* Metric Summary Cards Box (Success / Pending / Failed) */}
+        <div className="p-4 bg-slate-50/50 border-b border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {/* SUCCESS BOX */}
+          <div
+            onClick={() => setStatusFilter(statusFilter === 'approved' ? 'all' : 'approved')}
+            className={`p-4 rounded-xl border transition-all cursor-pointer ${
+              statusFilter === 'approved'
+                ? 'bg-emerald-100/90 border-emerald-400 ring-2 ring-emerald-500/20 shadow-sm'
+                : 'bg-emerald-50/70 border-emerald-200 hover:bg-emerald-100/60'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-700">Total Success</span>
+              <div className="p-1.5 bg-emerald-200/60 rounded-lg text-emerald-700">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-xl font-black text-emerald-950">
+                ₹{stats.success.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 bg-emerald-200/80 text-emerald-800 rounded-full">
+                {stats.success.count} Txns
+              </span>
+            </div>
+          </div>
+
+          {/* PENDING BOX */}
+          <div
+            onClick={() => setStatusFilter(statusFilter === 'pending' ? 'all' : 'pending')}
+            className={`p-4 rounded-xl border transition-all cursor-pointer ${
+              statusFilter === 'pending'
+                ? 'bg-amber-100/90 border-amber-400 ring-2 ring-amber-500/20 shadow-sm'
+                : 'bg-amber-50/70 border-amber-200 hover:bg-amber-100/60'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-amber-700">Total Pending</span>
+              <div className="p-1.5 bg-amber-200/60 rounded-lg text-amber-700">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-xl font-black text-amber-950">
+                ₹{stats.pending.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 bg-amber-200/80 text-amber-800 rounded-full">
+                {stats.pending.count} Txns
+              </span>
+            </div>
+          </div>
+
+          {/* FAILED BOX */}
+          <div
+            onClick={() => setStatusFilter(statusFilter === 'rejected' ? 'all' : 'rejected')}
+            className={`p-4 rounded-xl border transition-all cursor-pointer ${
+              statusFilter === 'rejected'
+                ? 'bg-red-100/90 border-red-400 ring-2 ring-red-500/20 shadow-sm'
+                : 'bg-red-50/70 border-red-200 hover:bg-red-100/60'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-red-700">Total Failed / Rejected</span>
+              <div className="p-1.5 bg-red-200/60 rounded-lg text-red-700">
+                <XCircle className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-2 flex items-baseline justify-between">
+              <span className="text-xl font-black text-red-950">
+                ₹{stats.failed.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+              <span className="text-xs font-bold px-2 py-0.5 bg-red-200/80 text-red-800 rounded-full">
+                {stats.failed.count} Txns
+              </span>
+            </div>
           </div>
         </div>
 
@@ -420,12 +572,12 @@ export default function AdminCamlenioPayoutHistory() {
               onChange={(e) => setTimeRange(e.target.value as any)}
               className="py-1 bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
             >
-              <option value="all">All Time</option>
               <option value="today">Today</option>
               <option value="yesterday">Yesterday</option>
               <option value="7days">Last 7 Days</option>
               <option value="30days">Last 30 Days</option>
               <option value="thisMonth">This Month</option>
+              <option value="all">All Time</option>
               <option value="custom">Custom Range</option>
             </select>
           </div>
