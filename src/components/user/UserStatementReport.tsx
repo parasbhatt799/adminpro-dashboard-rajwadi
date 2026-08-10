@@ -68,6 +68,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         return allData;
       };
 
+      let openingBalance = 0;
+
       // 1. Calculate Opening Balance Forward (from beginning of time until startDate)
       if (startDate) {
         const startDateTime = `${startDate}T00:00:00`;
