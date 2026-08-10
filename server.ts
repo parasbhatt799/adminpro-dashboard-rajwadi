@@ -1881,8 +1881,24 @@ async function startServer() {
         payload.billerResponse = fetchedBillerResponse;
       }
 
-      if (rawAddInfo) {
-        payload.additionalInfo = rawAddInfo;
+      let addInfoList: any[] = [];
+      if (Array.isArray(rawAddInfo)) {
+        addInfoList = rawAddInfo;
+      } else if (rawAddInfo && Array.isArray(rawAddInfo.info)) {
+        addInfoList = rawAddInfo.info;
+      }
+
+      if (Array.isArray(addInfoList) && addInfoList.length > 0) {
+        const cleanAddInfo = addInfoList
+          .map((item: any) => ({
+            infoName: String(item?.infoName || item?.name || '').trim(),
+            infoValue: String(item?.infoValue || item?.value || '').trim()
+          }))
+          .filter(item => item.infoName && item.infoValue);
+
+        if (cleanAddInfo.length > 0) {
+          payload.additionalInfo = cleanAddInfo;
+        }
       }
 
       console.log("[CSPL BBPS] Bill Pay Payload:", JSON.stringify(payload));
