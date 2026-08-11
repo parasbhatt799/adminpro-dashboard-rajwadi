@@ -363,7 +363,6 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     fetchSupported: boolean;
     rawBillerResponse?: any;
     fetchRequestId?: string;
-    exactness?: string;
   } | null>(null);
 
   // UAT Multiple Amount and Payment Mode states
@@ -1182,8 +1181,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           additionalInfo: additionalInfoArray,
           fetchSupported: true,
           rawBillerResponse: billerResp,
-          fetchRequestId: data?.requestId,
-          exactness: billerResp?.exactness || response?.exactness || billerResp?.billerExactness || response?.billerExactness || billerConfig?.billerExactness || 'Exact'
+          fetchRequestId: data?.requestId
         });
         setManualAmount(billAmount.toString());
 
@@ -2057,35 +2055,6 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                                     <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Amount</span>
                                     <span className="text-lg font-semibold text-slate-600">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
                                   </div>
-
-                                  {billDetails.exactness && (
-                                    <div className="text-xs font-medium transition-all">
-                                      {billDetails.exactness === 'Exact' && (
-                                        <div className="bg-blue-50/80 text-blue-800 border border-blue-200/60 p-2.5 rounded-xl w-full flex items-start gap-2">
-                                          <span className="text-blue-600 font-bold shrink-0">🔒 Exact:</span>
-                                          <span>આ બિલર માટે ફેચ થયેલ પૂરેપૂરી બિલ રકમ જ ચૂકવવાની રહેશે.</span>
-                                        </div>
-                                      )}
-                                      {(billDetails.exactness === 'Exact and Above' || billDetails.exactness === 'EXACT_AND_ABOVE') && (
-                                        <div className="bg-emerald-50/80 text-emerald-800 border border-emerald-200/60 p-2.5 rounded-lg w-full flex items-start gap-2">
-                                          <span className="text-emerald-600 font-bold shrink-0">⬆️ Exact and Above:</span>
-                                          <span>ઓછામાં ઓછી આ બિલ રકમ અથવા તેનાથી વધુ રકમ ભરી શકાશે.</span>
-                                        </div>
-                                      )}
-                                      {(billDetails.exactness === 'Exact and Below' || billDetails.exactness === 'EXACT_AND_BELOW') && (
-                                        <div className="bg-amber-50/80 text-amber-800 border border-amber-200/60 p-2.5 rounded-lg w-full flex items-start gap-2">
-                                          <span className="text-amber-600 font-bold shrink-0">⬇️ Exact and Below:</span>
-                                          <span>બિલની આ રકમ અથવા તેનાથી ઓછી રકમ પણ ભરી શકાશે.</span>
-                                        </div>
-                                      )}
-                                      {(billDetails.exactness === 'Any' || billDetails.exactness === 'ANY') && (
-                                        <div className="bg-purple-50/80 text-purple-800 border border-purple-200/60 p-2.5 rounded-lg w-full flex items-start gap-2">
-                                          <span className="text-purple-600 font-bold shrink-0">✏️ Any Amount:</span>
-                                          <span>તમે તમારી અનુકૂળતા મુજબ કોઈપણ રકમ ઇનપુટ કરીને ભરી શકો છો.</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
 
                                   <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
                                     <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
