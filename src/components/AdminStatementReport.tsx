@@ -371,7 +371,7 @@ export default function AdminStatementReport() {
       const module = await import('jspdf');
       const JsPDFClass = module.jsPDF || module.default;
       const autoTableModule = await import('jspdf-autotable');
-      const autoTable = autoTableModule.default || autoTableModule.autoTable || autoTableModule;
+      const autoTable: any = autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule;
       const doc = new JsPDFClass({ orientation: 'l', unit: 'mm', format: 'a4' });
       const tableData = records.slice(0, displayCount).map(r => [
         new Date(r.date).toLocaleString(),
