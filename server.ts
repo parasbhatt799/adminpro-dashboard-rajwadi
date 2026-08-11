@@ -1647,6 +1647,7 @@ async function startServer() {
         }
 
         // 5. Log transaction into bbps_submissions with approved status and dynamic charges
+        const txnId = data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`;
         const { error: insertError } = await supabaseAdmin
           .from("bbps_submissions")
           .insert({
@@ -1657,7 +1658,8 @@ async function startServer() {
             amount: paymentAmount,
             charges: serviceCharge,
             status: "approved",
-            rejection_reason: data.data?.bbpsrecent?.[0]?.txnid || data.data?.txnid || `TXN${Math.floor(100000 + Math.random() * 900000)}`,
+            transaction_id: txnId,
+            rejection_reason: txnId,
             metadata: {
               billerName: provider || biller_id,
               date: new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),

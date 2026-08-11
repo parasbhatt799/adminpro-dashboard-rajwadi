@@ -11,9 +11,18 @@ import { format, parseISO } from 'date-fns';
 import { LogoLoader } from '../shared/LoadingSpinner';
 import { useToast } from '../../context/ToastContext';
 
-interface UserViewReceiptProps {
-  userId: string;
-}
+const getUtrOrTxnId = (item: any): string => {
+  if (!item) return 'N/A';
+  if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
+  if (item.rejection_reason && item.rejection_reason !== 'N/A') return item.rejection_reason;
+  if (item.metadata?.txnid) return item.metadata.txnid;
+  if (item.metadata?.rrn) return item.metadata.rrn;
+  if (item.metadata?.reference) return item.metadata.reference;
+  if (item.metadata?.utr) return item.metadata.utr;
+  if (item.metadata?.billerResponse?.txnid) return item.metadata.billerResponse.txnid;
+  if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
+  return 'N/A';
+};
 
 export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
   const [searchParams] = useSearchParams();
@@ -445,7 +454,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
                 <div className="flex justify-between">
                   <span className="text-slate-400 font-bold uppercase tracking-wider">B-Connect Transaction ID</span>
                   <span className="font-black text-slate-800 font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                    {submission.transaction_id || 'N/A'}
+                    {getUtrOrTxnId(submission)}
                   </span>
                 </div>
 
@@ -463,7 +472,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
                   <ShieldCheck size={12} className="text-emerald-500" />
                   Secure BBPS Gateway
                 </div>
-                <span>Reference ID: {(submission.transaction_id || '').substring(0, 8)}</span>
+                <span>Reference ID: {getUtrOrTxnId(submission).substring(0, 8)}</span>
               </div>
 
               {/* Print CTA */}

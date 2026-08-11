@@ -162,7 +162,7 @@ export default function BillPaymentReport() {
         user_id: r.user_id,
         customer_mobile: r.consumer_number,
         card_bank: r.provider,
-        card_number: r.transaction_id || r.service_type || 'BBPS',
+        card_number: r.transaction_id || r.rejection_reason || r.service_type || 'BBPS',
         card_owner_name: `BBPS: ${r.service_type}`,
         amount: Number(r.amount),
         charges: Number(r.charges || 0),
@@ -366,7 +366,7 @@ export default function BillPaymentReport() {
         ...r,
         customer_mobile: r.consumer_number,
         card_owner_name: `BBPS: ${r.service_type}`,
-        card_number: r.transaction_id || r.service_type || 'BBPS',
+        card_number: r.transaction_id || r.rejection_reason || r.service_type || 'BBPS',
         card_bank: r.provider,
         is_bbps: true
       }));
@@ -489,7 +489,7 @@ export default function BillPaymentReport() {
         ...r,
         customer_mobile: r.consumer_number,
         card_owner_name: `BBPS: ${r.service_type}`,
-        card_number: r.transaction_id || r.service_type || 'BBPS',
+        card_number: r.transaction_id || r.rejection_reason || r.service_type || 'BBPS',
         card_bank: r.provider,
         is_bbps: true
       }));

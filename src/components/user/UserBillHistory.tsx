@@ -18,9 +18,18 @@ import { format, parseISO } from 'date-fns';
 import { LogoLoader } from '../shared/LoadingSpinner';
 import { useToast } from '../../context/ToastContext';
 
-interface UserBillHistoryProps {
-  userId: string;
-}
+const getUtrOrTxnId = (item: any): string => {
+  if (!item) return 'N/A';
+  if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
+  if (item.rejection_reason && item.rejection_reason !== 'N/A') return item.rejection_reason;
+  if (item.metadata?.txnid) return item.metadata.txnid;
+  if (item.metadata?.rrn) return item.metadata.rrn;
+  if (item.metadata?.reference) return item.metadata.reference;
+  if (item.metadata?.utr) return item.metadata.utr;
+  if (item.metadata?.billerResponse?.txnid) return item.metadata.billerResponse.txnid;
+  if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
+  return 'N/A';
+};
 
 export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   const navigate = useNavigate();
@@ -107,7 +116,7 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
     const matchesSearch = (
       (item.provider || '').toLowerCase().includes(term) ||
       (item.consumer_number || '').toLowerCase().includes(term) ||
-      (item.transaction_id || '').toLowerCase().includes(term) ||
+      (getUtrOrTxnId(item)).toLowerCase().includes(term) ||
       (item.service_type || '').toLowerCase().includes(term)
     );
 
@@ -232,7 +241,7 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <p className="text-xs font-mono font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-100/50 w-fit mx-auto">
-                        {item.transaction_id || 'N/A'}
+                        {getUtrOrTxnId(item)}
                       </p>
                     </td>
                     <td className="px-6 py-4 text-center">

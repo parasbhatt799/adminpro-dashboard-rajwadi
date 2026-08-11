@@ -53,6 +53,19 @@ const getTodayStr = () => {
   return localDate.toISOString().split('T')[0];
 };
 
+const getUtrOrTxnId = (item: any): string => {
+  if (!item) return 'N/A';
+  if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
+  if (item.rejection_reason && item.rejection_reason !== 'N/A') return item.rejection_reason;
+  if (item.metadata?.txnid) return item.metadata.txnid;
+  if (item.metadata?.rrn) return item.metadata.rrn;
+  if (item.metadata?.reference) return item.metadata.reference;
+  if (item.metadata?.utr) return item.metadata.utr;
+  if (item.metadata?.billerResponse?.txnid) return item.metadata.billerResponse.txnid;
+  if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
+  return 'N/A';
+};
+
 export default function BBPSHistory() {
   const [transactions, setTransactions] = useState<BBPSTransaction[]>([]);
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
@@ -206,9 +219,9 @@ export default function BBPSHistory() {
         const term = searchQuery.trim();
         const safeTerm = term.replace(/"/g, '""');
         if (userIds.length > 0) {
-          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%",user_id.in.(${userIds.join(',')})`);
+          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%",user_id.in.(${userIds.join(',')})`);
         } else {
-          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%"`);
+          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%"`);
         }
       }
 
@@ -263,7 +276,7 @@ export default function BBPSHistory() {
           const mobile = ((item.users_profiles as any)?.mobile_number || '').toLowerCase();
           const consumerNo = (item.consumer_number || '').toLowerCase();
           const provider = (item.provider || '').toLowerCase();
-          const txId = (item.transaction_id || '').toLowerCase();
+          const txId = (getUtrOrTxnId(item)).toLowerCase();
           const serviceType = (item.service_type || '').toLowerCase();
           const consumerDetailsStr = item.metadata?.consumerDetails ? JSON.stringify(item.metadata.consumerDetails).toLowerCase() : '';
 
@@ -472,7 +485,7 @@ export default function BBPSHistory() {
         'Category': item.service_type.toUpperCase(),
         'Operator / Biller': item.provider,
         'Consumer Number': getConsumerDetailsList(item).join(' / '),
-        'Transaction UTR': item.transaction_id || 'N/A',
+        'Transaction UTR': getUtrOrTxnId(item),
         'Base Amount': Number(item.amount),
         'Service Charge': Number(item.charges),
         'BBPS Commission': 0,
@@ -530,7 +543,7 @@ export default function BBPSHistory() {
         item.service_type.toUpperCase(),
         item.provider,
         getConsumerDetailsList(item).join(' / '),
-        item.transaction_id || 'N/A',
+        getUtrOrTxnId(item),
         item.status.toUpperCase(),
         Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
         Number(item.charges).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
@@ -941,7 +954,7 @@ export default function BBPSHistory() {
                     {/* Transaction ID */}
                     <td className="px-6 py-4 text-center">
                       <p className="text-xs font-mono font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-100/50 w-fit mx-auto">
-                        {item.transaction_id || 'N/A'}
+                        {getUtrOrTxnId(item)}
                       </p>
                     </td>
 
@@ -1106,7 +1119,7 @@ export default function BBPSHistory() {
                 <div className="flex justify-between">
                   <span className="text-slate-400 font-bold uppercase tracking-wider">Transaction UTR</span>
                   <span className="font-black text-slate-800 font-mono text-[11px] bg-slate-50 px-2 py-0.5 rounded border border-slate-100">
-                    {selectedReceipt.transaction_id || 'N/A'}
+                    {getUtrOrTxnId(selectedReceipt)}
                   </span>
                 </div>
 
@@ -1124,7 +1137,7 @@ export default function BBPSHistory() {
                   <ShieldCheck size={12} className="text-emerald-500" />
                   Secure BBPS Gateway
                 </div>
-                <span>Ref ID: {(selectedReceipt.transaction_id || '').substring(0, 8)}</span>
+                <span>Ref ID: {getUtrOrTxnId(selectedReceipt).substring(0, 8)}</span>
               </div>
 
               {/* Print CTA */}
