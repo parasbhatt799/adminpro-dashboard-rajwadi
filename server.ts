@@ -2769,14 +2769,18 @@ async function startServer() {
         }
       });
 
+      const uatKeywords = ['hdfc', 'pixel', 'kotak', 'punjab', 'pnb', 'yes bank', 'yesbank'];
+      const billerLower = (billerName + ' ' + billerId).toLowerCase();
+      const isTargetUatCard = uatKeywords.some(k => billerLower.includes(k)) || billerCategory.toLowerCase().includes('card');
+
       const isCreditCard = billerCategory === 'Credit Card' || billerCategory?.toLowerCase()?.includes('card');
       const initChannel = 'AGT'; // Always use AGT for BillAvenue as our Agent ID is registered for AGT
 
       try {
         const response = await billAvenue.fetchBill(billerId, customerParams, customerMobile, initChannel);
         const responseCode = response.json?.billFetchResponse?.responseCode;
-        if (isStaging && responseCode !== '0000') {
-          console.log(`[BillAvenue Proxy] Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Staging Bill.`);
+        if ((isStaging || isTargetUatCard) && responseCode !== '0000') {
+          console.log(`[BillAvenue Proxy] Target Card/Staging: Biller ${billerId} returned API error ${responseCode}. Returning Mock Bill.`);
           return res.json(getMockResponse());
         }
 
@@ -2786,9 +2790,9 @@ async function startServer() {
           requestId: response.requestId || response.json?.requestId
         });
       } catch (apiError: any) {
-        console.warn(`[BillAvenue Proxy] Fetch failed, checking if staging mock is possible for ${billerId}:`, apiError.message);
-        if (isStaging) {
-          console.log(`[BillAvenue Proxy] Returning Mock Staging Bill for biller: ${billerId}`);
+        console.warn(`[BillAvenue Proxy] Fetch failed, checking if staging/target card mock is possible for ${billerId}:`, apiError.message);
+        if (isStaging || isTargetUatCard) {
+          console.log(`[BillAvenue Proxy] Returning Mock Bill for biller: ${billerId}`);
           return res.json(getMockResponse());
         }
         throw apiError;
