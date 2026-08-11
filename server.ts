@@ -2818,7 +2818,7 @@ async function startServer() {
       const {
         userId,
         billerId,
-        billerName,
+        billerName: reqBillerName,
         customerParams,
         customerMobile,
         amount,
@@ -2914,7 +2914,7 @@ async function startServer() {
 
       // Look up biller category to determine channel (Credit Card uses INT, others use AGT)
       let initChannel = 'AGT';
-      let billerName = '';
+      let billerName = reqBillerName || '';
       let categoryName = '';
       try {
         const { data: dbBiller } = await supabaseAdmin
@@ -2923,7 +2923,7 @@ async function startServer() {
           .eq('biller_id', billerId)
           .maybeSingle();
         if (dbBiller) {
-          billerName = dbBiller.biller_name || '';
+          billerName = dbBiller.biller_name || billerName;
           categoryName = dbBiller.category || '';
           if (dbBiller.category === 'Credit Card' || dbBiller.category?.toLowerCase()?.includes('card')) {
             initChannel = 'AGT'; // Always use AGT for BillAvenue
