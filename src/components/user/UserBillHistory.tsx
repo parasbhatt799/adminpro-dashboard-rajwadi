@@ -31,6 +31,10 @@ const getUtrOrTxnId = (item: any): string => {
   return 'N/A';
 };
 
+interface UserBillHistoryProps {
+  userId: string;
+}
+
 export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   const navigate = useNavigate();
   const [history, setHistory] = useState<any[]>([]);
