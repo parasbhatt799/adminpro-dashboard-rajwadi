@@ -988,6 +988,12 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       const data = await response.json();
 
       if (data.status === 'SUCCESS') {
+        try {
+          const audio = new Audio('/bharat_connect_mogo.wav');
+          audio.play().catch(err => console.warn('Audio play blocked:', err));
+        } catch (e) {
+          console.warn('Audio playback error:', e);
+        }
         toast.success("Bill Paid successfully!");
         markBillAsPaid(userId, consumerNumber);
         setWalletBalance(data.new_balance);
