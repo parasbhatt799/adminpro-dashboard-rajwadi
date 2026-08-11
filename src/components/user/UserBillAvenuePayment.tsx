@@ -738,10 +738,10 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       // Fetch category settings from the backend
       const settingsRes = await fetch('/api/biller-categories');
       const settingsData = await settingsRes.json();
-      
+
       // Start with our comprehensive standard categories list
       let mergedCats = [...STANDARD_CATEGORIES];
-      
+
       if (Array.isArray(settingsData)) {
         mergedCats = mergedCats.filter(cat => {
           const setting = settingsData.find(s => s.provider === 'billavenue' && s.category_name === cat.name);
@@ -798,9 +798,9 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
     try {
       const searchLower = catName.toLowerCase();
-      
+
       let query = supabase.from('billavenue_billers').select('*').limit(10000);
-      
+
       if (searchLower === 'mobile prepaid') {
         query = query.or('category.ilike.%mobile prepaid%,category.ilike.%recharge%');
       } else {
@@ -924,11 +924,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           if (!response.ok) throw new Error('Failed to fetch from live API');
           const data = await response.json();
           const apiBiller = data?.billerInfoResponse?.biller;
-          
+
           if (apiBiller && apiBiller.billerInputParams) {
             bDetail = { ...apiBiller, mdm_fetched: true };
             // Silently update database so we don't fetch next time
-            supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then(({error}) => {
+            supabase.from('billavenue_billers').update({ metadata: bDetail }).eq('biller_id', biller.billerId).then(({ error }) => {
               if (error) console.warn('Failed to cache biller params:', error.message);
             });
           } else {
@@ -952,7 +952,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
       const isAdhocTrue = bDetail?.billerAcceptsAdhoc === 'true' || bDetail?.billerAcceptsAdhoc === true;
       const isAdhocMissing = bDetail?.billerAcceptsAdhoc === undefined;
-      
+
       setBillerConfig({
         billerAcceptsAdhoc: isAdhocTrue || isAdhocMissing || selectedCategory === 'Credit Card',
         fetchRequirement: bDetail?.fetchRequirement || 'OPTIONAL'
@@ -961,13 +961,13 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       // Map parameters
       const paramsList: BillerInputParam[] = [];
       let rawParams: any[] = [];
-      
+
       if (bDetail?.billerInputParams) {
         // BillAvenue XML parsed format: billerInputParams.paramInfo
         if (bDetail.billerInputParams.paramInfo) {
           const info = bDetail.billerInputParams.paramInfo;
           rawParams = Array.isArray(info) ? info : [info];
-        } 
+        }
         // BillAvenue JSON format: billerInputParams[0].paramsList or billerInputParams.paramsList
         else if (Array.isArray(bDetail.billerInputParams) && bDetail.billerInputParams[0]?.paramsList) {
           rawParams = bDetail.billerInputParams[0].paramsList;
@@ -1017,7 +1017,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         ) {
           fallbackParams = [{ paramName: 'Consumer Number', dataType: 'NUMERIC', optional: false }];
         } else if (
-          nameStr.toLowerCase().includes('torrent') || 
+          nameStr.toLowerCase().includes('torrent') ||
           bIdStr.toUpperCase().startsWith('TORR')
         ) {
           fallbackParams = [{ paramName: 'Service Number', dataType: 'NUMERIC', optional: false }];
@@ -1117,13 +1117,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         }
       }
 
-      // Skip fetch completely if NOT_SUPPORTED (unless Credit Card / target card)
-      const isCreditCardCategory = selectedCategory === 'Credit Card' || selectedBiller?.categoryName?.toLowerCase().includes('card');
-      const uatKeywords = ['hdfc', 'pixel', 'kotak', 'punjab', 'pnb', 'yes bank', 'yesbank'];
-      const billerLower = ((selectedBiller?.billerName || '') + ' ' + (selectedBiller?.billerId || '')).toLowerCase();
-      const isTargetCard = isCreditCardCategory || uatKeywords.some(k => billerLower.includes(k));
-
-      if (!isTargetCard && billerConfig?.fetchRequirement === 'NOT_SUPPORTED' && billerConfig?.billerAcceptsAdhoc) {
+      // Skip fetch completely if NOT_SUPPORTED
+      if (billerConfig?.fetchRequirement === 'NOT_SUPPORTED' && billerConfig?.billerAcceptsAdhoc) {
         setBillDetails({
           customerName: 'QuickPay / Adhoc Payment',
           billAmount: 0,
@@ -1146,26 +1141,9 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       });
 
       const data = await res.json();
-      
+
       if (!res.ok || data.status === 'ERROR') {
         const errorMsg = data.message || 'Error fetching bill. Please check your details.';
-        if (isTargetCard) {
-          setBillDetails({
-            customerName: 'Sumit C Patel',
-            billAmount: 100,
-            dueDate: '2026-06-30',
-            billNumber: 'BILL998811',
-            billDate: '2026-06-01',
-            additionalInfo: [
-              { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-              { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-              { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-            ],
-            fetchSupported: true
-          });
-          setManualAmount('100');
-          return;
-        }
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
           return;
@@ -1186,7 +1164,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       const response = data?.billFetchResponse;
       const billerResp = response?.billerResponse || response; // Sometimes nested under billerResponse
       const respCode = billerResp?.responseCode || response?.responseCode;
-      
+
       if (respCode === '000' || respCode === '0000' || response?.status?.toLowerCase() === 'success') {
         const billAmountStr = billerResp?.billAmount || response?.billAmount;
         const billAmount = Number(billAmountStr) ? Number(billAmountStr) / 100 : 0; // Convert paise to Rs
@@ -1205,7 +1183,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           rawBillerResponse: billerResp,
           fetchRequestId: data?.requestId
         });
-        setManualAmount(billAmount ? billAmount.toString() : '');
+        setManualAmount(billAmount.toString());
 
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         upsertBillReminder({
@@ -1219,22 +1197,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         });
       } else if (respCode) {
         const errorMsg = billerResp?.responseReason || response?.errorInfo?.error?.errorMessage || `Failed to fetch bill (Code: ${respCode})`;
-        if (isTargetCard) {
-          setBillDetails({
-            customerName: 'Sumit C Patel',
-            billAmount: 100,
-            dueDate: '2026-06-30',
-            billNumber: 'BILL998811',
-            billDate: '2026-06-01',
-            additionalInfo: [
-              { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-              { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-              { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-            ],
-            fetchSupported: true
-          });
-          setManualAmount('100');
-        } else if (billerConfig?.fetchRequirement === 'MANDATORY') {
+        if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
         } else if (billerConfig?.billerAcceptsAdhoc) {
           toast.info(`${errorMsg}. Proceeding with QuickPay.`);
@@ -1247,22 +1210,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           toast.error(errorMsg);
         }
       } else {
-        if (isTargetCard) {
-          setBillDetails({
-            customerName: 'Sumit C Patel',
-            billAmount: 100,
-            dueDate: '2026-06-30',
-            billNumber: 'BILL998811',
-            billDate: '2026-06-01',
-            additionalInfo: [
-              { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-              { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-              { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-            ],
-            fetchSupported: true
-          });
-          setManualAmount('100');
-        } else if (billerConfig?.billerAcceptsAdhoc) {
+        if (billerConfig?.billerAcceptsAdhoc) {
           setBillDetails({
             customerName: 'QuickPay / Adhoc Payment',
             billAmount: 0,
@@ -1275,22 +1223,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       }
 
     } catch (err) {
-      if (isTargetCard) {
-        setBillDetails({
-          customerName: 'Sumit C Patel',
-          billAmount: 100,
-          dueDate: '2026-06-30',
-          billNumber: 'BILL998811',
-          billDate: '2026-06-01',
-          additionalInfo: [
-            { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-            { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-            { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-          ],
-          fetchSupported: true
-        });
-        setManualAmount('100');
-      } else if (billerConfig?.billerAcceptsAdhoc && billerConfig?.fetchRequirement !== 'MANDATORY') {
+      if (billerConfig?.billerAcceptsAdhoc && billerConfig?.fetchRequirement !== 'MANDATORY') {
         setBillDetails({
           customerName: 'QuickPay / Adhoc Payment',
           billAmount: 0,
@@ -1442,43 +1375,6 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
       const data = await res.json();
 
       if (data.status === 'SUCCESS') {
-        try {
-          const audio = new Audio('/bharat_connect_mogo.wav');
-          audio.play().catch(err => {
-            console.warn('Audio play blocked/failed, playing synth fallback:', err);
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioCtx) {
-              const ctx = new AudioCtx();
-              const now = ctx.currentTime;
-              const osc1 = ctx.createOscillator();
-              const gain1 = ctx.createGain();
-              osc1.type = 'sine';
-              osc1.frequency.setValueAtTime(587.33, now);
-              osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15);
-              gain1.gain.setValueAtTime(0.3, now);
-              gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-              osc1.connect(gain1);
-              gain1.connect(ctx.destination);
-              osc1.start(now);
-              osc1.stop(now + 0.45);
-
-              const osc2 = ctx.createOscillator();
-              const gain2 = ctx.createGain();
-              osc2.type = 'triangle';
-              osc2.frequency.setValueAtTime(880, now + 0.12);
-              osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.35);
-              gain2.gain.setValueAtTime(0.25, now + 0.12);
-              gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-              osc2.connect(gain2);
-              gain2.connect(ctx.destination);
-              osc2.start(now + 0.12);
-              osc2.stop(now + 0.6);
-            }
-          });
-        } catch (e) {
-          console.warn('Audio playback error:', e);
-        }
-
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         markBillAsPaid(userId, consumerNumber);

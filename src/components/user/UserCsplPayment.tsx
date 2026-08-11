@@ -1039,11 +1039,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         }
       }
 
-      const isCreditCardCategory = selectedCategory === 'Credit Card' || selectedBiller?.categoryName?.toLowerCase().includes('card');
-      const uatKeywords = ['hdfc', 'pixel', 'kotak', 'punjab', 'pnb', 'yes bank', 'yesbank'];
-      const billerLower = ((selectedBiller?.billerName || '') + ' ' + (selectedBiller?.billerId || '')).toLowerCase();
-      const isTargetCard = isCreditCardCategory || uatKeywords.some(k => billerLower.includes(k));
-
       const res = await fetch('/api/cspl/billfetch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1059,23 +1054,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
       if (!res.ok || data.status === 'ERROR' || data.responseCode === '222') {
         const errorMsg = data.message || data.error || data.reason || 'Error fetching bill. Please check your details.';
-        if (isTargetCard) {
-          setBillDetails({
-            customerName: 'Sumit C Patel',
-            billAmount: 100,
-            dueDate: '2026-06-30',
-            billNumber: 'BILL998811',
-            billDate: '2026-06-01',
-            additionalInfo: [
-              { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-              { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-              { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-            ],
-            fetchSupported: true
-          });
-          setManualAmount('100');
-          return;
-        }
         if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
           return;
@@ -1117,7 +1095,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           rawFetchData: data,
           billerResponse: billerResp
         });
-        setManualAmount(billAmount ? billAmount.toString() : '');
+        setManualAmount(billAmount.toString());
 
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         upsertBillReminder({
@@ -1131,22 +1109,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         });
       } else if (respCode) {
         const errorMsg = billerResp?.responseReason || response?.errorInfo?.error?.errorMessage || `Failed to fetch bill (Code: ${respCode})`;
-        if (isTargetCard) {
-          setBillDetails({
-            customerName: 'Sumit C Patel',
-            billAmount: 100,
-            dueDate: '2026-06-30',
-            billNumber: 'BILL998811',
-            billDate: '2026-06-01',
-            additionalInfo: [
-              { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-              { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-              { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-            ],
-            fetchSupported: true
-          });
-          setManualAmount('100');
-        } else if (billerConfig?.fetchRequirement === 'MANDATORY') {
+        if (billerConfig?.fetchRequirement === 'MANDATORY') {
           toast.error(errorMsg);
         } else if (billerConfig?.billerAcceptsAdhoc) {
           toast.info(`${errorMsg}. Proceeding with QuickPay.`);
@@ -1159,22 +1122,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
           toast.error(errorMsg);
         }
       } else {
-        if (isTargetCard) {
-          setBillDetails({
-            customerName: 'Sumit C Patel',
-            billAmount: 100,
-            dueDate: '2026-06-30',
-            billNumber: 'BILL998811',
-            billDate: '2026-06-01',
-            additionalInfo: [
-              { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-              { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-              { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-            ],
-            fetchSupported: true
-          });
-          setManualAmount('100');
-        } else if (billerConfig?.billerAcceptsAdhoc) {
+        if (billerConfig?.billerAcceptsAdhoc) {
           setBillDetails({
             customerName: 'QuickPay / Adhoc Payment',
             billAmount: 0,
@@ -1187,22 +1135,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       }
 
     } catch (err) {
-      if (isTargetCard) {
-        setBillDetails({
-          customerName: 'Sumit C Patel',
-          billAmount: 100,
-          dueDate: '2026-06-30',
-          billNumber: 'BILL998811',
-          billDate: '2026-06-01',
-          additionalInfo: [
-            { infoName: 'Consumer ID', infoValue: Object.values(cleanedParams)[0] || '123456' },
-            { infoName: 'Biller Name', infoValue: selectedBiller.billerName || selectedBiller.billerId },
-            { infoName: 'Category', infoValue: selectedCategory || 'Credit Card' }
-          ],
-          fetchSupported: true
-        });
-        setManualAmount('100');
-      } else if (billerConfig?.billerAcceptsAdhoc && billerConfig?.fetchRequirement !== 'MANDATORY') {
+      if (billerConfig?.billerAcceptsAdhoc && billerConfig?.fetchRequirement !== 'MANDATORY') {
         setBillDetails({
           customerName: 'QuickPay / Adhoc Payment',
           billAmount: 0,
@@ -1388,43 +1321,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       const data = await res.json();
 
       if (data.status === 'SUCCESS' || data.status === 'SUCCESSFUL' || data.responseCode === '000' || data?.data?.responseCode === '000') {
-        try {
-          const audio = new Audio('/bharat_connect_mogo.wav');
-          audio.play().catch(err => {
-            console.warn('Audio play blocked/failed, playing synth fallback:', err);
-            const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioCtx) {
-              const ctx = new AudioCtx();
-              const now = ctx.currentTime;
-              const osc1 = ctx.createOscillator();
-              const gain1 = ctx.createGain();
-              osc1.type = 'sine';
-              osc1.frequency.setValueAtTime(587.33, now);
-              osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15);
-              gain1.gain.setValueAtTime(0.3, now);
-              gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
-              osc1.connect(gain1);
-              gain1.connect(ctx.destination);
-              osc1.start(now);
-              osc1.stop(now + 0.45);
-
-              const osc2 = ctx.createOscillator();
-              const gain2 = ctx.createGain();
-              osc2.type = 'triangle';
-              osc2.frequency.setValueAtTime(880, now + 0.12);
-              osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.35);
-              gain2.gain.setValueAtTime(0.25, now + 0.12);
-              gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-              osc2.connect(gain2);
-              gain2.connect(ctx.destination);
-              osc2.start(now + 0.12);
-              osc2.stop(now + 0.6);
-            }
-          });
-        } catch (e) {
-          console.warn('Audio playback error:', e);
-        }
-
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         markBillAsPaid(userId, consumerNumber);
@@ -2604,4 +2500,5 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
     </div>
   );
 }
+
 
