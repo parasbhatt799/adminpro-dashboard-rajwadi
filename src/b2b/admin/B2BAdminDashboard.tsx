@@ -43,7 +43,7 @@ export default function B2BAdminDashboard() {
           req?.chargeDeducted ?? 
           req?.chargePerBill ?? 
           req?.charge ?? 
-          (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : 0) ?? 
+          (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
           10
         );
         return acc + chargeVal;
