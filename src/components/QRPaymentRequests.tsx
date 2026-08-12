@@ -948,13 +948,20 @@ export default function QRPaymentRequests() {
                       <td className="px-3 py-4 text-center">
                         <span className="text-xs font-bold text-rose-600 flex items-center justify-center">
                           <IndianRupee size={12} className="mr-0.5" />
-                          {req.status === 'pending' ? '0.00' : (req.admin_share !== null && req.admin_share !== undefined ?
-                            Number(req.admin_share).toFixed(2) :
-                            (req.users_profiles?.distributor_id ?
-                              ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100).toFixed(2) :
-                              Number(req.charges || 0).toFixed(2)
-                            ))
-                          }
+                          {req.status === 'pending' ? '0.00' : (() => {
+                            const rawAdmin = req.admin_share !== null && req.admin_share !== undefined ?
+                              Number(req.admin_share) :
+                              (req.users_profiles?.distributor_id ?
+                                ((req.amount * Number(req.users_profiles?.admin_base_qr_charge || 0)) / 100) :
+                                Number(req.charges || 0)
+                              );
+                            const totChg = Number(req.charges || 0);
+                            const distS = Number(req.distributor_share || 0);
+                            const sDistS = Number(req.super_distributor_share || 0);
+                            const maxAdminPossible = Math.max(0, totChg - distS - sDistS);
+                            const safeVal = totChg > 0 ? Math.min(rawAdmin, maxAdminPossible) : rawAdmin;
+                            return safeVal.toFixed(2);
+                          })()}
                         </span>
                       </td>
                       <td className="px-3 py-4 text-center">
