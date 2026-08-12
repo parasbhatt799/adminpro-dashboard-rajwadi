@@ -96,14 +96,13 @@ export const speakPaytmNotification = (amount?: number | string) => {
 
 /**
  * Plays the BharatConnect MOGO sound whenever a Bill / BillAvenue bill is paid.
- * Also announces Paytm-style payment success.
  */
 export const playMogoSound = async (amount?: number | string) => {
   if (!cachedIsEnabled) return;
 
   let audioPlayed = false;
 
-  // 1. Play HTML5 MOGO Chime Audio immediately without waiting
+  // Play HTML5 MOGO Chime Audio immediately
   try {
     const soundUrl = cachedSoundUrl || '/bharat_connect_mogo.wav';
     const audio = preloadedAudio || new Audio(soundUrl);
@@ -128,9 +127,8 @@ export const playMogoSound = async (amount?: number | string) => {
     }
   }
 
-  // 2. Paytm-style Soundbox Voice Announcement
-  // Announces after chime finishes (or immediately if chime was blocked)
-  setTimeout(() => {
+  // Fallback: If both WAV audio play attempts failed, fallback to text-to-speech
+  if (!audioPlayed) {
     speakPaytmNotification(amount);
-  }, audioPlayed ? 1200 : 50);
+  }
 };
