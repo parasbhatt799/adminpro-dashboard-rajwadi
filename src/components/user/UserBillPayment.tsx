@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
-import { playMogoSound } from '../../lib/audio';
+import { playMogoSound, prepareMogoSound } from '../../lib/audio';
 import {
   Receipt,
   Search,
@@ -962,7 +962,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
       if (data.status === 'SUCCESS') {
         toast.success("Bill Paid successfully!");
-        playMogoSound();
+        playMogoSound(finalAmount);
         markBillAsPaid(userId, consumerNumber);
         setWalletBalance(data.new_balance);
 

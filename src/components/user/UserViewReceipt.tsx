@@ -134,7 +134,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
           approvalNumber: approvalNumber,
           consumerDetails: subData.metadata?.customerParams || {}
         });
-        playMogoSound();
+        playMogoSound(subData.amount);
       }
     } catch (err: any) {
       toast.error('Error fetching receipt: ' + err.message);

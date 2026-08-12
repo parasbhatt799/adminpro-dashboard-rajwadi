@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
-import { playMogoSound } from '../../lib/audio';
+import { playMogoSound, prepareMogoSound } from '../../lib/audio';
 import {
   Receipt,
   Search,
@@ -1294,6 +1294,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
   const executePayment = async () => {
     if (!selectedBiller) return;
+    prepareMogoSound();
     setLoading(true);
 
     const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
@@ -1323,7 +1324,10 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
 
       if (data.status === 'SUCCESS' || data.status === 'SUCCESSFUL' || data.responseCode === '000' || data?.data?.responseCode === '000') {
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
-        playMogoSound();
+        const baseAmt = amt;
+        const convFee = ccf1Fee;
+        const totAmt = baseAmt + convFee;
+        playMogoSound(totAmt);
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         markBillAsPaid(userId, consumerNumber);
         const cleanTxnRefId = data.data?.txnRefId || data.txnRefId || data.txnid || ('CC01' + Math.floor(1000000000000000 + Math.random() * 9000000000000000).toString().substring(0, 16));

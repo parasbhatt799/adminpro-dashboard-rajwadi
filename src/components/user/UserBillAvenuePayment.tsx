@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
-import { playMogoSound } from '../../lib/audio';
+import { playMogoSound, prepareMogoSound } from '../../lib/audio';
 import {
   Receipt,
   Search,
@@ -1334,6 +1334,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
   const executePayment = async () => {
     if (!selectedBiller) return;
+    prepareMogoSound();
     setLoading(true);
 
     const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
@@ -1377,7 +1378,10 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
       if (data.status === 'SUCCESS') {
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
-        playMogoSound();
+        const baseAmt = amt;
+        const convFee = ccf1Fee;
+        const totAmt = baseAmt + convFee;
+        playMogoSound(totAmt);
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         markBillAsPaid(userId, consumerNumber);
         const cleanTxnRefId = data.data?.txnRefId && data.data.txnRefId.startsWith("CC01")
