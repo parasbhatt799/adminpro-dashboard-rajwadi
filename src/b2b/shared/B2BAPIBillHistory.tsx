@@ -448,7 +448,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const resBody = log.response_payload || log.response_body || {};
         const statusInfo = getStatusInfo(log.status_code, resBody);
         const txnId = resBody?.transaction_id || 'N/A';
-        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || '';
+        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
           ? reqBody.customerParams[0].value 
           : '';
@@ -476,7 +476,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           primaryParam || reqBody.mobile || 'N/A',
           `₹ ${Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           `₹ ${chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-          txnId !== 'N/A' ? txnId : bbpsTxnId,
+          txnId,
+          bbpsTxnId,
           statusInfo.text
         );
 
@@ -485,7 +486,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
       const headers = ['#', 'Date / Time'];
       if (isAdmin) headers.push('Agent ID');
-      headers.push('Biller ID', 'Param / Mobile', 'Amount', 'Charge', 'Txn ID', 'Status');
+      headers.push('Biller ID', 'Param / Mobile', 'Amount', 'Charge', 'API Txn ID', 'BBPS Txn ID', 'Status');
 
       const footerRow = [
         'TOTAL',
@@ -497,6 +498,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         '',
         `₹ ${stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
         `₹ ${totalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        '',
         '',
         ''
       );
@@ -836,7 +838,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   <th className="px-6 py-4">Parameters</th>
                   <th className="px-6 py-4">Amount</th>
                   <th className="px-6 py-4 text-amber-400">Charge</th>
-                  <th className="px-6 py-4">Transaction IDs</th>
+                  <th className="px-6 py-4 text-slate-300">API TXN ID</th>
+                  <th className="px-6 py-4 text-indigo-400">BBPS TXN ID</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
@@ -897,16 +900,19 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                         </div>
                       </td>
 
-                      <td className="px-6 py-4">
-                        {txnId !== 'N/A' && (
-                          <div className="text-xs font-mono text-slate-400 mb-1" title="API Transaction ID">
-                            API: <span className="text-slate-300">{txnId}</span>
-                          </div>
+                      <td className="px-6 py-4 font-mono text-xs text-slate-300">
+                        {txnId !== 'N/A' ? (
+                          <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700/50">{txnId}</span>
+                        ) : (
+                          <span className="text-slate-500 font-sans">-</span>
                         )}
-                        {bbpsTxnId && (
-                          <div className="text-xs font-mono text-indigo-400/80" title="BillAvenue Ref ID">
-                            BBPS: <span className="text-indigo-300">{bbpsTxnId}</span>
-                          </div>
+                      </td>
+
+                      <td className="px-6 py-4 font-mono text-xs text-indigo-300">
+                        {bbpsTxnId ? (
+                          <span className="bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">{bbpsTxnId}</span>
+                        ) : (
+                          <span className="text-slate-500 font-sans">-</span>
                         )}
                       </td>
                       
