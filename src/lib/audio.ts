@@ -20,7 +20,7 @@ const fetchAudioSettings = async () => {
       if (data.is_bill_sound_enabled === false) {
         cachedIsEnabled = false;
       }
-      if (data.bill_sound_url) {
+      if (data.bill_sound_url && data.bill_sound_url.trim() !== '') {
         cachedSoundUrl = data.bill_sound_url;
       }
     }
@@ -37,11 +37,24 @@ fetchAudioSettings();
  */
 export const prepareMogoSound = () => {
   try {
+    const soundUrl = cachedSoundUrl || '/bharat_connect_mogo.wav';
     if (!preloadedAudio) {
-      preloadedAudio = new Audio(cachedSoundUrl);
-      preloadedAudio.volume = 1.0;
+      preloadedAudio = new Audio(soundUrl);
     }
-    preloadedAudio.load();
+    preloadedAudio.volume = 1.0;
+
+    // Call play() inside user gesture to grant media autoplay permission, then pause immediately
+    const unlockPromise = preloadedAudio.play();
+    if (unlockPromise !== undefined) {
+      unlockPromise.then(() => {
+        if (preloadedAudio) {
+          preloadedAudio.pause();
+          preloadedAudio.currentTime = 0;
+        }
+      }).catch((e) => {
+        console.warn('[AUDIO] Pre-unlock gesture warning:', e);
+      });
+    }
 
     // Create & resume AudioContext if supported by browser
     const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
@@ -98,7 +111,10 @@ export const speakPaytmNotification = (amount?: number | string) => {
  * Plays the BharatConnect MOGO sound whenever a Bill / BillAvenue bill is paid.
  */
 export const playMogoSound = async (amount?: number | string) => {
-  if (!cachedIsEnabled) return;
+  if (!cachedIsEnabled) {
+    console.warn('[AUDIO] Audio disabled in settings');
+    return;
+  }
 
   let audioPlayed = false;
 
@@ -106,29 +122,44 @@ export const playMogoSound = async (amount?: number | string) => {
   try {
     const soundUrl = cachedSoundUrl || '/bharat_connect_mogo.wav';
     const audio = preloadedAudio || new Audio(soundUrl);
-    audio.src = soundUrl;
+    audio.volume = 1.0;
     audio.currentTime = 0;
 
     const playPromise = audio.play();
     if (playPromise !== undefined) {
       await playPromise;
       audioPlayed = true;
+      console.log('[AUDIO] Primary MOGO sound played successfully!');
     }
   } catch (err) {
-    console.warn('[AUDIO] Primary MOGO sound play failed:', err);
+    console.warn('[AUDIO] Primary MOGO sound play failed, attempting fallbacks:', err);
 
-    // Fallback: try alternate path /mogo.wav
+    // Fallback 1: Direct new Audio('/bharat_connect_mogo.wav')
     try {
-      const fallbackAudio = new Audio('/mogo.wav');
+      const fallbackAudio = new Audio('/bharat_connect_mogo.wav');
+      fallbackAudio.volume = 1.0;
       await fallbackAudio.play();
       audioPlayed = true;
+      console.log('[AUDIO] Fallback 1 played successfully!');
     } catch (fallbackErr) {
-      console.warn('[AUDIO] Fallback mogo.wav play failed:', fallbackErr);
+      console.warn('[AUDIO] Fallback 1 failed:', fallbackErr);
+
+      // Fallback 2: /mogo.wav
+      try {
+        const fallbackAudio2 = new Audio('/mogo.wav');
+        fallbackAudio2.volume = 1.0;
+        await fallbackAudio2.play();
+        audioPlayed = true;
+        console.log('[AUDIO] Fallback 2 played successfully!');
+      } catch (fallbackErr2) {
+        console.warn('[AUDIO] Fallback 2 failed:', fallbackErr2);
+      }
     }
   }
 
-  // Fallback: If both WAV audio play attempts failed, fallback to text-to-speech
+  // Fallback 3: If WAV audio playback was blocked or failed, fallback to text-to-speech
   if (!audioPlayed) {
+    console.log('[AUDIO] Falling back to text-to-speech notification');
     speakPaytmNotification(amount);
   }
 };
