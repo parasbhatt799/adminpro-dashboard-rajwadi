@@ -200,66 +200,116 @@ export default function BBPSHistory() {
         }
       }
 
-      let query = supabase
-        .from('bbps_submissions')
-        .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
+      // Fetch all records in batches of 1000 to bypass Supabase PostgREST default 1000-row limit
+      let allData: any[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
+      let fetchError: any = null;
 
-      // Apply Status Filter
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
-      }
-
-      // Apply Category Filter
-      if (categoryFilter !== 'all') {
-        query = query.eq('service_type', categoryFilter);
-      }
-
-      // Apply Search Filter (on user firm/name or biller details)
-      if (searchQuery.trim()) {
-        const term = searchQuery.trim();
-        const safeTerm = term.replace(/"/g, '""');
-        if (userIds.length > 0) {
-          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%",user_id.in.(${userIds.join(',')})`);
-        } else {
-          query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%"`);
-        }
-      }
-
-      // Apply Date Filters
-      if (startDate) {
-        const [y, m, d] = startDate.split('-').map(Number);
-        const startLocal = new Date(y, m - 1, d, 0, 0, 0, 0);
-        query = query.gte('created_at', startLocal.toISOString());
-      }
-      if (endDate) {
-        const [y, m, d] = endDate.split('-').map(Number);
-        const endLocal = new Date(y, m - 1, d, 23, 59, 59, 999);
-        query = query.lte('created_at', endLocal.toISOString());
-      }
-
-      let { data, error } = await query.order('created_at', { ascending: false });
-
-      // Fallback: If DB search query fails, fetch base filtered rows and let client-side JS filter handle search term
-      if (error && searchQuery.trim()) {
-        console.warn('DB search query failed, using client-side search fallback:', error);
-        let fallbackQuery = supabase
+      while (hasMore) {
+        let query = supabase
           .from('bbps_submissions')
           .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
-        if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
-        if (categoryFilter !== 'all') fallbackQuery = fallbackQuery.eq('service_type', categoryFilter);
+        // Apply Status Filter
+        if (filter !== 'all') {
+          query = query.eq('status', filter);
+        }
+
+        // Apply Category Filter
+        if (categoryFilter !== 'all') {
+          query = query.eq('service_type', categoryFilter);
+        }
+
+        // Apply Search Filter (on user firm/name or biller details)
+        if (searchQuery.trim()) {
+          const term = searchQuery.trim();
+          const safeTerm = term.replace(/"/g, '""');
+          if (userIds.length > 0) {
+            query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%",user_id.in.(${userIds.join(',')})`);
+          } else {
+            query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%"`);
+          }
+        }
+
+        // Apply Date Filters
         if (startDate) {
           const [y, m, d] = startDate.split('-').map(Number);
-          fallbackQuery = fallbackQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
+          const startLocal = new Date(y, m - 1, d, 0, 0, 0, 0);
+          query = query.gte('created_at', startLocal.toISOString());
         }
         if (endDate) {
           const [y, m, d] = endDate.split('-').map(Number);
-          fallbackQuery = fallbackQuery.lte('created_at', new Date(y, m - 1, d, 23, 59, 59, 999).toISOString());
+          const endLocal = new Date(y, m - 1, d, 23, 59, 59, 999);
+          query = query.lte('created_at', endLocal.toISOString());
         }
 
-        const fallbackRes = await fallbackQuery.order('created_at', { ascending: false });
-        if (!fallbackRes.error && fallbackRes.data) {
-          data = fallbackRes.data;
+        const { data: chunkData, error } = await query
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (error) {
+          fetchError = error;
+          break;
+        }
+
+        if (chunkData && chunkData.length > 0) {
+          allData = allData.concat(chunkData);
+          if (chunkData.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      let data = allData;
+      let error = fetchError;
+
+      // Fallback: If DB search query failed, fetch base filtered rows in chunks
+      if (error && searchQuery.trim()) {
+        console.warn('DB search query failed, using client-side search fallback:', error);
+        let fallbackAll: any[] = [];
+        let fbFrom = 0;
+        let fbHasMore = true;
+
+        while (fbHasMore) {
+          let fallbackQuery = supabase
+            .from('bbps_submissions')
+            .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
+
+          if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
+          if (categoryFilter !== 'all') fallbackQuery = fallbackQuery.eq('service_type', categoryFilter);
+          if (startDate) {
+            const [y, m, d] = startDate.split('-').map(Number);
+            fallbackQuery = fallbackQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
+          }
+          if (endDate) {
+            const [y, m, d] = endDate.split('-').map(Number);
+            fallbackQuery = fallbackQuery.lte('created_at', new Date(y, m - 1, d, 23, 59, 59, 999).toISOString());
+          }
+
+          const fallbackRes = await fallbackQuery
+            .order('created_at', { ascending: false })
+            .range(fbFrom, fbFrom + step - 1);
+
+          if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
+            fallbackAll = fallbackAll.concat(fallbackRes.data);
+            if (fallbackRes.data.length < step) {
+              fbHasMore = false;
+            } else {
+              fbFrom += step;
+            }
+          } else {
+            fbHasMore = false;
+          }
+        }
+
+        if (fallbackAll.length > 0) {
+          data = fallbackAll;
           error = null;
         }
       }
