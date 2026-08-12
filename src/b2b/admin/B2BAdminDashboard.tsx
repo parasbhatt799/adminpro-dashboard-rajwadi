@@ -20,13 +20,15 @@ export default function B2BAdminDashboard() {
     
     // Fetch total earnings
     try {
-      const { data: logsData } = await supabase
-        .from('b2b_api_logs')
-        .select('charge_deducted')
-        .eq('status_code', 200);
+      const [{ data: logsData }, { data: bbpsData }] = await Promise.all([
+        supabase.from('b2b_api_logs').select('charge_deducted').eq('status_code', 200),
+        supabase.from('bbps_submissions').select('charges').eq('status', 'approved')
+      ]);
       
-      const sum = (logsData || []).reduce((acc, log) => acc + (parseFloat(log.charge_deducted || '0')), 0);
-      setTotalEarnings(sum);
+      const apiSum = (logsData || []).reduce((acc, log) => acc + (parseFloat((log as any).charge_deducted || '0')), 0);
+      const bbpsSum = (bbpsData || []).reduce((acc, item) => acc + (parseFloat((item as any).charges || '0')), 0);
+      
+      setTotalEarnings(apiSum + bbpsSum);
 
       const { count } = await supabase
         .from('b2b_api_credentials')

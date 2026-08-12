@@ -1636,6 +1636,15 @@ async function startServer() {
       if (data.status === "SUCCESS") {
         const newBalance = currentBalance - totalDeduction;
 
+        if (serviceCharge > 0) {
+          try {
+            await supabaseAdmin.rpc('add_admin_balance', { p_amount: serviceCharge });
+            console.log(`[BBPS Proxy] Credited ₹${serviceCharge} service charge to admin balance.`);
+          } catch (adminBalErr) {
+            console.warn('[BBPS Proxy] Error updating admin balance:', adminBalErr);
+          }
+        }
+
         // 4. Deduct wallet balance in Supabase
         const { error: updateError } = await supabaseAdmin
           .from("users_profiles")
@@ -1913,6 +1922,16 @@ async function startServer() {
         const newBalance = user.wallet_balance - totalDeduction;
         await supabaseAdmin.from("users_profiles").update({ wallet_balance: newBalance }).eq("id", userId);
         data.new_balance = newBalance;
+
+        const totalServiceCharge = Number(serviceCharge || 0) + Number(ccf1Fee || 0);
+        if (totalServiceCharge > 0) {
+          try {
+            await supabaseAdmin.rpc('add_admin_balance', { p_amount: totalServiceCharge });
+            console.log(`[CSPL BBPS] Credited ₹${totalServiceCharge} service charge to admin balance.`);
+          } catch (adminBalErr) {
+            console.warn('[CSPL BBPS] Error updating admin balance:', adminBalErr);
+          }
+        }
 
         const txnRefId = data?.data?.txnRefId || data?.txnRefId || data?.refid || requestId;
         const approvalRefNumber = data?.data?.approvalRefNumber || data?.approvalRefNumber;
@@ -3027,6 +3046,16 @@ async function startServer() {
             rejection_reason: txnRefId || apiResponse.requestId
           })
           .eq("id", submissionId);
+
+        const totalServiceCharge = serviceCharge + ccf1InRupees;
+        if (totalServiceCharge > 0 && finalSubmissionStatus === 'approved') {
+          try {
+            await supabaseAdmin.rpc('add_admin_balance', { p_amount: totalServiceCharge });
+            console.log(`[BillAvenue Pay] Credited ₹${totalServiceCharge} service charge to admin balance.`);
+          } catch (adminBalErr) {
+            console.warn('[BillAvenue Pay] Error updating admin balance:', adminBalErr);
+          }
+        }
 
         // 5. Log transaction into billavenue_transactions
         await supabaseAdmin

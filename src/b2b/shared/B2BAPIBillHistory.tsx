@@ -595,6 +595,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   <th className="px-6 py-4">Biller ID</th>
                   <th className="px-6 py-4">Parameters</th>
                   <th className="px-6 py-4">Amount</th>
+                  <th className="px-6 py-4 text-amber-400">Charge</th>
                   <th className="px-6 py-4">Transaction IDs</th>
                   <th className="px-6 py-4">Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -612,6 +613,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
                     ? reqBody.customerParams[0].value 
                     : null;
+                  
+                  const chargeVal = Number(
+                    (log as any).charge_deducted ?? 
+                    reqBody?.chargeDeducted ?? 
+                    reqBody?.chargePerBill ?? 
+                    reqBody?.charge ?? 
+                    (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+                    0
+                  );
                   
                   return (
                     <tr key={log.id} className="hover:bg-slate-700/20 transition-colors">
@@ -639,6 +649,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       
                       <td className="px-6 py-4">
                         <div className="font-bold text-white">₹ {Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                      </td>
+
+                      <td className="px-6 py-4">
+                        <div className="font-bold text-amber-400">
+                          {chargeVal > 0 ? `₹ ${chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹ 0.00'}
+                        </div>
                       </td>
 
                       <td className="px-6 py-4">
@@ -732,15 +748,31 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             const res = selectedLog.response_payload || {};
             const statusInfo = getStatusInfo(selectedLog.status_code, res);
             const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId;
+            const chargeVal = Number(
+              (selectedLog as any).charge_deducted ?? 
+              req?.chargeDeducted ?? 
+              req?.chargePerBill ?? 
+              req?.charge ?? 
+              (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : 0) ?? 
+              0
+            );
 
             return (
               <div className="space-y-6">
                 
                 {/* Summary Header */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
-                    <div className="text-xs text-slate-500 uppercase font-bold mb-1">Amount</div>
+                    <div className="text-xs text-slate-500 uppercase font-bold mb-1">Bill Amount</div>
                     <div className="text-lg font-bold text-white">₹ {Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
+                    <div className="text-xs text-amber-500 uppercase font-bold mb-1">Service Charge</div>
+                    <div className="text-lg font-bold text-amber-400">₹ {chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                  </div>
+                  <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
+                    <div className="text-xs text-emerald-500 uppercase font-bold mb-1">Total Amount</div>
+                    <div className="text-lg font-bold text-emerald-400">₹ {(Number(req.amount || 0) + chargeVal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                   </div>
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Status</div>
