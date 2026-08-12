@@ -125,6 +125,20 @@ export default function BBPSHistory() {
     return item.consumer_number ? [item.consumer_number] : [];
   };
 
+  const getCustomerMobileNumber = (item: any): string => {
+    if (!item) return 'N/A';
+    if (item.metadata?.customerMobile) return String(item.metadata.customerMobile);
+    if (item.metadata?.mobile) return String(item.metadata.mobile);
+    if (item.metadata?.mobileNumber) return String(item.metadata.mobileNumber);
+    if (item.metadata?.customer_mobile) return String(item.metadata.customer_mobile);
+    if (item.metadata?.customerDetails?.Mobile) return String(item.metadata.customerDetails.Mobile);
+    if (item.metadata?.consumerDetails?.Mobile) return String(item.metadata.consumerDetails.Mobile);
+    if (item.metadata?.consumerDetails?.['Mobile Number']) return String(item.metadata.consumerDetails['Mobile Number']);
+    if (item.metadata?.consumerDetails?.['Customer Mobile']) return String(item.metadata.consumerDetails['Customer Mobile']);
+    if (item.users_profiles?.mobile_number) return String(item.users_profiles.mobile_number);
+    return 'N/A';
+  };
+
   // Stats
   const [stats, setStats] = useState({
     count: 0,
@@ -535,6 +549,7 @@ export default function BBPSHistory() {
         'Category': item.service_type.toUpperCase(),
         'Operator / Biller': item.provider,
         'Consumer Number': getConsumerDetailsList(item).join(' / '),
+        'Customer Mobile': getCustomerMobileNumber(item),
         'Transaction UTR': getUtrOrTxnId(item),
         'Base Amount': Number(item.amount),
         'Service Charge': Number(item.charges),
@@ -552,6 +567,7 @@ export default function BBPSHistory() {
         'Category': '',
         'Operator / Biller': '',
         'Consumer Number': '',
+        'Customer Mobile': '',
         'Transaction UTR': '',
         'Base Amount': Number(stats.totalBase.toFixed(2)),
         'Service Charge': Number(stats.totalCharges.toFixed(2)),
@@ -563,7 +579,7 @@ export default function BBPSHistory() {
       const ws = XLSX.utils.json_to_sheet(exportData);
       ws['!cols'] = [
         { wch: 12 }, { wch: 10 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, 
-        { wch: 25 }, { wch: 18 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, 
+        { wch: 25 }, { wch: 18 }, { wch: 16 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, 
         { wch: 15 }, { wch: 15 }, { wch: 12 }
       ];
 
@@ -593,6 +609,7 @@ export default function BBPSHistory() {
         item.service_type.toUpperCase(),
         item.provider,
         getConsumerDetailsList(item).join(' / '),
+        getCustomerMobileNumber(item),
         getUtrOrTxnId(item),
         item.status.toUpperCase(),
         Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 }),
@@ -603,7 +620,7 @@ export default function BBPSHistory() {
 
       const footer = [
         [
-          'TOTAL', '', '', '', '', '', '',
+          'TOTAL', '', '', '', '', '', '', '',
           stats.totalBase.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
           stats.totalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
           stats.totalBbpsCommission.toLocaleString('en-IN', { minimumFractionDigits: 2 }),
@@ -612,7 +629,7 @@ export default function BBPSHistory() {
       ];
 
       autoTable(doc, {
-        head: [['Date / Time', 'Firm Name', 'Category', 'Operator / Biller', 'Consumer No', 'Transaction UTR', 'Status', 'Base Amount', 'Charge', 'BBPS Comm', 'Debited']],
+        head: [['Date / Time', 'Firm Name', 'Category', 'Operator / Biller', 'Consumer No', 'Customer Mobile', 'Transaction UTR', 'Status', 'Base Amount', 'Charge', 'BBPS Comm', 'Debited']],
         body: tableData,
         foot: footer,
         theme: 'grid',
@@ -904,6 +921,7 @@ export default function BBPSHistory() {
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operator / Provider</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Consumer Number</th>
+                <th className="px-6 py-4 text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Customer Mobile</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Transaction UTR</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Base Amt</th>
                 <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-rose-500">Charges</th>
@@ -916,14 +934,14 @@ export default function BBPSHistory() {
             <tbody className="divide-y divide-slate-50">
               {loading ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-16 text-center">
+                  <td colSpan={12} className="px-6 py-16 text-center">
                     <LogoLoader size="md" className="mx-auto" />
                     <p className="text-xs text-slate-400 font-bold uppercase mt-3">Fetching transaction records...</p>
                   </td>
                 </tr>
               ) : transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-6 py-16 text-center space-y-4 text-slate-400">
+                  <td colSpan={12} className="px-6 py-16 text-center space-y-4 text-slate-400">
                     <div className="w-12 h-12 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mx-auto text-slate-400">
                       <HelpCircle size={24} />
                     </div>
@@ -999,6 +1017,13 @@ export default function BBPSHistory() {
                           </div>
                         );
                       })()}
+                    </td>
+
+                    {/* Customer Mobile */}
+                    <td className="px-6 py-4 text-center">
+                      <span className="text-xs font-mono font-bold text-indigo-600 bg-indigo-50/60 px-2 py-0.5 rounded border border-indigo-100/60">
+                        {getCustomerMobileNumber(item)}
+                      </span>
                     </td>
 
                     {/* Transaction ID */}
