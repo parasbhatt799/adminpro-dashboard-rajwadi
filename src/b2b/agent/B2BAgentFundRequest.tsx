@@ -51,21 +51,41 @@ export default function B2BAgentFundRequest() {
   const fetchRequests = async (id: string) => {
     setFetchingRequests(true);
     try {
-      const [reqRes, agentRes] = await Promise.all([
-        supabase
+      let allReqs: any[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
+      let safetyCounter = 0;
+
+      while (hasMore && safetyCounter < 100) {
+        safetyCounter++;
+        const reqRes = await supabase
           .from('b2b_fund_requests')
           .select('*')
           .eq('agent_id', id)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('b2b_api_credentials')
-          .select('client_id, company_name, name')
-          .eq('id', id)
-          .maybeSingle()
-      ]);
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
 
-      if (reqRes.error) throw reqRes.error;
-      if (reqRes.data) setRequests(reqRes.data);
+        if (reqRes.error) throw reqRes.error;
+        if (reqRes.data && reqRes.data.length > 0) {
+          allReqs = allReqs.concat(reqRes.data);
+          if (reqRes.data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setRequests(allReqs);
+
+      const agentRes = await supabase
+        .from('b2b_api_credentials')
+        .select('client_id, company_name, name')
+        .eq('id', id)
+        .maybeSingle();
 
       if (agentRes.data) {
         setAgentName(agentRes.data.company_name || agentRes.data.name || agentRes.data.client_id || 'B2B Agent');

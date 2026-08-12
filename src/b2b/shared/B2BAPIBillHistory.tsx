@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Clock, CheckCircle2, XCircle, FileText, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, FileText, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
@@ -33,6 +33,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, customRange, statusFilter, amountFilter, txnIdFilter, searchTerm]);
+
   useEffect(() => {
     fetchLogs();
 
@@ -58,20 +67,42 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     try {
       setLoading(true);
       
-      let query = supabase
-        .from('b2b_api_logs')
-        .select('*')
-        .eq('endpoint', '/api/b2b/pay-bill')
-        .order('created_at', { ascending: false });
+      let allLogs: LogEntry[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
+      let safetyCounter = 0;
 
-      if (!isAdmin && agentId) {
-        query = query.eq('agent_id', agentId);
+      while (hasMore && safetyCounter < 100) {
+        safetyCounter++;
+        let query = supabase
+          .from('b2b_api_logs')
+          .select('*')
+          .eq('endpoint', '/api/b2b/pay-bill')
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (!isAdmin && agentId) {
+          query = query.eq('agent_id', agentId);
+        }
+
+        const { data, error } = await query;
+        
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allLogs = allLogs.concat(data);
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await query;
-      
-      if (error) throw error;
-      setLogs(data || []);
+      setLogs(allLogs);
     } catch (err) {
       console.error('Error fetching API logs:', err);
     } finally {
@@ -306,6 +337,14 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       totalAmount
     };
   }, [filteredLogs]);
+
+  const totalPages = useMemo(() => Math.ceil(filteredLogs.length / pageSize) || 1, [filteredLogs.length, pageSize]);
+
+  const paginatedLogs = useMemo(() => {
+    if (pageSize >= filteredLogs.length) return filteredLogs;
+    const start = (currentPage - 1) * pageSize;
+    return filteredLogs.slice(start, start + pageSize);
+  }, [filteredLogs, currentPage, pageSize]);
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -602,7 +641,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
-                {filteredLogs.map((log) => {
+                {paginatedLogs.map((log) => {
                   const reqBody = log.request_payload || {};
                   const resBody = log.response_payload || {};
                   const statusInfo = getStatusInfo(log.status_code, resBody);
@@ -732,6 +771,59 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls Footer */}
+          {filteredLogs.length > 0 && (
+            <div className="bg-slate-800/90 px-6 py-4 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3 text-xs text-slate-400">
+                <span>
+                  Showing <span className="font-semibold text-white">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                  <span className="font-semibold text-white">{Math.min(currentPage * pageSize, filteredLogs.length)}</span> of{' '}
+                  <span className="font-semibold text-white">{filteredLogs.length}</span> entries
+                </span>
+                <div className="flex items-center gap-1.5 border-l border-slate-700 pl-3">
+                  <span>Rows per page:</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      setPageSize(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value={250}>250</option>
+                    <option value={500}>500</option>
+                    <option value={filteredLogs.length || 1000}>All ({filteredLogs.length})</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                </button>
+
+                <span className="text-xs text-slate-400 font-medium px-2">
+                  Page <span className="text-white font-bold">{currentPage}</span> of <span className="text-white font-bold">{totalPages}</span>
+                </span>
+
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                >
+                  Next <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

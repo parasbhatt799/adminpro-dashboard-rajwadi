@@ -39,21 +39,43 @@ export default function B2BAdminFundRequests() {
   const fetchRequests = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from('b2b_fund_requests')
-        .select(`
-          *,
-          b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance)
-        `)
-        .order('created_at', { ascending: false });
+      let allReqs: any[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
+      let safetyCounter = 0;
 
-      if (statusFilter !== 'all') {
-        query = query.eq('status', statusFilter);
+      while (hasMore && safetyCounter < 100) {
+        safetyCounter++;
+        let query = supabase
+          .from('b2b_fund_requests')
+          .select(`
+            *,
+            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance)
+          `)
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (statusFilter !== 'all') {
+          query = query.eq('status', statusFilter);
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allReqs = allReqs.concat(data);
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setRequests(data || []);
+      setRequests(allReqs);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load fund requests');
