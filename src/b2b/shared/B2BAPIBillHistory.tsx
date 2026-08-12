@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Clock, CheckCircle2, XCircle, FileText, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
@@ -346,6 +346,184 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     return filteredLogs.slice(start, start + pageSize);
   }, [filteredLogs, currentPage, pageSize]);
 
+  const exportToExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const exportData = filteredLogs.map((log, idx) => {
+        const reqBody = log.request_payload || log.request_body || {};
+        const resBody = log.response_payload || log.response_body || {};
+        const statusInfo = getStatusInfo(log.status_code, resBody);
+        const txnId = resBody?.transaction_id || 'N/A';
+        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
+        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
+          ? reqBody.customerParams[0].value 
+          : '';
+        const chargeVal = Number(
+          (log as any).charge_deducted ?? 
+          reqBody?.chargeDeducted ?? 
+          reqBody?.chargePerBill ?? 
+          reqBody?.charge ?? 
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+          0
+        );
+
+        const row: Record<string, any> = {
+          'S.No': idx + 1,
+          'Date & Time': format(parseISO(log.created_at), 'dd MMM yyyy, hh:mm:ss a'),
+        };
+
+        if (isAdmin) {
+          row['Agent ID'] = log.agent_id || '';
+        }
+
+        row['Biller ID'] = reqBody.billerId || 'Unknown';
+        row['Parameter / Consumer No'] = primaryParam || '';
+        row['Mobile'] = reqBody.mobile || '';
+        row['Amount (₹)'] = Number(reqBody.amount || 0);
+        row['Charge (₹)'] = Number(chargeVal.toFixed(2));
+        row['API Txn ID'] = txnId;
+        row['BBPS Ref ID'] = bbpsTxnId;
+        row['Status'] = statusInfo.text;
+
+        return row;
+      });
+
+      // Total summary row
+      const summaryRow: Record<string, any> = {
+        'S.No': 'TOTAL',
+        'Date & Time': `${filteredLogs.length} Payments`,
+      };
+      if (isAdmin) summaryRow['Agent ID'] = '';
+      summaryRow['Biller ID'] = '';
+      summaryRow['Parameter / Consumer No'] = '';
+      summaryRow['Mobile'] = '';
+      summaryRow['Amount (₹)'] = Number(stats.totalAmount.toFixed(2));
+      summaryRow['Charge (₹)'] = Number(filteredLogs.reduce((acc, log) => {
+        const reqBody = log.request_payload || log.request_body || {};
+        const chg = Number(
+          (log as any).charge_deducted ?? 
+          reqBody?.chargeDeducted ?? 
+          reqBody?.chargePerBill ?? 
+          reqBody?.charge ?? 
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+          0
+        );
+        return acc + chg;
+      }, 0).toFixed(2));
+      summaryRow['API Txn ID'] = '';
+      summaryRow['BBPS Ref ID'] = '';
+      summaryRow['Status'] = '';
+
+      exportData.push(summaryRow);
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws['!cols'] = [
+        { wch: 8 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 12 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'API Bill Payments');
+      XLSX.writeFile(wb, `B2B_API_Bill_Payments_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (err) {
+      console.error('Excel Export Error:', err);
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = (autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule) as any;
+
+      const doc = new JsPDFClass({
+        orientation: 'l',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      let totalCharges = 0;
+      const tableData = filteredLogs.map((log, idx) => {
+        const reqBody = log.request_payload || log.request_body || {};
+        const resBody = log.response_payload || log.response_body || {};
+        const statusInfo = getStatusInfo(log.status_code, resBody);
+        const txnId = resBody?.transaction_id || 'N/A';
+        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || '';
+        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
+          ? reqBody.customerParams[0].value 
+          : '';
+        const chargeVal = Number(
+          (log as any).charge_deducted ?? 
+          reqBody?.chargeDeducted ?? 
+          reqBody?.chargePerBill ?? 
+          reqBody?.charge ?? 
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+          0
+        );
+        totalCharges += chargeVal;
+
+        const row = [
+          (idx + 1).toString(),
+          format(parseISO(log.created_at), 'dd/MM/yyyy HH:mm'),
+        ];
+
+        if (isAdmin) {
+          row.push((log.agent_id || '').substring(0, 12));
+        }
+
+        row.push(
+          reqBody.billerId || 'N/A',
+          primaryParam || reqBody.mobile || 'N/A',
+          `₹ ${Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          `₹ ${chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          txnId !== 'N/A' ? txnId : bbpsTxnId,
+          statusInfo.text
+        );
+
+        return row;
+      });
+
+      const headers = ['#', 'Date / Time'];
+      if (isAdmin) headers.push('Agent ID');
+      headers.push('Biller ID', 'Param / Mobile', 'Amount', 'Charge', 'Txn ID', 'Status');
+
+      const footerRow = [
+        'TOTAL',
+        `${filteredLogs.length} Entries`,
+      ];
+      if (isAdmin) footerRow.push('');
+      footerRow.push(
+        '',
+        '',
+        `₹ ${stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        `₹ ${totalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        '',
+        ''
+      );
+
+      doc.setFontSize(14);
+      doc.text('B2B API Bill Payments History Report', 14, 15);
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, 14, 21);
+
+      autoTable(doc, {
+        head: [headers],
+        body: tableData,
+        foot: [footerRow],
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
+        footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 8 },
+        bodyStyles: { fontSize: 8 },
+        margin: { top: 26 }
+      });
+
+      doc.save(`B2B_API_Bill_Payments_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (err) {
+      console.error('PDF Export Error:', err);
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Page Title Header */}
@@ -356,6 +534,29 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             API Bill Payments History
           </h2>
           <p className="text-slate-400">View detailed history of all bill payments processed via the B2B API.</p>
+        </div>
+
+        {/* Excel and PDF Export Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportToExcel}
+            disabled={filteredLogs.length === 0}
+            className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+            title="Export to Excel"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={exportToPDF}
+            disabled={filteredLogs.length === 0}
+            className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+            title="Export to PDF"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Export PDF</span>
+          </button>
         </div>
       </div>
 
