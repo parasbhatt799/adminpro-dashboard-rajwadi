@@ -4,6 +4,7 @@ import { Menu, User, Clock } from 'lucide-react';
 import B2BAdminSidebar from './B2BAdminSidebar';
 import B2BPWAInstallButton from '../components/B2BPWAInstallButton';
 import { format } from 'date-fns';
+import { supabase } from '../../lib/supabase';
 
 const LiveClock = ({ colorClass = "text-slate-500" }: { colorClass?: string }) => {
   const [now, setNow] = useState(new Date());
@@ -30,6 +31,7 @@ export default function B2BAdminLayout() {
   const location = useLocation();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [adminId, setAdminId] = useState('');
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     const id = localStorage.getItem('b2bAdminId');
@@ -39,6 +41,40 @@ export default function B2BAdminLayout() {
     }
     setAdminId(id);
   }, [navigate]);
+
+  useEffect(() => {
+    fetchPendingCount();
+
+    const channel = supabase
+      .channel('b2b_layout_fund_requests')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'b2b_fund_requests' },
+        () => {
+          fetchPendingCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchPendingCount = async () => {
+    try {
+      const { count, error } = await supabase
+        .from('b2b_fund_requests')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      
+      if (!error && count !== null) {
+        setPendingCount(count);
+      }
+    } catch (err) {
+      console.error('Error fetching pending fund requests count:', err);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('b2bAdminId');
@@ -50,6 +86,7 @@ export default function B2BAdminLayout() {
       <B2BAdminSidebar
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
+        pendingFundRequestsCount={pendingCount}
       />
 
       <main className="flex-1 flex flex-col h-screen overflow-hidden">

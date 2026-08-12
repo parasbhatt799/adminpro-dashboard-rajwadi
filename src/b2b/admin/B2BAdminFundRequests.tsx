@@ -19,6 +19,21 @@ export default function B2BAdminFundRequests() {
 
   useEffect(() => {
     fetchRequests();
+
+    const channel = supabase
+      .channel('b2b_admin_fund_requests_channel')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'b2b_fund_requests' },
+        () => {
+          fetchRequests();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [statusFilter]);
 
   const fetchRequests = async () => {

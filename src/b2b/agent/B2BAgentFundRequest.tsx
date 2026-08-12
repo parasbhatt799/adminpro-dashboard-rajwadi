@@ -24,6 +24,21 @@ export default function B2BAgentFundRequest() {
     if (id) {
       setAgentId(id);
       fetchRequests(id);
+
+      const channel = supabase
+        .channel(`b2b_agent_fund_requests_${id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'b2b_fund_requests', filter: `agent_id=eq.${id}` },
+          () => {
+            fetchRequests(id);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, []);
 
