@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Wallet, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Calendar, Filter, Search, Hash, X, RefreshCw } from 'lucide-react';
+import { Wallet, Upload, Clock, CheckCircle2, XCircle, AlertCircle, Calendar, Filter, Search, Hash, X, RefreshCw, FileSpreadsheet, FileText, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { sendAdminPushNotification } from '../../lib/notifications';
@@ -205,6 +205,116 @@ export default function B2BAgentFundRequest() {
       totalAmount
     };
   }, [filteredRequests]);
+
+  // Pagination States
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+
+  // Reset page to 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [dateFilter, customRange, statusFilter, searchTerm]);
+
+  const totalPages = useMemo(() => Math.ceil(filteredRequests.length / pageSize) || 1, [filteredRequests.length, pageSize]);
+
+  const paginatedRequests = useMemo(() => {
+    if (pageSize >= filteredRequests.length) return filteredRequests;
+    const start = (currentPage - 1) * pageSize;
+    return filteredRequests.slice(start, start + pageSize);
+  }, [filteredRequests, currentPage, pageSize]);
+
+  const exportToExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const exportData = filteredRequests.map((req, idx) => ({
+        'S.No': idx + 1,
+        'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
+        'Amount (₹)': Number(req.amount || 0),
+        'UTR / Reference Number': req.utr_number || '',
+        'Status': req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending',
+        'Proof Screenshot': req.proof_url || ''
+      }));
+
+      // Append Total Summary Row
+      exportData.push({
+        'S.No': 'TOTAL',
+        'Date & Time': `${filteredRequests.length} Requests`,
+        'Amount (₹)': Number(stats.totalAmount.toFixed(2)),
+        'UTR / Reference Number': '',
+        'Status': '',
+        'Proof Screenshot': ''
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws['!cols'] = [
+        { wch: 8 }, { wch: 22 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Fund Requests');
+      XLSX.writeFile(wb, `B2B_Fund_Requests_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success('Excel exported successfully!');
+    } catch (err) {
+      console.error('Excel Export Error:', err);
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = (autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule) as any;
+
+      const doc = new JsPDFClass({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const tableData = filteredRequests.map((req, idx) => [
+        (idx + 1).toString(),
+        format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
+        `₹ ${Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+        req.utr_number || 'N/A',
+        req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending'
+      ]);
+
+      const footer = [
+        [
+          'TOTAL',
+          `${filteredRequests.length} Requests`,
+          `₹ ${stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          '',
+          ''
+        ]
+      ];
+
+      doc.setFontSize(14);
+      doc.text('B2B Fund Request History Report', 14, 15);
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy, hh:mm a')} | Agent: ${agentName}`, 14, 21);
+
+      autoTable(doc, {
+        head: [['#', 'Date & Time', 'Amount', 'UTR / Ref Number', 'Status']],
+        body: tableData,
+        foot: footer,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
+        footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 9 },
+        margin: { top: 26 }
+      });
+
+      doc.save(`B2B_Fund_Requests_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('PDF exported successfully!');
+    } catch (err) {
+      console.error('PDF Export Error:', err);
+      toast.error('Failed to export PDF');
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -590,14 +700,39 @@ export default function B2BAgentFundRequest() {
         {/* Request History */}
         <div className="lg:col-span-2">
           <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
-            <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                <Clock className="h-5 w-5 text-indigo-400" />
-                Request History
-              </h3>
-              <span className="text-xs font-semibold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700">
-                Showing {filteredRequests.length} of {requests.length}
-              </span>
+            <div className="p-6 border-b border-slate-700 bg-slate-800/50 flex flex-wrap justify-between items-center gap-4">
+              <div className="flex items-center gap-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-indigo-400" />
+                  Request History
+                </h3>
+                <span className="text-xs font-semibold text-slate-400 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700">
+                  Showing {filteredRequests.length} of {requests.length}
+                </span>
+              </div>
+
+              {/* Excel and PDF Export Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportToExcel}
+                  disabled={filteredRequests.length === 0}
+                  className="flex items-center gap-1.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  title="Export to Excel"
+                >
+                  <FileSpreadsheet className="h-4 w-4" />
+                  <span>Export Excel</span>
+                </button>
+
+                <button
+                  onClick={exportToPDF}
+                  disabled={filteredRequests.length === 0}
+                  className="flex items-center gap-1.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                  title="Export to PDF"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Export PDF</span>
+                </button>
+              </div>
             </div>
             
             <div className="overflow-x-auto">
@@ -625,7 +760,7 @@ export default function B2BAgentFundRequest() {
                       </td>
                     </tr>
                   ) : (
-                    filteredRequests.map((req) => (
+                    paginatedRequests.map((req) => (
                       <tr key={req.id} className="hover:bg-slate-700/20 transition-colors">
                         <td className="px-6 py-4 text-slate-300">
                           {format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a')}
@@ -655,6 +790,58 @@ export default function B2BAgentFundRequest() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination Footer */}
+            {filteredRequests.length > 0 && (
+              <div className="bg-slate-800/90 px-6 py-4 border-t border-slate-700/60 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <span>
+                    Showing <span className="font-semibold text-white">{(currentPage - 1) * pageSize + 1}</span> to{' '}
+                    <span className="font-semibold text-white">{Math.min(currentPage * pageSize, filteredRequests.length)}</span> of{' '}
+                    <span className="font-semibold text-white">{filteredRequests.length}</span> entries
+                  </span>
+                  <div className="flex items-center gap-1.5 border-l border-slate-700 pl-3">
+                    <span>Per page:</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value={250}>250</option>
+                      <option value={filteredRequests.length || 1000}>All ({filteredRequests.length})</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                  </button>
+
+                  <span className="text-xs text-slate-400 font-medium px-2">
+                    Page <span className="text-white font-bold">{currentPage}</span> of <span className="text-white font-bold">{totalPages}</span>
+                  </span>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage >= totalPages}
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    Next <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

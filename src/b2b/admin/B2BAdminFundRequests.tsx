@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle, Eye } from 'lucide-react';
+import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle, Eye, FileSpreadsheet, FileText } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
 import { format } from 'date-fns';
@@ -211,6 +211,113 @@ export default function B2BAdminFundRequests() {
     };
   }, [filteredRequests]);
 
+  const exportToExcel = async () => {
+    try {
+      const XLSX = await import('xlsx');
+      const exportData = filteredRequests.map((req, idx) => {
+        const cred = req.b2b_api_credentials;
+        const agentName = [cred?.first_name, cred?.last_name].filter(Boolean).join(' ') || cred?.b2b_login_id || 'N/A';
+        return {
+          'S.No': idx + 1,
+          'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
+          'Agent Name / ID': agentName,
+          'Mobile': cred?.mobile || '',
+          'Amount (₹)': Number(req.amount || 0),
+          'UTR / Reference Number': req.utr_number || '',
+          'Status': req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending',
+          'Proof Screenshot': req.proof_url || ''
+        };
+      });
+
+      // Summary Row
+      exportData.push({
+        'S.No': 'TOTAL',
+        'Date & Time': `${filteredRequests.length} Requests`,
+        'Agent Name / ID': '',
+        'Mobile': '',
+        'Amount (₹)': Number(stats.totalAmount.toFixed(2)),
+        'UTR / Reference Number': '',
+        'Status': '',
+        'Proof Screenshot': ''
+      });
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      ws['!cols'] = [
+        { wch: 8 }, { wch: 22 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Fund Requests Admin');
+      XLSX.writeFile(wb, `Admin_B2B_Fund_Requests_${new Date().toISOString().split('T')[0]}.xlsx`);
+      toast.success('Excel exported successfully!');
+    } catch (err) {
+      console.error('Excel Export Error:', err);
+      toast.error('Failed to export Excel');
+    }
+  };
+
+  const exportToPDF = async () => {
+    try {
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = (autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule) as any;
+
+      const doc = new JsPDFClass({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const tableData = filteredRequests.map((req, idx) => {
+        const cred = req.b2b_api_credentials;
+        const agentName = [cred?.first_name, cred?.last_name].filter(Boolean).join(' ') || cred?.b2b_login_id || 'N/A';
+        return [
+          (idx + 1).toString(),
+          format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
+          agentName,
+          `₹ ${Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          req.utr_number || 'N/A',
+          req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending'
+        ];
+      });
+
+      const footer = [
+        [
+          'TOTAL',
+          `${filteredRequests.length} Requests`,
+          '',
+          `₹ ${stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          '',
+          ''
+        ]
+      ];
+
+      doc.setFontSize(14);
+      doc.text('B2B Admin Fund Load Requests Report', 14, 15);
+      doc.setFontSize(9);
+      doc.setTextColor(100);
+      doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, 14, 21);
+
+      autoTable(doc, {
+        head: [['#', 'Date & Time', 'Agent', 'Amount', 'UTR Number', 'Status']],
+        body: tableData,
+        foot: footer,
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold' },
+        footStyles: { fillColor: [241, 245, 249], textColor: [15, 23, 42], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 9 },
+        margin: { top: 26 }
+      });
+
+      doc.save(`Admin_B2B_Fund_Requests_${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('PDF exported successfully!');
+    } catch (err) {
+      console.error('PDF Export Error:', err);
+      toast.error('Failed to export PDF');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -221,6 +328,29 @@ export default function B2BAdminFundRequests() {
             Fund Load Requests
           </h2>
           <p className="text-slate-600">Approve or reject B2B API agent top-ups.</p>
+        </div>
+
+        {/* Excel and PDF Export Buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={exportToExcel}
+            disabled={filteredRequests.length === 0}
+            className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            title="Export to Excel"
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={exportToPDF}
+            disabled={filteredRequests.length === 0}
+            className="flex items-center gap-1.5 bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl text-xs font-semibold shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            title="Export to PDF"
+          >
+            <FileText className="h-4 w-4" />
+            <span>Export PDF</span>
+          </button>
         </div>
       </div>
 
