@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle } from 'lucide-react';
+import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle, Eye } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
+import Modal from '../../components/Modal';
 import { format } from 'date-fns';
 
 export default function B2BAdminFundRequests() {
@@ -13,6 +14,8 @@ export default function B2BAdminFundRequests() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
+  const [selectedProofReq, setSelectedProofReq] = useState<any | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
     fetchRequests();
@@ -379,9 +382,12 @@ export default function B2BAdminFundRequests() {
                       </div>
                       {req.proof_url && (
                         <div className="mt-1">
-                          <a href={req.proof_url} target="_blank" rel="noreferrer" className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-xs font-medium">
-                            <ExternalLink className="h-3 w-3" /> View Proof
-                          </a>
+                          <button
+                            onClick={() => setSelectedProofReq(req)}
+                            className="text-indigo-600 hover:text-indigo-800 flex items-center gap-1 text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition-colors cursor-pointer"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View Proof
+                          </button>
                         </div>
                       )}
                     </td>
@@ -402,13 +408,13 @@ export default function B2BAdminFundRequests() {
                         <>
                           <button
                             onClick={() => handleAction(req.id, req.agent_id, req.amount, 'approve')}
-                            className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                            className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => handleAction(req.id, req.agent_id, req.amount, 'reject')}
-                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors"
+                            className="bg-red-100 text-red-700 hover:bg-red-200 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer"
                           >
                             Reject
                           </button>
@@ -422,6 +428,124 @@ export default function B2BAdminFundRequests() {
           )}
         </div>
       </div>
+
+      {/* Proof & Fund Request Detail Modal */}
+      {selectedProofReq && (
+        <Modal
+          isOpen={!!selectedProofReq}
+          onClose={() => setSelectedProofReq(null)}
+          title="Payment Proof & Request Details"
+          size="2xl"
+        >
+          <div className="space-y-6">
+            {/* Details Bar */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block">Agent Name</span>
+                <span className="font-bold text-slate-900 text-sm block mt-0.5">
+                  {selectedProofReq.b2b_api_credentials?.first_name} {selectedProofReq.b2b_api_credentials?.last_name}
+                </span>
+                <span className="block text-[11px] text-slate-500 font-mono mt-0.5">{selectedProofReq.b2b_api_credentials?.b2b_login_id}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block">Requested Amount</span>
+                <span className="font-bold text-indigo-600 text-base block mt-0.5">₹{Number(selectedProofReq.amount).toLocaleString('en-IN')}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block">UTR Number</span>
+                <span className="font-bold font-mono text-slate-800 text-xs bg-white px-2 py-1 rounded border border-slate-200 inline-block mt-1">
+                  {selectedProofReq.utr_number}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block">Status</span>
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-full inline-block mt-1 ${
+                  selectedProofReq.status === 'approved' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' :
+                  selectedProofReq.status === 'rejected' ? 'bg-red-100 text-red-700 border border-red-300' :
+                  'bg-amber-100 text-amber-700 border border-amber-300'
+                }`}>
+                  {selectedProofReq.status.toUpperCase()}
+                </span>
+              </div>
+            </div>
+
+            {/* Proof Preview Image */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Payment Screenshot / Receipt</span>
+                {selectedProofReq.proof_url && (
+                  <a
+                    href={selectedProofReq.proof_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-indigo-600 hover:text-indigo-800 text-xs font-medium flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Open Full Image
+                  </a>
+                )}
+              </div>
+              
+              <div className="bg-slate-900 rounded-2xl p-3 border border-slate-700 flex items-center justify-center min-h-[250px] max-h-[450px] overflow-hidden">
+                {selectedProofReq.proof_url ? (
+                  <img
+                    src={selectedProofReq.proof_url}
+                    alt="Payment Proof"
+                    className="max-h-[420px] w-auto object-contain rounded-xl shadow-lg"
+                  />
+                ) : (
+                  <div className="text-slate-400 text-sm py-12">No proof image uploaded for this request</div>
+                )}
+              </div>
+            </div>
+
+            {/* Bottom Actions inside Modal */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+              <div className="text-xs text-slate-500 font-medium">
+                Requested On: {format(new Date(selectedProofReq.created_at), 'dd MMM yyyy, hh:mm a')}
+              </div>
+
+              <div className="flex items-center gap-3">
+                {selectedProofReq.status === 'pending' ? (
+                  <>
+                    <button
+                      disabled={actionLoading}
+                      onClick={async () => {
+                        setActionLoading(true);
+                        await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'reject');
+                        setActionLoading(false);
+                        setSelectedProofReq(null);
+                      }}
+                      className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                    >
+                      <X className="w-4 h-4" /> Reject Request
+                    </button>
+
+                    <button
+                      disabled={actionLoading}
+                      onClick={async () => {
+                        setActionLoading(true);
+                        await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
+                        setActionLoading(false);
+                        setSelectedProofReq(null);
+                      }}
+                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md shadow-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                    >
+                      <Check className="w-4 h-4" /> Approve & Credit Balance
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setSelectedProofReq(null)}
+                    className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all cursor-pointer"
+                  >
+                    Close
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
