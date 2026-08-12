@@ -20,15 +20,36 @@ export default function B2BAdminDashboard() {
     
     // Fetch total earnings
     try {
-      const [{ data: logsData }, { data: bbpsData }] = await Promise.all([
-        supabase.from('b2b_api_logs').select('charge_deducted').eq('status_code', 200),
-        supabase.from('bbps_submissions').select('charges').eq('status', 'approved')
-      ]);
+      const { data: logsData } = await supabase
+        .from('b2b_api_logs')
+        .select('charge_deducted, request_payload, response_payload, status_code')
+        .eq('endpoint', '/api/b2b/pay-bill');
       
-      const apiSum = (logsData || []).reduce((acc, log) => acc + (parseFloat((log as any).charge_deducted || '0')), 0);
-      const bbpsSum = (bbpsData || []).reduce((acc, item) => acc + (parseFloat((item as any).charges || '0')), 0);
+      const apiSum = (logsData || []).reduce((acc, log) => {
+        const req = log.request_payload || {};
+        const res = log.response_payload || {};
+        const isSuccess = log.status_code === 200 && (
+          res?.payment_status === 'success' || 
+          res?.finalStatus === 'success' || 
+          res?.responseCode === '000' || 
+          res?.billPayResponse?.responseCode === '000' ||
+          res?.ExtBillPayResponse?.responseCode === '000'
+        );
+        
+        if (!isSuccess) return acc;
+        
+        const chargeVal = Number(
+          (log as any).charge_deducted ?? 
+          req?.chargeDeducted ?? 
+          req?.chargePerBill ?? 
+          req?.charge ?? 
+          (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : 0) ?? 
+          10
+        );
+        return acc + chargeVal;
+      }, 0);
       
-      setTotalEarnings(apiSum + bbpsSum);
+      setTotalEarnings(apiSum);
 
       const { count } = await supabase
         .from('b2b_api_credentials')
