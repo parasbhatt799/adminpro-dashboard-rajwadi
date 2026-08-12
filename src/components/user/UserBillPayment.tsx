@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
+import { playMogoSound } from '../../lib/audio';
 import {
   Receipt,
   Search,
@@ -961,6 +962,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
 
       if (data.status === 'SUCCESS') {
         toast.success("Bill Paid successfully!");
+        playMogoSound();
         markBillAsPaid(userId, consumerNumber);
         setWalletBalance(data.new_balance);
 
@@ -1332,8 +1334,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                         )}
 
                         {billDetails && (
-                          <div className="bg-slate-50 border border-slate-200 rounded-[24px] p-6 space-y-6">
-                            <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
+                          <div className="bg-slate-50 border border-slate-200/80 rounded-[24px] p-6 space-y-5 shadow-xs">
+                            <div className="border-b border-slate-200/80 pb-4 flex justify-between items-start">
                               <div>
                                 <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase tracking-wider">Verified Info</span>
                                 <h4 className="text-sm font-black text-slate-800 mt-2">{billDetails.customerName}</h4>
@@ -1349,142 +1351,128 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                               </button>
                             </div>
 
-                            {billDetails.fetchSupported ? (
-                              <div className="space-y-4">
+                            {/* Detailed Bill Rows */}
+                            <div className="space-y-3">
+                              {/* 1. Biller Name */}
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Biller Name</span>
+                                <span className="font-black text-slate-800 text-right">{selectedBiller ? selectedBiller.biller_name : 'N/A'}</span>
+                              </div>
+
+                              {/* 2. Customer Name */}
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Customer Name</span>
+                                <span className="font-black text-slate-800 text-right">{billDetails.customerName}</span>
+                              </div>
+
+                              {/* 3. Customer Number */}
+                              {Object.keys(formInputs).length > 0 && (
                                 <div className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Amount</span>
-                                  <span className="text-lg font-semibold text-slate-600">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">
+                                    {inputParams[0]?.paramName || 'Customer Number'}
+                                  </span>
+                                  <span className="font-black text-slate-800 text-right">{Object.values(formInputs)[0] || 'N/A'}</span>
                                 </div>
+                              )}
 
-                                <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
-                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                                  <input
-                                    type="number"
-                                    required
-                                    value={manualAmount}
-                                    onChange={(e) => setManualAmount(e.target.value)}
-                                    onWheel={(e) => e.currentTarget.blur()}
-                                    placeholder="Enter exact amount to pay"
-                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                  />
+                              {/* 4. Bill Date */}
+                              {billDetails.billDate && billDetails.billDate !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Bill Date</span>
+                                  <span className="font-bold text-slate-700 text-right">{billDetails.billDate}</span>
                                 </div>
+                              )}
 
-                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                  Number(manualAmount) > bbpsMaxLimit ? (
-                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
-                                      <AlertTriangle size={16} className="shrink-0" />
-                                      <span>Amount exceeds limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
-                                    </div>
-                                  ) : Number(manualAmount) >= 50000 ? (
-                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
-                                      <AlertTriangle size={16} className="shrink-0" />
-                                      <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Bill Base Amount</span>
-                                        <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Platform Charge</span>
-                                        <span className="font-semibold text-indigo-500">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                        <span>Total Debited</span>
-                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
+                              {/* 5. Bill Period */}
+                              {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Bill Period</span>
+                                  <span className="font-bold text-slate-700 text-right">{billDetails.billPeriod}</span>
+                                </div>
+                              )}
 
-                                {billDetails.dueDate && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Date</span>
-                                    <span className="font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
+                              {/* 6. Bill Number */}
+                              {billDetails.billNumber && billDetails.billNumber !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Bill Number</span>
+                                  <span className="font-bold text-slate-700 text-right">{billDetails.billNumber}</span>
+                                </div>
+                              )}
+
+                              {/* 7. Due Date */}
+                              {billDetails.dueDate && billDetails.dueDate !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Due Date</span>
+                                  <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-xs">{billDetails.dueDate}</span>
+                                </div>
+                              )}
+
+                              {/* Additional Info items */}
+                              {billDetails.additionalInfo && billDetails.additionalInfo
+                                .filter((info) => info.infoName.toLowerCase() !== "maximum permissible amount")
+                                .map((info) => (
+                                  <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-2.5">
+                                    <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">{info.infoName}</span>
+                                    <span className="font-bold text-slate-700 text-right">
+                                      {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
+                                        ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                        : info.infoValue}
+                                    </span>
                                   </div>
-                                )}
-                                {billDetails.billNumber && billDetails.billNumber !== "NA" && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Number</span>
-                                    <span className="font-semibold text-slate-500">{billDetails.billNumber}</span>
-                                  </div>
-                                )}
-                                {billDetails.billDate && billDetails.billDate !== "NA" && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Date</span>
-                                    <span className="font-semibold text-slate-500">{billDetails.billDate}</span>
-                                  </div>
-                                )}
-                                {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Period</span>
-                                    <span className="font-semibold text-slate-500">{billDetails.billPeriod}</span>
-                                  </div>
-                                )}
-                                {billDetails.additionalInfo && billDetails.additionalInfo
-                                  .filter((info) => info.infoName.toLowerCase() !== "maximum permissible amount")
-                                  .map((info) => (
-                                    <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
-                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">{info.infoName}</span>
-                                      <span className="font-semibold text-slate-500">
-                                        {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
-                                          ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                          : info.infoValue}
-                                      </span>
-                                    </div>
-                                  ))}
+                                ))}
+                            </div>
+
+                            {/* Financial Totals */}
+                            <div className="space-y-3 pt-2 border-t border-slate-200/60">
+                              <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                <input
+                                  type="number"
+                                  required
+                                  value={manualAmount}
+                                  onChange={(e) => setManualAmount(e.target.value)}
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  placeholder="Enter exact amount to pay"
+                                  className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors shadow-2xs"
+                                />
                               </div>
-                            ) : (
-                              <div className="space-y-4">
-                                <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
-                                  <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                                  <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
-                                </div>
-                                <div className="space-y-2">
-                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                                  <input
-                                    type="number"
-                                    required
-                                    value={manualAmount}
-                                    onChange={(e) => setManualAmount(e.target.value)}
-                                    onWheel={(e) => e.currentTarget.blur()}
-                                    placeholder="Enter exact amount to pay"
-                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                  />
-                                </div>
 
-                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                  Number(manualAmount) > bbpsMaxLimit ? (
-                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
-                                      <AlertTriangle size={16} className="shrink-0" />
-                                      <span>Amount exceeds limit of ₹{bbpsMaxLimit.toLocaleString()}</span>
-                                    </div>
-                                  ) : Number(manualAmount) >= 50000 ? (
-                                    <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
-                                      <AlertTriangle size={16} className="shrink-0" />
-                                      <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
-                                    </div>
-                                  ) : (
-                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Bill Base Amount</span>
-                                        <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Platform Charge</span>
-                                        <span className="font-semibold text-indigo-500">+ ₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                        <span>Total Debited</span>
-                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                    </div>
-                                  )
-                                )}
-                              </div>
-                            )}
+                              {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                <div className="space-y-2.5 pt-2">
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">BILL AMOUNT</span>
+                                    <span className="font-black text-slate-800 text-sm">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
 
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">CUSTOMER CONVENIENCE FEES</span>
+                                    <span className="font-bold text-indigo-600 text-xs">₹{calculateBillCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+
+                                  <div className="bg-indigo-50/70 border border-indigo-100/80 rounded-2xl p-4 flex justify-between items-center shadow-2xs">
+                                    <span className="text-xs font-black text-indigo-900 uppercase tracking-wider">TOTAL AMOUNT</span>
+                                    <span className="text-lg font-black text-emerald-600">₹{(Number(manualAmount) + calculateBillCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Payment Mode Selection Dropdown */}
+                            <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
+                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">PAYMENT MODE</label>
+                              <select
+                                defaultValue="UPI"
+                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs cursor-pointer"
+                              >
+                                <option value="UPI">UPI</option>
+                                <option value="WALLET">Wallet Balance</option>
+                                <option value="NETBANKING">Net Banking</option>
+                                <option value="DEBIT_CARD">Debit Card</option>
+                                <option value="CREDIT_CARD">Credit Card</option>
+                              </select>
+                            </div>
+
+                            {/* Pay Securely Now Button */}
                             <div className="pt-2">
                               <button
                                 type="button"
@@ -1503,7 +1491,10 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                                 ) : lockoutSeconds > 0 ? (
                                   `Locked (${Math.floor(lockoutSeconds / 60)}m ${lockoutSeconds % 60}s)`
                                 ) : (
-                                  "Pay Now"
+                                  <>
+                                    <ShieldCheck size={18} />
+                                    PAY SECURELY NOW
+                                  </>
                                 )}
                               </button>
                             </div>

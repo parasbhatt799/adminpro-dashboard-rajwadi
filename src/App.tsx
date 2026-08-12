@@ -841,7 +841,7 @@ export default function App() {
         const isEnabled = settings[`is_${type}_sound_enabled`] ?? true;
         const defaultSounds: Record<string, string> = {
           qr: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-          bill: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+          bill: '/bharat_connect_mogo.wav',
           kyc: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
           payout: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
         };
@@ -971,7 +971,7 @@ export default function App() {
         const isEnabled = settings[`is_${type}_sound_enabled`] ?? true;
         const defaultSounds: Record<string, string> = {
           qr: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
-          bill: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
+          bill: '/bharat_connect_mogo.wav',
           kyc: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3',
           payout: 'https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3'
         };

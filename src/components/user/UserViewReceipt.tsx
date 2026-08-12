@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { LogoLoader } from '../shared/LoadingSpinner';
 import { useToast } from '../../context/ToastContext';
+import { playMogoSound } from '../../lib/audio';
 
 const getUtrOrTxnId = (item: any): string => {
   if (!item) return 'N/A';
@@ -23,6 +24,10 @@ const getUtrOrTxnId = (item: any): string => {
   if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
   return 'N/A';
 };
+
+interface UserViewReceiptProps {
+  userId: string;
+}
 
 export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
   const [searchParams] = useSearchParams();
@@ -129,6 +134,7 @@ export default function UserViewReceipt({ userId }: UserViewReceiptProps) {
           approvalNumber: approvalNumber,
           consumerDetails: subData.metadata?.customerParams || {}
         });
+        playMogoSound();
       }
     } catch (err: any) {
       toast.error('Error fetching receipt: ' + err.message);

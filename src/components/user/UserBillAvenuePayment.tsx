@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase, upsertBillReminder, markBillAsPaid } from '../../lib/supabase';
+import { playMogoSound } from '../../lib/audio';
 import {
   Receipt,
   Search,
@@ -1376,6 +1377,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
 
       if (data.status === 'SUCCESS') {
         toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
+        playMogoSound();
         const consumerNumber = Object.values(formInputs).find(v => v.trim()) || "BBPS Account";
         markBillAsPaid(userId, consumerNumber);
         const cleanTxnRefId = data.data?.txnRefId && data.data.txnRefId.startsWith("CC01")
@@ -2029,11 +2031,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                         )}
 
                         {(billDetails || selectedCategory === 'Mobile Prepaid') && (
-                          <div className="bg-slate-50 border border-slate-200 rounded-[24px] p-6 space-y-6">
-                            <div className="border-b border-slate-200 pb-4 flex justify-between items-start">
+                          <div className="bg-slate-50 border border-slate-200/80 rounded-[24px] p-6 space-y-5 shadow-xs">
+                            <div className="border-b border-slate-200/80 pb-4 flex justify-between items-start">
                               <div>
                                 <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded font-black uppercase tracking-wider">Verified Info</span>
-                                <h4 className="text-sm font-black text-slate-800 mt-2">{billDetails ? billDetails.customerName : 'Prepaid Recharge'}</h4>
+                                <h4 className="text-sm font-black text-slate-800 mt-2">{billDetails ? billDetails.customerName : (selectedPlan ? selectedPlan.name : 'Prepaid Recharge')}</h4>
                               </div>
                               {billDetails && (
                                 <button
@@ -2048,172 +2050,200 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                               )}
                             </div>
 
-                            {billDetails ? (
-                              billDetails.fetchSupported ? (
-                                <div className="space-y-4">
-                                  <div className="flex justify-between items-center text-xs">
-                                    <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Amount</span>
-                                    <span className="text-lg font-semibold text-slate-600">₹{billDetails.billAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </div>
+                            {/* Detailed Bill Rows */}
+                            <div className="space-y-3">
+                              {/* 1. Biller Name */}
+                              <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Biller Name</span>
+                                <span className="font-black text-slate-800 text-right">{selectedBiller ? selectedBiller.billerName : (billDetails?.rawBillerResponse?.billerName || 'N/A')}</span>
+                              </div>
 
-                                  <div className="space-y-2 border-t border-slate-100 pt-3 mt-3">
-                                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                                    <input
-                                      type="number"
-                                      required
-                                      value={manualAmount}
-                                      onChange={(e) => setManualAmount(e.target.value)}
-                                      onWheel={(e) => e.currentTarget.blur()}
-                                      placeholder="Enter exact amount to pay"
-                                      className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                    />
-                                  </div>
-
-                                  {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                    Number(manualAmount) >= 50000 ? (
-                                      <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4 flex items-center gap-2 text-rose-600 text-xs font-bold animate-in fade-in duration-200">
-                                        <AlertTriangle size={16} className="shrink-0" />
-                                        <span>Amount must be less than ₹50,000 per transaction. Please split your payment.</span>
-                                      </div>
-                                    ) : (
-                                      <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                          <span>Bill Base Amount</span>
-                                          <span className="font-semibold text-slate-600">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                          <span>Platform Charge</span>
-                                          <span className="font-semibold text-indigo-500">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                        </div>
-                                        <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                          <span>Total Debited</span>
-                                          <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                        </div>
-                                      </div>
-                                    )
-                                  )}
-
-                                  {billDetails.dueDate && billDetails.dueDate !== "NA" && (
-                                    <div className="flex justify-between items-center text-xs">
-                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Due Date</span>
-                                      <span className="font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded">{billDetails.dueDate}</span>
-                                    </div>
-                                  )}
-                                  {billDetails.billNumber && billDetails.billNumber !== "NA" && (
-                                    <div className="flex justify-between items-center text-xs">
-                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Number</span>
-                                      <span className="font-semibold text-slate-500">{billDetails.billNumber}</span>
-                                    </div>
-                                  )}
-                                  {billDetails.billDate && billDetails.billDate !== "NA" && (
-                                    <div className="flex justify-between items-center text-xs">
-                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Date</span>
-                                      <span className="font-semibold text-slate-500">{billDetails.billDate}</span>
-                                    </div>
-                                  )}
-                                  {billDetails.billPeriod && billDetails.billPeriod !== "NA" && (
-                                    <div className="flex justify-between items-center text-xs">
-                                      <span className="text-slate-700 font-extrabold uppercase tracking-wider">Bill Period</span>
-                                      <span className="font-semibold text-slate-500">{billDetails.billPeriod}</span>
-                                    </div>
-                                  )}
-                                  {billDetails.additionalInfo && billDetails.additionalInfo
-                                    .filter((info: any) => info.infoName.toLowerCase() !== "maximum permissible amount")
-                                    .map((info: any) => (
-                                      <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-3 mt-3">
-                                        <span className="text-slate-700 font-extrabold uppercase tracking-wider">{info.infoName}</span>
-                                        <span className="font-semibold text-slate-500">
-                                          {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
-                                            ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
-                                            : info.infoValue}
-                                        </span>
-                                      </div>
-                                    ))}
-
+                              {/* 2. Customer Name */}
+                              {billDetails?.customerName && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Customer Name</span>
+                                  <span className="font-black text-slate-800 text-right">{billDetails.customerName}</span>
                                 </div>
-                              ) : (
-                                // Manual entry (QuickPay)
-                                <div className="space-y-4">
-                                  <div className="bg-amber-50 border border-amber-100 text-amber-700 p-3.5 rounded-xl text-xs flex gap-2">
-                                    <AlertTriangle size={16} className="shrink-0 mt-0.5" />
-                                    <p className="leading-relaxed font-medium">Direct fetch is unsupported. Enter amount manually to pay via <strong>QuickPay</strong>.</p>
-                                  </div>
-                                  <div className="space-y-2">
-                                    <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
-                                    <input
-                                      type="number"
-                                      required
-                                      value={manualAmount}
-                                      onChange={(e) => setManualAmount(e.target.value)}
-                                      onWheel={(e) => e.currentTarget.blur()}
-                                      placeholder="Enter exact amount to pay"
-                                      className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                    />
-                                  </div>
+                              )}
 
-                                  {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                    <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Bill Base Amount</span>
-                                        <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                        <span>Platform Charge</span>
-                                        <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                      <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                        <span>Total Debited</span>
-                                        <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                      </div>
-                                    </div>
-                                  )}
+                              {/* 3. Customer Number */}
+                              {Object.keys(formInputs).length > 0 && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">
+                                    {inputParams[0]?.paramName || 'Customer Number'}
+                                  </span>
+                                  <span className="font-black text-slate-800 text-right">{Object.values(formInputs)[0] || 'N/A'}</span>
                                 </div>
-                              )
-                            ) : (
-                              // Mobile Prepaid Simple Summary
-                              <div className="space-y-4">
-                                <div className="space-y-2">
-                                  <label className="text-xs font-black text-slate-500 uppercase tracking-wider">Recharge Amount (₹)</label>
-                                  <input
-                                    type="number"
-                                    required
-                                    value={manualAmount}
-                                    onChange={(e) => setManualAmount(e.target.value)}
-                                    onWheel={(e) => e.currentTarget.blur()}
-                                    placeholder="Enter amount to recharge"
-                                    disabled={selectedPlan !== null}
-                                    className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors"
-                                  />
-                                </div>
+                              )}
 
-                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
-                                  <div className="bg-indigo-50/50 border border-indigo-100/50 rounded-2xl p-4 space-y-2">
-                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                      <span>Base Amount</span>
-                                      <span className="font-bold text-slate-700">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-xs text-slate-500 font-medium">
-                                      <span>Platform Charge</span>
-                                      <span className="font-bold text-indigo-600">+ ₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    </div>
-                                    <div className="border-t border-indigo-100/60 pt-2 flex justify-between items-center text-sm font-black text-slate-800">
-                                      <span>Total Debited</span>
-                                      <span className="text-base text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                    </div>
+                              {/* 4. Bill Date */}
+                              {billDetails?.billDate && billDetails.billDate !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Bill Date</span>
+                                  <span className="font-bold text-slate-700 text-right">{billDetails.billDate}</span>
+                                </div>
+                              )}
+
+                              {/* 5. Bill Period */}
+                              {billDetails?.billPeriod && billDetails.billPeriod !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Bill Period</span>
+                                  <span className="font-bold text-slate-700 text-right">{billDetails.billPeriod}</span>
+                                </div>
+                              )}
+
+                              {/* 6. Bill Number */}
+                              {billDetails?.billNumber && billDetails.billNumber !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Bill Number</span>
+                                  <span className="font-bold text-slate-700 text-right">{billDetails.billNumber}</span>
+                                </div>
+                              )}
+
+                              {/* 7. Due Date */}
+                              {billDetails?.dueDate && billDetails.dueDate !== "NA" && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">Due Date</span>
+                                  <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded text-xs">{billDetails.dueDate}</span>
+                                </div>
+                              )}
+
+                              {/* Additional Info items */}
+                              {billDetails?.additionalInfo && billDetails.additionalInfo
+                                .filter((info: any) => info.infoName.toLowerCase() !== "maximum permissible amount")
+                                .map((info: any) => (
+                                  <div key={info.infoName} className="flex justify-between items-center text-xs border-t border-slate-100 pt-2.5">
+                                    <span className="text-slate-500 font-extrabold uppercase tracking-wider text-[11px]">{info.infoName}</span>
+                                    <span className="font-bold text-slate-700 text-right">
+                                      {info.infoName.toLowerCase().includes("amount") && !isNaN(Number(info.infoValue))
+                                        ? `₹${Number(info.infoValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+                                        : info.infoValue}
+                                    </span>
                                   </div>
-                                )}
+                                ))}
+                            </div>
+
+                            {/* Multiple Amount Option Card */}
+                            {billDetails?.fetchSupported && (
+                              <div className="space-y-2 pt-2 border-t border-slate-200/60">
+                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Multiple Amount Option</label>
+                                <div className="bg-white/90 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 shadow-2xs">
+                                  <label className="flex items-center justify-between cursor-pointer text-xs">
+                                    <div className="flex items-center gap-2.5">
+                                      <input
+                                        type="checkbox"
+                                        checked={amountOptions.base}
+                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, base: e.target.checked }))}
+                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                      />
+                                      <span className="font-bold text-slate-700">Base Bill Amount</span>
+                                    </div>
+                                    <span className="font-extrabold text-slate-800">₹{baseBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </label>
+
+                                  <label className="flex items-center justify-between cursor-pointer text-xs">
+                                    <div className="flex items-center gap-2.5">
+                                      <input
+                                        type="checkbox"
+                                        checked={amountOptions.lateFee}
+                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, lateFee: e.target.checked }))}
+                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                      />
+                                      <span className="font-bold text-slate-700">Late Payment Fee</span>
+                                    </div>
+                                    <span className="font-extrabold text-slate-800">₹{latePaymentFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </label>
+
+                                  <label className="flex items-center justify-between cursor-pointer text-xs">
+                                    <div className="flex items-center gap-2.5">
+                                      <input
+                                        type="checkbox"
+                                        checked={amountOptions.additional}
+                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, additional: e.target.checked }))}
+                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                      />
+                                      <span className="font-bold text-slate-700">Additional Charges</span>
+                                    </div>
+                                    <span className="font-extrabold text-slate-800">₹{additionalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </label>
+
+                                  <label className="flex items-center justify-between cursor-pointer text-xs">
+                                    <div className="flex items-center gap-2.5">
+                                      <input
+                                        type="checkbox"
+                                        checked={amountOptions.fixed}
+                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, fixed: e.target.checked }))}
+                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                                      />
+                                      <span className="font-bold text-slate-700">Fixed Charges</span>
+                                    </div>
+                                    <span className="font-extrabold text-slate-800">₹{fixedCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </label>
+                                </div>
                               </div>
                             )}
 
+                            {/* Financial Totals */}
+                            <div className="space-y-3 pt-2 border-t border-slate-200/60">
+                              <div className="space-y-1.5">
+                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                <input
+                                  type="number"
+                                  required
+                                  value={manualAmount}
+                                  onChange={(e) => setManualAmount(e.target.value)}
+                                  onWheel={(e) => e.currentTarget.blur()}
+                                  placeholder="Enter exact amount to pay"
+                                  className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors shadow-2xs"
+                                />
+                              </div>
+
+                              {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
+                                <div className="space-y-2.5 pt-2">
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">BILL AMOUNT</span>
+                                    <span className="font-black text-slate-800 text-sm">₹{Number(manualAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+
+                                  <div className="flex justify-between items-center text-xs">
+                                    <span className="text-slate-500 font-bold uppercase tracking-wider text-[11px]">CUSTOMER CONVENIENCE FEES</span>
+                                    <span className="font-bold text-indigo-600 text-xs">₹{calculateServiceCharge(Number(manualAmount)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+
+                                  <div className="bg-indigo-50/70 border border-indigo-100/80 rounded-2xl p-4 flex justify-between items-center shadow-2xs">
+                                    <span className="text-xs font-black text-indigo-900 uppercase tracking-wider">TOTAL AMOUNT</span>
+                                    <span className="text-lg font-black text-emerald-600">₹{(Number(manualAmount) + calculateServiceCharge(Number(manualAmount))).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Payment Mode Selection Dropdown */}
+                            <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
+                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">PAYMENT MODE</label>
+                              <select
+                                value={selectedPaymentMode}
+                                onChange={(e) => setSelectedPaymentMode(e.target.value)}
+                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs cursor-pointer"
+                              >
+                                <option value="UPI">UPI</option>
+                                <option value="WALLET">Wallet Balance</option>
+                                <option value="NETBANKING">Net Banking</option>
+                                <option value="DEBIT_CARD">Debit Card</option>
+                                <option value="CREDIT_CARD">Credit Card</option>
+                              </select>
+                            </div>
+
+                            {/* Pay Securely Now Button */}
                             <div className="pt-2">
                               <button
                                 type="button"
                                 onClick={initiatePayment}
                                 disabled={loading || (!billDetails?.fetchSupported && !manualAmount && selectedCategory !== 'Mobile Prepaid')}
-                                className="w-full py-4 text-white rounded-2xl font-black text-sm uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 hover:scale-[1.01] active:scale-[0.99] cursor-pointer bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100"
+                                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-[0.99] transition-all cursor-pointer"
                               >
-                                <ShieldCheck size={16} />
-                                Pay Securely Now
+                                <ShieldCheck size={18} />
+                                PAY SECURELY NOW
                               </button>
                             </div>
                           </div>
