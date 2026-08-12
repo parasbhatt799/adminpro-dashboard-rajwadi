@@ -1333,9 +1333,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         const cleanTxnRefId = data.data?.txnRefId || data.txnRefId || data.txnid || ('CC01' + Math.floor(1000000000000000 + Math.random() * 9000000000000000).toString().substring(0, 16));
 
         const approvalNum = data.data?.approvalRefNumber || data.approvalRefNumber || ('AP' + Math.floor(100000 + Math.random() * 900000).toString());
-        const baseAmt = amt;
-        const convFee = ccf1Fee;
-        const totAmt = baseAmt + convFee;
 
         setReceipt({
           bConnectTxnId: cleanTxnRefId,

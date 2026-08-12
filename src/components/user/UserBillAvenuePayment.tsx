@@ -1389,9 +1389,6 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
           : 'CC01' + Math.floor(1000000000000000 + Math.random() * 9000000000000000).toString().substring(0, 16);
 
         const approvalNum = 'AP' + Math.floor(100000 + Math.random() * 900000).toString();
-        const baseAmt = amt;
-        const convFee = ccf1Fee;
-        const totAmt = baseAmt + convFee;
 
         setReceipt({
           bConnectTxnId: cleanTxnRefId,
