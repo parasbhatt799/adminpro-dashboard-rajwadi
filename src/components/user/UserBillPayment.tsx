@@ -937,6 +937,7 @@ export default function UserBillPayment({ userId }: { userId: string }) {
     }
 
     setLoading(true);
+    prepareMogoSound();
     setApiError(null);
 
     const customerParams = getCustomerParamsPayload();
