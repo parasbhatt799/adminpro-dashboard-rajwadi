@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight, User, Building2, Smartphone } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
@@ -30,6 +30,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
   const [amountFilter, setAmountFilter] = useState('');
   const [txnIdFilter, setTxnIdFilter] = useState('');
+  const [b2bLoginFilter, setB2bLoginFilter] = useState('all');
+  const [billAvenueAgentIdFilter, setBillAvenueAgentIdFilter] = useState('all');
+  const [cardMobileFilter, setCardMobileFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
@@ -42,7 +45,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFilter, customRange, statusFilter, amountFilter, txnIdFilter, searchTerm]);
+  }, [dateFilter, customRange, statusFilter, amountFilter, txnIdFilter, searchTerm, b2bLoginFilter, billAvenueAgentIdFilter, cardMobileFilter]);
 
   useEffect(() => {
     fetchLogs();
@@ -292,6 +295,33 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     return true;
   };
 
+  // Compute unique B2B Login IDs for dropdown filter
+  const uniqueLoginIds = useMemo(() => {
+    const set = new Set<string>();
+    Object.values(agentMap).forEach(info => {
+      if (info.b2b_login_id && info.b2b_login_id !== 'N/A') set.add(info.b2b_login_id);
+    });
+    logs.forEach(log => {
+      const loginId = agentMap[log.agent_id]?.b2b_login_id;
+      if (loginId && loginId !== 'N/A') set.add(loginId);
+    });
+    return Array.from(set).sort();
+  }, [agentMap, logs]);
+
+  // Compute unique BillAvenue Agent IDs for dropdown filter
+  const uniqueBillAvenueAgentIds = useMemo(() => {
+    const set = new Set<string>();
+    Object.values(agentMap).forEach(info => {
+      if (info.billavenue_agent_id && info.billavenue_agent_id !== 'N/A') set.add(info.billavenue_agent_id);
+    });
+    logs.forEach(log => {
+      const reqBody = log.request_payload || log.request_body || {};
+      const baId = agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId;
+      if (baId && baId !== 'N/A') set.add(baId);
+    });
+    return Array.from(set).sort();
+  }, [agentMap, logs]);
+
   const filteredLogs = logs.filter(log => {
     const reqBody = log.request_payload || log.request_body || {};
     const resBody = log.response_payload || log.response_body || {};
@@ -308,6 +338,36 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     let matchesStatus = true;
     if (statusFilter !== 'all') {
       matchesStatus = statusInfo.text.toLowerCase() === statusFilter.toLowerCase();
+    }
+
+    // B2B Login ID Filter
+    let matchesB2bLogin = true;
+    if (b2bLoginFilter !== 'all') {
+      const loginId = agentMap[log.agent_id]?.b2b_login_id || '';
+      matchesB2bLogin = loginId.toLowerCase() === b2bLoginFilter.toLowerCase();
+    }
+
+    // BillAvenue Agent ID Filter
+    let matchesBillAvenueAgentId = true;
+    if (billAvenueAgentIdFilter !== 'all') {
+      const baId = agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId || '';
+      matchesBillAvenueAgentId = baId.toLowerCase() === billAvenueAgentIdFilter.toLowerCase();
+    }
+
+    // Card / Mobile Search Filter
+    const cardMobileTrimmed = cardMobileFilter.trim().toLowerCase();
+    let matchesCardMobile = true;
+    if (cardMobileTrimmed) {
+      const mobileVal = (reqBody.mobile || '').toString().toLowerCase();
+      const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
+        ? (reqBody.customerParams[0].value || '').toString().toLowerCase() 
+        : '';
+      const paramsVal = (reqBody.customerParams || [])
+        .map((p: any) => (p.value || '').toString().toLowerCase())
+        .join(' ');
+      matchesCardMobile = mobileVal.includes(cardMobileTrimmed) || 
+                          primaryParam.includes(cardMobileTrimmed) || 
+                          paramsVal.includes(cardMobileTrimmed);
     }
 
     // Amount Filter
@@ -334,6 +394,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     let matchesSearch = true;
     if (searchTrimmed) {
       const info = agentMap[log.agent_id];
+      const paramsVal = (reqBody.customerParams || [])
+        .map((p: any) => (p.value || '').toString().toLowerCase())
+        .join(' ');
       const searchString = `
         ${log.agent_id || ''} 
         ${info?.b2b_login_id || ''}
@@ -341,13 +404,14 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         ${info?.name || ''}
         ${reqBody.billerId || ''} 
         ${reqBody.mobile || ''} 
+        ${paramsVal}
         ${txnId}
         ${bbpsTxnId}
       `.toLowerCase();
       matchesSearch = searchString.includes(searchTrimmed);
     }
 
-    return matchesDate && matchesStatus && matchesAmount && matchesTxnId && matchesSearch;
+    return matchesDate && matchesStatus && matchesB2bLogin && matchesBillAvenueAgentId && matchesCardMobile && matchesAmount && matchesTxnId && matchesSearch;
   });
 
   // Calculate summary metrics for current filtered logs
@@ -703,7 +767,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
       {/* Filter Controls Bar */}
       <div className="bg-slate-800/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-700 space-y-3 shadow-xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {/* Date Filter Dropdown (Default: Today) */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
@@ -765,6 +829,75 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <option value="pending">Pending</option>
               <option value="failed">Failed</option>
             </select>
+          </div>
+
+          {/* B2B Login ID Dropdown Filter */}
+          {isAdmin && (
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider block flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-indigo-400" />
+                B2B Login ID
+              </label>
+              <select
+                value={b2bLoginFilter}
+                onChange={(e) => setB2bLoginFilter(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all cursor-pointer outline-none font-mono"
+              >
+                <option value="all">All B2B Login IDs</option>
+                {uniqueLoginIds.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* BillAvenue Agent ID Dropdown Filter */}
+          {isAdmin && (
+            <div className="space-y-1">
+              <label className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider block flex items-center gap-1.5">
+                <Building2 className="w-3.5 h-3.5 text-emerald-400" />
+                BillAvenue Agent ID
+              </label>
+              <select
+                value={billAvenueAgentIdFilter}
+                onChange={(e) => setBillAvenueAgentIdFilter(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all cursor-pointer outline-none font-mono"
+              >
+                <option value="all">All BillAvenue Agent IDs</option>
+                {uniqueBillAvenueAgentIds.map((id) => (
+                  <option key={id} value={id}>
+                    {id}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* CARD / MOBILE Search Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
+              <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
+              Card / Mobile
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Card / Mobile No..."
+                value={cardMobileFilter}
+                onChange={(e) => setCardMobileFilter(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500 outline-none font-mono"
+              />
+              {cardMobileFilter && (
+                <button
+                  onClick={() => setCardMobileFilter('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Transaction ID Filter */}
@@ -844,7 +977,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         </div>
 
         {/* Filter Summary & Reset Button */}
-        {(dateFilter !== 'today' || statusFilter !== 'all' || amountFilter || txnIdFilter || searchTerm) && (
+        {(dateFilter !== 'today' || statusFilter !== 'all' || b2bLoginFilter !== 'all' || billAvenueAgentIdFilter !== 'all' || cardMobileFilter || amountFilter || txnIdFilter || searchTerm) && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-700/60 text-xs">
             <span className="text-slate-400">
               Showing <span className="font-bold text-indigo-400">{filteredLogs.length}</span> of <span className="font-bold text-slate-300">{logs.length}</span> payments
@@ -853,14 +986,18 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               onClick={() => {
                 setDateFilter('today');
                 setStatusFilter('all');
+                setB2bLoginFilter('all');
+                setBillAvenueAgentIdFilter('all');
+                setCardMobileFilter('');
                 setAmountFilter('');
                 setTxnIdFilter('');
                 setSearchTerm('');
+                setCustomRange({ start: '', end: '' });
               }}
-              className="text-indigo-400 hover:text-indigo-300 font-medium flex items-center gap-1 hover:underline transition-all"
+              className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 hover:underline cursor-pointer bg-rose-500/10 px-2.5 py-1 rounded-lg border border-rose-500/20"
             >
               <X className="w-3.5 h-3.5" />
-              Reset Filters (Back to Today)
+              Reset All Filters
             </button>
           </div>
         )}
