@@ -213,51 +213,79 @@ export default function B2BAPIDocumentation() {
           
           <div className="relative z-10">
             <CodeBlock 
-              title="Request Body"
+              title="Request Body Example"
               section="pay_req"
               code={`{
   "billerId": "DGVCL0000GUJ01",
   "amount": 1500.00,
   "mobile": "9876543210",
+  "paymentMode": "UPI",
+  "client_transaction_id": "CLIENT_TXN_987654",
   "customerParams": [
     { "name": "Consumer Number", "value": "12345678901" }
   ],
   "billerResponseInfo": {
-    "billAmount": "1500.00",
-    "billDate": "2024-01-01"
-  }
+    "customerName": "MAULIK P MANIAR",
+    "billAmount": "150000",
+    "billDate": "2026-07-28",
+    "dueDate": "2026-09-07"
+  },
+  "additionalInfo": [
+    { "infoName": "Remark", "infoValue": "Bill Payment" }
+  ]
 }`}
             />
 
             <div className="bg-slate-900/50 border border-slate-700/50 rounded-xl p-4 my-4">
               <h4 className="font-semibold text-white mb-2 text-sm">Understanding Pay Request Parameters:</h4>
               <ul className="list-disc pl-5 text-sm text-slate-300 space-y-2">
-                <li><code>amount</code>: The amount to be paid. <strong>Yes, you can pass a manual/custom amount</strong> (e.g. for prepaid recharges, credit cards, or ad-hoc billers) as long as the biller supports it. For exact bills, pass the fetched amount.</li>
-                <li><code>billerResponseInfo</code>: When paying a fetched bill, you MUST pass the <code>billerResponseInfo</code> object exactly as you received it in the <code>/fetch-bill</code> response (inside the <code>billerResponse</code> object). If you are doing a direct manual payment (where fetch is not required), you can pass an empty object <code>{}</code> or omit it.</li>
+                <li><code>billerId</code>: The exact Biller ID from the <code>/billers</code> API.</li>
+                <li><code>amount</code>: The amount to be paid (in Rupees). Pass the fetched bill amount or custom amount for ad-hoc billers.</li>
+                <li><code>mobile</code>: Customer's 10-digit mobile number.</li>
+                <li><code>paymentMode</code> (Optional): Specify payment mode: <code>"Cash"</code>, <code>"UPI"</code>, <code>"Internet Banking"</code>, <code>"Debit Card"</code>, or <code>"Credit Card"</code>. Defaults to <code>"Cash"</code>. If a biller has disabled Cash mode, pass <code>"UPI"</code> or <code>"Internet Banking"</code>.</li>
+                <li><code>client_transaction_id</code> (Optional): Your own unique transaction reference ID for tracking. If omitted, a unique ID starting with <code>BBPSU...</code> will be generated automatically.</li>
+                <li><code>customerParams</code>: Parameter key-value pairs matching the biller's required input parameters.</li>
+                <li><code>billerResponseInfo</code>: When paying a fetched bill, pass the exact <code>billerResponse</code> object returned from the <code>/fetch-bill</code> endpoint. For direct ad-hoc payments, pass <code>{}</code> or omit it.</li>
+                <li><code>additionalInfo</code> (Optional): Optional array of objects containing custom key-value metadata like <code>[{'{"infoName": "Remark", "infoValue": "Payment"}'}]</code>.</li>
               </ul>
             </div>
 
             <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 my-4 flex gap-3">
               <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
               <p className="text-sm text-red-200">
-                <strong>Important:</strong> If your wallet balance is lower than the requested amount, the API will return a 400 error and the payment will not be processed.
+                <strong>Important:</strong> Wallet balance is verified atomically before transaction processing. If balance is insufficient, a 400 status error is returned without deducting funds.
               </p>
             </div>
 
             <CodeBlock 
-              title="Response (200 OK)"
+              title="Full Response (200 OK - Successful Payment)"
               section="pay_res"
               code={`{
   "status": "success",
-  "transaction_id": "USEPAY6456545445",
+  "message": "Bill Paid successfully",
+  "transaction_id": "BBPSU8394857210",
   "payment_status": "success",
+  "charge_deducted": 0,
   "data": {
     "responseCode": "000",
     "billPayResponse": {
-      "txnReferenceId": "BBPS12345678",
+      "txnRefId": "CC011234567890",
+      "approvalRefNum": "AB1234567890",
+      "responseCode": "000",
+      "responseReason": "Successful",
+      "billerId": "DGVCL0000GUJ01",
       "txnStatus": "SUCCESS"
     }
   }
+}`}
+            />
+
+            <CodeBlock 
+              title="Response Example (400 Bad Request / Disabled Payment Mode)"
+              section="pay_err_res"
+              code={`{
+  "status": "error",
+  "message": "Payment mode Cash is disable for biller"
 }`}
             />
           </div>
