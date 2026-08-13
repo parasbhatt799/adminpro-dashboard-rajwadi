@@ -33,6 +33,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
 
+  const [agentMap, setAgentMap] = useState<Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string }>>({});
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
@@ -103,6 +105,30 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       }
 
       setLogs(allLogs);
+
+      // Fetch B2B agent credentials for mapping B2B Login ID and BillAvenue Agent ID
+      try {
+        const { data: creds } = await supabase
+          .from('b2b_api_credentials')
+          .select('id, agent_id, b2b_login_id, billavenue_agent_id, first_name, last_name');
+
+        if (creds) {
+          const map: Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string }> = {};
+          creds.forEach((c: any) => {
+            const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ');
+            const info = {
+              b2b_login_id: c.b2b_login_id || 'N/A',
+              billavenue_agent_id: c.billavenue_agent_id || c.agent_id || 'N/A',
+              name: fullName
+            };
+            if (c.id) map[c.id] = info;
+            if (c.agent_id) map[c.agent_id] = info;
+          });
+          setAgentMap(map);
+        }
+      } catch (e) {
+        console.error('Error fetching agent creds map:', e);
+      }
     } catch (err) {
       console.error('Error fetching API logs:', err);
     } finally {
@@ -284,8 +310,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const searchTrimmed = searchTerm.trim().toLowerCase();
     let matchesSearch = true;
     if (searchTrimmed) {
+      const info = agentMap[log.agent_id];
       const searchString = `
         ${log.agent_id || ''} 
+        ${info?.b2b_login_id || ''}
+        ${info?.billavenue_agent_id || ''}
+        ${info?.name || ''}
         ${reqBody.billerId || ''} 
         ${reqBody.mobile || ''} 
         ${txnId}
@@ -374,7 +404,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         };
 
         if (isAdmin) {
-          row['Agent ID'] = log.agent_id || '';
+          const info = agentMap[log.agent_id];
+          row['B2B Login ID'] = info?.b2b_login_id || log.agent_id || '';
+          row['BillAvenue Agent ID'] = info?.billavenue_agent_id || reqBody?.billavenueAgentId || '';
         }
 
         row['Biller ID'] = reqBody.billerId || 'Unknown';
@@ -834,7 +866,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <thead className="bg-slate-900/50 text-slate-400 border-b border-slate-700/50 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
                   <th className="px-6 py-4">Date & Time</th>
-                  {isAdmin && <th className="px-6 py-4">Agent ID</th>}
+                  {isAdmin && <th className="px-6 py-4 text-indigo-400">B2B Login ID</th>}
+                  {isAdmin && <th className="px-6 py-4 text-emerald-400">BillAvenue Agent ID</th>}
                   <th className="px-6 py-4">Biller ID</th>
                   <th className="px-6 py-4">Parameters</th>
                   <th className="px-6 py-4">Amount</th>
@@ -876,7 +909,20 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       
                       {isAdmin && (
                         <td className="px-6 py-4">
-                          <div className="text-slate-300 font-mono text-xs">{log.agent_id}</div>
+                          <div className="font-bold text-indigo-300 font-mono text-xs">
+                            {agentMap[log.agent_id]?.b2b_login_id || log.agent_id}
+                          </div>
+                          {agentMap[log.agent_id]?.name && (
+                            <div className="text-slate-400 text-xs">{agentMap[log.agent_id]?.name}</div>
+                          )}
+                        </td>
+                      )}
+
+                      {isAdmin && (
+                        <td className="px-6 py-4">
+                          <div className="font-semibold text-emerald-400 font-mono text-xs">
+                            {agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId || reqBody?.agentId || 'N/A'}
+                          </div>
                         </td>
                       )}
                       
