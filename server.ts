@@ -1858,13 +1858,19 @@ async function startServer() {
       const rawCat = billDetails?.catname || billDetails?.categoryName || (billerName && billerName.toLowerCase().includes("card") ? "Credit Card" : billerName) || "Credit Card";
       const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Credit Card";
 
+      const custBillAmountInPaise = Math.round(Number(amount) * 100);
+      const fetchedAmountInPaise = billDetails?.billAmount 
+        ? Math.round(Number(billDetails.billAmount) * 100)
+        : (fetchedBillerResponse?.billAmount ? Number(fetchedBillerResponse.billAmount) : custBillAmountInPaise);
+
       const payload: any = {
         requestId,
         customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
         customerName: billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer",
         catname: cleanCatName,
         billerId: String(billerId).trim(),
-        billamount: Math.round(Number(amount) * 100), // Convert to Paise
+        billamount: fetchedAmountInPaise || custBillAmountInPaise,
+        cust_billamount: custBillAmountInPaise,
       };
 
       let paramArray: any[] = [];

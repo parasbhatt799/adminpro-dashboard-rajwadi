@@ -226,7 +226,7 @@ export default function B2BAgentFundRequest() {
   const exportToExcel = async () => {
     try {
       const XLSX = await import('xlsx');
-      const exportData = filteredRequests.map((req, idx) => ({
+      const exportData: Record<string, any>[] = filteredRequests.map((req, idx) => ({
         'S.No': idx + 1,
         'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
         'Amount (₹)': Number(req.amount || 0),

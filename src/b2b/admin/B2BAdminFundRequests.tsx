@@ -214,7 +214,7 @@ export default function B2BAdminFundRequests() {
   const exportToExcel = async () => {
     try {
       const XLSX = await import('xlsx');
-      const exportData = filteredRequests.map((req, idx) => {
+      const exportData: Record<string, any>[] = filteredRequests.map((req, idx) => {
         const cred = req.b2b_api_credentials;
         const agentName = [cred?.first_name, cred?.last_name].filter(Boolean).join(' ') || cred?.b2b_login_id || 'N/A';
         return {

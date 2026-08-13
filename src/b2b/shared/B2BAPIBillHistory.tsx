@@ -363,7 +363,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           reqBody?.chargeDeducted ?? 
           reqBody?.chargePerBill ?? 
           reqBody?.charge ?? 
-          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
           0
         );
 
@@ -405,7 +405,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           reqBody?.chargeDeducted ?? 
           reqBody?.chargePerBill ?? 
           reqBody?.charge ?? 
-          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
           0
         );
         return acc + chg;
@@ -457,7 +457,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           reqBody?.chargeDeducted ?? 
           reqBody?.chargePerBill ?? 
           reqBody?.charge ?? 
-          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
           0
         );
         totalCharges += chargeVal;
@@ -862,7 +862,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     reqBody?.chargeDeducted ?? 
                     reqBody?.chargePerBill ?? 
                     reqBody?.charge ?? 
-                    (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : 0) ?? 
+                    (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
                     0
                   );
                   
@@ -1052,7 +1052,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               req?.chargeDeducted ?? 
               req?.chargePerBill ?? 
               req?.charge ?? 
-              (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : 0) ?? 
+              (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
               0
             );
 
