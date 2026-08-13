@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle, Eye, FileSpreadsheet, FileText } from 'lucide-react';
+import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle, Eye, FileSpreadsheet, FileText, ZoomIn, ZoomOut, RotateCw, Maximize2 } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
 import { format } from 'date-fns';
@@ -603,6 +603,7 @@ export default function B2BAdminFundRequests() {
           onClose={() => setSelectedProofReq(null)}
           title="Payment Proof & Request Details"
           size="2xl"
+          isDark={true}
         >
           <div className="space-y-6">
             {/* Details Bar */}
@@ -636,7 +637,7 @@ export default function B2BAdminFundRequests() {
               </div>
             </div>
 
-            {/* Proof Preview Image */}
+            {/* Proof Preview Image with Interactive Zoom & Pan Movement */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Payment Screenshot / Receipt</span>
@@ -652,17 +653,13 @@ export default function B2BAdminFundRequests() {
                 )}
               </div>
               
-              <div className="bg-slate-900 rounded-2xl p-3 border border-slate-700 flex items-center justify-center min-h-[250px] max-h-[450px] overflow-hidden">
-                {selectedProofReq.proof_url ? (
-                  <img
-                    src={selectedProofReq.proof_url}
-                    alt="Payment Proof"
-                    className="max-h-[420px] w-auto object-contain rounded-xl shadow-lg"
-                  />
-                ) : (
-                  <div className="text-slate-400 text-sm py-12">No proof image uploaded for this request</div>
-                )}
-              </div>
+              {selectedProofReq.proof_url ? (
+                <ProofImageViewer src={selectedProofReq.proof_url} />
+              ) : (
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-700 flex items-center justify-center min-h-[200px]">
+                  <div className="text-slate-400 text-sm py-8">No proof image uploaded for this request</div>
+                </div>
+              )}
             </div>
 
             {/* Bottom Actions inside Modal */}
@@ -713,6 +710,146 @@ export default function B2BAdminFundRequests() {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// Interactive Proof Image Viewer Component with Mouse Wheel Zoom & Drag Pan
+function ProofImageViewer({ src }: { src: string }) {
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((prevZoom) => {
+      const delta = e.deltaY < 0 ? 0.25 : -0.25;
+      const nextZoom = Math.min(Math.max(0.8, prevZoom + delta), 5);
+      if (nextZoom === 1) {
+        setPosition({ x: 0, y: 0 });
+      }
+      return parseFloat(nextZoom.toFixed(2));
+    });
+  };
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    setDragStart({ x: e.clientX - position.x, y: e.clientY - position.y });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging) return;
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y,
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleZoomIn = () => {
+    setZoom((prev) => Math.min(prev + 0.3, 5));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((prev) => {
+      const next = Math.max(prev - 0.3, 0.8);
+      if (next <= 1) setPosition({ x: 0, y: 0 });
+      return parseFloat(next.toFixed(2));
+    });
+  };
+
+  const handleRotate = () => {
+    setRotation((prev) => (prev + 90) % 360);
+  };
+
+  const handleReset = () => {
+    setZoom(1);
+    setRotation(0);
+    setPosition({ x: 0, y: 0 });
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* Zoom / Movement Control Toolbar */}
+      <div className="flex items-center justify-between bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700 text-xs">
+        <span className="font-bold text-slate-300 flex items-center gap-1.5">
+          <Eye className="w-3.5 h-3.5 text-indigo-400" />
+          <span>Zoom: <span className="font-mono text-indigo-300">{Math.round(zoom * 100)}%</span></span>
+          {rotation > 0 && <span className="text-slate-400 font-mono">({rotation}°)</span>}
+        </span>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleZoomIn}
+            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors cursor-pointer"
+            title="Zoom In (Scroll Up)"
+          >
+            <ZoomIn className="w-4 h-4 text-indigo-400" />
+          </button>
+          <button
+            type="button"
+            onClick={handleZoomOut}
+            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors cursor-pointer"
+            title="Zoom Out (Scroll Down)"
+          >
+            <ZoomOut className="w-4 h-4 text-indigo-400" />
+          </button>
+          <button
+            type="button"
+            onClick={handleRotate}
+            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors cursor-pointer"
+            title="Rotate 90°"
+          >
+            <RotateCw className="w-4 h-4 text-indigo-400" />
+          </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition-colors flex items-center gap-1 text-[11px] font-bold cursor-pointer"
+            title="Reset Zoom & Position"
+          >
+            <Maximize2 className="w-3.5 h-3.5 text-indigo-400" />
+            <span>Reset</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Image Display Container with Wheel Zoom & Mouse Drag Pan */}
+      <div
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        className={`relative bg-slate-950 rounded-2xl p-4 border border-slate-700 flex items-center justify-center min-h-[300px] max-h-[480px] overflow-hidden select-none ${
+          isDragging ? 'cursor-grabbing' : 'cursor-grab'
+        }`}
+      >
+        <div
+          className="transition-transform duration-100 ease-out flex items-center justify-center"
+          style={{
+            transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
+            transformOrigin: 'center center',
+          }}
+        >
+          <img
+            src={src}
+            alt="Payment Proof"
+            draggable={false}
+            className="max-h-[420px] w-auto object-contain rounded-xl shadow-2xl pointer-events-none"
+          />
+        </div>
+        
+        <div className="absolute bottom-3 left-3 bg-slate-900/80 backdrop-blur-sm text-indigo-300 border border-slate-700 text-[10px] font-mono px-2.5 py-1 rounded-lg pointer-events-none shadow-md">
+          {zoom > 1 || position.x !== 0 || position.y !== 0 ? 'Scroll to Zoom | Drag to Move' : 'Scroll mouse wheel to Zoom | Drag to Pan'}
+        </div>
+      </div>
     </div>
   );
 }

@@ -13,6 +13,7 @@ interface ModalProps {
   cancelText?: string;
   children?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
+  isDark?: boolean;
 }
 
 export default function Modal({
@@ -25,7 +26,8 @@ export default function Modal({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   children,
-  size = 'sm'
+  size = 'sm',
+  isDark = false
 }: ModalProps) {
   const getIcon = () => {
     switch (type) {
@@ -71,25 +73,33 @@ export default function Modal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className={`w-full ${getSizeClass()} relative z-[101] bg-white rounded-[2.5rem] shadow-2xl p-8 overflow-hidden ${!children ? 'text-center' : ''}`}
+            className={`w-full ${getSizeClass()} relative z-[101] ${
+              isDark
+                ? 'bg-slate-800 border border-slate-700 text-white shadow-2xl shadow-black/50 rounded-3xl'
+                : 'bg-white rounded-[2.5rem] shadow-2xl'
+            } p-6 sm:p-8 overflow-hidden ${!children ? 'text-center' : ''}`}
             style={children ? { maxHeight: '90vh', display: 'flex', flexDirection: 'column' } : {}}
           >
             <button 
               onClick={onClose}
-              className="absolute top-6 right-6 text-slate-400 hover:text-slate-600 transition-colors z-10"
+              className={`absolute top-6 right-6 ${
+                isDark 
+                  ? 'text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700' 
+                  : 'text-slate-400 hover:text-slate-600'
+              } transition-colors z-10 p-1.5 rounded-full`}
             >
               <X size={20} />
             </button>
 
             {children ? (
               <div className="flex flex-col h-full overflow-hidden">
-                <h3 className="text-xl font-bold text-slate-900 mb-6 pr-8 flex-shrink-0">{title}</h3>
+                <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'} mb-6 pr-8 flex-shrink-0`}>{title}</h3>
                 <div className="w-full overflow-y-auto overflow-x-hidden flex-1 scrollbar-hide">
                   {children}
                 </div>
