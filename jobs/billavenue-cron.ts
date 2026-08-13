@@ -37,22 +37,16 @@ cron.schedule('*/10 * * * *', async () => {
       const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
       const transactionId = log.request_payload?.transaction_id || log.response_payload?.transaction_id || log.id;
 
-      let trackVal = cc01RefId;
-      let trackType = 'TRANS_REF_ID';
-
+      // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
       if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
-        if (transactionId) {
-          trackVal = transactionId;
-          trackType = 'REQUEST_ID';
-        } else {
-          console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing valid BillAvenue reference ID. Found: ${cc01RefId}`);
-          continue;
-        }
+        console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing valid BillAvenue CC01 reference ID. Found: ${cc01RefId}`);
+        continue;
       }
 
       try {
-        console.log(`[CRON] Checking status for B2B transaction via ${trackType}: ${trackVal}`);
-        const statusResult = await getTransactionStatus(String(trackVal), trackType);
+        const trackType = 'TRANS_REF_ID';
+        console.log(`[CRON] Checking status for B2B transaction via CC01 ID: ${cc01RefId}`);
+        const statusResult = await getTransactionStatus(String(cc01RefId), trackType);
 
         let newStatus = 'pending';
         let bbpsStatus = '';
