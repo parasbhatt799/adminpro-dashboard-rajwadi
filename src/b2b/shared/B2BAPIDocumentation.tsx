@@ -19,51 +19,232 @@ export default function B2BAPIDocumentation() {
   const handleExportPDF = async () => {
     setExportingPdf(true);
     try {
-      const docElement = document.getElementById('b2b-api-doc-container');
-      if (!docElement) {
-        alert('Documentation container not found');
-        return;
-      }
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = (autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule) as any;
 
-      const html2canvasModule = await import('html2canvas');
-      const html2canvas = html2canvasModule.default || (html2canvasModule as any);
-
-      const jspdfModule = await import('jspdf');
-      const JsPDFClass = jspdfModule.jsPDF || jspdfModule.default;
-
-      // Render high-quality canvas snapshot of the entire documentation DOM
-      const canvas = await html2canvas(docElement, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#0f172a' // Dark slate theme background
+      const doc = new JsPDFClass({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
       });
 
-      const imgData = canvas.toDataURL('image/jpeg', 0.95);
-      const pdf = new JsPDFClass('p', 'mm', 'a4');
-      
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      let heightLeft = imgHeight;
-      let position = 0;
+      const drawHeader = (titleText: string) => {
+        doc.setFillColor(15, 23, 42); // slate-900
+        doc.rect(0, 0, 210, 25, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text(titleText, 14, 12);
 
-      // Render Page 1
-      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Base Endpoint: ${baseUrl}/api/v1/b2b  |  Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, 14, 19);
+      };
 
-      // Render continuous pages for the long documentation
-      while (heightLeft > 0) {
-        position -= pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
+      const checkPageBreak = (currentY: number, neededSpace: number) => {
+        if (currentY + neededSpace > 272) {
+          doc.addPage();
+          drawHeader('B2B Bill Payment API Reference (Contd.)');
+          return 32;
+        }
+        return currentY;
+      };
 
-      pdf.save(`B2B_Bill_Payment_API_Documentation_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      const drawCodeBlock = (title: string, codeStr: string, startY: number) => {
+        const lines = codeStr.split('\n');
+        const blockHeight = 8 + (lines.length * 3.8);
+        let y = checkPageBreak(startY, blockHeight);
+
+        // Code Header Bar
+        doc.setFillColor(30, 41, 59);
+        doc.rect(14, y, 182, 6, 'F');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(165, 180, 252);
+        doc.text(title, 18, y + 4.2);
+
+        // Code Content Box
+        doc.setFillColor(15, 23, 42);
+        doc.rect(14, y + 6, 182, blockHeight - 6, 'F');
+
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(52, 211, 153);
+
+        let lineY = y + 10.5;
+        lines.forEach(line => {
+          doc.text(line.length > 95 ? line.substring(0, 95) + '...' : line, 18, lineY);
+          lineY += 3.8;
+        });
+
+        return y + blockHeight + 6;
+      };
+
+      // Page 1 Header
+      drawHeader('B2B Bill Payment API Reference');
+      let y = 32;
+
+      // Section 1: Authentication & Headers
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 41, 59);
+      doc.text('1. Authentication & Mandatory HTTP Headers', 14, y);
+      y += 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Header Name', 'Value Format', 'Description']],
+        body: [
+          ['x-api-key', 'String (pub_live_...)', 'Public API key issued from Agent Credentials portal'],
+          ['x-secret-key', 'String (sec_live_...)', 'Secret API key used to authenticate your system'],
+          ['Content-Type', 'application/json', 'Required payload content type for POST requests']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+        bodyStyles: { fontSize: 8 },
+        margin: { left: 14, right: 14 }
+      });
+      y = (doc as any).lastAutoTable.finalY + 8;
+
+      // Section 2: API Endpoints Overview
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(30, 41, 59);
+      doc.text('2. API Endpoints Overview', 14, y);
+      y += 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Method', 'Endpoint Path', 'Description']],
+        body: [
+          ['GET', '/balance', 'Fetch current available agent wallet balance in Rupees'],
+          ['GET', '/categories', 'Fetch supported biller categories (Electricity, Fastag, Water, etc.)'],
+          ['GET', '/billers', 'Fetch billers list and required customer input parameters'],
+          ['POST', '/fetch-bill', 'Fetch customer bill amount, due date, and biller details'],
+          ['POST', '/pay-bill', 'Process bill payment and deduct funds from agent wallet'],
+          ['GET', '/status/:transaction_id', 'Check real-time live status of a transaction']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+        bodyStyles: { fontSize: 8 },
+        margin: { left: 14, right: 14 }
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+
+      // Section 2.1 GET /balance
+      y = checkPageBreak(y, 45);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(79, 70, 229);
+      doc.text('2.1 GET /balance - Check Agent Wallet Balance', 14, y);
+      y += 4;
+      y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "balance": 15450.75,\n    "currency": "INR"\n  }\n}`, y);
+
+      // Section 2.2 GET /categories
+      y = checkPageBreak(y, 65);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(79, 70, 229);
+      doc.text('2.2 GET /categories - Fetch Biller Categories', 14, y);
+      y += 4;
+      y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": [\n    { "category_name": "Electricity", "code": "ELECTRICITY" },\n    { "category_name": "Credit Card", "code": "CREDIT_CARD" },\n    { "category_name": "Fastag", "code": "FASTAG" },\n    { "category_name": "Water", "code": "WATER" }\n  ]\n}`, y);
+
+      // Section 2.3 GET /billers
+      y = checkPageBreak(y, 75);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(79, 70, 229);
+      doc.text('2.3 GET /billers - Fetch Biller Directory', 14, y);
+      y += 4;
+      y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": [\n    {\n      "billerId": "DGVCL0000GUJ01",\n      "billerName": "Dakshin Gujarat Vij Company Ltd (DGVCL)",\n      "category": "Electricity",\n      "customerParams": [{ "name": "Consumer Number", "type": "NUMERIC" }]\n    }\n  ]\n}`, y);
+
+      // Section 2.4 POST /fetch-bill
+      y = checkPageBreak(y, 110);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(79, 70, 229);
+      doc.text('2.4 POST /fetch-bill - Fetch Customer Bill Details', 14, y);
+      y += 4;
+      y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "mobile": "9898971274",\n  "customerParams": [\n    { "name": "Consumer Number", "value": "12345678901" }\n  ]\n}`, y);
+      y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Bill fetched successfully",\n  "data": {\n    "responseCode": "000",\n    "responseReason": "Successful",\n    "fetchRequestId": "FETCH_REQ_987654321",\n    "billerResponse": {\n      "customerName": "AJAY KALATHIYA",\n      "amount": "1500.00",\n      "dueDate": "2026-08-30"\n    }\n  }\n}`, y);
+
+      // Section 2.5 POST /pay-bill
+      y = checkPageBreak(y, 140);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(79, 70, 229);
+      doc.text('2.5 POST /pay-bill - Execute Bill Payment', 14, y);
+      y += 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Parameter', 'Type', 'Required', 'Description']],
+        body: [
+          ['billerId', 'String', 'REQUIRED', 'Target Biller ID (e.g. DGVCL0000GUJ01)'],
+          ['amount', 'Number', 'REQUIRED', 'Amount to be paid in Rupees (e.g. 1500.00)'],
+          ['mobile', 'String', 'REQUIRED', '10-digit customer mobile number'],
+          ['paymentMode', 'String', 'OPTIONAL', 'UPI, Internet Banking, Debit Card, Credit Card (Default: Cash)'],
+          ['client_transaction_id', 'String', 'OPTIONAL', 'Custom transaction ID for idempotency and tracking'],
+          ['customerParams', 'Array', 'REQUIRED', 'Array of { name, value } matching biller requirement'],
+          ['billerResponseInfo', 'Object', 'OPTIONAL', 'Exact billerResponse object returned from /fetch-bill']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        bodyStyles: { fontSize: 7.5 },
+        margin: { left: 14, right: 14 }
+      });
+      y = (doc as any).lastAutoTable.finalY + 6;
+
+      y = drawCodeBlock('Sample Request Body (/pay-bill)', `{\n  "billerId": "DGVCL0000GUJ01",\n  "amount": 1500.00,\n  "mobile": "9898971274",\n  "paymentMode": "UPI",\n  "client_transaction_id": "TXN_ORD_20260814_001",\n  "customerParams": [\n    { "name": "Consumer Number", "value": "12345678901" }\n  ]\n}`, y);
+      y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Bill Paid successfully",\n  "transaction_id": "BBPSU1283118228",\n  "client_transaction_id": "TXN_ORD_20260814_001",\n  "bbps_txn_ref_id": "CC016226CBAF13851712",\n  "payment_status": "success",\n  "charge_deducted": 10.00\n}`, y);
+
+      // Section 2.6 GET /status/:transaction_id
+      y = checkPageBreak(y, 130);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(16, 185, 129);
+      doc.text('2.6 GET /status/:transaction_id - Check Live Status & Auto-Refund', 14, y);
+      y += 4;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(71, 85, 105);
+      doc.text('Pass BBPSU1283118228, TXN_ORD..., or CC01... ID. Pending transactions without CC01 ID auto-fail and auto-refund.', 14, y);
+      y += 5;
+
+      y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "CC016226CBAF13851712",\n    "current_status": "success",\n    "bbps_status": "SUCCESS",\n    "polled_at": "2026-08-14T03:15:00.000Z"\n  }\n}`, y);
+
+      y = drawCodeBlock('Sample Gateway Failure & Auto-Refund Response (No CC01 Generated)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "N/A",\n    "current_status": "failed",\n    "bbps_status": "FAILED_GATEWAY_ERROR",\n    "message": "Bill payment failed to connect to gateway. Wallet automatically refunded.",\n    "refund_status": "REFUNDED",\n    "refunded_amount": 1500.00\n  }\n}`, y);
+
+      // Section 3: Error Codes Matrix Table
+      y = checkPageBreak(y, 80);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(225, 29, 72);
+      doc.text('3. HTTP Error Codes & Troubleshooting Matrix', 14, y);
+      y += 4;
+
+      autoTable(doc, {
+        startY: y,
+        head: [['HTTP Code', 'Status', 'Description', 'Resolution Action']],
+        body: [
+          ['200 OK', 'success', 'Transaction / Request executed successfully', 'Process order response'],
+          ['400 Bad Request', 'error', 'Insufficient Wallet Balance', 'Load funds into B2B wallet'],
+          ['400 Bad Request', 'error', 'Payment mode Cash disabled for biller', 'Pass paymentMode: "UPI" or "Internet Banking"'],
+          ['401 Unauthorized', 'error', 'Invalid API Keys or IP Not Whitelisted', 'Whitelist server IP in B2B Settings'],
+          ['429 Too Many Requests', 'error', 'Daily sync limit reached (50 reqs/day)', 'Cache biller list locally'],
+          ['500 Internal Error', 'error', 'Upstream Biller/Gateway Error', 'Wallet auto-refunded. Retry later']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
+        bodyStyles: { fontSize: 7.5 },
+        margin: { left: 14, right: 14 }
+      });
+
+      doc.save(`B2B_Bill_Payment_API_Documentation_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     } catch (err) {
       console.error('Failed to generate API PDF:', err);
       alert('Failed to generate PDF documentation');
