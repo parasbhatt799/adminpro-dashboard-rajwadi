@@ -3,6 +3,7 @@ import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, User, Clock } from 'lucide-react';
 import B2BAdminSidebar from './B2BAdminSidebar';
 import B2BPWAInstallButton from '../components/B2BPWAInstallButton';
+import B2BAnimatedBackground from '../components/B2BAnimatedBackground';
 import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 
@@ -82,16 +83,18 @@ export default function B2BAdminLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-900 font-sans text-slate-200">
+    <div className="flex min-h-screen bg-slate-900 font-sans text-slate-200 relative">
+      <B2BAnimatedBackground />
+
       <B2BAdminSidebar
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         pendingFundRequestsCount={pendingCount}
       />
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-900">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-900/50 backdrop-blur-sm relative z-10">
         {/* Top Header */}
-        <header className="h-16 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-8 shrink-0 shadow-lg">
+        <header className="h-16 bg-slate-800/90 backdrop-blur-md border-b border-slate-700/80 flex items-center justify-between px-8 shrink-0 shadow-lg relative z-20">
           <div className="flex items-center gap-6">
             <button
               type="button"
@@ -123,7 +126,7 @@ export default function B2BAdminLayout() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-900 text-slate-200">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 relative z-10">
           <Outlet />
         </div>
       </main>
