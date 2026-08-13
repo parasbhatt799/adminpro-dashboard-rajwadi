@@ -105,8 +105,8 @@ export default function B2BAdminDashboard() {
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">API Reseller Dashboard</h2>
-          <p className="text-gray-500 mt-1">Overview of your B2B API integrations.</p>
+          <h2 className="text-2xl font-bold text-white">API Reseller Dashboard</h2>
+          <p className="text-slate-400 mt-1">Overview of your B2B API integrations.</p>
         </div>
       </div>
 
@@ -117,71 +117,71 @@ export default function B2BAdminDashboard() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Earnings Card */}
-          <div className="bg-emerald-50 border border-emerald-100 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-sm">
+          <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
             <div className="flex items-center gap-4">
-              <div className="bg-emerald-100 p-4 rounded-full text-emerald-600">
+              <div className="bg-emerald-500/10 p-4 rounded-full text-emerald-400 border border-emerald-500/20">
                 <ShieldCheck className="h-8 w-8" />
               </div>
               <div>
-                <p className="text-sm font-bold text-emerald-600 uppercase tracking-wider mb-1">Total API Earnings</p>
-                <p className="text-3xl font-bold text-emerald-700">₹{totalEarnings.toFixed(2)}</p>
+                <p className="text-sm font-bold text-emerald-400 uppercase tracking-wider mb-1">Total API Earnings</p>
+                <p className="text-3xl font-bold text-emerald-300">₹{totalEarnings.toFixed(2)}</p>
               </div>
             </div>
           </div>
           
           {/* Active Agents Card */}
-          <div className="bg-indigo-50 border border-indigo-100 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-sm">
+          <div className="bg-indigo-950/30 border border-indigo-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
             <div className="flex items-center gap-4">
-              <div className="bg-indigo-100 p-4 rounded-full text-indigo-600">
+              <div className="bg-indigo-500/10 p-4 rounded-full text-indigo-400 border border-indigo-500/20">
                 <Activity className="h-8 w-8" />
               </div>
               <div>
-                <p className="text-sm font-bold text-indigo-600 uppercase tracking-wider mb-1">Active Agents</p>
-                <p className="text-3xl font-bold text-indigo-700">{activeAgentsCount}</p>
+                <p className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-1">Active Agents</p>
+                <p className="text-3xl font-bold text-indigo-300">{activeAgentsCount}</p>
               </div>
             </div>
           </div>
 
           {/* Global Settings Card */}
-          <div className="bg-orange-50 border border-orange-100 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-sm">
+          <div className="bg-amber-950/30 border border-amber-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
             <div className="flex items-center gap-4 mb-2">
-              <div className="bg-orange-100 p-3 rounded-full text-orange-600">
+              <div className="bg-amber-500/10 p-3 rounded-full text-amber-400 border border-amber-500/20">
                 <Settings className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm font-bold text-orange-600 uppercase tracking-wider mb-1">Global Charge Per Bill</p>
+                <p className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-1">Global Charge Per Bill</p>
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-orange-700">₹</span>
+              <span className="text-xl font-bold text-amber-400">₹</span>
               <input
                 type="number"
                 value={globalCharge}
                 onChange={(e) => setGlobalCharge(e.target.value)}
                 step="0.01"
-                className="w-full bg-white border border-orange-200 text-orange-900 rounded-lg px-3 py-2 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
               />
               <button
                 onClick={handleSaveGlobalCharge}
                 disabled={savingCharge}
-                className="bg-orange-600 hover:bg-orange-700 text-white p-2.5 rounded-lg transition-colors flex items-center justify-center disabled:opacity-50"
+                className="bg-amber-500 hover:bg-amber-600 text-slate-950 p-2.5 rounded-lg font-bold transition-colors flex items-center justify-center disabled:opacity-50"
               >
                 {savingCharge ? <LoadingSpinner size="sm" /> : <Save className="w-5 h-5" />}
               </button>
             </div>
-            <p className="text-xs text-orange-600/80">Default deduction applied if an agent has no custom charge set.</p>
+            <p className="text-xs text-amber-400/80">Default deduction applied if an agent has no custom charge set.</p>
           </div>
         </div>
       )}
       
       {!loading && (
-        <div className="mt-8 bg-white border border-gray-200 rounded-2xl p-8 text-center">
-          <div className="bg-blue-50 text-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+        <div className="mt-8 bg-slate-800 border border-slate-700 rounded-2xl p-8 text-center shadow-xl">
+          <div className="bg-indigo-500/10 text-indigo-400 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 border border-indigo-500/20">
             <ShieldCheck className="h-8 w-8" />
           </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Agent API Settings have moved</h3>
-          <p className="text-gray-500 max-w-md mx-auto">
-            You can now manage individual API configurations (API Keys, IP/Domain whitelisting, and BillAvenue Mapping) directly from the <strong>B2B Agents</strong> list by clicking the Settings icon next to any agent.
+          <h3 className="text-xl font-bold text-white mb-2">Agent API Settings have moved</h3>
+          <p className="text-slate-400 max-w-md mx-auto">
+            You can now manage individual API configurations (API Keys, IP/Domain whitelisting, and BillAvenue Mapping) directly from the <strong className="text-white">B2B Agents</strong> list by clicking the Settings icon next to any agent.
           </p>
         </div>
       )}
