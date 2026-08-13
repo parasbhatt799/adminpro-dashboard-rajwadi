@@ -82,40 +82,40 @@ export default function B2BAdminLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900">
+    <div className="flex min-h-screen bg-slate-900 font-sans text-slate-200">
       <B2BAdminSidebar
         onLogout={handleLogout}
         isCollapsed={isSidebarCollapsed}
         pendingFundRequestsCount={pendingCount}
       />
 
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-900">
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shrink-0">
+        <header className="h-16 bg-slate-800 border-b border-slate-700 flex items-center justify-between px-8 shrink-0 shadow-lg">
           <div className="flex items-center gap-6">
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className="p-2 hover:bg-slate-100 rounded-lg text-slate-500 transition-colors"
+              className="p-2 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors"
             >
               <Menu size={20} />
             </button>
-            <h2 className="text-xl font-bold text-gray-800 capitalize hidden sm:block">
+            <h2 className="text-xl font-bold text-white capitalize hidden sm:block">
               {location.pathname.split('/').pop()?.replace('-', ' ')}
             </h2>
           </div>
 
           <div className="flex items-center gap-4">
-            <LiveClock />
+            <LiveClock colorClass="text-slate-400" />
             <B2BPWAInstallButton variant="header" />
 
-            <div className="h-8 w-px bg-slate-200 mx-2"></div>
+            <div className="h-8 w-px bg-slate-700 mx-2"></div>
             <div className="flex items-center gap-3 pl-2">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-bold text-slate-900 leading-none">Admin</p>
-                <p className="text-xs text-slate-500 mt-1">B2B Portal</p>
+                <p className="text-sm font-bold text-white leading-none">Admin</p>
+                <p className="text-xs text-slate-400 mt-1">B2B Portal</p>
               </div>
-              <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
+              <div className="w-10 h-10 bg-indigo-500/20 rounded-full flex items-center justify-center text-indigo-400 border border-indigo-500/30">
                 <User size={20} />
               </div>
             </div>
@@ -123,7 +123,7 @@ export default function B2BAdminLayout() {
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-900 text-slate-200">
           <Outlet />
         </div>
       </main>
