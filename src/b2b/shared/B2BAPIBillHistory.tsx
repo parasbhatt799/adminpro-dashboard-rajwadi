@@ -78,12 +78,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       let hasMore = true;
       let safetyCounter = 0;
 
-      while (hasMore && safetyCounter < 100) {
+      while (hasMore && safetyCounter < 1000) {
         safetyCounter++;
         let query = supabase
           .from('b2b_api_logs')
           .select('*')
-          .eq('endpoint', '/api/b2b/pay-bill')
+          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
           .order('created_at', { ascending: false })
           .range(from, from + step - 1);
 
@@ -109,26 +109,45 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
       setLogs(allLogs);
 
-      // Fetch B2B agent credentials for mapping B2B Login ID and BillAvenue Agent ID
+      // Fetch B2B agent credentials with batch pagination for mapping B2B Login ID and BillAvenue Agent ID
       try {
-        const { data: creds } = await supabase
-          .from('b2b_api_credentials')
-          .select('id, agent_id, b2b_login_id, billavenue_agent_id, first_name, last_name');
+        let allCreds: any[] = [];
+        let credsFrom = 0;
+        const credsStep = 1000;
+        let credsHasMore = true;
 
-        if (creds) {
-          const map: Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string }> = {};
-          creds.forEach((c: any) => {
-            const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ');
-            const info = {
-              b2b_login_id: c.b2b_login_id || 'N/A',
-              billavenue_agent_id: c.billavenue_agent_id || c.agent_id || 'N/A',
-              name: fullName
-            };
-            if (c.id) map[c.id] = info;
-            if (c.agent_id) map[c.agent_id] = info;
-          });
-          setAgentMap(map);
+        while (credsHasMore) {
+          const { data: credsBatch, error: credsErr } = await supabase
+            .from('b2b_api_credentials')
+            .select('id, agent_id, b2b_login_id, billavenue_agent_id, first_name, last_name')
+            .range(credsFrom, credsFrom + credsStep - 1);
+
+          if (credsErr) throw credsErr;
+
+          if (credsBatch && credsBatch.length > 0) {
+            allCreds = allCreds.concat(credsBatch);
+            if (credsBatch.length < credsStep) {
+              credsHasMore = false;
+            } else {
+              credsFrom += credsStep;
+            }
+          } else {
+            credsHasMore = false;
+          }
         }
+
+        const map: Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string }> = {};
+        allCreds.forEach((c: any) => {
+          const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ');
+          const info = {
+            b2b_login_id: c.b2b_login_id || 'N/A',
+            billavenue_agent_id: c.billavenue_agent_id || c.agent_id || 'N/A',
+            name: fullName
+          };
+          if (c.id) map[c.id] = info;
+          if (c.agent_id) map[c.agent_id] = info;
+        });
+        setAgentMap(map);
       } catch (e) {
         console.error('Error fetching agent creds map:', e);
       }

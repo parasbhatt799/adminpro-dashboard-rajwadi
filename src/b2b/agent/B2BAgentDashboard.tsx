@@ -35,8 +35,8 @@ export default function B2BAgentDashboard() {
       const [credRes, logsRes, fetchCountRes, payCountRes, settingsRes] = await Promise.all([
         supabase.from('b2b_api_credentials').select('*').eq('id', agentId).single(),
         supabase.from('b2b_api_logs').select('*').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20),
-        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('endpoint', '/api/b2b/fetch-bill'),
-        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('endpoint', '/api/b2b/pay-bill').eq('status_code', 200),
+        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/fetch-bill,endpoint.eq./api/v1/b2b/fetch-bill"),
+        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill").eq('status_code', 200),
         supabase.from('b2b_settings').select('global_charge_per_bill').limit(1).maybeSingle()
       ]);
 

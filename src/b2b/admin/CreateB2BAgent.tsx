@@ -63,13 +63,33 @@ export default function CreateB2BAgent() {
   const fetchAgents = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('b2b_api_credentials')
-        .select('*')
-        .order('created_at', { ascending: false });
+      let allAgents: Agent[] = [];
+      let from = 0;
+      const step = 1000;
+      let hasMore = true;
 
-      if (error) throw error;
-      setAgents(data || []);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('b2b_api_credentials')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .range(from, from + step - 1);
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allAgents = allAgents.concat(data as Agent[]);
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      setAgents(allAgents);
     } catch (err: any) {
       console.error(err);
       toast.error('Failed to fetch agents');
