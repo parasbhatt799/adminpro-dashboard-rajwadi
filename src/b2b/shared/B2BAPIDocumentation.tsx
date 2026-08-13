@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Book, Code, Key, Server, AlertCircle, Copy, CheckCircle2, Activity, Terminal, ShieldAlert, DollarSign, Layers, Globe, RefreshCw, FileText, ChevronRight, Check } from 'lucide-react';
+import { Book, Code, Key, Server, AlertCircle, Copy, CheckCircle2, Activity, Terminal, ShieldAlert, DollarSign, Layers, Globe, RefreshCw, FileText, ChevronRight, Check, Download } from 'lucide-react';
+import { format } from 'date-fns';
+import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
 export default function B2BAPIDocumentation() {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [activeLang, setActiveLang] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
+  const [exportingPdf, setExportingPdf] = useState(false);
 
   const copyToClipboard = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -12,6 +15,146 @@ export default function B2BAPIDocumentation() {
   };
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://api.usepay.in';
+
+  const handleExportPDF = async () => {
+    setExportingPdf(true);
+    try {
+      const module = await import('jspdf');
+      const JsPDFClass = module.jsPDF || module.default;
+      const autoTableModule = await import('jspdf-autotable');
+      const autoTable = (autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule) as any;
+
+      const doc = new JsPDFClass({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      // Title & Document Header
+      doc.setFillColor(30, 41, 59); // slate-800
+      doc.rect(0, 0, 210, 35, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(18);
+      doc.text('B2B Bill Payment API Reference', 14, 18);
+
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(148, 163, 184);
+      doc.text(`Base Endpoint: ${baseUrl}/api/v1/b2b  |  Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, 14, 26);
+
+      let startY = 42;
+
+      // 1. Authentication Headers Table
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('1. Authentication & Mandatory Headers', 14, startY);
+      startY += 4;
+
+      autoTable(doc, {
+        startY: startY,
+        head: [['Header Name', 'Value Format', 'Description']],
+        body: [
+          ['x-api-key', 'String (pub_live_...)', 'Public API key for identifying agent account'],
+          ['x-secret-key', 'String (sec_live_...)', 'Secret API key for authenticating requests'],
+          ['Content-Type', 'application/json', 'Payload data format for POST requests']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8.5 },
+        margin: { left: 14, right: 14 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      // 2. API Endpoints Table
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('2. API Endpoints Overview', 14, startY);
+      startY += 4;
+
+      autoTable(doc, {
+        startY: startY,
+        head: [['Method', 'Endpoint Path', 'Description']],
+        body: [
+          ['GET', '/balance', 'Fetch current available agent wallet balance in Rupees'],
+          ['GET', '/categories', 'Fetch supported biller categories (Electricity, Fastag, Water, etc.)'],
+          ['GET', '/billers', 'Fetch billers list and required customer input parameters'],
+          ['POST', '/fetch-bill', 'Fetch customer bill amount, due date, and biller details'],
+          ['POST', '/pay-bill', 'Process bill payment and deduct funds from wallet'],
+          ['GET', '/status/:transaction_id', 'Check real-time live status of a transaction']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8.5 },
+        margin: { left: 14, right: 14 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      // 3. /pay-bill Parameters Table
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('3. Pay Bill Request Parameters (/pay-bill)', 14, startY);
+      startY += 4;
+
+      autoTable(doc, {
+        startY: startY,
+        head: [['Parameter', 'Type', 'Required', 'Description']],
+        body: [
+          ['billerId', 'String', 'REQUIRED', 'Exact Biller ID (e.g. DGVCL0000GUJ01)'],
+          ['amount', 'Number', 'REQUIRED', 'Bill amount in Rupees to be paid (e.g. 1500.00)'],
+          ['mobile', 'String', 'REQUIRED', 'Customer 10-digit mobile number'],
+          ['paymentMode', 'String', 'OPTIONAL', 'Payment mode: Cash, UPI, Internet Banking, Debit Card, Credit Card (Default: Cash)'],
+          ['client_transaction_id', 'String', 'OPTIONAL', 'Custom transaction ID for tracking and idempotency'],
+          ['customerParams', 'Array', 'REQUIRED', 'Array of { name, value } objects matching required biller parameters'],
+          ['billerResponseInfo', 'Object', 'OPTIONAL', 'Exact billerResponse object returned from /fetch-bill'],
+          ['additionalInfo', 'Array', 'OPTIONAL', 'Optional key-value metadata array [{ infoName, infoValue }]']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8 },
+        margin: { left: 14, right: 14 }
+      });
+
+      startY = (doc as any).lastAutoTable.finalY + 10;
+
+      // 4. HTTP Error & Status Matrix Table
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('4. Error Codes & Status Matrix', 14, startY);
+      startY += 4;
+
+      autoTable(doc, {
+        startY: startY,
+        head: [['HTTP Code', 'Status', 'Description', 'Resolution Action']],
+        body: [
+          ['200 OK', 'success', 'Transaction / Request executed successfully', 'Process order response'],
+          ['400 Bad Request', 'error', 'Insufficient Wallet Balance', 'Load funds into B2B wallet'],
+          ['400 Bad Request', 'error', 'Payment mode Cash disabled for biller', 'Pass paymentMode: "UPI" or "Internet Banking"'],
+          ['401 Unauthorized', 'error', 'Invalid API Keys or IP Not Whitelisted', 'Whitelist server IP in B2B Settings'],
+          ['429 Too Many Requests', 'error', 'Daily sync limit reached (50 reqs/day)', 'Cache biller list locally'],
+          ['500 Internal Error', 'error', 'Upstream Biller/Gateway Error', 'Wallet auto-refunded. Retry later']
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8 },
+        margin: { left: 14, right: 14 }
+      });
+
+      doc.save(`B2B_Bill_Payment_API_Documentation.pdf`);
+    } catch (err) {
+      console.error('Failed to generate API PDF:', err);
+      alert('Failed to generate PDF documentation');
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   const CodeBlock = ({ title, code, section }: { title: string, code: string, section: string }) => (
     <div className="bg-slate-900 rounded-xl border border-slate-700/80 overflow-hidden my-4 shadow-xl">
@@ -78,16 +221,35 @@ export default function B2BAPIDocumentation() {
       {/* Header Banner */}
       <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-40 bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-3">
-            <Activity className="h-3.5 w-3.5 text-indigo-400" /> API v1.0 Documentation
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-3">
+              <Activity className="h-3.5 w-3.5 text-indigo-400" /> API v1.0 Documentation
+            </div>
+            <h1 className="text-3xl font-black text-white tracking-tight mb-2">
+              B2B Bill Payment API Reference
+            </h1>
+            <p className="text-slate-400 text-sm max-w-2xl leading-relaxed">
+              High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated webhook updates.
+            </p>
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight mb-2">
-            B2B Bill Payment API Reference
-          </h1>
-          <p className="text-slate-400 text-sm max-w-2xl leading-relaxed">
-            High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated webhook updates.
-          </p>
+          <button
+            onClick={handleExportPDF}
+            disabled={exportingPdf}
+            className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm shadow-xl border border-indigo-400/30 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 shrink-0 self-start md:self-center"
+          >
+            {exportingPdf ? (
+              <>
+                <LoadingSpinner size="sm" />
+                <span>Generating PDF...</span>
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4 text-white" />
+                <span>Export PDF Doc</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
