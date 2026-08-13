@@ -862,20 +862,20 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       ) : (
         <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm whitespace-nowrap">
+            <table className="w-full text-left text-sm">
               <thead className="bg-slate-900/50 text-slate-400 border-b border-slate-700/50 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
-                  <th className="px-6 py-4">Date & Time</th>
-                  {isAdmin && <th className="px-6 py-4 text-indigo-400">B2B Login ID</th>}
-                  {isAdmin && <th className="px-6 py-4 text-emerald-400">BillAvenue Agent ID</th>}
-                  <th className="px-6 py-4">Biller ID</th>
-                  <th className="px-6 py-4">Parameters</th>
-                  <th className="px-6 py-4">Amount</th>
-                  <th className="px-6 py-4 text-amber-400">Charge</th>
-                  <th className="px-6 py-4 text-slate-300">API TXN ID</th>
-                  <th className="px-6 py-4 text-indigo-400">BBPS TXN ID</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-3 py-3">Date & Time</th>
+                  {isAdmin && <th className="px-3 py-3 text-indigo-400">B2B Login ID</th>}
+                  {isAdmin && <th className="px-3 py-3 text-emerald-400">BillAvenue Agent ID</th>}
+                  <th className="px-3 py-3">Biller ID</th>
+                  <th className="px-3 py-3">Parameters</th>
+                  <th className="px-3 py-3">Amount</th>
+                  <th className="px-3 py-3 text-amber-400">Charge</th>
+                  <th className="px-3 py-3 text-slate-300">API TXN ID</th>
+                  <th className="px-3 py-3 text-indigo-400">BBPS TXN ID</th>
+                  <th className="px-3 py-3">Status</th>
+                  <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/50">
@@ -902,93 +902,93 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   
                   return (
                     <tr key={log.id} className="hover:bg-slate-700/20 transition-colors">
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-slate-300">{format(parseISO(log.created_at), 'dd MMM, yyyy')}</div>
-                        <div className="text-slate-500 text-xs">{format(parseISO(log.created_at), 'hh:mm:ss a')}</div>
+                      <td className="px-3 py-3">
+                        <div className="font-medium text-slate-300 text-xs">{format(parseISO(log.created_at), 'dd MMM, yyyy')}</div>
+                        <div className="text-slate-500 text-[11px]">{format(parseISO(log.created_at), 'hh:mm:ss a')}</div>
                       </td>
                       
                       {isAdmin && (
-                        <td className="px-6 py-4">
-                          <div className="font-bold text-indigo-300 font-mono text-xs">
+                        <td className="px-3 py-3">
+                          <div className="font-bold text-indigo-300 font-mono text-xs truncate max-w-[130px]" title={agentMap[log.agent_id]?.b2b_login_id || log.agent_id}>
                             {agentMap[log.agent_id]?.b2b_login_id || log.agent_id}
                           </div>
                           {agentMap[log.agent_id]?.name && (
-                            <div className="text-slate-400 text-xs">{agentMap[log.agent_id]?.name}</div>
+                            <div className="text-slate-400 text-[11px] truncate max-w-[130px]">{agentMap[log.agent_id]?.name}</div>
                           )}
                         </td>
                       )}
 
                       {isAdmin && (
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-emerald-400 font-mono text-xs">
+                        <td className="px-3 py-3">
+                          <div className="font-semibold text-emerald-400 font-mono text-xs truncate max-w-[140px]" title={agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId || reqBody?.agentId || 'N/A'}>
                             {agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId || reqBody?.agentId || 'N/A'}
                           </div>
                         </td>
                       )}
                       
-                      <td className="px-6 py-4">
-                        <div className="font-medium text-indigo-400">{reqBody.billerId || 'Unknown Biller'}</div>
+                      <td className="px-3 py-3">
+                        <div className="font-medium text-indigo-400 text-xs truncate max-w-[130px]" title={reqBody.billerId || 'Unknown Biller'}>{reqBody.billerId || 'Unknown Biller'}</div>
                       </td>
                       
-                      <td className="px-6 py-4">
+                      <td className="px-3 py-3">
                         {primaryParam && (
-                          <div className="text-white text-xs font-mono mb-1">{primaryParam}</div>
+                          <div className="text-white text-xs font-mono mb-0.5">{primaryParam}</div>
                         )}
-                        <div className="text-slate-400 text-xs">Mobile: {reqBody.mobile || 'N/A'}</div>
+                        <div className="text-slate-400 text-[11px]">Mobile: {reqBody.mobile || 'N/A'}</div>
                       </td>
                       
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-white">₹ {Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                      <td className="px-3 py-3">
+                        <div className="font-bold text-white text-xs">₹ {Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                       </td>
 
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-amber-400">
+                      <td className="px-3 py-3">
+                        <div className="font-bold text-amber-400 text-xs">
                           {chargeVal > 0 ? `₹ ${chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹ 0.00'}
                         </div>
                       </td>
 
-                      <td className="px-6 py-4 font-mono text-xs text-slate-300">
+                      <td className="px-3 py-3 font-mono text-xs text-slate-300">
                         {txnId !== 'N/A' ? (
-                          <span className="bg-slate-900 px-2 py-1 rounded border border-slate-700/50">{txnId}</span>
+                          <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700/50 text-[11px] block truncate max-w-[130px]" title={txnId}>{txnId}</span>
                         ) : (
                           <span className="text-slate-500 font-sans">-</span>
                         )}
                       </td>
 
-                      <td className="px-6 py-4 font-mono text-xs text-indigo-300">
+                      <td className="px-3 py-3 font-mono text-xs text-indigo-300">
                         {bbpsTxnId ? (
-                          <span className="bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20">{bbpsTxnId}</span>
+                          <span className="bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 text-[11px] block truncate max-w-[140px]" title={bbpsTxnId}>{bbpsTxnId}</span>
                         ) : (
                           <span className="text-slate-500 font-sans">-</span>
                         )}
                       </td>
                       
-                      <td className="px-6 py-4">
-                        <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${statusInfo.color}`}>
+                      <td className="px-3 py-3">
+                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusInfo.color}`}>
                           {statusInfo.icon}
                           {statusInfo.text}
                         </div>
                       </td>
                       
-                      <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="px-3 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
                           {isAdmin && (
                             <>
                               {statusInfo.text === 'Pending' && (
                                 <button 
                                   onClick={() => handleLiveCheck(log)}
                                   disabled={updatingStatus === log.id}
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors mr-1"
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors"
                                   title="Check Live BBPS Status"
                                 >
-                                  {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                                  {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3 h-3" />}
                                   <span>Check</span>
                                 </button>
                               )}
                               <button 
                                 onClick={() => handleStatusChange(log.id, 'success')}
                                 disabled={updatingStatus === log.id || statusInfo.text === 'Success'}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                                className={`inline-flex items-center gap-1 p-1.5 rounded-lg border text-xs font-medium transition-colors ${
                                   statusInfo.text === 'Success' 
                                     ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed' 
                                     : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
@@ -1000,7 +1000,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                               <button 
                                 onClick={() => handleStatusChange(log.id, 'failed')}
                                 disabled={updatingStatus === log.id || statusInfo.text === 'Failed'}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                                className={`inline-flex items-center gap-1 p-1.5 rounded-lg border text-xs font-medium transition-colors ${
                                   statusInfo.text === 'Failed' 
                                     ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed' 
                                     : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/20'
@@ -1013,7 +1013,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                           )}
                           <button 
                             onClick={() => setSelectedLog(log)}
-                            className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-900 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors"
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors"
                           >
                             <FileText className="w-3.5 h-3.5" /> {isAdmin ? 'Details' : 'View Details'}
                           </button>
