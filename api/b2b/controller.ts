@@ -360,16 +360,24 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
 
     const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
     const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
+    const clientTxnId = log.request_payload?.transaction_id || log.response_payload?.transaction_id;
     
-    // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
+    let trackVal = cc01RefId;
+    let trackType = 'TRANS_REF_ID';
+    
     if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
-      return res.status(400).json({
-        status: 'error',
-        message: `BillAvenue CC01 Transaction Reference ID not found for transaction ${transaction_id}. Status check is only supported via CC01 ID.`
-      });
+      if (clientTxnId) {
+        trackVal = clientTxnId;
+        trackType = 'REQUEST_ID';
+      } else {
+        return res.status(400).json({
+          status: 'error',
+          message: `Transaction reference ID not found for ${transaction_id}.`
+        });
+      }
     }
 
-    const statusResult = await billAvenue.getTransactionStatus(String(cc01RefId), 'TRANS_REF_ID');
+    const statusResult = await billAvenue.getTransactionStatus(String(trackVal), trackType);
     let bbpsStatus = 'UNKNOWN';
     
     if (statusResult?.json) {
@@ -442,7 +450,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
 export const payBill = async (req: Request, res: Response) => {
   try {
 
-    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo } = req.body;
+    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo, paymentMode } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
 
@@ -509,6 +517,7 @@ export const payBill = async (req: Request, res: Response) => {
         agent_id: agentId,
         endpoint: '/api/b2b/pay-bill',
         request_payload: { ...req.body, transaction_id: customTxnId, totalDeduction, chargeDeducted: chargePerBill },
+        response_payload: { payment_status: 'pending', transaction_id: customTxnId },
         status_code: 202
       })
       .select('id')
@@ -570,7 +579,7 @@ export const payBill = async (req: Request, res: Response) => {
         formattedParams,
         mobile,
         parsedAmount,
-        'Cash', // paymentMode (Agent typically uses Cash/Wallet)
+        paymentMode || 'Cash', // paymentMode (Agent typically uses Cash/Wallet, or custom mode like UPI/Debit Card)
         'N', // quickPay
         undefined, // ccf1
         { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails

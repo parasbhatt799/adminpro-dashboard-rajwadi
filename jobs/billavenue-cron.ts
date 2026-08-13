@@ -17,7 +17,7 @@ cron.schedule('*/10 * * * *', async () => {
     const { data: pendingLogs, error: logError } = await supabaseAdmin
       .from('b2b_api_logs')
       .select('*')
-      .eq('payment_status', 'pending')
+      .or('status_code.eq.202,payment_status.eq.pending')
       .lt('created_at', fifteenMinutesAgo);
 
     if (logError) {
@@ -35,18 +35,24 @@ cron.schedule('*/10 * * * *', async () => {
     for (const log of pendingLogs) {
       const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
       const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
-      const transactionId = log.request_payload?.transaction_id || log.id;
+      const transactionId = log.request_payload?.transaction_id || log.response_payload?.transaction_id || log.id;
 
-      // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
+      let trackVal = cc01RefId;
+      let trackType = 'TRANS_REF_ID';
+
       if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
-        console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing valid BillAvenue CC01 reference ID. Found: ${cc01RefId}`);
-        continue;
+        if (transactionId) {
+          trackVal = transactionId;
+          trackType = 'REQUEST_ID';
+        } else {
+          console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing valid BillAvenue reference ID. Found: ${cc01RefId}`);
+          continue;
+        }
       }
 
       try {
-        const trackType = 'TRANS_REF_ID';
-        console.log(`[CRON] Checking status for B2B transaction via CC01 ID: ${cc01RefId}`);
-        const statusResult = await getTransactionStatus(String(cc01RefId), trackType);
+        console.log(`[CRON] Checking status for B2B transaction via ${trackType}: ${trackVal}`);
+        const statusResult = await getTransactionStatus(String(trackVal), trackType);
 
         let newStatus = 'pending';
         let bbpsStatus = '';

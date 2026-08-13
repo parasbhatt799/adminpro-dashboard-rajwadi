@@ -172,7 +172,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   };
 
   const getStatusInfo = (statusCode: number, responseBody: any) => {
-    const status = responseBody?.payment_status || (statusCode === 200 ? 'success' : 'failed');
+    const rawStatus = responseBody?.payment_status?.toLowerCase();
+    const status = rawStatus || (statusCode === 200 ? 'success' : statusCode === 202 ? 'pending' : 'failed');
     
     if (status === 'success' && statusCode === 200) {
       return { 
@@ -180,7 +181,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
         icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />
       };
-    } else if (status === 'pending') {
+    } else if (status === 'pending' || statusCode === 202) {
       return { 
         text: 'Pending', 
         color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
