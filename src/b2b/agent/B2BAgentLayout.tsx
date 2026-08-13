@@ -5,7 +5,6 @@ import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
 import B2BPWAInstallButton from '../components/B2BPWAInstallButton';
-import B2BAnimatedBackground from '../components/B2BAnimatedBackground';
 
 export default function B2BAgentLayout() {
   const navigate = useNavigate();
@@ -78,11 +77,9 @@ export default function B2BAgentLayout() {
   const isActive = (path: string) => location.pathname.includes(path);
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans relative">
-      <B2BAnimatedBackground />
-
+    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
       {/* Top Navbar */}
-      <header className="bg-slate-800/90 backdrop-blur-md border-b border-slate-700/80 sticky top-0 z-30 shadow-lg relative">
+      <header className="bg-slate-800 border-b border-slate-700 sticky top-0 z-30 shadow-lg">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             
@@ -163,7 +160,7 @@ export default function B2BAgentLayout() {
       </header>
 
       {/* Page Content */}
-      <div className="w-full py-8 px-4 sm:px-6 lg:px-8 relative z-10">
+      <div className="w-full py-8 px-4 sm:px-6 lg:px-8">
         <Outlet />
       </div>
     </div>
