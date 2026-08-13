@@ -222,6 +222,29 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     }
   };
 
+  const getAgentIdColor = (agentIdStr?: string) => {
+    if (!agentIdStr || agentIdStr === 'N/A') return 'text-slate-400';
+    const colors = [
+      'text-emerald-400',
+      'text-cyan-400',
+      'text-amber-400',
+      'text-indigo-400',
+      'text-purple-400',
+      'text-pink-400',
+      'text-sky-400',
+      'text-teal-400',
+      'text-yellow-400',
+      'text-rose-400'
+    ];
+    let hash = 0;
+    for (let i = 0; i < agentIdStr.length; i++) {
+      hash = (hash << 5) - hash + agentIdStr.charCodeAt(i);
+      hash |= 0;
+    }
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
+  };
+
   const checkDateFilter = (createdAtStr: string, filter: string) => {
     if (filter === 'all') return true;
     
@@ -869,7 +892,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   {isAdmin && <th className="px-3 py-3 text-indigo-400">B2B Login ID</th>}
                   {isAdmin && <th className="px-3 py-3 text-emerald-400">BillAvenue Agent ID</th>}
                   <th className="px-3 py-3">Biller ID</th>
-                  <th className="px-3 py-3">Parameters</th>
+                  <th className="px-3 py-3">CARD / MOBILE</th>
                   <th className="px-3 py-3">Amount</th>
                   <th className="px-3 py-3 text-amber-400">Charge</th>
                   <th className="px-3 py-3 text-slate-300">API TXN ID</th>
@@ -920,9 +943,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
                       {isAdmin && (
                         <td className="px-3 py-3">
-                          <div className="font-semibold text-emerald-400 font-mono text-xs truncate max-w-[140px]" title={agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId || reqBody?.agentId || 'N/A'}>
-                            {agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId || reqBody?.agentId || 'N/A'}
-                          </div>
+                          {(() => {
+                            const baId = agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId || reqBody?.agentId || 'N/A';
+                            const idColor = getAgentIdColor(baId);
+                            return (
+                              <div className={`font-semibold font-mono text-xs truncate max-w-[140px] ${idColor}`} title={baId}>
+                                {baId}
+                              </div>
+                            );
+                          })()}
                         </td>
                       )}
                       
@@ -934,7 +963,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                         {primaryParam && (
                           <div className="text-white text-xs font-mono mb-0.5">{primaryParam}</div>
                         )}
-                        <div className="text-slate-400 text-[11px]">Mobile: {reqBody.mobile || 'N/A'}</div>
+                        <div className="text-slate-400 text-[11px] font-mono">{reqBody.mobile || 'N/A'}</div>
                       </td>
                       
                       <td className="px-3 py-3">
@@ -978,11 +1007,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                                 <button 
                                   onClick={() => handleLiveCheck(log)}
                                   disabled={updatingStatus === log.id}
-                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors"
+                                  className="inline-flex items-center justify-center p-1.5 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors"
                                   title="Check Live BBPS Status"
                                 >
-                                  {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3 h-3" />}
-                                  <span>Check</span>
+                                  {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3.5 h-3.5" />}
                                 </button>
                               )}
                               <button 
