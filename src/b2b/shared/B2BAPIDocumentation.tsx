@@ -617,8 +617,10 @@ export default function B2BAPIDocumentation() {
         </div>
 
         {/* 2.6 GET /status/:transaction_id */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-36 bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
+
+          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3 relative z-10">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
               <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
               /status/:transaction_id
@@ -626,12 +628,22 @@ export default function B2BAPIDocumentation() {
             <span className="text-xs text-slate-400 font-mono font-semibold">Check Live Status</span>
           </div>
 
-          <p className="text-xs text-slate-300">
-            Check live transaction status by passing either the API Transaction ID (<code>BBPSU...</code>), Client Transaction ID (<code>TXN_ORD...</code>), or BillAvenue Ref ID (<code>CC01...</code>).
+          <p className="text-xs text-slate-300 leading-relaxed relative z-10">
+            Check live transaction status by passing your API Transaction ID (e.g. <code>BBPSU1283118228</code>), your Custom Client Transaction ID (e.g. <code>TXN_ORD_20260814_001</code>), or BillAvenue Ref ID (e.g. <code>CC01...</code>).
           </p>
 
+          <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-4 space-y-2 relative z-10">
+            <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs">
+              <ShieldAlert className="h-4 w-4 text-indigo-400" />
+              <span>Automatic Gateway Failure & Auto-Refund Policy</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-normal">
+              If a transaction status is <code>pending</code> and no <code>CC01</code> Reference ID was generated (e.g. gateway socket error or network drop before hitting biller gateway), calling <code>/status/:transaction_id</code> automatically updates local database status to <code>failed</code> and performs an <strong>Immediate Automatic Refund</strong> back to your B2B Agent Wallet balance.
+            </p>
+          </div>
+
           <CodeBlock 
-            title="Sample Response (200 OK)"
+            title="Sample Success Response (200 OK)"
             section="status_res_code"
             code={`{
   "status": "success",
@@ -639,14 +651,28 @@ export default function B2BAPIDocumentation() {
     "transaction_id": "BBPSU1283118228",
     "client_transaction_id": "TXN_ORD_20260814_001",
     "bbps_txn_ref_id": "CC016226CBAF13851712",
-    "biller_id": "DGVCL0000GUJ01",
-    "amount": 1500.00,
-    "charge_deducted": 10.00,
-    "payment_status": "success",
+    "current_status": "success",
     "bbps_status": "SUCCESS",
-    "approval_ref_num": "AB1234567890",
-    "created_at": "2026-08-14T02:15:00.000Z",
-    "updated_at": "2026-08-14T02:15:02.000Z"
+    "polled_at": "2026-08-14T03:15:00.000Z"
+  }
+}`}
+          />
+
+          <CodeBlock 
+            title="Sample Gateway Failure & Auto-Refund Response (200 OK - No CC01 Generated)"
+            section="status_res_auto_refund"
+            code={`{
+  "status": "success",
+  "data": {
+    "transaction_id": "BBPSU1283118228",
+    "client_transaction_id": "TXN_ORD_20260814_001",
+    "bbps_txn_ref_id": "N/A",
+    "current_status": "failed",
+    "bbps_status": "FAILED_GATEWAY_ERROR",
+    "message": "Bill payment failed to connect to biller gateway (No CC01 Ref generated). Agent wallet has been automatically refunded.",
+    "refund_status": "REFUNDED",
+    "refunded_amount": 1500.00,
+    "polled_at": "2026-08-14T03:15:00.000Z"
   }
 }`}
           />
