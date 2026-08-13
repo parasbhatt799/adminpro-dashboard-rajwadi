@@ -13,38 +13,81 @@ export default function B2BAdminDashboard() {
 
   useEffect(() => {
     fetchStats();
+
+    // Enable Supabase Realtime for auto updating earnings on dashboard
+    const channel = supabase
+      .channel('b2b_admin_dashboard_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'b2b_api_logs' },
+        () => {
+          fetchStats();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchStats = async () => {
     setLoading(true);
     
-    // Fetch total earnings
+    // Fetch total earnings across all pay-bill logs with pagination
     try {
-      const { data: logsData } = await supabase
-        .from('b2b_api_logs')
-        .select('charge_deducted, request_payload, response_payload, status_code')
-        .eq('endpoint', '/api/b2b/pay-bill');
+      let allLogs: any[] = [];
+      let from = 0;
+      let step = 1000;
+      let hasMore = true;
+
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('b2b_api_logs')
+          .select('charge_deducted, request_payload, response_payload, status_code, endpoint')
+          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
+          .range(from, from + step - 1);
+
+        if (error) {
+          console.error('Error fetching logs batch:', error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allLogs = allLogs.concat(data);
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
       
-      const apiSum = (logsData || []).reduce((acc, log) => {
+      const apiSum = allLogs.reduce((acc, log) => {
         const req = log.request_payload || {};
         const res = log.response_payload || {};
         const isSuccess = log.status_code === 200 && (
           res?.payment_status === 'success' || 
           res?.finalStatus === 'success' || 
+          res?.status === 'success' ||
           res?.responseCode === '000' || 
           res?.billPayResponse?.responseCode === '000' ||
-          res?.ExtBillPayResponse?.responseCode === '000'
+          res?.ExtBillPayResponse?.responseCode === '000' ||
+          res?.billPayResponse?.responseReason?.toLowerCase() === 'successful' ||
+          res?.ExtBillPayResponse?.responseReason?.toLowerCase() === 'successful'
         );
         
         if (!isSuccess) return acc;
         
         const chargeVal = Number(
-          (log as any).charge_deducted ?? 
+          log.charge_deducted ?? 
           req?.chargeDeducted ?? 
           req?.chargePerBill ?? 
           req?.charge ?? 
           (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
-          10
+          0
         );
         return acc + chargeVal;
       }, 0);
