@@ -160,7 +160,7 @@ export default function B2BAgentLayout() {
       </header>
 
       {/* Page Content */}
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div className="w-full py-8 px-4 sm:px-6 lg:px-8">
         <Outlet />
       </div>
     </div>
