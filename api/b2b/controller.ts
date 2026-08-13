@@ -345,30 +345,108 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
   }
 
   try {
-    // Verify the transaction belongs to this agent
-    const { data: log, error: logError } = await supabaseAdmin
+    const targetTxnId = String(transaction_id).trim();
+
+    // 1. Fetch past pay-bill logs for this agent to find matching transaction
+    const { data: logs, error: logError } = await supabaseAdmin
       .from('b2b_api_logs')
       .select('*')
       .eq('agent_id', agentId)
-      .eq('endpoint', '/api/b2b/pay-bill')
-      .contains('request_payload', { transaction_id })
-      .single();
+      .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill')
+      .order('created_at', { ascending: false })
+      .limit(200);
 
-    if (logError || !log) {
-      return res.status(404).json({ status: 'error', message: 'Transaction not found for this agent' });
+    if (logError || !logs || logs.length === 0) {
+      return res.status(404).json({ status: 'error', message: 'No transactions found for this agent' });
+    }
+
+    // Match by response transaction_id (BBPSU...), request transaction_id / client_transaction_id, or CC01 ID
+    const log = logs.find(l => {
+      const resPayload = l.response_payload || {};
+      const reqPayload = l.request_payload || {};
+      const cc01Id = resPayload?.billPayResponse?.txnRefId || resPayload?.ExtBillPayResponse?.txnRefId || resPayload?.txnRefId;
+      
+      return (
+        resPayload?.transaction_id === targetTxnId ||
+        reqPayload?.transaction_id === targetTxnId ||
+        reqPayload?.client_transaction_id === targetTxnId ||
+        cc01Id === targetTxnId
+      );
+    });
+
+    if (!log) {
+      return res.status(404).json({ status: 'error', message: `Transaction ${targetTxnId} not found for this agent` });
     }
 
     const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
     const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
-    
-    // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
-    if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
-      return res.status(400).json({
-        status: 'error',
-        message: `BillAvenue CC01 Transaction Reference ID not found for transaction ${transaction_id}. Status check is only supported via CC01 ID.`
+
+    let localStatus = log.payment_status || 'pending';
+
+    // 2. SCENARIO A: CC01 Ref ID is MISSING and local status is PENDING
+    // This means the bill never reached BillAvenue/BBPS gateway! Mark as FAILED and AUTO-REFUND.
+    if ((!cc01RefId || !String(cc01RefId).startsWith('CC01')) && localStatus === 'pending') {
+      const refundAmount = log.request_payload?.totalDeduction || log.request_payload?.amount || 0;
+      
+      let updatedPayload = log.response_payload || {};
+      updatedPayload = { 
+        ...updatedPayload, 
+        finalStatus: 'failed', 
+        payment_status: 'failed',
+        reason: 'Bill payment failed to reach BillAvenue gateway (No CC01 Ref generated).'
+      };
+
+      // Mark log as failed
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({ 
+          payment_status: 'failed',
+          status_code: 500,
+          charge_deducted: 0,
+          response_payload: updatedPayload
+        })
+        .eq('id', log.id);
+
+      // Perform Auto-Refund to Agent Wallet
+      if (refundAmount > 0) {
+        await supabaseAdmin.rpc('add_b2b_wallet_balance', {
+          p_agent_id: log.agent_id,
+          p_amount: refundAmount
+        });
+      }
+
+      return res.json({
+        status: 'success',
+        data: {
+          transaction_id: targetTxnId,
+          client_transaction_id: log.request_payload?.client_transaction_id || targetTxnId,
+          bbps_txn_ref_id: 'N/A',
+          current_status: 'failed',
+          bbps_status: 'FAILED_GATEWAY_ERROR',
+          message: 'Bill payment failed to connect to biller gateway (No CC01 Ref generated). Agent wallet has been automatically refunded.',
+          refund_status: 'REFUNDED',
+          refunded_amount: refundAmount,
+          polled_at: new Date().toISOString()
+        }
       });
     }
 
+    // If CC01 Ref ID is missing but status is already terminal (failed/success)
+    if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
+      return res.json({
+        status: 'success',
+        data: {
+          transaction_id: targetTxnId,
+          client_transaction_id: log.request_payload?.client_transaction_id || targetTxnId,
+          bbps_txn_ref_id: 'N/A',
+          current_status: localStatus,
+          bbps_status: localStatus.toUpperCase(),
+          polled_at: new Date().toISOString()
+        }
+      });
+    }
+
+    // 3. SCENARIO B: CC01 Ref ID exists -> Query BillAvenue Live Status
     const statusResult = await billAvenue.getTransactionStatus(String(cc01RefId), 'TRANS_REF_ID');
     let bbpsStatus = 'UNKNOWN';
     
@@ -376,7 +454,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
        const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
        if (root) {
          if (root.responseCode !== '000') {
-           console.warn(`[B2B CheckStatus] Non-000 response code (${root.responseCode}) received for ${transaction_id}`);
+           console.warn(`[B2B CheckStatus] Non-000 response code (${root.responseCode}) received for ${targetTxnId}`);
            bbpsStatus = 'PENDING';
          } else {
            const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
@@ -384,9 +462,8 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
          }
        }
     }
-    let localStatus = log.payment_status || 'pending';
-    
-    // If BBPS Status is terminal but our local status is still pending, update it!
+
+    // If BBPS Status is terminal but local status is pending, update DB & Refund/Profit
     if (localStatus === 'pending' && (bbpsStatus === 'SUCCESS' || bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE')) {
       let newStatus = bbpsStatus === 'SUCCESS' ? 'success' : 'failed';
       let newStatusCode = newStatus === 'success' ? 200 : 500;
@@ -426,7 +503,9 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
     return res.json({
       status: 'success',
       data: {
-        transaction_id,
+        transaction_id: targetTxnId,
+        client_transaction_id: log.request_payload?.client_transaction_id || targetTxnId,
+        bbps_txn_ref_id: String(cc01RefId),
         current_status: localStatus,
         bbps_status: bbpsStatus,
         polled_at: new Date().toISOString()
