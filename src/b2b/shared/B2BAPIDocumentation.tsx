@@ -19,135 +19,51 @@ export default function B2BAPIDocumentation() {
   const handleExportPDF = async () => {
     setExportingPdf(true);
     try {
-      const module = await import('jspdf');
-      const JsPDFClass = module.jsPDF || module.default;
-      const autoTableModule = await import('jspdf-autotable');
-      const autoTable = (autoTableModule.default || (autoTableModule as any).autoTable || autoTableModule) as any;
+      const docElement = document.getElementById('b2b-api-doc-container');
+      if (!docElement) {
+        alert('Documentation container not found');
+        return;
+      }
 
-      const doc = new JsPDFClass({
-        orientation: 'p',
-        unit: 'mm',
-        format: 'a4'
+      const html2canvasModule = await import('html2canvas');
+      const html2canvas = html2canvasModule.default || (html2canvasModule as any);
+
+      const jspdfModule = await import('jspdf');
+      const JsPDFClass = jspdfModule.jsPDF || jspdfModule.default;
+
+      // Render high-quality canvas snapshot of the entire documentation DOM
+      const canvas = await html2canvas(docElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#0f172a' // Dark slate theme background
       });
 
-      // Title & Document Header
-      doc.setFillColor(30, 41, 59); // slate-800
-      doc.rect(0, 0, 210, 35, 'F');
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const pdf = new JsPDFClass('p', 'mm', 'a4');
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const imgWidth = pdfWidth;
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+      
+      let heightLeft = imgHeight;
+      let position = 0;
 
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.text('B2B Bill Payment API Reference', 14, 18);
+      // Render Page 1
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
 
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(148, 163, 184);
-      doc.text(`Base Endpoint: ${baseUrl}/api/v1/b2b  |  Generated: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, 14, 26);
+      // Render continuous pages for the long documentation
+      while (heightLeft > 0) {
+        position -= pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pdfHeight;
+      }
 
-      let startY = 42;
-
-      // 1. Authentication Headers Table
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('1. Authentication & Mandatory Headers', 14, startY);
-      startY += 4;
-
-      autoTable(doc, {
-        startY: startY,
-        head: [['Header Name', 'Value Format', 'Description']],
-        body: [
-          ['x-api-key', 'String (pub_live_...)', 'Public API key for identifying agent account'],
-          ['x-secret-key', 'String (sec_live_...)', 'Secret API key for authenticating requests'],
-          ['Content-Type', 'application/json', 'Payload data format for POST requests']
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-        bodyStyles: { fontSize: 8.5 },
-        margin: { left: 14, right: 14 }
-      });
-
-      startY = (doc as any).lastAutoTable.finalY + 10;
-
-      // 2. API Endpoints Table
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('2. API Endpoints Overview', 14, startY);
-      startY += 4;
-
-      autoTable(doc, {
-        startY: startY,
-        head: [['Method', 'Endpoint Path', 'Description']],
-        body: [
-          ['GET', '/balance', 'Fetch current available agent wallet balance in Rupees'],
-          ['GET', '/categories', 'Fetch supported biller categories (Electricity, Fastag, Water, etc.)'],
-          ['GET', '/billers', 'Fetch billers list and required customer input parameters'],
-          ['POST', '/fetch-bill', 'Fetch customer bill amount, due date, and biller details'],
-          ['POST', '/pay-bill', 'Process bill payment and deduct funds from wallet'],
-          ['GET', '/status/:transaction_id', 'Check real-time live status of a transaction']
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-        bodyStyles: { fontSize: 8.5 },
-        margin: { left: 14, right: 14 }
-      });
-
-      startY = (doc as any).lastAutoTable.finalY + 10;
-
-      // 3. /pay-bill Parameters Table
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('3. Pay Bill Request Parameters (/pay-bill)', 14, startY);
-      startY += 4;
-
-      autoTable(doc, {
-        startY: startY,
-        head: [['Parameter', 'Type', 'Required', 'Description']],
-        body: [
-          ['billerId', 'String', 'REQUIRED', 'Exact Biller ID (e.g. DGVCL0000GUJ01)'],
-          ['amount', 'Number', 'REQUIRED', 'Bill amount in Rupees to be paid (e.g. 1500.00)'],
-          ['mobile', 'String', 'REQUIRED', 'Customer 10-digit mobile number'],
-          ['paymentMode', 'String', 'OPTIONAL', 'Payment mode: Cash, UPI, Internet Banking, Debit Card, Credit Card (Default: Cash)'],
-          ['client_transaction_id', 'String', 'OPTIONAL', 'Custom transaction ID for tracking and idempotency'],
-          ['customerParams', 'Array', 'REQUIRED', 'Array of { name, value } objects matching required biller parameters'],
-          ['billerResponseInfo', 'Object', 'OPTIONAL', 'Exact billerResponse object returned from /fetch-bill'],
-          ['additionalInfo', 'Array', 'OPTIONAL', 'Optional key-value metadata array [{ infoName, infoValue }]']
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-        bodyStyles: { fontSize: 8 },
-        margin: { left: 14, right: 14 }
-      });
-
-      startY = (doc as any).lastAutoTable.finalY + 10;
-
-      // 4. HTTP Error & Status Matrix Table
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(30, 41, 59);
-      doc.text('4. Error Codes & Status Matrix', 14, startY);
-      startY += 4;
-
-      autoTable(doc, {
-        startY: startY,
-        head: [['HTTP Code', 'Status', 'Description', 'Resolution Action']],
-        body: [
-          ['200 OK', 'success', 'Transaction / Request executed successfully', 'Process order response'],
-          ['400 Bad Request', 'error', 'Insufficient Wallet Balance', 'Load funds into B2B wallet'],
-          ['400 Bad Request', 'error', 'Payment mode Cash disabled for biller', 'Pass paymentMode: "UPI" or "Internet Banking"'],
-          ['401 Unauthorized', 'error', 'Invalid API Keys or IP Not Whitelisted', 'Whitelist server IP in B2B Settings'],
-          ['429 Too Many Requests', 'error', 'Daily sync limit reached (50 reqs/day)', 'Cache biller list locally'],
-          ['500 Internal Error', 'error', 'Upstream Biller/Gateway Error', 'Wallet auto-refunded. Retry later']
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-        bodyStyles: { fontSize: 8 },
-        margin: { left: 14, right: 14 }
-      });
-
-      doc.save(`B2B_Bill_Payment_API_Documentation.pdf`);
+      pdf.save(`B2B_Bill_Payment_API_Documentation_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     } catch (err) {
       console.error('Failed to generate API PDF:', err);
       alert('Failed to generate PDF documentation');
@@ -217,7 +133,7 @@ export default function B2BAPIDocumentation() {
   );
 
   return (
-    <div className="space-y-10 w-full text-slate-200">
+    <div id="b2b-api-doc-container" className="space-y-10 w-full text-slate-200 p-6 bg-slate-900 rounded-3xl">
       {/* Header Banner */}
       <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-40 bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
@@ -234,6 +150,7 @@ export default function B2BAPIDocumentation() {
             </p>
           </div>
           <button
+            data-html2canvas-ignore="true"
             onClick={handleExportPDF}
             disabled={exportingPdf}
             className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm shadow-xl border border-indigo-400/30 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 shrink-0 self-start md:self-center"
