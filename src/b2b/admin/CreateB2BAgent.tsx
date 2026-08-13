@@ -345,8 +345,8 @@ export default function CreateB2BAgent() {
     <div className="max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">B2B Agents</h2>
-          <p className="text-gray-500 mt-1">Manage your onboarded B2B agents and their balances.</p>
+          <h2 className="text-2xl font-bold text-white">B2B Agents</h2>
+          <p className="text-slate-400 mt-1">Manage your onboarded B2B agents and their balances.</p>
         </div>
         <button
           onClick={() => {

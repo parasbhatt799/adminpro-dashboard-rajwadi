@@ -323,11 +323,11 @@ export default function B2BAdminFundRequests() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <Wallet className="h-6 w-6 text-indigo-600" />
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Wallet className="h-6 w-6 text-indigo-400" />
             Fund Load Requests
           </h2>
-          <p className="text-slate-600">Approve or reject B2B API agent top-ups.</p>
+          <p className="text-slate-400">Approve or reject B2B API agent top-ups.</p>
         </div>
 
         {/* Excel and PDF Export Buttons */}
