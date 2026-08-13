@@ -360,11 +360,11 @@ export default function CreateB2BAgent() {
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
+              <tr className="bg-slate-900/50 border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider font-bold">
                 <th className="p-4">Agent Name</th>
                 <th className="p-4">Login ID</th>
                 <th className="p-4">Mobile</th>
@@ -373,32 +373,32 @@ export default function CreateB2BAgent() {
                 <th className="p-4 text-center">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-700/50">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={6} className="p-8 text-center text-slate-400">
                     Loading agents...
                   </td>
                 </tr>
               ) : agents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-500">
+                  <td colSpan={6} className="p-8 text-center text-slate-400">
                     No agents found. Click "Create Agent" to onboard one.
                   </td>
                 </tr>
               ) : (
                 agents.map((agent) => (
-                  <tr key={agent.id} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="p-4 font-medium text-slate-900">
+                  <tr key={agent.id} className="hover:bg-slate-700/20 transition-colors">
+                    <td className="p-4 font-bold text-white">
                       {agent.first_name} {agent.last_name}
                     </td>
-                    <td className="p-4 text-slate-600">{agent.b2b_login_id}</td>
-                    <td className="p-4 text-slate-600">{agent.mobile}</td>
-                    <td className="p-4 text-right font-medium text-amber-600">
-                      {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? `₹${parseFloat(agent.charge_per_bill.toString()).toFixed(2)}` : <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Global</span>}
+                    <td className="p-4 text-indigo-300 font-mono text-xs">{agent.b2b_login_id}</td>
+                    <td className="p-4 text-slate-400 font-mono text-xs">{agent.mobile}</td>
+                    <td className="p-4 text-right font-medium text-amber-400">
+                      {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? `₹${parseFloat(agent.charge_per_bill.toString()).toFixed(2)}` : <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">Global</span>}
                     </td>
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-1 font-semibold text-emerald-600">
+                      <div className="flex items-center justify-end gap-1 font-bold text-emerald-400">
                         <span>₹</span>
                         <span>{parseFloat(agent.wallet_balance?.toString() || '0').toFixed(2)}</span>
                       </div>
@@ -407,21 +407,21 @@ export default function CreateB2BAgent() {
                       <div className="flex items-center justify-center gap-2">
                         <button
                           onClick={() => setSelectedAgentForApi(agent)}
-                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          className="p-2 text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"
                           title="API Settings"
                         >
                           <Settings size={18} />
                         </button>
                         <button
                           onClick={() => handleEditClick(agent)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-colors"
                           title="Edit Agent"
                         >
                           <Edit size={18} />
                         </button>
                         <button
                           onClick={() => handleDelete(agent.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
                           title="Delete Agent"
                         >
                           <Trash2 size={18} />
@@ -438,25 +438,25 @@ export default function CreateB2BAgent() {
 
       {/* API Settings Main Modal */}
       {selectedAgentForApi && (
-        <div className="fixed inset-0 z-[40] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[40] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto text-slate-200"
           >
-            <div className="p-6 border-b border-gray-100 bg-gray-50 flex justify-between items-center sticky top-0 z-10">
+            <div className="p-6 border-b border-slate-700 bg-slate-900/80 flex justify-between items-center sticky top-0 z-10">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                  <Settings className="h-6 w-6 text-indigo-600" /> API Settings
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Settings className="h-6 w-6 text-indigo-400" /> API Settings
                 </h3>
-                <p className="text-sm text-gray-500 mt-1">
-                  Manage API configuration for <span className="font-semibold text-gray-800">{selectedAgentForApi.first_name} {selectedAgentForApi.last_name}</span> (Login ID: {selectedAgentForApi.b2b_login_id})
+                <p className="text-sm text-slate-400 mt-1">
+                  Manage API configuration for <span className="font-semibold text-white">{selectedAgentForApi.first_name} {selectedAgentForApi.last_name}</span> (Login ID: <span className="font-mono text-indigo-300">{selectedAgentForApi.b2b_login_id}</span>)
                 </p>
               </div>
               <div className="flex items-center gap-4">
                 {/* Toggle switch for enable/disable */}
-                <div className="flex items-center gap-2 mr-4 border-r border-gray-300 pr-4">
-                  <span className="text-sm font-semibold text-gray-700">API Access:</span>
+                <div className="flex items-center gap-2 mr-4 border-r border-slate-700 pr-4">
+                  <span className="text-sm font-semibold text-slate-300">API Access:</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -464,15 +464,15 @@ export default function CreateB2BAgent() {
                       checked={!!selectedAgentForApi.is_active}
                       onChange={() => toggleStatus(selectedAgentForApi)}
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
-                  <span className={`text-xs font-bold ${selectedAgentForApi.is_active ? 'text-green-600' : 'text-gray-500'}`}>
+                  <span className={`text-xs font-bold ${selectedAgentForApi.is_active ? 'text-emerald-400' : 'text-slate-400'}`}>
                     {selectedAgentForApi.is_active ? 'Enabled' : 'Disabled'}
                   </span>
                 </div>
                 <button 
                   onClick={() => setSelectedAgentForApi(null)} 
-                  className="p-2 bg-white rounded-full border border-gray-200 text-gray-500 hover:text-gray-900 transition-colors shadow-sm"
+                  className="p-2 bg-slate-900 rounded-full border border-slate-700 text-slate-400 hover:text-white transition-colors shadow-sm"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -482,29 +482,29 @@ export default function CreateB2BAgent() {
             <div className="p-6 space-y-8">
               {/* Credentials Section */}
               <div>
-                <h4 className="text-sm font-bold text-gray-700 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <KeyRound className="h-5 w-5 text-indigo-500" /> API Credentials
+                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-3 flex items-center gap-2">
+                  <KeyRound className="h-5 w-5 text-indigo-400" /> API Credentials
                 </h4>
                 {selectedAgentForApi.api_key && selectedAgentForApi.secret_key ? (
-                  <div className="space-y-4 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                  <div className="space-y-4 bg-slate-900/60 p-5 rounded-xl border border-slate-700">
                     <div>
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">API Key</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">API Key</span>
                       <div className="flex items-center gap-2">
-                        <code className="text-sm text-indigo-700 font-mono font-medium truncate block flex-1 bg-indigo-50 px-3 py-2 rounded border border-indigo-100">
+                        <code className="text-sm text-indigo-300 font-mono font-medium truncate block flex-1 bg-slate-900 px-3 py-2 rounded border border-slate-700">
                           {selectedAgentForApi.api_key}
                         </code>
-                        <button onClick={() => handleCopy(selectedAgentForApi.api_key!)} className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors bg-white border border-gray-200">
+                        <button onClick={() => handleCopy(selectedAgentForApi.api_key!)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors bg-slate-900 border border-slate-700">
                           <Copy className="h-5 w-5" />
                         </button>
                       </div>
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-gray-500 uppercase tracking-widest block mb-1">Secret Key</span>
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">Secret Key</span>
                       <div className="flex items-center gap-2">
-                        <code className="text-sm text-indigo-700 font-mono font-medium truncate block flex-1 bg-indigo-50 px-3 py-2 rounded border border-indigo-100">
+                        <code className="text-sm text-indigo-300 font-mono font-medium truncate block flex-1 bg-slate-900 px-3 py-2 rounded border border-slate-700">
                           ••••••••••••••••••••••••••••
                         </code>
-                        <button onClick={() => handleCopy(selectedAgentForApi.secret_key!)} className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors bg-white border border-gray-200">
+                        <button onClick={() => handleCopy(selectedAgentForApi.secret_key!)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors bg-slate-900 border border-slate-700">
                           <Copy className="h-5 w-5" />
                         </button>
                       </div>
@@ -512,18 +512,18 @@ export default function CreateB2BAgent() {
                     <div className="pt-2 flex justify-end">
                       <button 
                         onClick={() => handleGenerateKeys(selectedAgentForApi)}
-                        className="text-sm font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100"
+                        className="text-sm font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20"
                       >
                         <RefreshCw className="h-4 w-4" /> Regenerate Keys
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 flex flex-col items-center justify-center gap-3">
-                    <p className="text-sm text-amber-800 font-medium text-center">API Keys have not been generated for this agent yet.</p>
+                  <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-6 flex flex-col items-center justify-center gap-3">
+                    <p className="text-sm text-amber-300 font-medium text-center">API Keys have not been generated for this agent yet.</p>
                     <button
                       onClick={() => handleGenerateKeys(selectedAgentForApi)}
-                      className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-lg text-sm shadow-sm transition-colors"
+                      className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-sm shadow-sm transition-colors"
                     >
                       Generate API Keys Now
                     </button>
@@ -533,12 +533,12 @@ export default function CreateB2BAgent() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* IP Whitelist */}
-                <div className="border border-gray-200 rounded-xl p-5 flex flex-col h-full bg-white shadow-sm">
+                <div className="border border-slate-700 rounded-xl p-5 flex flex-col h-full bg-slate-900/40 shadow-sm">
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-widest flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-indigo-500" /> IPs
+                    <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-indigo-400" /> IPs
                     </h4>
-                    <button onClick={() => openIpModal(selectedAgentForApi)} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-1.5 rounded-md border border-indigo-100">
+                    <button onClick={() => openIpModal(selectedAgentForApi)} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1.5 rounded-md border border-indigo-500/20">
                       <Edit3 className="h-3.5 w-3.5" /> Manage
                     </button>
                   </div>
@@ -546,24 +546,24 @@ export default function CreateB2BAgent() {
                     {selectedAgentForApi.ip_whitelist && selectedAgentForApi.ip_whitelist.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {selectedAgentForApi.ip_whitelist.map((ip: string) => (
-                          <span key={ip} className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-mono border border-slate-200">
+                          <span key={ip} className="px-2.5 py-1 bg-slate-900 text-slate-300 rounded-md text-xs font-mono border border-slate-700">
                             {ip}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-rose-500 font-medium bg-rose-50 p-3 rounded-lg text-center flex-1 flex items-center justify-center border border-rose-100">No IPs Whitelisted</p>
+                      <p className="text-sm text-rose-400 font-medium bg-rose-500/10 p-3 rounded-lg text-center flex-1 flex items-center justify-center border border-rose-500/20">No IPs Whitelisted</p>
                     )}
                   </div>
                 </div>
 
                 {/* Domain Whitelist */}
-                <div className="border border-gray-200 rounded-xl p-5 flex flex-col h-full bg-white shadow-sm">
+                <div className="border border-slate-700 rounded-xl p-5 flex flex-col h-full bg-slate-900/40 shadow-sm">
                   <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-widest flex items-center gap-2">
-                      <Globe className="h-5 w-5 text-indigo-500" /> Domains
+                    <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                      <Globe className="h-5 w-5 text-indigo-400" /> Domains
                     </h4>
-                    <button onClick={() => openDomainModal(selectedAgentForApi)} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-indigo-50 px-2.5 py-1.5 rounded-md border border-indigo-100">
+                    <button onClick={() => openDomainModal(selectedAgentForApi)} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1.5 rounded-md border border-indigo-500/20">
                       <Edit3 className="h-3.5 w-3.5" /> Manage
                     </button>
                   </div>
@@ -571,36 +571,36 @@ export default function CreateB2BAgent() {
                     {selectedAgentForApi.domain_whitelist && selectedAgentForApi.domain_whitelist.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {selectedAgentForApi.domain_whitelist.map((domain: string) => (
-                          <span key={domain} className="px-2.5 py-1 bg-slate-100 text-slate-700 rounded-md text-xs font-mono border border-slate-200">
+                          <span key={domain} className="px-2.5 py-1 bg-slate-900 text-slate-300 rounded-md text-xs font-mono border border-slate-700">
                             {domain}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-rose-500 font-medium bg-rose-50 p-3 rounded-lg text-center flex-1 flex items-center justify-center border border-rose-100">No Domains Whitelisted</p>
+                      <p className="text-sm text-rose-400 font-medium bg-rose-500/10 p-3 rounded-lg text-center flex-1 flex items-center justify-center border border-rose-500/20">No Domains Whitelisted</p>
                     )}
                   </div>
                 </div>
               </div>
 
               {/* BillAvenue Mapping */}
-              <div className="bg-sky-50 border border-sky-200 rounded-xl p-5 shadow-sm">
+              <div className="bg-sky-950/30 border border-sky-500/20 rounded-xl p-5 shadow-sm">
                 <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-bold text-sky-800 uppercase tracking-widest flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
                     <Building2 className="h-5 w-5" /> BillAvenue Mapping
                   </h4>
-                  <button onClick={() => openAgentIdModal(selectedAgentForApi)} className="text-xs font-bold text-sky-700 hover:text-sky-800 flex items-center gap-1 bg-white px-3 py-1.5 rounded shadow-sm border border-sky-200">
+                  <button onClick={() => openAgentIdModal(selectedAgentForApi)} className="text-xs font-bold text-sky-300 hover:text-white flex items-center gap-1 bg-slate-900 px-3 py-1.5 rounded shadow-sm border border-sky-500/30">
                     <Edit3 className="h-3.5 w-3.5" /> Edit Agent ID
                   </button>
                 </div>
                 {selectedAgentForApi.billavenue_agent_id ? (
-                  <div className="flex items-center gap-2 mt-2 bg-white p-3 rounded-lg border border-sky-200">
-                    <CheckCircle2 className="h-5 w-5 text-sky-500" />
-                    <span className="text-sm font-bold text-gray-800">Agent ID:</span>
-                    <code className="text-sm text-sky-700 font-mono font-bold">{selectedAgentForApi.billavenue_agent_id}</code>
+                  <div className="flex items-center gap-2 mt-2 bg-slate-900 p-3 rounded-lg border border-sky-500/30">
+                    <CheckCircle2 className="h-5 w-5 text-sky-400" />
+                    <span className="text-sm font-bold text-slate-300">Agent ID:</span>
+                    <code className="text-sm text-sky-400 font-mono font-bold">{selectedAgentForApi.billavenue_agent_id}</code>
                   </div>
                 ) : (
-                  <p className="text-sm text-sky-600 font-medium mt-2 bg-white p-3 rounded-lg border border-sky-100">BillAvenue Agent ID not mapped yet. Needed for BBPS transactions.</p>
+                  <p className="text-sm text-sky-400 font-medium mt-2 bg-slate-900 p-3 rounded-lg border border-sky-500/20">BillAvenue Agent ID not mapped yet. Needed for BBPS transactions.</p>
                 )}
               </div>
             </div>
@@ -610,15 +610,15 @@ export default function CreateB2BAgent() {
 
       {/* Manage IP Whitelist Modal */}
       {showIPModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-200"
           >
-            <div className="p-6 border-b border-gray-100 bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-900">Manage IP Whitelist</h3>
-              <p className="text-sm text-gray-500 mt-1">Add IP addresses that are allowed to make API calls.</p>
+            <div className="p-6 border-b border-slate-700 bg-slate-900/80">
+              <h3 className="text-lg font-bold text-white">Manage IP Whitelist</h3>
+              <p className="text-sm text-slate-400 mt-1">Add IP addresses that are allowed to make API calls.</p>
             </div>
             <div className="p-6 space-y-4">
               <div className="flex gap-2">
@@ -627,21 +627,21 @@ export default function CreateB2BAgent() {
                   value={newIp}
                   onChange={(e) => setNewIp(e.target.value)}
                   placeholder="e.g. 192.168.1.1"
-                  className="flex-1 rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border outline-none"
+                  className="flex-1 rounded-xl bg-slate-900 border-slate-700 text-white placeholder-slate-500 p-2.5 border outline-none font-mono focus:border-indigo-500"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddIp()}
                 />
-                <button onClick={handleAddIp} className="bg-gray-900 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-gray-800">
+                <button onClick={handleAddIp} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors">
                   Add IP
                 </button>
               </div>
-              <div className="bg-gray-50 rounded-xl border border-gray-200 min-h-[150px] p-3 flex flex-wrap gap-2 items-start content-start">
+              <div className="bg-slate-900 rounded-xl border border-slate-700 min-h-[150px] p-3 flex flex-wrap gap-2 items-start content-start">
                 {ipList.length === 0 ? (
-                  <p className="text-sm text-gray-400 w-full text-center py-4">No IPs added yet.</p>
+                  <p className="text-sm text-slate-500 w-full text-center py-4">No IPs added yet.</p>
                 ) : (
                   ipList.map(ip => (
-                    <div key={ip} className="bg-white border border-gray-200 pl-3 pr-1 py-1 rounded-full flex items-center gap-2 text-sm font-mono shadow-sm">
+                    <div key={ip} className="bg-slate-800 border border-slate-700 text-slate-200 pl-3 pr-1 py-1 rounded-full flex items-center gap-2 text-sm font-mono shadow-sm">
                       {ip}
-                      <button onClick={() => handleRemoveIp(ip)} className="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-1 rounded-full">
+                      <button onClick={() => handleRemoveIp(ip)} className="text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-rose-500/20 p-1 rounded-full transition-colors">
                         &times;
                       </button>
                     </div>
@@ -649,10 +649,10 @@ export default function CreateB2BAgent() {
                 )}
               </div>
               <div className="flex justify-end gap-3 pt-4">
-                <button onClick={() => setShowIPModal(false)} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold">
+                <button onClick={() => setShowIPModal(false)} className="px-5 py-2.5 text-slate-300 bg-slate-900 border border-slate-700 hover:bg-slate-700 rounded-xl font-bold transition-colors">
                   Cancel
                 </button>
-                <button onClick={saveIpWhitelist} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold disabled:opacity-50 flex items-center gap-2">
+                <button onClick={saveIpWhitelist} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold disabled:opacity-50 flex items-center gap-2 transition-colors">
                   {isSaving ? <RefreshCw className="h-5 w-5 animate-spin" /> : 'Save Whitelist'}
                 </button>
               </div>
@@ -663,15 +663,15 @@ export default function CreateB2BAgent() {
 
       {/* Manage Domain Whitelist Modal */}
       {showDomainModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-200"
           >
-            <div className="p-6 border-b border-gray-100 bg-gray-50">
-              <h3 className="text-lg font-bold text-gray-900">Manage Domain Whitelist</h3>
-              <p className="text-sm text-gray-500 mt-1">Add domains that are allowed to make API calls.</p>
+            <div className="p-6 border-b border-slate-700 bg-slate-900/80">
+              <h3 className="text-lg font-bold text-white">Manage Domain Whitelist</h3>
+              <p className="text-sm text-slate-400 mt-1">Add domains that are allowed to make API calls.</p>
             </div>
             <div className="p-6 space-y-4">
               <div className="flex gap-2">
@@ -680,21 +680,21 @@ export default function CreateB2BAgent() {
                   value={newDomain}
                   onChange={(e) => setNewDomain(e.target.value)}
                   placeholder="e.g. agent-portal.com"
-                  className="flex-1 rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-2.5 border outline-none"
+                  className="flex-1 rounded-xl bg-slate-900 border-slate-700 text-white placeholder-slate-500 p-2.5 border outline-none font-mono focus:border-indigo-500"
                   onKeyDown={(e) => e.key === 'Enter' && handleAddDomain()}
                 />
-                <button onClick={handleAddDomain} className="bg-gray-900 text-white px-4 py-2.5 rounded-xl font-medium hover:bg-gray-800">
+                <button onClick={handleAddDomain} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl font-medium transition-colors">
                   Add Domain
                 </button>
               </div>
-              <div className="bg-gray-50 rounded-xl border border-gray-200 min-h-[150px] p-3 flex flex-wrap gap-2 items-start content-start">
+              <div className="bg-slate-900 rounded-xl border border-slate-700 min-h-[150px] p-3 flex flex-wrap gap-2 items-start content-start">
                 {domainList.length === 0 ? (
-                  <p className="text-sm text-gray-400 w-full text-center py-4">No domains added yet.</p>
+                  <p className="text-sm text-slate-500 w-full text-center py-4">No domains added yet.</p>
                 ) : (
                   domainList.map(domain => (
-                    <div key={domain} className="bg-white border border-gray-200 pl-3 pr-1 py-1 rounded-full flex items-center gap-2 text-sm font-mono shadow-sm">
+                    <div key={domain} className="bg-slate-800 border border-slate-700 text-slate-200 pl-3 pr-1 py-1 rounded-full flex items-center gap-2 text-sm font-mono shadow-sm">
                       {domain}
-                      <button onClick={() => handleRemoveDomain(domain)} className="text-gray-400 hover:text-red-500 bg-gray-50 hover:bg-red-50 p-1 rounded-full">
+                      <button onClick={() => handleRemoveDomain(domain)} className="text-slate-400 hover:text-rose-400 bg-slate-900 hover:bg-rose-500/20 p-1 rounded-full transition-colors">
                         &times;
                       </button>
                     </div>
@@ -702,10 +702,10 @@ export default function CreateB2BAgent() {
                 )}
               </div>
               <div className="flex justify-end gap-3 pt-4">
-                <button onClick={() => setShowDomainModal(false)} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold">
+                <button onClick={() => setShowDomainModal(false)} className="px-5 py-2.5 text-slate-300 bg-slate-900 border border-slate-700 hover:bg-slate-700 rounded-xl font-bold transition-colors">
                   Cancel
                 </button>
-                <button onClick={saveDomainWhitelist} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold disabled:opacity-50 flex items-center gap-2">
+                <button onClick={saveDomainWhitelist} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold disabled:opacity-50 flex items-center gap-2 transition-colors">
                   {isSaving ? <RefreshCw className="h-5 w-5 animate-spin" /> : 'Save Domains'}
                 </button>
               </div>
@@ -716,35 +716,35 @@ export default function CreateB2BAgent() {
 
       {/* Manage BillAvenue Agent ID Modal */}
       {showAgentIdModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-md w-full overflow-hidden text-slate-200"
           >
-            <div className="p-6 border-b border-gray-100 bg-sky-50">
-              <h3 className="text-lg font-bold text-gray-900">Map BillAvenue Agent ID</h3>
-              <p className="text-sm text-gray-600 mt-1">Enter the official BillAvenue Agent ID provided by BillAvenue for this reseller.</p>
+            <div className="p-6 border-b border-slate-700 bg-sky-950/40">
+              <h3 className="text-lg font-bold text-white">Map BillAvenue Agent ID</h3>
+              <p className="text-sm text-sky-400 mt-1">Enter the official BillAvenue Agent ID provided by BillAvenue for this reseller.</p>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">BillAvenue Agent ID</label>
+                <label className="block text-sm font-bold text-slate-300 mb-2">BillAvenue Agent ID</label>
                 <input
                   type="text"
                   value={billAvenueAgentId}
                   onChange={(e) => setBillAvenueAgentId(e.target.value)}
                   placeholder="e.g. AG123456"
-                  className="w-full rounded-xl border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 p-3 border font-mono outline-none"
+                  className="w-full rounded-xl bg-slate-900 border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 p-3 border font-mono outline-none"
                   autoFocus
                   onKeyDown={(e) => e.key === 'Enter' && saveAgentId()}
                 />
               </div>
               
               <div className="flex justify-end gap-3 pt-4">
-                <button onClick={() => setShowAgentIdModal(false)} className="px-5 py-2.5 text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-bold">
+                <button onClick={() => setShowAgentIdModal(false)} className="px-5 py-2.5 text-slate-300 bg-slate-900 border border-slate-700 hover:bg-slate-700 rounded-xl font-bold transition-colors">
                   Cancel
                 </button>
-                <button onClick={saveAgentId} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold disabled:opacity-50 flex items-center gap-2">
+                <button onClick={saveAgentId} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold disabled:opacity-50 flex items-center gap-2 transition-colors">
                   {isSaving ? <RefreshCw className="h-5 w-5 animate-spin" /> : 'Save Agent ID'}
                 </button>
               </div>
@@ -761,15 +761,15 @@ export default function CreateB2BAgent() {
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => setView('list')}
-          className="p-2 bg-white rounded-lg border border-gray-200 text-gray-500 hover:text-gray-900 transition-colors shadow-sm"
+          className="p-2 bg-slate-800 rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors shadow-sm"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-white">
             {view === 'create' ? 'Onboard New B2B Agent' : 'Edit B2B Agent'}
           </h2>
-          <p className="text-gray-500 mt-1">
+          <p className="text-slate-400 mt-1">
             {view === 'create' ? 'Register basic details to create a new B2B agent profile.' : 'Update agent details.'}
           </p>
         </div>
@@ -778,48 +778,48 @@ export default function CreateB2BAgent() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden"
+        className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden"
       >
-        <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center gap-3">
-          <div className="bg-indigo-100 p-2 rounded-lg text-indigo-600">
+        <div className="p-6 border-b border-slate-700 bg-slate-900/50 flex items-center gap-3">
+          <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 border border-indigo-500/20">
             <ShieldCheck className="h-5 w-5" />
           </div>
-          <h3 className="font-semibold text-gray-900">Agent Details Form</h3>
+          <h3 className="font-semibold text-white">Agent Details Form</h3>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
           
           <div>
-            <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">
+            <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 border-b border-slate-700 pb-2">
               1. Basic Profile Details
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
                 <input
                   type="text"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                   placeholder="Enter first name"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Last Name</label>
                 <input
                   type="text"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
                   placeholder="Enter last name"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Mobile Number</label>
                 <input
                   type="tel"
                   name="mobile"
@@ -827,12 +827,12 @@ export default function CreateB2BAgent() {
                   onChange={handleChange}
                   required
                   pattern="[0-9]{10}"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
                   placeholder="10-digit mobile number"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Charge per Bill (₹)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Charge per Bill (₹)</label>
                 <input
                   type="number"
                   name="chargePerBill"
@@ -840,19 +840,19 @@ export default function CreateB2BAgent() {
                   onChange={handleChange}
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all font-mono"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
                   placeholder="Leave empty to use Global Charge"
                 />
-                <p className="text-xs text-gray-500 mt-1">If left empty, the Global Charge set in the Dashboard will apply.</p>
+                <p className="text-xs text-slate-400 mt-1">If left empty, the Global Charge set in the Dashboard will apply.</p>
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Address</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Full Address</label>
                 <textarea
                   name="address"
                   value={formData.address}
                   onChange={handleChange}
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all resize-none"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all resize-none"
                   placeholder="Enter complete address"
                 />
               </div>
@@ -860,26 +860,26 @@ export default function CreateB2BAgent() {
           </div>
 
           <div>
-            <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4 border-b border-gray-100 pb-2">
+            <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 border-b border-slate-700 pb-2">
               2. B2B Login Credentials
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">B2B Login ID</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">B2B Login ID</label>
                 <input
                   type="text"
                   name="b2bLoginId"
                   value={formData.b2bLoginId}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all bg-gray-50 font-mono"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
                   placeholder="e.g., agent_123"
                 />
-                <p className="text-xs text-gray-500 mt-1">Must be unique across the platform.</p>
+                <p className="text-xs text-slate-400 mt-1">Must be unique across the platform.</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  B2B Password {view === 'edit' && <span className="text-xs font-normal text-gray-500">(Leave blank to keep current)</span>}
+                <label className="block text-sm font-medium text-slate-300 mb-1">
+                  B2B Password {view === 'edit' && <span className="text-xs font-normal text-slate-400">(Leave blank to keep current)</span>}
                 </label>
                 <input
                   type="text"
@@ -887,25 +887,25 @@ export default function CreateB2BAgent() {
                   value={formData.b2bPassword}
                   onChange={handleChange}
                   required={view === 'create'}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none transition-all font-mono"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
                   placeholder={view === 'edit' ? "Enter new password" : "Enter a secure password"}
                 />
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
             <button
               type="button"
               onClick={() => setView('list')}
-              className="px-6 py-2.5 rounded-xl font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+              className="px-6 py-2.5 rounded-xl font-medium text-slate-300 hover:bg-slate-700 transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/30"
             >
               {loading ? (
                 <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
