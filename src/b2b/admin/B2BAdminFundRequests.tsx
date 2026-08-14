@@ -51,7 +51,8 @@ export default function B2BAdminFundRequests() {
           .from('b2b_fund_requests')
           .select(`
             *,
-            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance)
+            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance),
+            b2b_admin_bank_accounts(bank_name, account_name, account_number, ifsc_code, branch_name, upi_id)
           `)
           .order('created_at', { ascending: false })
           .range(from, from + step - 1);
@@ -545,18 +546,22 @@ export default function B2BAdminFundRequests() {
                       <span className="font-bold text-white text-base">₹{req.amount.toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-4">
-                      {req.admin_bank_details ? (
-                        <div>
-                          <div className="font-bold text-indigo-300 text-xs flex items-center gap-1">
-                            {req.admin_bank_details.bank_name}
-                          </div>
-                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                            A/C: {req.admin_bank_details.account_number}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-500 italic">General</span>
-                      )}
+                      {(() => {
+                        const bankInfo = req.admin_bank_details || req.b2b_admin_bank_accounts;
+                        if (bankInfo && bankInfo.bank_name) {
+                          return (
+                            <div>
+                              <div className="font-bold text-indigo-300 text-xs flex items-center gap-1">
+                                {bankInfo.bank_name}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                                A/C: {bankInfo.account_number}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return <span className="text-xs text-slate-500 italic">General</span>;
+                      })()}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-mono text-xs text-indigo-300 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700 inline-block">
@@ -653,42 +658,48 @@ export default function B2BAdminFundRequests() {
             </div>
 
             {/* Target Admin Bank Account Details Box */}
-            {selectedProofReq.admin_bank_details ? (
-              <div className="bg-indigo-950/60 border border-indigo-500/40 rounded-2xl p-4 text-xs space-y-2 relative overflow-hidden">
-                <div className="flex items-center justify-between border-b border-indigo-500/30 pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">
-                      DEPOSIT BANK
-                    </span>
-                    <span className="font-bold text-white text-sm">{selectedProofReq.admin_bank_details.bank_name}</span>
-                  </div>
-                  {selectedProofReq.admin_bank_details.upi_id && (
-                    <span className="text-amber-300 font-mono font-bold text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      UPI: {selectedProofReq.admin_bank_details.upi_id}
-                    </span>
-                  )}
-                </div>
+            {(() => {
+              const bankDetails = selectedProofReq.admin_bank_details || selectedProofReq.b2b_admin_bank_accounts;
+              if (bankDetails && bankDetails.bank_name) {
+                return (
+                  <div className="bg-indigo-950/60 border border-indigo-500/40 rounded-2xl p-4 text-xs space-y-2 relative overflow-hidden">
+                    <div className="flex items-center justify-between border-b border-indigo-500/30 pb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">
+                          DEPOSIT BANK
+                        </span>
+                        <span className="font-bold text-white text-sm">{bankDetails.bank_name}</span>
+                      </div>
+                      {bankDetails.upi_id && (
+                        <span className="text-amber-300 font-mono font-bold text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                          UPI: {bankDetails.upi_id}
+                        </span>
+                      )}
+                    </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                  <div>
-                    <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Holder</span>
-                    <span className="text-slate-200 font-bold">{selectedProofReq.admin_bank_details.account_name}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Holder</span>
+                        <span className="text-slate-200 font-bold">{bankDetails.account_name}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Number</span>
+                        <span className="text-emerald-400 font-mono font-bold">{bankDetails.account_number}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 text-[10px] font-semibold uppercase block">IFSC Code</span>
+                        <span className="text-indigo-300 font-mono font-bold">{bankDetails.ifsc_code}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Number</span>
-                    <span className="text-emerald-400 font-mono font-bold">{selectedProofReq.admin_bank_details.account_number}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 text-[10px] font-semibold uppercase block">IFSC Code</span>
-                    <span className="text-indigo-300 font-mono font-bold">{selectedProofReq.admin_bank_details.ifsc_code}</span>
-                  </div>
+                );
+              }
+              return (
+                <div className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-400 flex items-center justify-between">
+                  <span>Target Admin Bank: <strong className="text-slate-300">General / Not Specified</strong></span>
                 </div>
-              </div>
-            ) : (
-              <div className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-400 flex items-center justify-between">
-                <span>Target Admin Bank: <strong className="text-slate-300">General / Not Specified</strong></span>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Proof Preview Image with Interactive Zoom & Pan Movement */}
             <div className="space-y-2">
