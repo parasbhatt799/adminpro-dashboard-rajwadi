@@ -517,6 +517,7 @@ export default function B2BAdminFundRequests() {
                 <tr>
                   <th className="px-6 py-3">Agent</th>
                   <th className="px-6 py-3">Amount</th>
+                  <th className="px-6 py-3">Deposit Admin Bank</th>
                   <th className="px-6 py-3">UTR Details</th>
                   <th className="px-6 py-3">Date</th>
                   <th className="px-6 py-3">Status</th>
@@ -542,6 +543,20 @@ export default function B2BAdminFundRequests() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-bold text-white text-base">₹{req.amount.toLocaleString()}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {req.admin_bank_details ? (
+                        <div>
+                          <div className="font-bold text-indigo-300 text-xs flex items-center gap-1">
+                            {req.admin_bank_details.bank_name}
+                          </div>
+                          <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                            A/C: {req.admin_bank_details.account_number}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic">General</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-mono text-xs text-indigo-300 bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-700 inline-block">

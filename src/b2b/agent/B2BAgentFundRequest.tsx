@@ -25,6 +25,31 @@ export default function B2BAgentFundRequest() {
     proofUrl: ''
   });
   
+  const [adminBankAccounts, setAdminBankAccounts] = useState<any[]>([]);
+  const [selectedBankId, setSelectedBankId] = useState<string>('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchAdminBankAccounts();
+  }, []);
+
+  const fetchAdminBankAccounts = async () => {
+    try {
+      const { data } = await supabase
+        .from('b2b_admin_bank_accounts')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      setAdminBankAccounts(data || []);
+      if (data && data.length > 0) {
+        setSelectedBankId(data[0].id);
+      }
+    } catch (e) {
+      console.error('Error fetching admin bank accounts:', e);
+    }
+  };
+
   useEffect(() => {
     const id = localStorage.getItem('b2bAgentId');
     if (id) {
@@ -360,17 +385,32 @@ export default function B2BAgentFundRequest() {
       return;
     }
 
+    const selectedBank = adminBankAccounts.find(b => b.id === selectedBankId);
+
     setLoading(true);
     try {
+      const insertPayload: any = {
+        agent_id: agentId,
+        amount: parseFloat(formData.amount),
+        utr_number: formData.utrNumber,
+        proof_url: formData.proofUrl,
+        status: 'pending'
+      };
+
+      if (selectedBank) {
+        insertPayload.admin_bank_account_id = selectedBank.id;
+        insertPayload.admin_bank_details = {
+          bank_name: selectedBank.bank_name,
+          account_name: selectedBank.account_name,
+          account_number: selectedBank.account_number,
+          ifsc_code: selectedBank.ifsc_code,
+          upi_id: selectedBank.upi_id || null
+        };
+      }
+
       const { error } = await supabase
         .from('b2b_fund_requests')
-        .insert({
-          agent_id: agentId,
-          amount: parseFloat(formData.amount),
-          utr_number: formData.utrNumber,
-          proof_url: formData.proofUrl,
-          status: 'pending'
-        });
+        .insert(insertPayload);
 
       if (error) throw error;
 
@@ -609,6 +649,65 @@ export default function B2BAgentFundRequest() {
             </h3>
             
             <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+              {/* Admin Bank Account Dropdown */}
+              {adminBankAccounts.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2 flex items-center justify-between">
+                    <span>Deposit Bank Account</span>
+                    <span className="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded font-extrabold uppercase">
+                      ADMIN BANK
+                    </span>
+                  </label>
+                  <select
+                    value={selectedBankId}
+                    onChange={e => setSelectedBankId(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer text-sm font-medium"
+                  >
+                    {adminBankAccounts.map(b => (
+                      <option key={b.id} value={b.id}>
+                        {b.bank_name} - {b.account_name} ({b.account_number.slice(-4)})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Show Selected Bank Info */}
+                  {(() => {
+                    const sel = adminBankAccounts.find(b => b.id === selectedBankId);
+                    if (!sel) return null;
+                    return (
+                      <div className="mt-3 bg-slate-900/90 border border-indigo-500/30 rounded-xl p-3.5 space-y-2 text-xs">
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                          <span className="font-bold text-white text-xs">{sel.bank_name}</span>
+                          <span className="text-slate-400 text-[10px]">{sel.branch_name || 'Main Branch'}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">Account Holder:</span>
+                          <span className="text-white font-semibold">{sel.account_name}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">A/C Number:</span>
+                          <span className="text-emerald-400 font-mono font-bold">{sel.account_number}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">IFSC Code:</span>
+                          <span className="text-indigo-300 font-mono font-bold">{sel.ifsc_code}</span>
+                        </div>
+
+                        {sel.upi_id && (
+                          <div className="flex items-center justify-between border-t border-slate-800 pt-1.5">
+                            <span className="text-amber-400 font-semibold">UPI ID:</span>
+                            <span className="text-amber-300 font-mono font-bold">{sel.upi_id}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Amount (₹)

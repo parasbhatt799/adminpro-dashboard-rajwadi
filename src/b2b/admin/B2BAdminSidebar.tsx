@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, LogOut, Terminal, Wallet, Book, Activity } from 'lucide-react';
+import { LayoutDashboard, UserPlus, LogOut, Terminal, Wallet, Book, Activity, Landmark } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface B2BAdminSidebarProps {
@@ -12,6 +12,7 @@ interface B2BAdminSidebarProps {
 const menuItems = [
   { id: 'dashboard', label: 'B2B Dashboard', icon: LayoutDashboard, path: '/b2b/admin/dashboard' },
   { id: 'fund-requests', label: 'Fund Requests', icon: Wallet, path: '/b2b/admin/fund-requests' },
+  { id: 'bank-accounts', label: 'Bank Accounts', icon: Landmark, path: '/b2b/admin/bank-accounts' },
   { id: 'create-agent', label: 'B2B Agents', icon: UserPlus, path: '/b2b/admin/create-agent' },
   { id: 'bill-history', label: 'API Bill History', icon: Activity, path: '/b2b/admin/bill-history' },
   { id: 'api-docs', label: 'API Docs', icon: Book, path: '/b2b/admin/api-docs' },

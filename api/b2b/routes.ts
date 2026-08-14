@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { b2bAuthMiddleware } from './middleware';
-import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus, checkStatusAdmin, createFundRequest, getFundRequestStatus, getFundRequests } from './controller';
+import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus, checkStatusAdmin, createFundRequest, getFundRequestStatus, getFundRequests, getAdminBankAccounts } from './controller';
 
 const router = Router();
 
@@ -39,6 +39,9 @@ router.post('/pay-bill', payBill);
 
 // Check Status of a transaction
 router.get('/status/:transaction_id', checkStatus);
+
+// Get Active Admin Bank Accounts List via API
+router.get('/admin-bank-accounts', getAdminBankAccounts);
 
 // Submit Fund Request via API
 router.post('/fund-request', createFundRequest);

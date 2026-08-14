@@ -965,3 +965,35 @@ export const getFundRequests = async (req: Request, res: Response): Promise<any>
     return res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch fund requests' });
   }
 };
+
+/**
+ * Get Active Admin Bank Accounts List via API
+ */
+export const getAdminBankAccounts = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('b2b_admin_bank_accounts')
+      .select('id, bank_name, account_name, account_number, ifsc_code, branch_name, upi_id')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error && error.code !== 'PGRST205') throw error;
+
+    return res.json({
+      status: 'success',
+      data: (data || []).map(b => ({
+        bank_account_id: b.id,
+        bank_name: b.bank_name,
+        account_name: b.account_name,
+        account_number: b.account_number,
+        ifsc_code: b.ifsc_code,
+        branch_name: b.branch_name || null,
+        upi_id: b.upi_id || null
+      }))
+    });
+
+  } catch (err: any) {
+    console.error('[B2B getAdminBankAccounts Error]', err);
+    return res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch admin bank accounts' });
+  }
+};
