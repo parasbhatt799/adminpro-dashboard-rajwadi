@@ -806,3 +806,162 @@ export const payBill = async (req: Request, res: Response) => {
     res.status(500).json({ status: 'error', message: err.message || 'Internal Server Error' });
   }
 };
+
+/**
+ * Create B2B Fund Request via API
+ */
+export const createFundRequest = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const agentId = (req as any).agentId;
+    const { amount, utr_number, transaction_ref_no, proof_url } = req.body;
+
+    const reqUtr = String(utr_number || transaction_ref_no || '').trim();
+    const reqAmount = Number(amount);
+
+    if (!reqAmount || isNaN(reqAmount) || reqAmount <= 0) {
+      return res.status(400).json({ status: 'error', message: 'Valid amount is required' });
+    }
+
+    if (!reqUtr) {
+      return res.status(400).json({ status: 'error', message: 'utr_number or transaction_ref_no is required' });
+    }
+
+    // Insert into b2b_fund_requests
+    const { data: requestData, error: insertError } = await supabaseAdmin
+      .from('b2b_fund_requests')
+      .insert({
+        agent_id: agentId,
+        amount: reqAmount,
+        utr_number: reqUtr,
+        proof_url: proof_url || null,
+        status: 'pending'
+      })
+      .select('*')
+      .single();
+
+    if (insertError) throw insertError;
+
+    // Log the API call in b2b_api_logs
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .insert({
+        agent_id: agentId,
+        endpoint: '/api/v1/b2b/fund-request',
+        request_payload: req.body,
+        status_code: 201,
+        response_payload: { message: 'Fund request created', request_id: requestData.id, status: 'pending' }
+      });
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Fund request submitted successfully and pending approval',
+      data: {
+        request_id: requestData.id,
+        amount: Number(requestData.amount),
+        utr_number: requestData.utr_number,
+        status: requestData.status,
+        submitted_at: requestData.created_at
+      }
+    });
+
+  } catch (err: any) {
+    console.error('[B2B createFundRequest Error]', err);
+    return res.status(500).json({ status: 'error', message: err.message || 'Failed to submit fund request' });
+  }
+};
+
+/**
+ * Check B2B Fund Request Status via API
+ */
+export const getFundRequestStatus = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const agentId = (req as any).agentId;
+    const { request_id } = req.params;
+
+    if (!request_id) {
+      return res.status(400).json({ status: 'error', message: 'request_id parameter is required' });
+    }
+
+    const { data: requestData, error } = await supabaseAdmin
+      .from('b2b_fund_requests')
+      .select('*')
+      .eq('id', request_id)
+      .eq('agent_id', agentId)
+      .single();
+
+    if (error || !requestData) {
+      return res.status(404).json({ status: 'error', message: 'Fund request not found for this agent' });
+    }
+
+    return res.json({
+      status: 'success',
+      data: {
+        request_id: requestData.id,
+        amount: Number(requestData.amount),
+        utr_number: requestData.utr_number,
+        status: requestData.status,
+        proof_url: requestData.proof_url || null,
+        created_at: requestData.created_at,
+        updated_at: requestData.updated_at
+      }
+    });
+
+  } catch (err: any) {
+    console.error('[B2B getFundRequestStatus Error]', err);
+    return res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch fund request status' });
+  }
+};
+
+/**
+ * List B2B Fund Requests via API
+ */
+export const getFundRequests = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const agentId = (req as any).agentId;
+    const { status, limit = '50', page = '1' } = req.query;
+
+    let pageNum = parseInt(page as string, 10) || 1;
+    let limitNum = parseInt(limit as string, 10) || 50;
+    if (limitNum > 100) limitNum = 100;
+
+    const from = (pageNum - 1) * limitNum;
+    const to = from + limitNum - 1;
+
+    let query = supabaseAdmin
+      .from('b2b_fund_requests')
+      .select('*', { count: 'exact' })
+      .eq('agent_id', agentId)
+      .order('created_at', { ascending: false });
+
+    if (status && status !== 'all') {
+      query = query.eq('status', String(status).toLowerCase());
+    }
+
+    query = query.range(from, to);
+
+    const { data, count, error } = await query;
+    if (error) throw error;
+
+    return res.json({
+      status: 'success',
+      data: (data || []).map(r => ({
+        request_id: r.id,
+        amount: Number(r.amount),
+        utr_number: r.utr_number,
+        status: r.status,
+        proof_url: r.proof_url || null,
+        created_at: r.created_at
+      })),
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total_records: count || 0,
+        total_pages: count ? Math.ceil(count / limitNum) : 0
+      }
+    });
+
+  } catch (err: any) {
+    console.error('[B2B getFundRequests Error]', err);
+    return res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch fund requests' });
+  }
+};

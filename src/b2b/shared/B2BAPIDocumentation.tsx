@@ -776,6 +776,85 @@ export default function B2BAPIDocumentation() {
           />
         </div>
 
+        {/* 2.7 POST /fund-request */}
+        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+            <h3 className="text-lg font-bold text-white flex items-center gap-3">
+              <span className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+              /fund-request
+            </h3>
+            <span className="text-xs text-slate-400 font-mono font-semibold">Submit B2B Fund Request</span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Submit a wallet fund request electronically from third-party client portals (e.g. Zenot Portal). Your request will be queued in <code>pending</code> status for B2B Admin approval.
+          </p>
+
+          <CodeBlock 
+            title="Sample Request Body"
+            section="fund_req_body"
+            code={`{
+  "amount": 50000,
+  "utr_number": "UTR9876543210",
+  "proof_url": "https://example.com/payment_receipt.jpg"
+}`}
+          />
+
+          <CodeBlock 
+            title="Sample Success Response (201 Created)"
+            section="fund_req_res"
+            code={`{
+  "status": "success",
+  "message": "Fund request submitted successfully and pending approval",
+  "data": {
+    "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
+    "amount": 50000,
+    "utr_number": "UTR9876543210",
+    "status": "pending",
+    "submitted_at": "2026-08-15T00:33:00.000Z"
+  }
+}`}
+          />
+
+          <ParamTable params={[
+            { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to add to your B2B wallet." },
+            { name: "utr_number", type: "String", required: true, desc: "Unique Bank Transaction Reference / UTR Number (also accepts 'transaction_ref_no')." },
+            { name: "proof_url", type: "String", required: false, desc: "Optional URL linking to payment receipt or transaction screenshot." }
+          ]} />
+        </div>
+
+        {/* 2.8 GET /fund-request/status/:request_id */}
+        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+            <h3 className="text-lg font-bold text-white flex items-center gap-3">
+              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+              /fund-request/status/:request_id
+            </h3>
+            <span className="text-xs text-slate-400 font-mono font-semibold">Check Fund Request Status</span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Check the live approval status (<code>pending</code>, <code>approved</code>, <code>rejected</code>) of a submitted fund request.
+          </p>
+
+          <CodeBlock 
+            title="Sample Response (200 OK)"
+            section="fund_req_status_res"
+            code={`{
+  "status": "success",
+  "data": {
+    "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
+    "amount": 50000,
+    "utr_number": "UTR9876543210",
+    "status": "approved",
+    "proof_url": null,
+    "created_at": "2026-08-15T00:33:00.000Z",
+    "updated_at": "2026-08-15T00:35:00.000Z"
+  }
+}`}
+          />
+        </div>
+
       </section>
 
       {/* Section 3: Multi-Language Code Snippets */}

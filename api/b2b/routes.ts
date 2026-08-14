@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { b2bAuthMiddleware } from './middleware';
-import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus, checkStatusAdmin } from './controller';
+import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus, checkStatusAdmin, createFundRequest, getFundRequestStatus, getFundRequests } from './controller';
 
 const router = Router();
 
@@ -39,5 +39,14 @@ router.post('/pay-bill', payBill);
 
 // Check Status of a transaction
 router.get('/status/:transaction_id', checkStatus);
+
+// Submit Fund Request via API
+router.post('/fund-request', createFundRequest);
+
+// Check Fund Request Status via API
+router.get('/fund-request/status/:request_id', getFundRequestStatus);
+
+// List Fund Requests via API
+router.get('/fund-requests', getFundRequests);
 
 export default router;
