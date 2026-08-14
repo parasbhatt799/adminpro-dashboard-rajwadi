@@ -205,10 +205,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const data = await resData.json();
       
       if (data.status === 'success') {
-        alert(`Current BBPS Status: ${data.data.bbps_status}\nOur DB was updated automatically!`);
+        const messageDetails = data.data?.message ? `\nNote: ${data.data.message}` : '';
+        alert(`Current BBPS Status: ${data.data?.bbps_status || 'CHECKED'}${messageDetails}\nOur DB was updated automatically!`);
         fetchLogs();
       } else {
-        alert(`Failed: ${data.message}`);
+        const errorText = data?.message || data?.error || data?.details || 'Unable to fetch transaction status.';
+        alert(`Status Check Message: ${errorText}`);
       }
 
     } catch (error: any) {
@@ -219,27 +221,31 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     }
   };
 
-  const getStatusInfo = (statusCode: number, responseBody: any) => {
-    const rawStatus = responseBody?.payment_status?.toLowerCase();
-    const status = rawStatus || (statusCode === 200 ? 'success' : statusCode === 202 ? 'pending' : 'failed');
+  const getStatusInfo = (statusCode: number, responseBody: any, paymentStatus?: string) => {
+    const rawStatus = (paymentStatus || responseBody?.payment_status || responseBody?.finalStatus || '').toLowerCase();
+    const bpr = responseBody?.ExtBillPayResponse || responseBody?.billPayResponse || responseBody;
+    const responseCode = bpr?.responseCode || responseBody?.responseCode;
+    const hasErrorInfo = !!(bpr?.errorInfo || responseBody?.errorInfo || responseBody?.reason);
+
+    if (rawStatus === 'failed' || statusCode === 500 || hasErrorInfo || (responseCode && responseCode !== '000')) {
+      return { 
+        text: 'Failed', 
+        color: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
+        icon: <XCircle className="w-4 h-4 text-rose-400" />
+      };
+    }
     
-    if (status === 'success' && statusCode === 200) {
+    if (rawStatus === 'success' || (responseCode === '000' && statusCode === 200)) {
       return { 
         text: 'Success', 
         color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
         icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />
       };
-    } else if (status === 'pending' || statusCode === 202) {
+    } else {
       return { 
         text: 'Pending', 
         color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
         icon: <Clock className="w-4 h-4 text-amber-400" />
-      };
-    } else {
-      return { 
-        text: 'Failed', 
-        color: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
-        icon: <XCircle className="w-4 h-4 text-rose-400" />
       };
     }
   };
@@ -348,7 +354,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const amount = reqBody?.amount !== undefined && reqBody?.amount !== null ? String(reqBody.amount) : '';
     const txnId = resBody?.transaction_id || reqBody?.transaction_id || reqBody?.requestId || '';
     const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || '';
-    const statusInfo = getStatusInfo(log.status_code, resBody);
+    const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
 
     // Date Filter
     const matchesDate = checkDateFilter(log.created_at, dateFilter);
@@ -446,7 +452,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const reqBody = log.request_payload || log.request_body || {};
       const resBody = log.response_payload || log.response_body || {};
       const amt = Number(reqBody.amount || 0);
-      const statusInfo = getStatusInfo(log.status_code, resBody);
+      const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
 
       if (statusInfo.text === 'Success') {
         successCount++;
@@ -489,7 +495,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const exportData = filteredLogs.map((log, idx) => {
         const reqBody = log.request_payload || log.request_body || {};
         const resBody = log.response_payload || log.response_body || {};
-        const statusInfo = getStatusInfo(log.status_code, resBody);
+        const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
         const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
@@ -585,7 +591,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const tableData = filteredLogs.map((log, idx) => {
         const reqBody = log.request_payload || log.request_body || {};
         const resBody = log.response_payload || log.response_body || {};
-        const statusInfo = getStatusInfo(log.status_code, resBody);
+        const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
         const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
@@ -1061,7 +1067,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 {paginatedLogs.map((log) => {
                   const reqBody = log.request_payload || {};
                   const resBody = log.response_payload || {};
-                  const statusInfo = getStatusInfo(log.status_code, resBody);
+                  const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
                   const txnId = resBody?.transaction_id || 'N/A';
                   const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId;
                   
@@ -1276,7 +1282,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           {(() => {
             const req = selectedLog.request_payload || {};
             const res = selectedLog.response_payload || {};
-            const statusInfo = getStatusInfo(selectedLog.status_code, res);
+            const statusInfo = getStatusInfo(selectedLog.status_code, res, selectedLog.payment_status);
             const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId;
             const chargeVal = Number(
               (selectedLog as any).charge_deducted ?? 

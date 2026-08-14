@@ -259,11 +259,51 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
     const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
     const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
     
-    // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
+    // If CC01 ID is missing, check if this transaction was rejected by gateway or has errorInfo
     if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
+      const errorMsg = bpr?.errorInfo?.error?.errorMessage 
+        || log.response_payload?.reason 
+        || log.response_payload?.error 
+        || 'Bill payment failed at BillAvenue gateway (No CC01 Ref generated).';
+
+      const isFailedOrError = log.payment_status === 'failed' 
+        || log.response_payload?.finalStatus === 'failed' 
+        || !!bpr?.errorInfo 
+        || (bpr?.responseCode && bpr?.responseCode !== '000');
+
+      if (isFailedOrError) {
+        // If local status is still pending, update DB to failed & refund agent
+        if (log.payment_status === 'pending') {
+          const refundAmount = log.request_payload?.totalDeduction || 0;
+          if (refundAmount > 0) {
+            await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: log.agent_id, p_amount: refundAmount });
+          }
+          await supabaseAdmin
+            .from('b2b_api_logs')
+            .update({ 
+              payment_status: 'failed', 
+              status_code: 500, 
+              charge_deducted: 0,
+              response_payload: { ...log.response_payload, payment_status: 'failed', finalStatus: 'failed', failureReason: errorMsg } 
+            })
+            .eq('id', log.id);
+        }
+
+        return res.json({
+          status: 'success',
+          data: {
+            transaction_id,
+            current_status: 'failed',
+            bbps_status: 'FAILED',
+            message: errorMsg,
+            polled_at: new Date().toISOString()
+          }
+        });
+      }
+
       return res.status(400).json({
         status: 'error',
-        message: `BillAvenue CC01 Transaction Reference ID not found for transaction ${transaction_id}. Status check is only supported via CC01 ID.`
+        message: `BillAvenue CC01 Transaction Reference ID not found for transaction ${transaction_id}. ${errorMsg}`
       });
     }
 
@@ -678,12 +718,14 @@ export const payBill = async (req: Request, res: Response) => {
     // 3. Process the response
     const payJson = apiResponse.json;
     const bpr = payJson?.billPayResponse || payJson?.ExtBillPayResponse || payJson;
+    const responseCode = bpr?.responseCode || payJson?.responseCode;
+    const txnStatus = (bpr?.txnStatus || payJson?.txnStatus || '').toUpperCase();
+    const hasErrorInfo = !!(bpr?.errorInfo || payJson?.errorInfo || bpr?.reason || payJson?.reason);
 
-    // Log the BBPS status
     let finalStatus = 'pending';
-    if (bpr?.txnStatus?.toUpperCase() === 'SUCCESS' || bpr?.responseCode === '000' || payJson?.responseCode === '000') {
+    if (txnStatus === 'SUCCESS' || responseCode === '000') {
       finalStatus = 'success';
-    } else if (bpr?.txnStatus?.toUpperCase() === 'FAILED' || bpr?.responseCode === '999' || payJson?.responseCode === '999') {
+    } else if (txnStatus === 'FAILED' || (responseCode && responseCode !== '000') || hasErrorInfo) {
       finalStatus = 'failed';
       // Initiate refund (Refund total including charge)
       await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
@@ -695,7 +737,8 @@ export const payBill = async (req: Request, res: Response) => {
     // Update log
     if (logId) {
       const updatePayload: any = {
-        status_code: 200,
+        status_code: finalStatus === 'success' ? 200 : 500,
+        payment_status: finalStatus,
         response_payload: { ...payJson, finalStatus, payment_status: finalStatus, transaction_id: customTxnId }
       };
       // Only log the charge as deducted if payment is successful
