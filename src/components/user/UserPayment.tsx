@@ -1024,7 +1024,7 @@ export default function UserPayment({ userId }: UserPaymentProps) {
         .from('payment_submissions')
         .select('id, status')
         .eq('utr_id', utrId)
-        .in('status', ['pending', 'approved'])
+        .in('status', ['pending', 'approved', 'T+1 Approved'])
         .limit(1);
 
       if (checkError) throw checkError;
