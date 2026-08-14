@@ -813,10 +813,11 @@ export const payBill = async (req: Request, res: Response) => {
 export const createFundRequest = async (req: Request, res: Response): Promise<any> => {
   try {
     const agentId = (req as any).agentId;
-    const { amount, utr_number, transaction_ref_no, proof_url } = req.body;
+    const { amount, utr_number, transaction_ref_no, proof_url, admin_bank_account_id, bank_account_id } = req.body;
 
     const reqUtr = String(utr_number || transaction_ref_no || '').trim();
     const reqAmount = Number(amount);
+    const bankId = String(admin_bank_account_id || bank_account_id || '').trim();
 
     if (!reqAmount || isNaN(reqAmount) || reqAmount <= 0) {
       return res.status(400).json({ status: 'error', message: 'Valid amount is required' });
@@ -824,6 +825,51 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
 
     if (!reqUtr) {
       return res.status(400).json({ status: 'error', message: 'utr_number or transaction_ref_no is required' });
+    }
+
+    let targetBankId: string | null = null;
+    let targetBankDetails: any = null;
+
+    // If bankId is provided, fetch bank details
+    if (bankId) {
+      const { data: bankData } = await supabaseAdmin
+        .from('b2b_admin_bank_accounts')
+        .select('*')
+        .eq('id', bankId)
+        .single();
+
+      if (bankData) {
+        targetBankId = bankData.id;
+        targetBankDetails = {
+          bank_name: bankData.bank_name,
+          account_name: bankData.account_name,
+          account_number: bankData.account_number,
+          ifsc_code: bankData.ifsc_code,
+          upi_id: bankData.upi_id || null
+        };
+      }
+    }
+
+    // Fallback: If no bankId passed, assign default active Admin Bank Account
+    if (!targetBankDetails) {
+      const { data: defaultBank } = await supabaseAdmin
+        .from('b2b_admin_bank_accounts')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (defaultBank) {
+        targetBankId = defaultBank.id;
+        targetBankDetails = {
+          bank_name: defaultBank.bank_name,
+          account_name: defaultBank.account_name,
+          account_number: defaultBank.account_number,
+          ifsc_code: defaultBank.ifsc_code,
+          upi_id: defaultBank.upi_id || null
+        };
+      }
     }
 
     // Insert into b2b_fund_requests
@@ -834,6 +880,8 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
         amount: reqAmount,
         utr_number: reqUtr,
         proof_url: proof_url || null,
+        admin_bank_account_id: targetBankId,
+        admin_bank_details: targetBankDetails,
         status: 'pending'
       })
       .select('*')
@@ -859,6 +907,7 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
         request_id: requestData.id,
         amount: Number(requestData.amount),
         utr_number: requestData.utr_number,
+        admin_bank_details: targetBankDetails,
         status: requestData.status,
         submitted_at: requestData.created_at
       }
