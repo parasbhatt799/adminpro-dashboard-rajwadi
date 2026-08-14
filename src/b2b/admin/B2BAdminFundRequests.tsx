@@ -652,6 +652,44 @@ export default function B2BAdminFundRequests() {
               </div>
             </div>
 
+            {/* Target Admin Bank Account Details Box */}
+            {selectedProofReq.admin_bank_details ? (
+              <div className="bg-indigo-950/60 border border-indigo-500/40 rounded-2xl p-4 text-xs space-y-2 relative overflow-hidden">
+                <div className="flex items-center justify-between border-b border-indigo-500/30 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">
+                      DEPOSIT BANK
+                    </span>
+                    <span className="font-bold text-white text-sm">{selectedProofReq.admin_bank_details.bank_name}</span>
+                  </div>
+                  {selectedProofReq.admin_bank_details.upi_id && (
+                    <span className="text-amber-300 font-mono font-bold text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      UPI: {selectedProofReq.admin_bank_details.upi_id}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Holder</span>
+                    <span className="text-slate-200 font-bold">{selectedProofReq.admin_bank_details.account_name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Number</span>
+                    <span className="text-emerald-400 font-mono font-bold">{selectedProofReq.admin_bank_details.account_number}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 text-[10px] font-semibold uppercase block">IFSC Code</span>
+                    <span className="text-indigo-300 font-mono font-bold">{selectedProofReq.admin_bank_details.ifsc_code}</span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-400 flex items-center justify-between">
+                <span>Target Admin Bank: <strong className="text-slate-300">General / Not Specified</strong></span>
+              </div>
+            )}
+
             {/* Proof Preview Image with Interactive Zoom & Pan Movement */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
