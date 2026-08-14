@@ -776,7 +776,41 @@ export default function B2BAPIDocumentation() {
           />
         </div>
 
-        {/* 2.7 POST /fund-request */}
+        {/* 2.7 GET /admin-bank-accounts */}
+        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+            <h3 className="text-lg font-bold text-white flex items-center gap-3">
+              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+              /admin-bank-accounts
+            </h3>
+            <span className="text-xs text-slate-400 font-mono font-semibold">Get Admin Bank Accounts List</span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Retrieve active company bank accounts configured by B2B Admin. External portals (Zenot Portal) can render these accounts in a dropdown list for the agent to select their deposit destination.
+          </p>
+
+          <CodeBlock 
+            title="Sample Response (200 OK)"
+            section="admin_banks_res"
+            code={`{
+  "status": "success",
+  "data": [
+    {
+      "bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567",
+      "bank_name": "ICICI Bank",
+      "account_name": "Rajwadi Enterprises Pvt Ltd",
+      "account_number": "50200012345678",
+      "ifsc_code": "ICIC0005020",
+      "branch_name": "Rajkot Main Branch",
+      "upi_id": "rajwadi@icici"
+    }
+  ]
+}`}
+          />
+        </div>
+
+        {/* 2.8 POST /fund-request */}
         <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -796,6 +830,7 @@ export default function B2BAPIDocumentation() {
             code={`{
   "amount": 50000,
   "utr_number": "UTR9876543210",
+  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567",
   "proof_url": "https://example.com/payment_receipt.jpg"
 }`}
           />
@@ -819,11 +854,12 @@ export default function B2BAPIDocumentation() {
           <ParamTable params={[
             { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to add to your B2B wallet." },
             { name: "utr_number", type: "String", required: true, desc: "Unique Bank Transaction Reference / UTR Number (also accepts 'transaction_ref_no')." },
+            { name: "admin_bank_account_id", type: "String", required: false, desc: "Optional ID of the Admin Bank Account where money was deposited (obtained from GET /admin-bank-accounts)." },
             { name: "proof_url", type: "String", required: false, desc: "Optional URL linking to payment receipt or transaction screenshot." }
           ]} />
         </div>
 
-        {/* 2.8 GET /fund-request/status/:request_id */}
+        {/* 2.9 GET /fund-request/status/:request_id */}
         <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
