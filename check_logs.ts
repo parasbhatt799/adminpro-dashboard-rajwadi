@@ -8,34 +8,68 @@ const supabaseAdmin = createClient(
 );
 
 async function checkLogs() {
-  const { data, error } = await supabaseAdmin
-    .from('b2b_api_logs')
-    .select('*')
-    .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
-    .order('created_at', { ascending: false })
-    .limit(3);
+  let allLogs: any[] = [];
+  let from = 0;
+  let step = 1000;
+  let hasMore = true;
 
-  if (error) {
-    console.error('Error fetching logs:', error);
-    return;
+  while (hasMore) {
+    const { data, error } = await supabaseAdmin
+      .from('b2b_api_logs')
+      .select('charge_deducted, request_payload, response_payload, status_code, endpoint, created_at')
+      .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
+      .range(from, from + step - 1);
+
+    if (error) {
+      console.error('Error:', error);
+      break;
+    }
+
+    if (data && data.length > 0) {
+      allLogs = allLogs.concat(data);
+      if (data.length < step) hasMore = false;
+      else from += step;
+    } else {
+      hasMore = false;
+    }
   }
 
-  console.log('LATEST PAY LOGS:');
-  data.forEach((log, index) => {
-    console.log('\n--- LOG ' + (index + 1) + ' ---');
-    console.log('Time:', log.created_at);
-    console.log('Endpoint:', log.endpoint);
-    console.log('Status Code:', log.status_code);
-    console.log('Response Status:', log.response_body?.status);
-    console.log('Final Status:', log.response_body?.finalStatus);
-    if (log.response_body?.error) {
-        console.log('Error:', log.response_body.error);
-    }
-    if (log.response_body?.billPayResponse) {
-        console.log('BillAvenue txnStatus:', log.response_body.billPayResponse.txnStatus);
-        console.log('BillAvenue errorInfo:', JSON.stringify(log.response_body.billPayResponse.errorInfo, null, 2));
+  console.log('TOTAL PAY LOGS FETCHED:', allLogs.length);
+
+  let successCount = 0;
+  let totalEarningsSum = 0;
+
+  allLogs.forEach((log) => {
+    const req = log.request_payload || {};
+    const res = log.response_payload || {};
+    
+    const isSuccess = log.status_code === 200 && (
+      res?.payment_status === 'success' || 
+      res?.finalStatus === 'success' || 
+      res?.status === 'success' ||
+      res?.responseCode === '000' || 
+      res?.billPayResponse?.responseCode === '000' ||
+      res?.ExtBillPayResponse?.responseCode === '000' ||
+      res?.billPayResponse?.responseReason?.toLowerCase() === 'successful' ||
+      res?.ExtBillPayResponse?.responseReason?.toLowerCase() === 'successful'
+    );
+
+    if (isSuccess) {
+      successCount++;
+      const chargeVal = Number(
+        (log as any).charge_deducted ?? 
+        req?.chargeDeducted ?? 
+        req?.chargePerBill ?? 
+        req?.charge ?? 
+        (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
+        0
+      );
+      totalEarningsSum += chargeVal;
     }
   });
+
+  console.log('SUCCESS COUNT:', successCount);
+  console.log('TOTAL API EARNINGS SUM:', totalEarningsSum);
 }
 
 checkLogs();

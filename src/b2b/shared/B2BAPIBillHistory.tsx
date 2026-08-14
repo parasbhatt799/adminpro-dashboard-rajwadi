@@ -19,6 +19,7 @@ interface LogEntry {
   request_body?: any;
   response_body?: any;
   status_code: number;
+  payment_status?: string;
 }
 
 export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistoryProps) {
@@ -225,29 +226,42 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const rawStatus = (paymentStatus || responseBody?.payment_status || responseBody?.finalStatus || '').toLowerCase();
     const bpr = responseBody?.ExtBillPayResponse || responseBody?.billPayResponse || responseBody;
     const responseCode = bpr?.responseCode || responseBody?.responseCode;
-    const hasErrorInfo = !!(bpr?.errorInfo || responseBody?.errorInfo || responseBody?.reason);
+    const responseReason = (bpr?.responseReason || responseBody?.responseReason || '').toLowerCase();
+    const txnRefId = bpr?.txnRefId || responseBody?.txnRefId;
+    const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
 
-    if (rawStatus === 'failed' || statusCode === 500 || hasErrorInfo || (responseCode && responseCode !== '000')) {
+    const isSuccess = 
+      rawStatus === 'success' || 
+      responseCode === '000' || 
+      responseCode === '0000' || 
+      responseReason === 'successful' || 
+      responseReason === 'success' ||
+      (hasCC01 && statusCode === 200 && rawStatus !== 'failed');
+
+    if (isSuccess) {
+      return { 
+        text: 'Success', 
+        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
+        icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+      };
+    }
+
+    const hasErrorInfo = !!(bpr?.errorInfo || responseBody?.errorInfo || responseBody?.reason);
+    const isFailed = rawStatus === 'failed' || statusCode === 500 || (hasErrorInfo && !hasCC01);
+
+    if (isFailed) {
       return { 
         text: 'Failed', 
         color: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
         icon: <XCircle className="w-4 h-4 text-rose-400" />
       };
     }
-    
-    if (rawStatus === 'success' || (responseCode === '000' && statusCode === 200)) {
-      return { 
-        text: 'Success', 
-        color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
-        icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-      };
-    } else {
-      return { 
-        text: 'Pending', 
-        color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-        icon: <Clock className="w-4 h-4 text-amber-400" />
-      };
-    }
+
+    return { 
+      text: 'Pending', 
+      color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
+      icon: <Clock className="w-4 h-4 text-amber-400" />
+    };
   };
 
   const getAgentIdColor = (agentIdStr?: string) => {

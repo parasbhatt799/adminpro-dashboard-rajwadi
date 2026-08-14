@@ -68,16 +68,20 @@ export default function B2BAdminDashboard() {
       const apiSum = allLogs.reduce((acc, log) => {
         const req = log.request_payload || {};
         const res = log.response_payload || {};
-        const isSuccess = log.status_code === 200 && (
+        const bpr = res?.ExtBillPayResponse || res?.billPayResponse || res;
+        const txnRefId = bpr?.txnRefId || res?.txnRefId;
+        const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
+        const responseCode = bpr?.responseCode || res?.responseCode;
+        const responseReason = (bpr?.responseReason || res?.responseReason || '').toLowerCase();
+
+        const isSuccess = 
           res?.payment_status === 'success' || 
           res?.finalStatus === 'success' || 
           res?.status === 'success' ||
-          res?.responseCode === '000' || 
-          res?.billPayResponse?.responseCode === '000' ||
-          res?.ExtBillPayResponse?.responseCode === '000' ||
-          res?.billPayResponse?.responseReason?.toLowerCase() === 'successful' ||
-          res?.ExtBillPayResponse?.responseReason?.toLowerCase() === 'successful'
-        );
+          responseCode === '000' || 
+          responseCode === '0000' ||
+          responseReason === 'successful' ||
+          (hasCC01 && log.status_code === 200 && res?.payment_status !== 'failed');
         
         if (!isSuccess) return acc;
         
