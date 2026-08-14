@@ -347,6 +347,8 @@ export default function B2BAdminBankAccounts() {
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           title={editingAccount ? "Edit Company Bank Account" : "Add New Company Bank Account"}
+          isDark={true}
+          size="lg"
         >
           <form onSubmit={handleSave} className="space-y-4">
             <div>
@@ -356,10 +358,10 @@ export default function B2BAdminBankAccounts() {
               <input
                 type="text"
                 required
-                placeholder="e.g. ICICI Bank, State Bank of India"
+                placeholder="e.g. Utkarsh Small Finance Bank, ICICI Bank"
                 value={formData.bank_name}
                 onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
 
@@ -373,7 +375,7 @@ export default function B2BAdminBankAccounts() {
                 placeholder="e.g. Rajwadi Enterprises Pvt Ltd"
                 value={formData.account_name}
                 onChange={(e) => setFormData({ ...formData, account_name: e.target.value })}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               />
             </div>
 
@@ -388,7 +390,7 @@ export default function B2BAdminBankAccounts() {
                   placeholder="e.g. 50200012345678"
                   value={formData.account_number}
                   onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder:text-slate-500 font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
               </div>
 
@@ -402,7 +404,7 @@ export default function B2BAdminBankAccounts() {
                   placeholder="e.g. ICIC0005020"
                   value={formData.ifsc_code}
                   onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white font-mono uppercase focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder:text-slate-500 font-mono uppercase focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
               </div>
             </div>
@@ -417,7 +419,7 @@ export default function B2BAdminBankAccounts() {
                   placeholder="e.g. Rajkot Main Branch"
                   value={formData.branch_name}
                   onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder:text-slate-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
               </div>
 
@@ -430,36 +432,36 @@ export default function B2BAdminBankAccounts() {
                   placeholder="e.g. rajwadi@icici"
                   value={formData.upi_id}
                   onChange={(e) => setFormData({ ...formData, upi_id: e.target.value })}
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 px-3.5 text-sm text-white font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full bg-slate-950 border border-slate-700/80 rounded-xl py-2.5 px-3.5 text-sm text-white placeholder:text-slate-500 font-mono focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-2">
+            <div className="flex items-center gap-2.5 pt-2">
               <input
                 type="checkbox"
                 id="is_active_checkbox"
                 checked={formData.is_active}
                 onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                className="w-4 h-4 text-indigo-600 rounded bg-slate-900 border-slate-700 focus:ring-indigo-500 cursor-pointer"
+                className="w-4 h-4 text-indigo-600 rounded bg-slate-950 border-slate-700 focus:ring-indigo-500 cursor-pointer"
               />
-              <label htmlFor="is_active_checkbox" className="text-sm font-medium text-slate-300 cursor-pointer">
+              <label htmlFor="is_active_checkbox" className="text-sm font-medium text-slate-300 cursor-pointer select-none">
                 Active for Fund Requests Selection
               </label>
             </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-slate-700/80">
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-400 hover:bg-slate-700 transition-colors cursor-pointer"
+                className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700/60 transition-colors cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="px-5 py-2 rounded-xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-500 shadow-lg cursor-pointer flex items-center gap-2 disabled:opacity-50"
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 shadow-lg shadow-indigo-600/20 cursor-pointer flex items-center gap-2 disabled:opacity-50"
               >
                 {saving && <LoadingSpinner size="sm" />}
                 <span>{editingAccount ? 'Update Bank Account' : 'Add Bank Account'}</span>
