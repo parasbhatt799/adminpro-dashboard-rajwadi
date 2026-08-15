@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight, User, Building2, Smartphone } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight, User, Building2, Smartphone, BarChart3, Receipt, Users } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
@@ -30,12 +30,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
   const [amountFilter, setAmountFilter] = useState('');
+  const [chargeFilter, setChargeFilter] = useState('');
   const [txnIdFilter, setTxnIdFilter] = useState('');
   const [b2bLoginFilter, setB2bLoginFilter] = useState('all');
   const [billAvenueAgentIdFilter, setBillAvenueAgentIdFilter] = useState('all');
   const [cardMobileFilter, setCardMobileFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [showAgentSummaryModal, setShowAgentSummaryModal] = useState(false);
+  const [agentSearchInModal, setAgentSearchInModal] = useState('');
 
   const [agentMap, setAgentMap] = useState<Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string }>>({});
 
@@ -46,7 +49,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFilter, customRange, statusFilter, amountFilter, txnIdFilter, searchTerm, b2bLoginFilter, billAvenueAgentIdFilter, cardMobileFilter]);
+  }, [dateFilter, customRange, statusFilter, amountFilter, chargeFilter, txnIdFilter, searchTerm, b2bLoginFilter, billAvenueAgentIdFilter, cardMobileFilter]);
 
   useEffect(() => {
     fetchLogs();
@@ -421,6 +424,26 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       }
     }
 
+    // Charge Filter
+    const chargeVal = Number(
+      (log as any).charge_deducted ?? 
+      reqBody?.chargeDeducted ?? 
+      reqBody?.chargePerBill ?? 
+      reqBody?.charge ?? 
+      (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+      0
+    );
+    const chargeTrimmed = chargeFilter.trim();
+    let matchesCharge = true;
+    if (chargeTrimmed) {
+      const numericFilter = Number(chargeTrimmed);
+      if (!isNaN(numericFilter)) {
+        matchesCharge = chargeVal.toString().includes(chargeTrimmed) || Math.abs(chargeVal - numericFilter) < 0.01;
+      } else {
+        matchesCharge = chargeVal.toString().includes(chargeTrimmed);
+      }
+    }
+
     // Transaction ID Filter
     const txnTrimmed = txnIdFilter.trim().toLowerCase();
     let matchesTxnId = true;
@@ -450,50 +473,125 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       matchesSearch = searchString.includes(searchTrimmed);
     }
 
-    return matchesDate && matchesStatus && matchesB2bLogin && matchesBillAvenueAgentId && matchesCardMobile && matchesAmount && matchesTxnId && matchesSearch;
+    return matchesDate && matchesStatus && matchesB2bLogin && matchesBillAvenueAgentId && matchesCardMobile && matchesAmount && matchesCharge && matchesTxnId && matchesSearch;
   });
 
   // Calculate summary metrics for current filtered logs
   const stats = useMemo(() => {
     let successCount = 0;
     let successAmount = 0;
+    let successCharge = 0;
     let pendingCount = 0;
     let pendingAmount = 0;
+    let pendingCharge = 0;
     let failedCount = 0;
     let failedAmount = 0;
+    let failedCharge = 0;
 
     filteredLogs.forEach(log => {
       const reqBody = log.request_payload || log.request_body || {};
       const resBody = log.response_payload || log.response_body || {};
       const amt = Number(reqBody.amount || 0);
+      const chg = Number(
+        (log as any).charge_deducted ?? 
+        reqBody?.chargeDeducted ?? 
+        reqBody?.chargePerBill ?? 
+        reqBody?.charge ?? 
+        (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+        0
+      );
       const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
 
       if (statusInfo.text === 'Success') {
         successCount++;
         successAmount += amt;
+        successCharge += chg;
       } else if (statusInfo.text === 'Pending') {
         pendingCount++;
         pendingAmount += amt;
+        pendingCharge += chg;
       } else {
         failedCount++;
         failedAmount += amt;
+        failedCharge += chg;
       }
     });
 
     const totalCount = filteredLogs.length;
     const totalAmount = successAmount + pendingAmount + failedAmount;
+    const totalCharge = successCharge + pendingCharge + failedCharge;
 
     return {
       successCount,
       successAmount,
+      successCharge,
       pendingCount,
       pendingAmount,
+      pendingCharge,
       failedCount,
       failedAmount,
+      failedCharge,
       totalCount,
-      totalAmount
+      totalAmount,
+      totalCharge
     };
   }, [filteredLogs]);
+
+  // Calculate Agent-Wise Charge Summary
+  const agentChargeSummary = useMemo(() => {
+    const summaryMap: Record<string, {
+      agentId: string;
+      loginId: string;
+      baAgentId: string;
+      name: string;
+      totalBills: number;
+      successBills: number;
+      totalVolume: number;
+      totalCharge: number;
+    }> = {};
+
+    logs.forEach(log => {
+      const reqBody = log.request_payload || log.request_body || {};
+      const resBody = log.response_payload || log.response_body || {};
+      const amt = Number(reqBody.amount || 0);
+      const chg = Number(
+        (log as any).charge_deducted ?? 
+        reqBody?.chargeDeducted ?? 
+        reqBody?.chargePerBill ?? 
+        reqBody?.charge ?? 
+        (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+        0
+      );
+      const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
+      const agentIdKey = log.agent_id || 'unknown';
+      const info = agentMap[agentIdKey];
+      const loginId = info?.b2b_login_id || agentIdKey;
+      const baAgentId = info?.billavenue_agent_id || reqBody?.billavenueAgentId || 'N/A';
+      const name = info?.name || '';
+
+      if (!summaryMap[agentIdKey]) {
+        summaryMap[agentIdKey] = {
+          agentId: agentIdKey,
+          loginId,
+          baAgentId,
+          name,
+          totalBills: 0,
+          successBills: 0,
+          totalVolume: 0,
+          totalCharge: 0
+        };
+      }
+
+      summaryMap[agentIdKey].totalBills += 1;
+      if (statusInfo.text === 'Success') {
+        summaryMap[agentIdKey].successBills += 1;
+      }
+      summaryMap[agentIdKey].totalVolume += amt;
+      summaryMap[agentIdKey].totalCharge += chg;
+    });
+
+    return Object.values(summaryMap).sort((a, b) => b.totalCharge - a.totalCharge);
+  }, [logs, agentMap]);
 
   const totalPages = useMemo(() => Math.ceil(filteredLogs.length / pageSize) || 1, [filteredLogs.length, pageSize]);
 
@@ -697,8 +795,19 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           <p className="text-slate-400">View detailed history of all bill payments processed via the B2B API.</p>
         </div>
 
-        {/* Excel and PDF Export Buttons */}
-        <div className="flex items-center gap-2">
+        {/* Header Action Buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {isAdmin && (
+            <button
+              onClick={() => setShowAgentSummaryModal(true)}
+              className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-sm"
+              title="Agent-Wise Charge Breakdown"
+            >
+              <BarChart3 className="h-4 w-4 text-indigo-400" />
+              <span>Agent Charge Breakdown</span>
+            </button>
+          )}
+
           <button
             onClick={exportToExcel}
             disabled={filteredLogs.length === 0}
@@ -722,7 +831,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Success Card */}
         <div className="bg-slate-800/90 border border-emerald-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-emerald-500/40 transition-all">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all"></div>
@@ -799,6 +908,26 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             <span>Total Entries</span>
             <span className="font-bold text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-full border border-indigo-500/20">
               {stats.totalCount} Entries
+            </span>
+          </div>
+        </div>
+
+        {/* Total Charges Card */}
+        <div className="bg-slate-800/90 border border-amber-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-amber-500/40 transition-all">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full blur-xl group-hover:bg-amber-500/10 transition-all"></div>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider">Total Charges</span>
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+              <Receipt className="w-5 h-5 text-amber-400" />
+            </div>
+          </div>
+          <div className="text-2xl font-black text-amber-400 tracking-tight mb-1">
+            ₹ {stats.totalCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </div>
+          <div className="text-xs text-slate-400 flex items-center justify-between">
+            <span>Charges Deducted</span>
+            <span className="font-bold text-amber-400 bg-amber-500/10 px-2.5 py-0.5 rounded-full border border-amber-500/20">
+              ₹ {(stats.totalCount > 0 ? stats.totalCharge / stats.totalCount : 0).toFixed(2)} / bill avg
             </span>
           </div>
         </div>
@@ -989,6 +1118,31 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             </div>
           </div>
 
+          {/* Charge Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-amber-300 uppercase tracking-wider block flex items-center gap-1.5">
+              <Receipt className="w-3.5 h-3.5 text-amber-400" />
+              Charge (₹)
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Filter by charge..."
+                value={chargeFilter}
+                onChange={(e) => setChargeFilter(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all placeholder:text-slate-500 outline-none font-mono"
+              />
+              {chargeFilter && (
+                <button
+                  onClick={() => setChargeFilter('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Search Details (Biller, Mobile, Agent) */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block flex items-center gap-1.5">
@@ -1016,7 +1170,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         </div>
 
         {/* Filter Summary & Reset Button */}
-        {(dateFilter !== 'today' || statusFilter !== 'all' || b2bLoginFilter !== 'all' || billAvenueAgentIdFilter !== 'all' || cardMobileFilter || amountFilter || txnIdFilter || searchTerm) && (
+        {(dateFilter !== 'today' || statusFilter !== 'all' || b2bLoginFilter !== 'all' || billAvenueAgentIdFilter !== 'all' || cardMobileFilter || amountFilter || chargeFilter || txnIdFilter || searchTerm) && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-700/60 text-xs">
             <span className="text-slate-400">
               Showing <span className="font-bold text-indigo-400">{filteredLogs.length}</span> of <span className="font-bold text-slate-300">{logs.length}</span> payments
@@ -1029,6 +1183,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 setBillAvenueAgentIdFilter('all');
                 setCardMobileFilter('');
                 setAmountFilter('');
+                setChargeFilter('');
                 setTxnIdFilter('');
                 setSearchTerm('');
                 setCustomRange({ start: '', end: '' });
@@ -1439,6 +1594,98 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               </div>
             );
           })()}
+        </Modal>
+      )}
+
+      {/* Agent Wise Charge Breakdown Modal */}
+      {showAgentSummaryModal && (
+        <Modal
+          isOpen={showAgentSummaryModal}
+          onClose={() => setShowAgentSummaryModal(false)}
+          title="Agent-Wise Charge Breakdown"
+          size="4xl"
+        >
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/80 p-4 rounded-xl border border-slate-700">
+              <div>
+                <p className="text-xs text-slate-400">
+                  Total Active B2B Agents with Transactions: <span className="font-bold text-white">{agentChargeSummary.length}</span>
+                </p>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Total Charges Collected Across All Time: <span className="font-bold text-amber-400">₹ {agentChargeSummary.reduce((acc, curr) => acc + curr.totalCharge, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </p>
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <input
+                  type="text"
+                  placeholder="Search agent ID or name..."
+                  value={agentSearchInModal}
+                  onChange={(e) => setAgentSearchInModal(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-xl py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-500 outline-none focus:ring-1 focus:ring-indigo-500"
+                />
+                <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              </div>
+            </div>
+
+            <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden max-h-[60vh] overflow-y-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-bold sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3">#</th>
+                    <th className="px-4 py-3">B2B Login ID</th>
+                    <th className="px-4 py-3">BillAvenue Agent ID</th>
+                    <th className="px-4 py-3 text-center">Total Bills</th>
+                    <th className="px-4 py-3 text-right">Total Volume</th>
+                    <th className="px-4 py-3 text-right text-amber-400">Total Charge Collected</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800">
+                  {agentChargeSummary
+                    .filter(item => {
+                      if (!agentSearchInModal.trim()) return true;
+                      const q = agentSearchInModal.toLowerCase();
+                      return item.loginId.toLowerCase().includes(q) || 
+                             item.baAgentId.toLowerCase().includes(q) || 
+                             item.name.toLowerCase().includes(q);
+                    })
+                    .map((item, idx) => (
+                      <tr key={item.agentId} className="hover:bg-slate-800/50 transition-colors">
+                        <td className="px-4 py-3 text-slate-500 font-mono">{idx + 1}</td>
+                        <td className="px-4 py-3 font-bold text-indigo-300 font-mono">
+                          {item.loginId}
+                          {item.name && <div className="text-[10px] text-slate-400 font-sans font-normal">{item.name}</div>}
+                        </td>
+                        <td className="px-4 py-3 font-mono text-emerald-400">{item.baAgentId}</td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="bg-slate-800 text-slate-200 px-2 py-0.5 rounded-full font-bold">
+                            {item.totalBills} ({item.successBills} success)
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-white">
+                          ₹ {item.totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-amber-400">
+                          ₹ {item.totalCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <button
+                            onClick={() => {
+                              setB2bLoginFilter(item.loginId);
+                              setShowAgentSummaryModal(false);
+                            }}
+                            className="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all"
+                          >
+                            Filter History
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </Modal>
       )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X } from 'lucide-react';
+import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X, Search } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { motion } from 'motion/react';
 
@@ -16,6 +16,7 @@ interface Agent {
   b2b_login_id: string;
   wallet_balance: number;
   charge_per_bill: number;
+  agent_tag?: string;
   api_key?: string;
   secret_key?: string;
   ip_whitelist?: string[];
@@ -42,6 +43,7 @@ export default function CreateB2BAgent() {
   const [newDomain, setNewDomain] = useState('');
   const [showAgentIdModal, setShowAgentIdModal] = useState(false);
   const [billAvenueAgentId, setBillAvenueAgentId] = useState('');
+  const [agentSearchTerm, setAgentSearchTerm] = useState('');
 
 
   const [formData, setFormData] = useState({
@@ -51,7 +53,8 @@ export default function CreateB2BAgent() {
     address: '',
     b2bLoginId: '',
     b2bPassword: '',
-    chargePerBill: '0'
+    chargePerBill: '0',
+    agentTag: ''
   });
 
   useEffect(() => {
@@ -107,7 +110,8 @@ export default function CreateB2BAgent() {
       address: agent.address || '',
       b2bLoginId: agent.b2b_login_id || '',
       b2bPassword: '', // keep empty by default, only update if typed
-      chargePerBill: agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? agent.charge_per_bill.toString() : ''
+      chargePerBill: agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? agent.charge_per_bill.toString() : '',
+      agentTag: agent.agent_tag || ''
     });
     setView('edit');
   };
@@ -303,6 +307,7 @@ export default function CreateB2BAgent() {
             b2b_login_id: formData.b2bLoginId,
             b2b_password: formData.b2bPassword,
             charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0),
+            agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
             is_active: true
           });
 
@@ -323,7 +328,8 @@ export default function CreateB2BAgent() {
           mobile: formData.mobile,
           address: formData.address,
           b2b_login_id: formData.b2bLoginId,
-          charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0)
+          charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0),
+          agent_tag: formData.agentTag ? formData.agentTag.trim() : null
         };
         
         if (formData.b2bPassword) {
@@ -348,7 +354,7 @@ export default function CreateB2BAgent() {
       }
 
       setFormData({
-        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: ''
+        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', agentTag: ''
       });
       setEditingId(null);
       setView('list');
@@ -361,23 +367,56 @@ export default function CreateB2BAgent() {
     }
   };
 
+  const filteredAgents = agents.filter((agent) => {
+    if (!agentSearchTerm.trim()) return true;
+    const term = agentSearchTerm.toLowerCase();
+    const fullName = `${agent.first_name || ''} ${agent.last_name || ''}`.toLowerCase();
+    const loginId = (agent.b2b_login_id || '').toLowerCase();
+    const mobile = (agent.mobile || '').toLowerCase();
+    const charge = agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? agent.charge_per_bill.toString() : 'global';
+    const tag = (agent.agent_tag || '').toLowerCase();
+
+    return fullName.includes(term) || loginId.includes(term) || mobile.includes(term) || charge.includes(term) || tag.includes(term);
+  });
+
   const renderList = () => (
     <div className="max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-white">B2B Agents</h2>
-          <p className="text-slate-400 mt-1">Manage your onboarded B2B agents and their balances.</p>
+          <p className="text-slate-400 mt-1">Manage your onboarded B2B agents and their balances & charges.</p>
         </div>
-        <button
-          onClick={() => {
-            setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '' });
-            setView('create');
-          }}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm"
-        >
-          <UserPlus size={18} />
-          Create Agent
-        </button>
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <div className="relative flex-1 sm:w-64">
+            <input
+              type="text"
+              placeholder="Search agent, login ID, charge..."
+              value={agentSearchTerm}
+              onChange={(e) => setAgentSearchTerm(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 pl-9 pr-8 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            {agentSearchTerm && (
+              <button
+                onClick={() => setAgentSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <button
+            onClick={() => {
+              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', agentTag: '' });
+              setView('create');
+            }}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
+          >
+            <UserPlus size={18} />
+            Create Agent
+          </button>
+        </div>
       </div>
 
       <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
@@ -387,6 +426,7 @@ export default function CreateB2BAgent() {
               <tr className="bg-slate-900/50 border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider font-bold">
                 <th className="p-4">Agent Name</th>
                 <th className="p-4">Login ID</th>
+                <th className="p-4">Agent Tag / Portal</th>
                 <th className="p-4">Mobile</th>
                 <th className="p-4 text-right">Charge (₹)</th>
                 <th className="p-4 text-right">Wallet Balance</th>
@@ -396,23 +436,32 @@ export default function CreateB2BAgent() {
             <tbody className="divide-y divide-slate-700/50">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
                     Loading agents...
                   </td>
                 </tr>
-              ) : agents.length === 0 ? (
+              ) : filteredAgents.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-slate-400">
-                    No agents found. Click "Create Agent" to onboard one.
+                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                    {agentSearchTerm ? 'No agents match your search criteria.' : 'No agents found. Click "Create Agent" to onboard one.'}
                   </td>
                 </tr>
               ) : (
-                agents.map((agent) => (
+                filteredAgents.map((agent) => (
                   <tr key={agent.id} className="hover:bg-slate-700/20 transition-colors">
                     <td className="p-4 font-bold text-white">
                       {agent.first_name} {agent.last_name}
                     </td>
                     <td className="p-4 text-indigo-300 font-mono text-xs">{agent.b2b_login_id}</td>
+                    <td className="p-4">
+                      {agent.agent_tag ? (
+                        <span className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-lg text-xs font-bold font-mono">
+                          {agent.agent_tag}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 text-xs">-</span>
+                      )}
+                    </td>
                     <td className="p-4 text-slate-400 font-mono text-xs">{agent.mobile}</td>
                     <td className="p-4 text-right font-medium text-amber-400">
                       {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? `₹${parseFloat(agent.charge_per_bill.toString()).toFixed(2)}` : <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">Global</span>}
@@ -864,6 +913,21 @@ export default function CreateB2BAgent() {
                   placeholder="Leave empty to use Global Charge"
                 />
                 <p className="text-xs text-slate-400 mt-1">If left empty, the Global Charge set in the Dashboard will apply.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1 flex items-center justify-between">
+                  <span>Agent Tag (Portal Name)</span>
+                  <span className="text-[11px] text-slate-400">e.g. Rajwadi, Zentopay</span>
+                </label>
+                <input
+                  type="text"
+                  name="agentTag"
+                  value={formData.agentTag}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-indigo-300 font-bold placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
+                  placeholder="Portal Tag (e.g. Rajwadi, Zentopay)"
+                />
+                <p className="text-xs text-slate-400 mt-1">Identifies which portal this agent belongs to in Fund Requests.</p>
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-slate-300 mb-1">Full Address</label>

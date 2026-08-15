@@ -24,9 +24,12 @@
     "noEmit": true,
     "types": ["vite/client"]
   },
+  "include": [
+    "src/**/*",
+    "api/**/*"
+  ],
   "exclude": [
     "node_modules",
-    "dist",
-    "adminpro-dashboard-rajwadi"
+    "dist"
   ]
 }

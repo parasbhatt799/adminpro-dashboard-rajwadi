@@ -67,7 +67,18 @@ export async function callPayoutApi(endpoint: string, payload: any): Promise<any
       try {
         errorBody = await response.text();
       } catch (_) {}
-      throw new Error(`HTTP Error Status: ${response.status}${errorBody ? ` (${errorBody})` : ''}`);
+
+      let cleanMsg = `HTTP Error Status: ${response.status}`;
+      if (errorBody.includes('InsufficientBalanceException') || errorBody.includes('InsufficientBalance')) {
+        cleanMsg = "Camlenio Payout Provider API Balance is Insufficient. Please top up funds on Camlenio Portal.";
+      } else if (errorBody.startsWith('<!DOCTYPE') || errorBody.includes('<html')) {
+        const match = errorBody.match(/Error:\s*([^<]+)/i) || errorBody.match(/<title>(.*?)<\/title>/i);
+        cleanMsg = match ? match[1].replace(/&quot;/g, '"').trim() : `Camlenio Server Error (${response.status})`;
+      } else if (errorBody) {
+        cleanMsg += ` (${errorBody.slice(0, 300)})`;
+      }
+
+      throw new Error(cleanMsg);
     }
 
     const data = await response.json();
@@ -103,7 +114,17 @@ export async function verifyBankAccount(accountNumber: string, ifsc: string, tra
     if (!response.ok) {
       let errorBody = "";
       try { errorBody = await response.text(); } catch (_) {}
-      throw new Error(`HTTP Error ${response.status}: ${errorBody}`);
+      
+      let cleanMsg = `HTTP Error ${response.status}`;
+      if (errorBody.includes('InsufficientBalanceException') || errorBody.includes('InsufficientBalance')) {
+        cleanMsg = "Camlenio Payout Provider API Balance is Insufficient. Please top up funds on Camlenio Portal.";
+      } else if (errorBody.startsWith('<!DOCTYPE') || errorBody.includes('<html')) {
+        const match = errorBody.match(/Error:\s*([^<]+)/i) || errorBody.match(/<title>(.*?)<\/title>/i);
+        cleanMsg = match ? match[1].replace(/&quot;/g, '"').trim() : `Camlenio Server Error (${response.status})`;
+      } else if (errorBody) {
+        cleanMsg += `: ${errorBody.slice(0, 300)}`;
+      }
+      throw new Error(cleanMsg);
     }
 
     const data = await response.json();

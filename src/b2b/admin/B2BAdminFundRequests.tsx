@@ -51,7 +51,7 @@ export default function B2BAdminFundRequests() {
           .from('b2b_fund_requests')
           .select(`
             *,
-            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance),
+            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance, agent_tag),
             b2b_admin_bank_accounts(bank_name, account_name, account_number, ifsc_code, branch_name, upi_id)
           `)
           .order('created_at', { ascending: false })
@@ -98,11 +98,19 @@ export default function B2BAdminFundRequests() {
 
         if (rpcError || !success) throw rpcError || new Error('Failed to update balance');
         
-        await supabase.from('b2b_fund_requests').update({ status: 'approved' }).eq('id', requestId);
-        toast.success('Request approved and balance added');
+        await supabase
+          .from('b2b_fund_requests')
+          .update({ status: 'approved', updated_at: new Date().toISOString() })
+          .eq('id', requestId);
+
+        toast.success(`Fund request of ₹${amount} approved successfully!`);
       } else {
-        await supabase.from('b2b_fund_requests').update({ status: 'rejected' }).eq('id', requestId);
-        toast.success('Request rejected');
+        await supabase
+          .from('b2b_fund_requests')
+          .update({ status: 'rejected', updated_at: new Date().toISOString() })
+          .eq('id', requestId);
+
+        toast.success(`Fund request rejected.`);
       }
       
       fetchRequests();
@@ -222,6 +230,7 @@ export default function B2BAdminFundRequests() {
           'S.No': idx + 1,
           'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
           'Agent Name / ID': agentName,
+          'Agent Tag / Portal': cred?.agent_tag || 'N/A',
           'Mobile': cred?.mobile || '',
           'Amount (₹)': Number(req.amount || 0),
           'UTR / Reference Number': req.utr_number || '',
@@ -235,6 +244,7 @@ export default function B2BAdminFundRequests() {
         'S.No': 'TOTAL',
         'Date & Time': `${filteredRequests.length} Requests`,
         'Agent Name / ID': '',
+        'Agent Tag / Portal': '',
         'Mobile': '',
         'Amount (₹)': Number(stats.totalAmount.toFixed(2)),
         'UTR / Reference Number': '',
@@ -244,7 +254,7 @@ export default function B2BAdminFundRequests() {
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       ws['!cols'] = [
-        { wch: 8 }, { wch: 22 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
+        { wch: 8 }, { wch: 22 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
       ];
 
       const wb = XLSX.utils.book_new();
@@ -277,11 +287,14 @@ export default function B2BAdminFundRequests() {
           (idx + 1).toString(),
           format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
           agentName,
+          cred?.agent_tag || 'N/A',
           `₹ ${Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           req.utr_number || 'N/A',
           req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending'
         ];
       });
+
+      const headers = ['#', 'Date / Time', 'Agent', 'Agent Tag', 'Amount', 'UTR', 'Status'];
 
       const footer = [
         [
@@ -517,6 +530,7 @@ export default function B2BAdminFundRequests() {
               <thead className="bg-slate-900/50 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-700">
                 <tr>
                   <th className="px-6 py-3">Agent</th>
+                  <th className="px-6 py-3 text-indigo-400">Agent Tag / Portal</th>
                   <th className="px-6 py-3">Amount</th>
                   <th className="px-6 py-3">Deposit Admin Bank</th>
                   <th className="px-6 py-3">UTR Details</th>
@@ -541,6 +555,15 @@ export default function B2BAdminFundRequests() {
                           <div className="text-xs text-emerald-400 font-medium">Bal: ₹{req.b2b_api_credentials?.wallet_balance?.toFixed(2)}</div>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {req.b2b_api_credentials?.agent_tag ? (
+                        <span className="px-2.5 py-1 text-xs font-bold font-mono rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 shadow-sm">
+                          {req.b2b_api_credentials.agent_tag}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-500 italic">No Tag</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-bold text-white text-base">₹{req.amount.toLocaleString()}</span>
@@ -627,13 +650,19 @@ export default function B2BAdminFundRequests() {
         >
           <div className="space-y-6">
             {/* Details Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700 text-xs">
               <div>
                 <span className="text-slate-400 font-semibold uppercase block">Agent Name</span>
                 <span className="font-bold text-white text-sm block mt-0.5">
                   {selectedProofReq.b2b_api_credentials?.first_name} {selectedProofReq.b2b_api_credentials?.last_name}
                 </span>
                 <span className="block text-[11px] text-indigo-300 font-mono mt-0.5">{selectedProofReq.b2b_api_credentials?.b2b_login_id}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 font-semibold uppercase block">Agent Tag / Portal</span>
+                <span className="font-bold font-mono text-indigo-300 text-xs bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20 inline-block mt-1">
+                  {selectedProofReq.b2b_api_credentials?.agent_tag || 'N/A'}
+                </span>
               </div>
               <div>
                 <span className="text-slate-400 font-semibold uppercase block">Requested Amount</span>
