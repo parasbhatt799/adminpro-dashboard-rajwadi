@@ -230,13 +230,16 @@ export default function B2BLogin({ mode = 'both' }: B2BLoginProps) {
         // Admin Login - Check admin_profiles table
         const { data: adminUser, error: adminError } = await supabase
           .from('admin_profiles')
-          .select('id, role')
+          .select('id, role, is_b2b_admin')
           .eq('mobile_number', loginId)
           .eq('password', password)
           .single();
 
         if (adminError || !adminUser) {
           setError('Invalid Admin Mobile Number or Password.');
+          setLoading(false);
+        } else if (adminUser.is_b2b_admin === false) {
+          setError('Access Denied: You do not have permission to access the B2B Admin Panel.');
           setLoading(false);
         } else {
           localStorage.setItem('b2bAdminId', adminUser.id);

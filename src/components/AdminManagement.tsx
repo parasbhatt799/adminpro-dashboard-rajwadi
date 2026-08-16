@@ -332,6 +332,26 @@ interface AdminManagementProps {
     );
   };
 
+  const handleToggleB2BAccess = async (admin: any) => {
+    const currentStatus = admin.is_b2b_admin !== false;
+    const newStatus = !currentStatus;
+
+    try {
+      const { error: dbError } = await supabase
+        .from('admin_profiles')
+        .update({ is_b2b_admin: newStatus })
+        .eq('mobile_number', admin.mobile_number);
+
+      if (dbError) throw dbError;
+
+      fetchAdmins();
+      showModal('Success!', `B2B Admin Access for ${admin.name || admin.mobile_number} is now ${newStatus ? 'ENABLED' : 'DISABLED'}.`, 'success');
+    } catch (err: any) {
+      console.error('Toggle B2B access error:', err);
+      showModal('Error', 'Failed to update B2B access level.', 'error');
+    }
+  };
+
   const handleToggleSystem = async () => {
     setSystemLoading(true);
     try {
@@ -874,6 +894,7 @@ interface AdminManagementProps {
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Administrator</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Access Level</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">B2B Admin Access</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Added On</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-right">Security</th>
                 </tr>
@@ -943,6 +964,20 @@ interface AdminManagementProps {
                             </button>
                           )}
                         </div>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <button 
+                        onClick={() => handleToggleB2BAccess(admin)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 mx-auto ${
+                          admin.is_b2b_admin !== false
+                            ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                            : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                        }`}
+                        title={admin.is_b2b_admin !== false ? 'Click to Disable B2B Admin Access' : 'Click to Enable B2B Admin Access'}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${admin.is_b2b_admin !== false ? 'bg-purple-600 animate-pulse' : 'bg-slate-400'}`} />
+                        {admin.is_b2b_admin !== false ? 'B2B Allowed' : 'B2B Disabled'}
+                      </button>
                     </td>
                     <td className="px-8 py-5">
                       <p className="text-xs text-slate-500 font-medium">

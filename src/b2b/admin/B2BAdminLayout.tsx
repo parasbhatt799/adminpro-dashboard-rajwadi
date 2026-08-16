@@ -39,7 +39,20 @@ export default function B2BAdminLayout() {
       navigate('/b2b/admin-login');
       return;
     }
-    setAdminId(id);
+
+    supabase
+      .from('admin_profiles')
+      .select('id, is_b2b_admin')
+      .eq('id', id)
+      .single()
+      .then(({ data, error }) => {
+        if (error || !data || data.is_b2b_admin === false) {
+          localStorage.removeItem('b2bAdminId');
+          navigate('/b2b/admin-login');
+        } else {
+          setAdminId(id);
+        }
+      });
   }, [navigate]);
 
   useEffect(() => {
