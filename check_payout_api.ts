@@ -6,7 +6,7 @@ dotenv.config();
 const API_KEY = (process.env.CAMLENIO_PAYOUT_API_KEY || 'fjf0f2xy3W01NTtSDTUS62rdKyVqPSY7').replace(/['"]/g, '').trim();
 
 function testPayoutApi() {
-  const testAmount = process.argv[2] ? Number(process.argv[2]) : 10;
+  const testAmount = process.argv[2] ? Number(process.argv[2]) : 1001;
 
   console.log('====================================================');
   console.log('  💸 CAMLENIO IMPS PAYOUT DIRECT API TESTER');
