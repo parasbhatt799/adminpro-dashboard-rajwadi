@@ -573,14 +573,17 @@ export const payBill = async (req: Request, res: Response) => {
       return res.status(400).json({ status: 'error', message: 'Missing required parameters for payment' });
     }
 
-    // Fetch agent's charge_per_bill
+    // Fetch agent's charge_per_bill, developer_charge, and owner_charge
     const { data: agentData } = await supabaseAdmin
       .from('b2b_api_credentials')
-      .select('charge_per_bill, webhook_url')
+      .select('charge_per_bill, developer_charge, owner_charge, webhook_url')
       .eq('id', agentId)
       .single();
 
     let chargePerBill = 0;
+    let developerCharge = parseFloat(agentData?.developer_charge?.toString() || '0');
+    let ownerCharge = parseFloat(agentData?.owner_charge?.toString() || '0');
+
     if (agentData?.charge_per_bill !== null && agentData?.charge_per_bill !== undefined) {
       chargePerBill = parseFloat(agentData.charge_per_bill);
     } else {
@@ -596,10 +599,15 @@ export const payBill = async (req: Request, res: Response) => {
       }
     }
 
+    // If split charges are missing or incomplete, ensure they equal chargePerBill
+    if (developerCharge === 0 && ownerCharge === 0 && chargePerBill > 0) {
+      ownerCharge = chargePerBill;
+    }
+
     const parsedAmount = parseFloat(amount);
     const totalDeduction = parsedAmount + chargePerBill;
 
-    console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ${parsedAmount} + Charge: ${chargePerBill})...`);
+    console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ${parsedAmount} + Charge: ${chargePerBill} [Dev: ${developerCharge}, Owner: ${ownerCharge}])...`);
 
     // 1. Deduct total amount securely from b2b wallet via Atomic RPC
     const { data: deductSuccess, error: walletDeductError } = await supabaseAdmin.rpc('deduct_b2b_wallet_balance', {
@@ -627,7 +635,9 @@ export const payBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: agentId,
         endpoint: '/api/b2b/pay-bill',
-        request_payload: { ...req.body, transaction_id: customTxnId, totalDeduction, chargeDeducted: chargePerBill },
+        developer_charge: developerCharge,
+        owner_charge: ownerCharge,
+        request_payload: { ...req.body, transaction_id: customTxnId, totalDeduction, chargeDeducted: chargePerBill, developerCharge, ownerCharge },
         response_payload: { payment_status: 'pending', transaction_id: customTxnId },
         status_code: 202
       })

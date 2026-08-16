@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
-import { Terminal, LogOut, Wallet, Book, LayoutDashboard, Activity } from 'lucide-react';
+import { Terminal, LogOut, Wallet, Book, LayoutDashboard, Activity, User } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
@@ -11,6 +11,7 @@ export default function B2BAgentLayout() {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [agentProfile, setAgentProfile] = useState<{ first_name?: string; last_name?: string; profile_photo_url?: string } | null>(null);
 
   useEffect(() => {
     const agentId = localStorage.getItem('b2bAgentId');
@@ -34,6 +35,9 @@ export default function B2BAgentLayout() {
         },
         (payload) => {
           setWalletBalance(payload.new.wallet_balance || 0);
+          if (payload.new.profile_photo_url) {
+            setAgentProfile(prev => ({ ...prev, profile_photo_url: payload.new.profile_photo_url }));
+          }
         }
       )
       .subscribe();
@@ -47,12 +51,17 @@ export default function B2BAgentLayout() {
     try {
       const { data } = await supabase
         .from('b2b_api_credentials')
-        .select('wallet_balance')
+        .select('wallet_balance, first_name, last_name, profile_photo_url')
         .eq('id', agentId)
         .single();
         
       if (data) {
         setWalletBalance(data.wallet_balance || 0);
+        setAgentProfile({
+          first_name: data.first_name,
+          last_name: data.last_name,
+          profile_photo_url: data.profile_photo_url
+        });
       }
     } catch (err) {
       console.error('Error fetching balance:', err);
@@ -129,6 +138,26 @@ export default function B2BAgentLayout() {
                   <span className="text-emerald-400 font-bold leading-none tracking-tight">₹ {walletBalance.toFixed(2)}</span>
                 </div>
               </div>
+
+              {/* Agent Profile Avatar */}
+              {agentProfile && (
+                <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-xl border border-slate-700/70">
+                  {agentProfile.profile_photo_url ? (
+                    <img
+                      src={agentProfile.profile_photo_url}
+                      alt="Agent Avatar"
+                      className="w-7 h-7 rounded-full object-cover border border-slate-600"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xs font-bold">
+                      {agentProfile.first_name?.[0]?.toUpperCase() || <User size={14} />}
+                    </div>
+                  )}
+                  <span className="text-xs font-semibold text-slate-200 hidden lg:inline-block">
+                    {agentProfile.first_name} {agentProfile.last_name}
+                  </span>
+                </div>
+              )}
 
               <button
                 onClick={handleLogout}

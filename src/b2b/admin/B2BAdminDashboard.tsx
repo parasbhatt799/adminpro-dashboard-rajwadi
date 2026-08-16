@@ -5,6 +5,8 @@ import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
 export default function B2BAdminDashboard() {
   const [totalEarnings, setTotalEarnings] = useState<number>(0);
+  const [developerEarnings, setDeveloperEarnings] = useState<number>(0);
+  const [ownerEarnings, setOwnerEarnings] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [savingCharge, setSavingCharge] = useState(false);
   const [activeAgentsCount, setActiveAgentsCount] = useState(0);
@@ -44,7 +46,7 @@ export default function B2BAdminDashboard() {
       while (hasMore) {
         const { data, error } = await supabase
           .from('b2b_api_logs')
-          .select('charge_deducted, request_payload, response_payload, status_code, endpoint')
+          .select('charge_deducted, developer_charge, owner_charge, request_payload, response_payload, status_code, endpoint')
           .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
           .range(from, from + step - 1);
 
@@ -65,7 +67,11 @@ export default function B2BAdminDashboard() {
         }
       }
       
-      const apiSum = allLogs.reduce((acc, log) => {
+      let totalSum = 0;
+      let devSum = 0;
+      let ownerSum = 0;
+
+      allLogs.forEach((log) => {
         const req = log.request_payload || {};
         const res = log.response_payload || {};
         const bpr = res?.ExtBillPayResponse || res?.billPayResponse || res;
@@ -83,7 +89,7 @@ export default function B2BAdminDashboard() {
           responseReason === 'successful' ||
           (hasCC01 && log.status_code === 200 && res?.payment_status !== 'failed');
         
-        if (!isSuccess) return acc;
+        if (!isSuccess) return;
         
         const chargeVal = Number(
           log.charge_deducted ?? 
@@ -93,10 +99,18 @@ export default function B2BAdminDashboard() {
           (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
           0
         );
-        return acc + chargeVal;
-      }, 0);
+
+        let dVal = Number(log.developer_charge ?? req?.developerCharge ?? req?.developer_charge ?? 0);
+        let oVal = Number(log.owner_charge ?? req?.ownerCharge ?? req?.owner_charge ?? (chargeVal - dVal));
+
+        totalSum += chargeVal;
+        devSum += dVal;
+        ownerSum += oVal;
+      });
       
-      setTotalEarnings(apiSum);
+      setTotalEarnings(totalSum);
+      setDeveloperEarnings(devSum);
+      setOwnerEarnings(ownerSum);
 
       const { count } = await supabase
         .from('b2b_api_credentials')
@@ -162,16 +176,42 @@ export default function B2BAdminDashboard() {
           <LoadingSpinner size="lg" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Earnings Card */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total Earnings Card */}
           <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
             <div className="flex items-center gap-4">
-              <div className="bg-emerald-500/10 p-4 rounded-full text-emerald-400 border border-emerald-500/20">
-                <ShieldCheck className="h-8 w-8" />
+              <div className="bg-emerald-500/10 p-3.5 rounded-full text-emerald-400 border border-emerald-500/20">
+                <ShieldCheck className="h-7 w-7" />
               </div>
               <div>
-                <p className="text-sm font-bold text-emerald-400 uppercase tracking-wider mb-1">Total API Earnings</p>
-                <p className="text-3xl font-bold text-emerald-300">₹{totalEarnings.toFixed(2)}</p>
+                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total API Revenue</p>
+                <p className="text-2xl font-bold text-emerald-300">₹{totalEarnings.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Developer Earnings Card */}
+          <div className="bg-blue-950/30 border border-blue-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              <div className="bg-blue-500/10 p-3.5 rounded-full text-blue-400 border border-blue-500/20">
+                <Activity className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Developer Share Total</p>
+                <p className="text-2xl font-bold text-blue-300">₹{developerEarnings.toFixed(2)}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Owner Earnings Card */}
+          <div className="bg-purple-950/30 border border-purple-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              <div className="bg-purple-500/10 p-3.5 rounded-full text-purple-400 border border-purple-500/20">
+                <ShieldCheck className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Owner Share Total</p>
+                <p className="text-2xl font-bold text-purple-300">₹{ownerEarnings.toFixed(2)}</p>
               </div>
             </div>
           </div>

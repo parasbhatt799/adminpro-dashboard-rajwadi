@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X, Search } from 'lucide-react';
+import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X, Search, Camera, User } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { motion } from 'motion/react';
 
@@ -16,6 +16,8 @@ interface Agent {
   b2b_login_id: string;
   wallet_balance: number;
   charge_per_bill: number;
+  developer_charge?: number;
+  owner_charge?: number;
   agent_tag?: string;
   api_key?: string;
   secret_key?: string;
@@ -23,6 +25,7 @@ interface Agent {
   domain_whitelist?: string[];
   billavenue_agent_id?: string;
   is_active?: boolean;
+  profile_photo_url?: string;
 }
 
 export default function CreateB2BAgent() {
@@ -45,6 +48,8 @@ export default function CreateB2BAgent() {
   const [billAvenueAgentId, setBillAvenueAgentId] = useState('');
   const [agentSearchTerm, setAgentSearchTerm] = useState('');
 
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -54,8 +59,58 @@ export default function CreateB2BAgent() {
     b2bLoginId: '',
     b2bPassword: '',
     chargePerBill: '0',
+    developerCharge: '0',
+    ownerCharge: '0',
     agentTag: ''
   });
+
+  const handleDeveloperChargeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const devVal = e.target.value;
+    const total = parseFloat(formData.chargePerBill) || 0;
+    const devNum = parseFloat(devVal) || 0;
+    const ownerCalc = Math.max(0, total - devNum);
+    setFormData(prev => ({
+      ...prev,
+      developerCharge: devVal,
+      ownerCharge: ownerCalc.toString()
+    }));
+  };
+
+  const handleOwnerChargeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const ownerVal = e.target.value;
+    const total = parseFloat(formData.chargePerBill) || 0;
+    const ownerNum = parseFloat(ownerVal) || 0;
+    const devCalc = Math.max(0, total - ownerNum);
+    setFormData(prev => ({
+      ...prev,
+      ownerCharge: ownerVal,
+      developerCharge: devCalc.toString()
+    }));
+  };
+
+  const handleTotalChargeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const totalVal = e.target.value;
+    const totalNum = parseFloat(totalVal) || 0;
+    const devNum = parseFloat(formData.developerCharge) || 0;
+    const ownerCalc = Math.max(0, totalNum - devNum);
+    setFormData(prev => ({
+      ...prev,
+      chargePerBill: totalVal,
+      ownerCharge: ownerCalc.toString()
+    }));
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProfilePhoto(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useEffect(() => {
     if (view === 'list') {
@@ -103,6 +158,8 @@ export default function CreateB2BAgent() {
 
   const handleEditClick = (agent: Agent) => {
     setEditingId(agent.id);
+    setPhotoPreview(agent.profile_photo_url || null);
+    setProfilePhoto(null);
     setFormData({
       firstName: agent.first_name || '',
       lastName: agent.last_name || '',
@@ -111,6 +168,8 @@ export default function CreateB2BAgent() {
       b2bLoginId: agent.b2b_login_id || '',
       b2bPassword: '', // keep empty by default, only update if typed
       chargePerBill: agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? agent.charge_per_bill.toString() : '',
+      developerCharge: agent.developer_charge !== null && agent.developer_charge !== undefined ? agent.developer_charge.toString() : '0',
+      ownerCharge: agent.owner_charge !== null && agent.owner_charge !== undefined ? agent.owner_charge.toString() : '0',
       agentTag: agent.agent_tag || ''
     });
     setView('edit');
@@ -296,6 +355,28 @@ export default function CreateB2BAgent() {
     setLoading(true);
 
     try {
+      let uploadedPhotoUrl = photoPreview;
+
+      if (profilePhoto) {
+        const fileExt = profilePhoto.name.split('.').pop();
+        const fileName = `b2b_${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profiles')
+          .upload(filePath, profilePhoto);
+
+        if (uploadError) {
+          console.error("Upload photo error:", uploadError);
+          toast.error("Failed to upload profile photo");
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('profiles')
+            .getPublicUrl(filePath);
+          uploadedPhotoUrl = publicUrl;
+        }
+      }
+
       if (view === 'create') {
         const { error: b2bError } = await supabase
           .from('b2b_api_credentials')
@@ -307,7 +388,10 @@ export default function CreateB2BAgent() {
             b2b_login_id: formData.b2bLoginId,
             b2b_password: formData.b2bPassword,
             charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0),
+            developer_charge: parseFloat(formData.developerCharge) || 0,
+            owner_charge: parseFloat(formData.ownerCharge) || 0,
             agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
+            profile_photo_url: uploadedPhotoUrl || null,
             is_active: true
           });
 
@@ -329,7 +413,10 @@ export default function CreateB2BAgent() {
           address: formData.address,
           b2b_login_id: formData.b2bLoginId,
           charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0),
-          agent_tag: formData.agentTag ? formData.agentTag.trim() : null
+          developer_charge: parseFloat(formData.developerCharge) || 0,
+          owner_charge: parseFloat(formData.ownerCharge) || 0,
+          agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
+          profile_photo_url: uploadedPhotoUrl || null
         };
         
         if (formData.b2bPassword) {
@@ -354,8 +441,10 @@ export default function CreateB2BAgent() {
       }
 
       setFormData({
-        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', agentTag: ''
+        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', agentTag: ''
       });
+      setProfilePhoto(null);
+      setPhotoPreview(null);
       setEditingId(null);
       setView('list');
       
@@ -408,7 +497,7 @@ export default function CreateB2BAgent() {
 
           <button
             onClick={() => {
-              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', agentTag: '' });
+              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', agentTag: '' });
               setView('create');
             }}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
@@ -450,7 +539,22 @@ export default function CreateB2BAgent() {
                 filteredAgents.map((agent) => (
                   <tr key={agent.id} className="hover:bg-slate-700/20 transition-colors">
                     <td className="p-4 font-bold text-white">
-                      {agent.first_name} {agent.last_name}
+                      <div className="flex items-center gap-3">
+                        {agent.profile_photo_url ? (
+                          <img
+                            src={agent.profile_photo_url}
+                            alt={`${agent.first_name} ${agent.last_name}`}
+                            className="w-9 h-9 rounded-full object-cover border border-slate-700 shadow-sm shrink-0"
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xs font-bold shrink-0">
+                            {agent.first_name?.[0]?.toUpperCase() || ''}{agent.last_name?.[0]?.toUpperCase() || <User size={16} />}
+                          </div>
+                        )}
+                        <div>
+                          <div>{agent.first_name} {agent.last_name}</div>
+                        </div>
+                      </div>
                     </td>
                     <td className="p-4 text-indigo-300 font-mono text-xs">{agent.b2b_login_id}</td>
                     <td className="p-4">
@@ -464,7 +568,21 @@ export default function CreateB2BAgent() {
                     </td>
                     <td className="p-4 text-slate-400 font-mono text-xs">{agent.mobile}</td>
                     <td className="p-4 text-right font-medium text-amber-400">
-                      {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? `₹${parseFloat(agent.charge_per_bill.toString()).toFixed(2)}` : <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">Global</span>}
+                      {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? (
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="font-bold text-amber-400">₹{parseFloat(agent.charge_per_bill.toString()).toFixed(2)}</span>
+                          <div className="flex items-center gap-1 text-[10px] font-mono">
+                            <span className="bg-blue-500/10 text-blue-400 border border-blue-500/20 px-1.5 py-0.5 rounded" title="Developer Charge">
+                              Dev: ₹{parseFloat(agent.developer_charge?.toString() || '0').toFixed(2)}
+                            </span>
+                            <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-1.5 py-0.5 rounded" title="Owner Charge">
+                              Owner: ₹{parseFloat(agent.owner_charge?.toString() || '0').toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">Global</span>
+                      )}
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex items-center justify-end gap-1 font-bold text-emerald-400">
@@ -862,6 +980,43 @@ export default function CreateB2BAgent() {
             <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 border-b border-slate-700 pb-2">
               1. Basic Profile Details
             </h4>
+            
+            {/* Profile Photo Upload */}
+            <div className="flex flex-col sm:flex-row items-center gap-6 mb-6 pb-6 border-b border-slate-700/60">
+              <div className="relative w-24 h-24 group">
+                <label className="w-full h-full bg-slate-900 rounded-full border-2 border-dashed border-slate-700 flex flex-col items-center justify-center text-slate-400 overflow-hidden cursor-pointer hover:border-indigo-500 hover:text-indigo-400 transition-all shadow-inner">
+                  {photoPreview ? (
+                    <img src={photoPreview} alt="Agent Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <>
+                      <Camera size={24} />
+                      <span className="text-[9px] font-bold uppercase mt-1">Photo</span>
+                    </>
+                  )}
+                  <input
+                    type="file"
+                    className="sr-only"
+                    accept="image/*"
+                    onChange={handlePhotoChange}
+                  />
+                </label>
+                {photoPreview && (
+                  <button
+                    type="button"
+                    onClick={() => { setProfilePhoto(null); setPhotoPreview(null); }}
+                    className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full shadow-lg hover:bg-rose-600 transition-colors"
+                    title="Remove Photo"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <div className="text-center sm:text-left">
+                <h5 className="text-sm font-semibold text-white">Profile Photo</h5>
+                <p className="text-xs text-slate-400 mt-1">Upload a square photo for the B2B agent. Click the circle to choose an image.</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
@@ -901,18 +1056,56 @@ export default function CreateB2BAgent() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Charge per Bill (₹)</label>
+                <label className="block text-sm font-medium text-slate-300 mb-1">Total Charge per Bill (₹)</label>
                 <input
                   type="number"
                   name="chargePerBill"
                   value={formData.chargePerBill}
-                  onChange={handleChange}
+                  onChange={handleTotalChargeChange}
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
-                  placeholder="Leave empty to use Global Charge"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-amber-400 font-bold placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono text-base"
+                  placeholder="e.g. 10.00"
                 />
-                <p className="text-xs text-slate-400 mt-1">If left empty, the Global Charge set in the Dashboard will apply.</p>
+                <p className="text-xs text-slate-400 mt-1">Total charge deducted from agent wallet per bill.</p>
+              </div>
+
+              {/* Developer & Owner Charge Split */}
+              <div className="md:col-span-2 bg-slate-900/60 p-4 rounded-xl border border-slate-700/70 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-blue-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Developer Charge (₹)</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Internal Admin Only</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="developerCharge"
+                    value={formData.developerCharge}
+                    onChange={handleDeveloperChargeChange}
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-blue-500/30 text-blue-300 font-bold placeholder-slate-500 focus:border-blue-500 outline-none transition-all font-mono"
+                    placeholder="0.00"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Developer revenue portion per bill.</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-purple-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Owner Charge (₹)</span>
+                    <span className="text-[10px] text-slate-400 font-normal">Internal Admin Only</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="ownerCharge"
+                    value={formData.ownerCharge}
+                    onChange={handleOwnerChargeChange}
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-purple-500/30 text-purple-300 font-bold placeholder-slate-500 focus:border-purple-500 outline-none transition-all font-mono"
+                    placeholder="0.00"
+                  />
+                  <p className="text-[11px] text-slate-400 mt-1">Owner revenue portion per bill.</p>
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1 flex items-center justify-between">
