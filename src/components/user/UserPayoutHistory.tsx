@@ -219,8 +219,65 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
     }
   };
 
+  const cleanValue = (val: any): string => {
+    if (!val || typeof val !== 'string') return '';
+    const trimmed = val.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('"success"') || trimmed.includes('"data"') || trimmed.includes('{"')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.data?.rrn) return String(parsed.data.rrn);
+        if (parsed.data?.utr) return String(parsed.data.utr);
+        if (parsed.data?.txnid) return String(parsed.data.txnid);
+        if (parsed.rrn) return String(parsed.rrn);
+        if (parsed.utr) return String(parsed.utr);
+        if (parsed.txnid) return String(parsed.txnid);
+        if (parsed.message) return String(parsed.message);
+      } catch (e) {
+        // ignore JSON parse error
+      }
+      return '';
+    }
+    return trimmed;
+  };
+
   const getUtrDisplay = (item: any) => {
-    return item.utr_number || item.transaction_id || item.bank_ref || 'Processing...';
+    const cleanUtr = cleanValue(item.utr_number);
+    if (cleanUtr && !cleanUtr.toLowerCase().includes('success')) return cleanUtr;
+
+    const cleanBankRef = cleanValue(item.bank_ref);
+    if (cleanBankRef && !cleanBankRef.toLowerCase().includes('success')) return cleanBankRef;
+
+    const cleanTxnId = cleanValue(item.transaction_id);
+    if (cleanTxnId && !cleanTxnId.toLowerCase().includes('success')) return cleanTxnId;
+
+    const candidates = [item.utr_number, item.bank_ref, item.transaction_id];
+    for (const cand of candidates) {
+      if (cand && typeof cand === 'string') {
+        const trimmed = cand.trim();
+        if (!trimmed.startsWith('{') && !trimmed.startsWith('[') && !trimmed.includes('"success"') && !trimmed.includes('"data"') && !trimmed.includes('{"')) {
+          return trimmed;
+        }
+      }
+    }
+
+    return 'Processing...';
+  };
+
+  const getRemarkDisplay = (item: any) => {
+    const remark = item.remark || item.rejection_reason;
+    if (!remark || typeof remark !== 'string') return '';
+    const trimmed = remark.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('"success"') || trimmed.includes('"data"') || trimmed.includes('{"')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (parsed.message) return String(parsed.message);
+        if (parsed.error) return String(parsed.error);
+      } catch (e) {
+        // Do not return raw JSON
+      }
+      return '';
+    }
+    return trimmed;
   };
 
   const handlePrintReceipt = () => {
@@ -433,9 +490,9 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                         {/* UTR */}
                         <td className="py-4 px-6 font-mono text-xs">
                           <div className="font-extrabold text-slate-800">{getUtrDisplay(txn)}</div>
-                          {txn.remark && (
-                            <div className="text-[10px] font-sans font-medium text-rose-500 mt-0.5 max-w-xs truncate" title={txn.remark}>
-                              {txn.remark}
+                          {getRemarkDisplay(txn) && (
+                            <div className="text-[10px] font-sans font-medium text-rose-500 mt-0.5 max-w-xs truncate" title={getRemarkDisplay(txn)}>
+                              {getRemarkDisplay(txn)}
                             </div>
                           )}
                         </td>
@@ -569,10 +626,10 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                 </span>
               </div>
 
-              {selectedReceipt.remark && (
+              {getRemarkDisplay(selectedReceipt) && (
                 <div className="flex justify-between items-start py-1.5 border-b border-slate-100">
                   <span className="text-slate-400 font-bold uppercase text-[10px]">Remark / Reason</span>
-                  <span className="font-semibold text-rose-600 text-right max-w-[200px]">{selectedReceipt.remark}</span>
+                  <span className="font-semibold text-rose-600 text-right max-w-[200px]">{getRemarkDisplay(selectedReceipt)}</span>
                 </div>
               )}
             </div>
