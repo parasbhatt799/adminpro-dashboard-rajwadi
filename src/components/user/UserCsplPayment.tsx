@@ -1827,35 +1827,6 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
                                 );
                               })}
 
-                              <div className="space-y-1.5">
-                                <label className="text-sm font-semibold text-slate-700">
-                                  {getFieldLabel('Mobile number')} <span className="text-rose-500 font-bold ml-1">*</span>
-                                </label>
-                                <input
-                                  type="tel"
-                                  required
-                                  maxLength={10}
-                                  value={customerMobile}
-                                  onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, ''))}
-                                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                  placeholder={`Enter ${getFieldLabel('Mobile number').toLowerCase()}`}
-                                />
-                              </div>
-
-                              <div className="space-y-1.5">
-                                <label className="text-sm font-semibold text-slate-700">
-                                  {getFieldLabel('Email')}
-                                </label>
-                                <input
-                                  type="email"
-                                  value={customerEmail}
-                                  onChange={(e) => setCustomerEmail(e.target.value)}
-                                  className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                  placeholder={`Enter ${getFieldLabel('Email').toLowerCase()}`}
-                                />
-                              </div>
-
-
                               {selectedCategory !== 'Mobile Prepaid' && (
                                 <button
                                   type="submit"

@@ -1946,26 +1946,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                               );
                             })}
 
-                            {(() => {
-                              const hasMobileParam = inputParams.some(p => p.paramName.toLowerCase().includes('mobile') || p.paramName.toLowerCase().includes('phone'));
-                              if (hasMobileParam) return null;
-                              return (
-                                <div className="space-y-1.5">
-                                  <label className="text-sm font-semibold text-slate-700">
-                                    {getFieldLabel('Mobile number')} <span className="text-rose-500 font-bold ml-1">*</span>
-                                  </label>
-                                  <input
-                                    type="tel"
-                                    required
-                                    maxLength={10}
-                                    value={customerMobile}
-                                    onChange={(e) => setCustomerMobile(e.target.value.replace(/\D/g, ''))}
-                                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg outline-none text-sm font-medium text-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all"
-                                    placeholder={`Enter ${getFieldLabel('Mobile number').toLowerCase()}`}
-                                  />
-                                </div>
-                              );
-                            })()}
+                            {/* Mobile number and Email inputs removed as requested */}
 
 
                             {selectedCategory !== 'Mobile Prepaid' && (
