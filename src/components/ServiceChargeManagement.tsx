@@ -45,6 +45,8 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [qrMinLimit, setQrMinLimit] = useState<number>(100);
   const [qrMaxLimit, setQrMaxLimit] = useState<number>(100000);
   const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
+  const [billavenueMaxLimit, setBillavenueMaxLimit] = useState<number>(49999);
+  const [csplMaxLimit, setCsplMaxLimit] = useState<number>(49999);
   const [dailyLiveBbpsLimit, setDailyLiveBbpsLimit] = useState<number>(500000);
   const [dailyNormalBillLimit, setDailyNormalBillLimit] = useState<number>(500000);
   const [tPlusOneLimit, setTPlusOneLimit] = useState<number>(0);
@@ -88,13 +90,15 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       try {
         const { data } = await supabase
           .from('qr_settings')
-          .select('qr_min_limit, qr_max_limit, bbps_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled, t_plus_one_limit')
+          .select('qr_min_limit, qr_max_limit, bbps_max_limit, billavenue_max_limit, cspl_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled, t_plus_one_limit')
           .eq('id', 1)
           .single();
         if (data) {
           setQrMinLimit(Number(data.qr_min_limit) || 100);
           setQrMaxLimit(Number(data.qr_max_limit) || 100000);
           setBbpsMaxLimit(Number(data.bbps_max_limit) || 50000);
+          setBillavenueMaxLimit(data.billavenue_max_limit !== undefined && data.billavenue_max_limit !== null ? Number(data.billavenue_max_limit) : 49999);
+          setCsplMaxLimit(data.cspl_max_limit !== undefined && data.cspl_max_limit !== null ? Number(data.cspl_max_limit) : 49999);
           setDailyLiveBbpsLimit(Number(data.daily_live_bbps_limit) || 500000);
           setDailyNormalBillLimit(Number(data.daily_normal_bill_limit) || 500000);
           setTPlusOneLimit(data.t_plus_one_limit !== undefined && data.t_plus_one_limit !== null ? Number(data.t_plus_one_limit) : 0);
@@ -138,6 +142,8 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           qr_min_limit: qrMinLimit,
           qr_max_limit: qrMaxLimit,
           bbps_max_limit: bbpsMaxLimit,
+          billavenue_max_limit: billavenueMaxLimit,
+          cspl_max_limit: csplMaxLimit,
           daily_live_bbps_limit: dailyLiveBbpsLimit,
           daily_normal_bill_limit: dailyNormalBillLimit,
           t_plus_one_limit: tPlusOneLimit
@@ -312,7 +318,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 items-end">
             <div className="space-y-1.5 w-full">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Min QR Limit (₹)</label>
               <input
@@ -334,13 +340,39 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
               />
             </div>
             <div className="space-y-1.5 w-full">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Max BBPS Limit (₹)</label>
+              <label className="text-[10px] font-bold text-sky-600 uppercase tracking-widest ml-1 flex items-center gap-1">
+                BillAvenue Max Limit (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 49999"
+                value={billavenueMaxLimit || ''}
+                onChange={(e) => setBillavenueMaxLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-sky-50/50 border border-sky-200 rounded-xl text-sm font-bold text-sky-900 focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-purple-600 uppercase tracking-widest ml-1 flex items-center gap-1">
+                CSPL Max Limit (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 49999"
+                value={csplMaxLimit || ''}
+                onChange={(e) => setCsplMaxLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-purple-50/50 border border-purple-200 rounded-xl text-sm font-bold text-purple-900 focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest ml-1 flex items-center gap-1">
+                Live BBPS Max Limit (₹)
+              </label>
               <input
                 type="number"
                 placeholder="e.g. 50000"
                 value={bbpsMaxLimit || ''}
                 onChange={(e) => setBbpsMaxLimit(Number(e.target.value))}
-                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                className="w-full px-4 py-2.5 bg-indigo-50/50 border border-indigo-200 rounded-xl text-sm font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
               />
             </div>
             <div className="space-y-1.5 w-full">

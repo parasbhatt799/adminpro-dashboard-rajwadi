@@ -267,6 +267,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   const [userProfile, setUserProfile] = useState<any>(null);
   const [slabs, setSlabs] = useState<any[]>([]);
   const [bbpsMaxLimit, setBbpsMaxLimit] = useState<number>(50000);
+  const [csplMaxLimit, setCsplMaxLimit] = useState<number>(49999);
   const [globalLiveBbpsLimit, setGlobalLiveBbpsLimit] = useState<number>(500000);
 
   // CCF1 Convenience Fee Configuration
@@ -641,14 +642,15 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
         .order('min_amount', { ascending: true });
       if (slabData) setSlabs(slabData);
 
-      // Fetch BBPS max limit from qr_settings
+      // Fetch CSPL max limit from qr_settings
       const { data: settingsData } = await supabase
         .from('qr_settings')
-        .select('bbps_max_limit, daily_live_bbps_limit')
+        .select('bbps_max_limit, cspl_max_limit, daily_live_bbps_limit')
         .eq('id', 1)
         .single();
       if (settingsData) {
         setBbpsMaxLimit(Number(settingsData.bbps_max_limit) || 50000);
+        setCsplMaxLimit(settingsData.cspl_max_limit !== undefined && settingsData.cspl_max_limit !== null ? Number(settingsData.cspl_max_limit) : (Number(settingsData.bbps_max_limit) || 49999));
         setGlobalLiveBbpsLimit(Number(settingsData.daily_live_bbps_limit) || 500000);
       }
     } catch (err) {
@@ -1168,13 +1170,8 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       return;
     }
 
-    if (amt > bbpsMaxLimit) {
-      toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${amt.toLocaleString()}.`);
-      return;
-    }
-
-    if (amt >= 50000) {
-      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
+    if (csplMaxLimit > 0 && amt > csplMaxLimit) {
+      toast.error(`Maximum CSPL bill payment limit is ₹${csplMaxLimit.toLocaleString()}. You cannot pay ₹${amt.toLocaleString()}. Please split your bill.`);
       return;
     }
 

@@ -306,6 +306,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   // BillAvenue Service Toggle & Realtime Guard State
   const [isBillAvenueEnabled, setIsBillAvenueEnabled] = useState<boolean>(true);
   const [isBillAvenueSettingsLoading, setIsBillAvenueSettingsLoading] = useState<boolean>(true);
+  const [billavenueMaxLimit, setBillavenueMaxLimit] = useState<number>(49999);
 
   // CCF1 Convenience Fee Configuration
   const [billerConfig, setBillerConfig] = useState<any>(null);
@@ -686,11 +687,12 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     try {
       const { data } = await supabase
         .from('qr_settings')
-        .select('is_billavenue_enabled')
+        .select('is_billavenue_enabled, billavenue_max_limit, bbps_max_limit')
         .eq('id', 1)
         .single();
       if (data) {
         setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
+        setBillavenueMaxLimit(data.billavenue_max_limit !== undefined && data.billavenue_max_limit !== null ? Number(data.billavenue_max_limit) : (Number(data.bbps_max_limit) || 49999));
       }
     } catch (err) {
       console.error('Error fetching BillAvenue setting:', err);
@@ -1243,6 +1245,11 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
     const amt = selectedPlan ? Number(selectedPlan.amount) : Number(manualAmount);
     if (!amt || isNaN(amt) || amt <= 0) {
       toast.error('Please enter a valid amount.');
+      return;
+    }
+
+    if (billavenueMaxLimit > 0 && amt > billavenueMaxLimit) {
+      toast.error(`Maximum BillAvenue bill payment limit is ₹${billavenueMaxLimit.toLocaleString()}. You cannot pay ₹${amt.toLocaleString()}. Please split your bill.`);
       return;
     }
 

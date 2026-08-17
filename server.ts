@@ -1387,7 +1387,7 @@ async function startServer() {
       // 1.1 Fetch global daily limit
       const { data: globalSettings } = await supabaseAdmin
         .from("qr_settings")
-        .select("daily_live_bbps_limit")
+        .select("daily_live_bbps_limit, bbps_max_limit")
         .eq("id", 1)
         .single();
 
@@ -1455,11 +1455,12 @@ async function startServer() {
         });
       }
 
-      // Enforce maximum ₹50,000 per transaction cash payment limit for BBPS
-      if (paymentAmount >= 50000) {
+      // Enforce Live BBPS per-transaction limit from qr_settings
+      const maxBbpsLimit = Number(globalSettings?.bbps_max_limit) || 50000;
+      if (paymentAmount > maxBbpsLimit) {
         return res.status(400).json({
           status: "ERROR",
-          message: "Transaction amount must be less than ₹50,000 per transaction for BBPS Cash payment channel. Please split your payment."
+          message: `Transaction amount ₹${paymentAmount.toLocaleString()} exceeds Live BBPS per-transaction maximum limit of ₹${maxBbpsLimit.toLocaleString()}. Please split your bill payment.`
         });
       }
 
@@ -1836,6 +1837,24 @@ async function startServer() {
         : (rawData?.additionalInfo || fetchedBillerResponse?.additionalInfo);
 
       const totalDeduction = Number(amount) + Number(serviceCharge || 0) + Number(ccf1Fee || 0);
+
+      // Fetch CSPL max limit from qr_settings
+      const { data: globalSettings } = await supabaseAdmin
+        .from("qr_settings")
+        .select("cspl_max_limit, bbps_max_limit")
+        .eq("id", 1)
+        .single();
+
+      const maxCsplLimit = Number(globalSettings?.cspl_max_limit) > 0 
+        ? Number(globalSettings?.cspl_max_limit) 
+        : (Number(globalSettings?.bbps_max_limit) || 49999);
+
+      if (Number(amount) > maxCsplLimit) {
+        return res.json({
+          status: "ERROR",
+          message: `Transaction amount ₹${Number(amount).toLocaleString()} exceeds CSPL per-transaction maximum limit of ₹${maxCsplLimit.toLocaleString()}. Please split your bill payment.`
+        });
+      }
 
       // Verify balance first
       const { data: user, error: userError } = await supabaseAdmin
@@ -2878,6 +2897,24 @@ async function startServer() {
 
       const currentBalance = Number(user.wallet_balance) || 0;
 
+      // 1.2 Fetch BillAvenue max limit from qr_settings
+      const { data: globalSettings } = await supabaseAdmin
+        .from("qr_settings")
+        .select("billavenue_max_limit, bbps_max_limit")
+        .eq("id", 1)
+        .single();
+
+      const maxBillAvenueLimit = Number(globalSettings?.billavenue_max_limit) > 0 
+        ? Number(globalSettings?.billavenue_max_limit) 
+        : (Number(globalSettings?.bbps_max_limit) || 49999);
+
+      if (paymentAmount > maxBillAvenueLimit) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: `Transaction amount ₹${paymentAmount.toLocaleString()} exceeds BillAvenue per-transaction maximum limit of ₹${maxBillAvenueLimit.toLocaleString()}. Please split your bill payment.`
+        });
+      }
+
       // 1.5 Fetch active service charge slabs to compute commission fee
       const { data: slabs, error: slabsError } = await supabaseAdmin
         .from("service_charge_slabs")
@@ -2899,6 +2936,15 @@ async function startServer() {
             serviceCharge = (paymentAmount * Number(slab.charge_amount)) / 100;
           } else {
             serviceCharge = Number(slab.charge_amount);
+          }
+        } else {
+          // If amount is higher than highest slab max_amount, block transaction
+          const highestSlabMax = Math.max(...slabs.map(s => Number(s.max_amount)));
+          if (paymentAmount > highestSlabMax) {
+            return res.status(400).json({
+              status: "ERROR",
+              message: `Transaction amount ₹${paymentAmount.toLocaleString()} exceeds configured service charge slab maximum limit of ₹${highestSlabMax.toLocaleString()}.`
+            });
           }
         }
       }
@@ -4538,7 +4584,7 @@ async function startServer() {
       (async () => {
         try {
           const { status, message, utr } = req.body;
-          const reference = req.body.reference || req.body.client_txnid || req.body.client_refid;
+          const reference = req.body.reference || req.body.client_txnid || req.body.client_refid || req.body.bankRef || req.body.bank_ref;
           const actualTxnId = req.body.txnId || req.body.txnid || req.body.txn_id || req.body.transactionId || req.body.transaction_id;
           const statusUpper = status ? status.toString().toUpperCase() : '';
           console.log(`[Webhook] Payout Update received for Ref: ${reference}, Status: ${statusUpper}`);

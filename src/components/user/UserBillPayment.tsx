@@ -716,13 +716,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
       return;
     }
 
-    if (finalAmount > bbpsMaxLimit) {
-      toast.error(`Maximum bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${finalAmount.toLocaleString()}.`);
-      return;
-    }
-
-    if (finalAmount >= 50000) {
-      toast.error("Amount must be less than ₹50,000 per transaction. Please split your payment.");
+    if (bbpsMaxLimit > 0 && finalAmount > bbpsMaxLimit) {
+      toast.error(`Maximum Live BBPS bill payment limit is ₹${bbpsMaxLimit.toLocaleString()}. You cannot pay ₹${finalAmount.toLocaleString()}. Please split your bill.`);
       return;
     }
 
