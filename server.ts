@@ -1456,7 +1456,7 @@ async function startServer() {
       }
 
       // Enforce Live BBPS per-transaction limit from qr_settings
-      const maxBbpsLimit = Number(globalSettings?.bbps_max_limit) || 50000;
+      const maxBbpsLimit = Number(globalSettings?.bbps_max_limit) > 0 ? Number(globalSettings?.bbps_max_limit) : 49999;
       if (paymentAmount > maxBbpsLimit) {
         return res.status(400).json({
           status: "ERROR",

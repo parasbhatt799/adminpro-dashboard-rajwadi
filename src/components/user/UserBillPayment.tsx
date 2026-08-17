@@ -278,7 +278,8 @@ export default function UserBillPayment({ userId }: { userId: string }) {
         .eq('id', 1)
         .single();
       if (settingsData) {
-        setBbpsMaxLimit(Number(settingsData.bbps_max_limit) || 50000);
+        const fetchedLimit = Number(settingsData.bbps_max_limit);
+        setBbpsMaxLimit(fetchedLimit > 0 ? fetchedLimit : 49999);
         setGlobalLiveBbpsLimit(Number(settingsData.daily_live_bbps_limit) || 500000);
       }
     } catch (err) {
@@ -1421,16 +1422,35 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                             {/* Financial Totals */}
                             <div className="space-y-3 pt-2 border-t border-slate-200/60">
                               <div className="space-y-1.5">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                <div className="flex justify-between items-center">
+                                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider block">Payment Amount (₹)</label>
+                                  {bbpsMaxLimit > 0 && (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                                      Max Limit: ₹{bbpsMaxLimit.toLocaleString('en-IN')} / tx
+                                    </span>
+                                  )}
+                                </div>
                                 <input
                                   type="number"
                                   required
                                   value={manualAmount}
                                   onChange={(e) => setManualAmount(e.target.value)}
                                   onWheel={(e) => e.currentTarget.blur()}
-                                  placeholder="Enter exact amount to pay"
-                                  className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors shadow-2xs"
+                                  placeholder={`Enter amount (Max ₹${bbpsMaxLimit.toLocaleString('en-IN')})`}
+                                  className={`w-full bg-white border outline-none rounded-xl px-4 py-3 text-sm font-bold transition-all shadow-2xs ${
+                                    manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > bbpsMaxLimit
+                                      ? 'border-red-500 text-red-700 bg-red-50/40 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                                      : 'border-slate-200 focus:border-indigo-500 text-slate-800'
+                                  }`}
                                 />
+                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > bbpsMaxLimit && (
+                                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs font-bold text-red-600 animate-fadeIn shadow-2xs">
+                                    <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-500" />
+                                    <span>
+                                      Amount ₹{Number(manualAmount).toLocaleString('en-IN')} exceeds maximum allowed per-transaction limit of ₹{bbpsMaxLimit.toLocaleString('en-IN')}. Please split your bill payment into smaller amounts.
+                                    </span>
+                                  </div>
+                                )}
                               </div>
 
                               {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (

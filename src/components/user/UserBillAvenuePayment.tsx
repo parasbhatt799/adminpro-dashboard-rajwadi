@@ -11,6 +11,7 @@ import {
   Edit3,
   X,
   AlertTriangle,
+  AlertCircle,
   Lightbulb,
   Tv,
   Smartphone,
@@ -692,7 +693,8 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
         .single();
       if (data) {
         setIsBillAvenueEnabled(data.is_billavenue_enabled ?? true);
-        setBillavenueMaxLimit(data.billavenue_max_limit !== undefined && data.billavenue_max_limit !== null ? Number(data.billavenue_max_limit) : (Number(data.bbps_max_limit) || 49999));
+        const fetchedLimit = Number(data.billavenue_max_limit);
+        setBillavenueMaxLimit(fetchedLimit > 0 ? fetchedLimit : 49999);
       }
     } catch (err) {
       console.error('Error fetching BillAvenue setting:', err);
@@ -2194,16 +2196,35 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                             {/* Financial Totals */}
                             <div className="space-y-3 pt-2 border-t border-slate-200/60">
                               <div className="space-y-1.5">
-                                <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Payment Amount (₹)</label>
+                                <div className="flex justify-between items-center">
+                                  <label className="text-[11px] font-black text-slate-500 uppercase tracking-wider block">Payment Amount (₹)</label>
+                                  {billavenueMaxLimit > 0 && (
+                                    <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200 shadow-2xs">
+                                      Max Limit: ₹{billavenueMaxLimit.toLocaleString('en-IN')} / tx
+                                    </span>
+                                  )}
+                                </div>
                                 <input
                                   type="number"
                                   required
                                   value={manualAmount}
                                   onChange={(e) => setManualAmount(e.target.value)}
                                   onWheel={(e) => e.currentTarget.blur()}
-                                  placeholder="Enter exact amount to pay"
-                                  className="w-full bg-white border border-slate-200 focus:border-indigo-500 outline-none rounded-xl px-4 py-3 text-sm font-bold text-slate-800 transition-colors shadow-2xs"
+                                  placeholder={`Enter amount (Max ₹${billavenueMaxLimit.toLocaleString('en-IN')})`}
+                                  className={`w-full bg-white border outline-none rounded-xl px-4 py-3 text-sm font-bold transition-all shadow-2xs ${
+                                    manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > billavenueMaxLimit
+                                      ? 'border-red-500 text-red-700 bg-red-50/40 focus:border-red-500 focus:ring-2 focus:ring-red-500/20'
+                                      : 'border-slate-200 focus:border-indigo-500 text-slate-800'
+                                  }`}
                                 />
+                                {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > billavenueMaxLimit && (
+                                  <div className="mt-2 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2.5 text-xs font-bold text-red-600 animate-fadeIn shadow-2xs">
+                                    <AlertCircle size={16} className="shrink-0 mt-0.5 text-red-500" />
+                                    <span>
+                                      Amount ₹{Number(manualAmount).toLocaleString('en-IN')} exceeds maximum allowed per-transaction limit of ₹{billavenueMaxLimit.toLocaleString('en-IN')}. Please split your bill payment into smaller amounts.
+                                    </span>
+                                  </div>
+                                )}
                               </div>
 
                               {manualAmount && !isNaN(Number(manualAmount)) && Number(manualAmount) > 0 && (
@@ -2247,7 +2268,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                               <button
                                 type="button"
                                 onClick={initiatePayment}
-                                disabled={loading || (!billDetails?.fetchSupported && !manualAmount && selectedCategory !== 'Mobile Prepaid')}
+                                disabled={loading || (!billDetails?.fetchSupported && !manualAmount && selectedCategory !== 'Mobile Prepaid') || (!!manualAmount && Number(manualAmount) > billavenueMaxLimit)}
                                 className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-wider rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-[0.99] transition-all cursor-pointer"
                               >
                                 <ShieldCheck size={18} />
