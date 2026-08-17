@@ -69,6 +69,7 @@ const UserPolicies = lazy(() => import('./components/user/UserPolicies'));
 const UserStatementReport = lazy(() => import('./components/user/UserStatementReport'));
 const UserFundTransfer = lazy(() => import('./components/user/UserFundTransfer'));
 const UserCamlenioPayout = lazy(() => import('./components/user/UserCamlenioPayout'));
+const UserPayoutHistory = lazy(() => import('./components/user/UserPayoutHistory'));
 const PartnerFundTransfer = lazy(() => import('./components/user/PartnerFundTransfer'));
 const UserDashboard = lazy(() => import('./components/user/UserDashboard'));
 const UserChangePassword = lazy(() => import('./components/user/UserChangePassword'));
@@ -1320,6 +1321,7 @@ export default function App() {
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="fund-transfer" element={<UserFundTransfer userId={userId} />} />
           <Route path="camlenio-payout" element={<UserCamlenioPayout userId={userId} />} />
+          <Route path="payout-history" element={<UserPayoutHistory userId={userId} />} />
           <Route path="partner-fund-transfer" element={<PartnerFundTransfer userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />
           <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} mode="payment" />} />
