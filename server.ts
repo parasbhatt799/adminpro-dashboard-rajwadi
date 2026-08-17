@@ -1339,7 +1339,9 @@ async function startServer() {
         ? "https://b2b.payprime.in/api/v1/card/fetch-bill"
         : "https://b2b.payprime.in/api/v1/bbps/fetch-bill";
 
-      console.log(`[BBPS Proxy] Fetching bill from ${targetUrl} for biller: ${biller_id}`);
+      const isHdfc = (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("hdfc")) ||
+        (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("hdfc"));
+      const fetchChannel = isHdfc ? "INT" : "AGT";
 
       const response = await fetch(targetUrl, {
         method: "POST",
@@ -1348,8 +1350,8 @@ async function startServer() {
           token: PAYPRIME_TOKEN,
           biller_id,
           param: paramArray,
-          init_channel: "INT",
-          initChannel: "INT"
+          init_channel: fetchChannel,
+          initChannel: fetchChannel
         })
       });
       const data = await response.json();
@@ -1532,33 +1534,13 @@ async function startServer() {
         (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("card")) ||
         (provider && typeof provider === 'string' && provider.toLowerCase().includes("credit card"));
 
-      // Determine the best payment mode supported by the biller
-      let mode = "Cash";
-      if (isCreditCard) {
-        mode = "Cash";
-      } else if (allowedModes.length > 0) {
-        if (allowedModes.includes("CASH")) {
-          mode = "Cash";
-        } else if (allowedModes.includes("UPI")) {
-          mode = "UPI";
-        } else if (allowedModes.includes("DEBIT CARD") || allowedModes.includes("DEBITCARD")) {
-          mode = "Debit Card";
-        } else if (allowedModes.includes("INTERNET BANKING") || allowedModes.includes("INTERNETBANKING") || allowedModes.includes("NETBANKING") || allowedModes.includes("NET BANKING")) {
-          mode = "Internet Banking";
-        } else if (allowedModes.includes("IMPS")) {
-          mode = "IMPS";
-        } else if (allowedModes.includes("NEFT")) {
-          mode = "NEFT";
-        } else if (allowedModes.includes("CREDIT CARD") || allowedModes.includes("CREDITCARD")) {
-          mode = "Credit Card";
-        } else if (allowedModes.includes("WALLET")) {
-          mode = "Wallet";
-        } else {
-          // Fallback to the first allowed mode in proper casing
-          const firstMode = allowedModes[0];
-          mode = firstMode.charAt(0).toUpperCase() + firstMode.slice(1).toLowerCase();
-        }
-      }
+      const isHdfc = (biller_id && typeof biller_id === 'string' && biller_id.toLowerCase().includes("hdfc")) ||
+        (provider && typeof provider === 'string' && provider.toLowerCase().includes("hdfc")) ||
+        (service_type && typeof service_type === 'string' && service_type.toLowerCase().includes("hdfc"));
+
+      // Set payment_mode: "UPI" for HDFC, "Cash" for all others
+      let mode = isHdfc ? "UPI" : "Cash";
+      const channel = isHdfc ? "INT" : "AGT";
 
       // Map paymentInfo dynamically based on the selected mode
       let paymentInfoList: any[] = [];
@@ -1592,8 +1574,8 @@ async function startServer() {
         inputParams: {
           input: paramArray
         },
-        init_channel: "INT",
-        initChannel: "INT"
+        init_channel: channel,
+        initChannel: channel
       };
 
       // Always pass request_id, billerResponse, and additionalInfo if a fetch was performed first,
