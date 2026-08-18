@@ -65,10 +65,13 @@ export default function AdminCamlenioPayoutHistory() {
 
   const getFailureReason = (item: any): string => {
     const remark = item.remark || item.rejection_reason;
-    if (!remark) return '';
+    if (!remark) return 'Payout transaction failed or rejected.';
     
     if (typeof remark === 'object') {
-      return remark.message || remark.error || remark.status_message || remark.data?.message || remark.data?.status_message || JSON.stringify(remark);
+      const msg = remark.message || remark.error || remark.status_message || remark.data?.status_message || remark.data?.message;
+      if (msg && msg !== 'null') return String(msg);
+      if (remark.data?.status) return `Provider Status: ${String(remark.data.status).toUpperCase()}`;
+      return 'Payout transaction failed on provider/bank side.';
     }
 
     if (typeof remark === 'string') {
@@ -76,12 +79,10 @@ export default function AdminCamlenioPayoutHistory() {
       if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('"success"') || trimmed.includes('"data"') || trimmed.includes('{"')) {
         try {
           const parsed = JSON.parse(trimmed);
-          if (parsed.message) return String(parsed.message);
-          if (parsed.error) return String(parsed.error);
-          if (parsed.status_message) return String(parsed.status_message);
-          if (parsed.data?.status_message) return String(parsed.data.status_message);
-          if (parsed.data?.message) return String(parsed.data.message);
-          if (parsed.apiResult?.message) return String(parsed.apiResult.message);
+          const msg = parsed.message || parsed.error || parsed.status_message || parsed.data?.status_message || parsed.data?.message || parsed.apiResult?.message || parsed.apiResult?.status_message;
+          if (msg && msg !== 'null') return String(msg);
+          if (parsed.data?.status) return `Provider Status: ${String(parsed.data.status).toUpperCase()}`;
+          return 'Payout transaction failed on provider/bank side.';
         } catch (e) {
           // ignore parse error
         }
@@ -797,26 +798,14 @@ export default function AdminCamlenioPayoutHistory() {
                       ₹{tx.charge_amount.toFixed(2)}
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex flex-col items-start">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                          tx.status === 'approved' ? 'bg-green-100 text-green-700' :
-                          tx.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                          tx.status === 'refunded' ? 'bg-slate-100 text-slate-700' :
-                          'bg-amber-100 text-amber-700'
-                        }`}>
-                          {tx.status.toUpperCase()}
-                        </span>
-                        {(tx.status === 'rejected' || tx.status === 'failed') && getFailureReason(tx) && (
-                          <div 
-                            className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-1 rounded-md mt-1.5 max-w-[220px] leading-tight break-words shadow-2xs cursor-pointer hover:bg-rose-100/70 transition-colors"
-                            title={getFailureReason(tx)}
-                            onClick={() => setSelectedTx(tx)}
-                          >
-                            <span className="font-black text-rose-800 block text-[9px] uppercase tracking-wider">Reason:</span>
-                            {getFailureReason(tx)}
-                          </div>
-                        )}
-                      </div>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                        tx.status === 'approved' ? 'bg-green-100 text-green-700' :
+                        tx.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                        tx.status === 'refunded' ? 'bg-slate-100 text-slate-700' :
+                        'bg-amber-100 text-amber-700'
+                      }`}>
+                        {tx.status.toUpperCase()}
+                      </span>
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
