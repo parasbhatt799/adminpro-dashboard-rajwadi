@@ -63,6 +63,36 @@ export default function AdminCamlenioPayoutHistory() {
     }
   };
 
+  const getFailureReason = (item: any): string => {
+    const remark = item.remark || item.rejection_reason;
+    if (!remark) return '';
+    
+    if (typeof remark === 'object') {
+      return remark.message || remark.error || remark.status_message || remark.data?.message || remark.data?.status_message || JSON.stringify(remark);
+    }
+
+    if (typeof remark === 'string') {
+      const trimmed = remark.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('"success"') || trimmed.includes('"data"') || trimmed.includes('{"')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed.message) return String(parsed.message);
+          if (parsed.error) return String(parsed.error);
+          if (parsed.status_message) return String(parsed.status_message);
+          if (parsed.data?.status_message) return String(parsed.data.status_message);
+          if (parsed.data?.message) return String(parsed.data.message);
+          if (parsed.apiResult?.message) return String(parsed.apiResult.message);
+        } catch (e) {
+          // ignore parse error
+        }
+      }
+      return trimmed;
+    }
+    return String(remark);
+  };
+
+  const [selectedTx, setSelectedTx] = useState<any | null>(null);
+
   // Auto reset to Page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -767,28 +797,51 @@ export default function AdminCamlenioPayoutHistory() {
                       ₹{tx.charge_amount.toFixed(2)}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                        tx.status === 'approved' ? 'bg-green-100 text-green-700' :
-                        tx.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        tx.status === 'refunded' ? 'bg-slate-100 text-slate-700' :
-                        'bg-amber-100 text-amber-700'
-                      }`}>
-                        {tx.status.toUpperCase()}
-                      </span>
+                      <div className="flex flex-col items-start">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                          tx.status === 'approved' ? 'bg-green-100 text-green-700' :
+                          tx.status === 'rejected' ? 'bg-red-100 text-red-700' :
+                          tx.status === 'refunded' ? 'bg-slate-100 text-slate-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {tx.status.toUpperCase()}
+                        </span>
+                        {(tx.status === 'rejected' || tx.status === 'failed') && getFailureReason(tx) && (
+                          <div 
+                            className="text-[10px] font-medium text-rose-700 bg-rose-50 border border-rose-200/80 px-2 py-1 rounded-md mt-1.5 max-w-[220px] leading-tight break-words shadow-2xs cursor-pointer hover:bg-rose-100/70 transition-colors"
+                            title={getFailureReason(tx)}
+                            onClick={() => setSelectedTx(tx)}
+                          >
+                            <span className="font-black text-rose-800 block text-[9px] uppercase tracking-wider">Reason:</span>
+                            {getFailureReason(tx)}
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => handleCheckStatus(tx)}
-                        disabled={checkingId === tx.id}
-                        className="px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 inline-flex items-center gap-1"
-                      >
-                        {checkingId === tx.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <RefreshCw className="w-3 h-3" />
-                        )}
-                        Check Status
-                      </button>
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => handleCheckStatus(tx)}
+                          disabled={checkingId === tx.id}
+                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
+                          title="Check status from provider"
+                        >
+                          {checkingId === tx.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <RefreshCw className="w-3 h-3" />
+                          )}
+                          Check Status
+                        </button>
+
+                        <button
+                          onClick={() => setSelectedTx(tx)}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg border border-slate-200 transition-colors inline-flex items-center gap-1 cursor-pointer"
+                          title="View Full Details & Failure Reason"
+                        >
+                          Details
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -853,6 +906,100 @@ export default function AdminCamlenioPayoutHistory() {
           </div>
         </div>
       </div>
+
+      {/* Transaction Details & Failure Reason Modal */}
+      {selectedTx && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm"
+          onClick={() => setSelectedTx(null)}
+        >
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: 15 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 15 }}
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-3xl w-full max-w-lg p-6 sm:p-8 shadow-2xl relative border border-slate-200 space-y-6"
+          >
+            <button
+              onClick={() => setSelectedTx(null)}
+              className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+              <div className={`p-3 rounded-2xl ${
+                selectedTx.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                selectedTx.status === 'rejected' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
+                'bg-amber-50 text-amber-600 border border-amber-100'
+              }`}>
+                {selectedTx.status === 'approved' ? <CheckCircle2 size={24} /> :
+                 selectedTx.status === 'rejected' ? <XCircle size={24} /> :
+                 <Clock size={24} />}
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-lg">Transaction Details</h3>
+                <p className="text-xs text-slate-500 font-medium font-mono">Ref: {selectedTx.bank_ref || selectedTx.txn_id || selectedTx.id}</p>
+              </div>
+            </div>
+
+            {/* Failure Reason Alert Box if Rejected */}
+            {(selectedTx.status === 'rejected' || selectedTx.status === 'failed') && (
+              <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 space-y-1">
+                <div className="flex items-center gap-1.5 text-rose-800 font-bold text-xs uppercase tracking-wider">
+                  <AlertCircle size={15} />
+                  <span>Failure / Rejection Reason</span>
+                </div>
+                <p className="text-xs font-semibold text-rose-900 leading-relaxed break-words pt-1">
+                  {getFailureReason(selectedTx) || 'No specific error message provided by provider.'}
+                </p>
+                <div className="text-[10px] font-bold text-emerald-700 bg-emerald-100/60 border border-emerald-200/60 px-2.5 py-1 rounded-lg mt-2.5 inline-block">
+                  ✅ ₹{(Number(selectedTx.amount) + Number(selectedTx.charge_amount || 0)).toFixed(2)} Refunded to User Wallet
+                </div>
+              </div>
+            )}
+
+            {/* Data Grid */}
+            <div className="space-y-3 text-xs font-medium text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="flex justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-400 font-bold uppercase">User / Firm</span>
+                <span className="font-bold text-slate-900 text-right">{selectedTx.users_profiles?.firm_name || selectedTx.users_profiles?.name || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-400 font-bold uppercase">Mobile Number</span>
+                <span className="font-bold text-slate-900 font-mono">{selectedTx.users_profiles?.mobile_number || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-400 font-bold uppercase">Transfer Amount</span>
+                <span className="font-black text-slate-900">₹{Number(selectedTx.amount).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-400 font-bold uppercase">Service Charge</span>
+                <span className="font-bold text-rose-600">₹{Number(selectedTx.charge_amount || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-400 font-bold uppercase">Status</span>
+                <span className={`font-black uppercase px-2 py-0.5 rounded text-[10px] ${
+                  selectedTx.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                  selectedTx.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                  'bg-amber-100 text-amber-700'
+                }`}>{selectedTx.status}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-400 font-bold uppercase">Date & Time</span>
+                <span className="font-bold text-slate-900 font-mono">{format(new Date(selectedTx.created_at), 'dd/MM/yyyy, hh:mm a')}</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setSelectedTx(null)}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs uppercase tracking-wider transition-all cursor-pointer"
+            >
+              Close
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       {/* User Details Profile Modal Overlay */}
       {selectedUserProfile && (
