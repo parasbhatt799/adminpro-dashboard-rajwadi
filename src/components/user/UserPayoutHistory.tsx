@@ -163,10 +163,18 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
   // Calculate summary metrics
   const totalAmount = filteredHistory.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const totalApproved = filteredHistory
-    .filter((i) => (i.status || '').toLowerCase() === 'approved')
+    .filter((i) => ['approved', 'success'].includes((i.status || '').toLowerCase()))
     .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
-  const approvedCount = filteredHistory.filter((i) => (i.status || '').toLowerCase() === 'approved').length;
+  const approvedCount = filteredHistory.filter((i) => ['approved', 'success'].includes((i.status || '').toLowerCase())).length;
+  
+  const pendingAmount = filteredHistory
+    .filter((i) => ['pending', 'processing'].includes((i.status || '').toLowerCase()))
+    .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const pendingCount = filteredHistory.filter((i) => ['pending', 'processing'].includes((i.status || '').toLowerCase())).length;
+
+  const rejectedAmount = filteredHistory
+    .filter((i) => ['rejected', 'failed', 'refunded'].includes((i.status || '').toLowerCase()))
+    .reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
   const rejectedCount = filteredHistory.filter((i) => ['rejected', 'failed', 'refunded'].includes((i.status || '').toLowerCase())).length;
 
   // Pagination calculation
@@ -332,17 +340,17 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 backdrop-blur-md">
             <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider block">Pending / In-Progress</span>
             <div className="text-lg sm:text-xl font-black text-amber-400 mt-1">
-              {pendingCount}
+              ₹{pendingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
-            <span className="text-[10px] text-amber-300/80 mt-1 block">Awaiting bank confirmation</span>
+            <span className="text-[10px] text-amber-300/80 mt-1 block">{pendingCount} pending payouts</span>
           </div>
 
           <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-4 backdrop-blur-md">
             <span className="text-[11px] font-bold text-rose-400 uppercase tracking-wider block">Failed / Rejected</span>
             <div className="text-lg sm:text-xl font-black text-rose-400 mt-1">
-              {rejectedCount}
+              ₹{rejectedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
-            <span className="text-[10px] text-rose-300/80 mt-1 block">Amount refunded to wallet</span>
+            <span className="text-[10px] text-rose-300/80 mt-1 block">{rejectedCount} refunded payouts</span>
           </div>
         </div>
       </div>

@@ -1544,7 +1544,13 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                     <div className="text-2xl font-black text-slate-800 mt-4">
                       ₹{(receipt.amount + (receipt.charges || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </div>
-                    <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
+                    {(receipt as any).status === 'failed' || (receipt as any).status === 'rejected' ? (
+                      <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest mt-1">Transaction Failed</p>
+                    ) : (receipt as any).status === 'pending' || (receipt as any).status === 'processing' ? (
+                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest mt-1">Transaction Pending</p>
+                    ) : (
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mt-1">Transaction Success</p>
+                    )}
                   </div>
 
                   <div className="space-y-4 text-xs font-semibold text-slate-600">

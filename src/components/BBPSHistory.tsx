@@ -16,7 +16,9 @@ import {
   IndianRupee,
   User,
   Phone,
-  Loader2
+  Loader2,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -145,7 +147,13 @@ export default function BBPSHistory() {
     totalBase: 0,
     totalCharges: 0,
     totalDebited: 0,
-    totalBbpsCommission: 0
+    totalBbpsCommission: 0,
+    successCount: 0,
+    successAmount: 0,
+    pendingCount: 0,
+    pendingAmount: 0,
+    failedCount: 0,
+    failedAmount: 0
   });
 
   const clearFilters = () => {
@@ -361,14 +369,53 @@ export default function BBPSHistory() {
       const statsObj = filteredData.reduce((acc, curr) => {
         const amt = Number(curr.amount) || 0;
         const chg = Number(curr.charges) || 0;
+        const total = amt + chg;
+        const st = (curr.status || '').toLowerCase();
+
+        let succCount = acc.successCount;
+        let succAmt = acc.successAmount;
+        let pendCount = acc.pendingCount;
+        let pendAmt = acc.pendingAmount;
+        let failCount = acc.failedCount;
+        let failAmt = acc.failedAmount;
+
+        if (st === 'approved' || st === 'success' || st === 'successful') {
+          succCount += 1;
+          succAmt += total;
+        } else if (st === 'pending' || st === 'processing') {
+          pendCount += 1;
+          pendAmt += total;
+        } else if (st === 'failed' || st === 'rejected' || st === 'refunded') {
+          failCount += 1;
+          failAmt += total;
+        }
+
         return {
           count: acc.count + 1,
           totalBase: acc.totalBase + amt,
           totalCharges: acc.totalCharges + chg,
-          totalDebited: acc.totalDebited + (amt + chg),
-          totalBbpsCommission: acc.totalBbpsCommission + 0
+          totalDebited: acc.totalDebited + total,
+          totalBbpsCommission: acc.totalBbpsCommission + 0,
+          successCount: succCount,
+          successAmount: succAmt,
+          pendingCount: pendCount,
+          pendingAmount: pendAmt,
+          failedCount: failCount,
+          failedAmount: failAmt
         };
-      }, { count: 0, totalBase: 0, totalCharges: 0, totalDebited: 0, totalBbpsCommission: 0 });
+      }, {
+        count: 0,
+        totalBase: 0,
+        totalCharges: 0,
+        totalDebited: 0,
+        totalBbpsCommission: 0,
+        successCount: 0,
+        successAmount: 0,
+        pendingCount: 0,
+        pendingAmount: 0,
+        failedCount: 0,
+        failedAmount: 0
+      });
 
       setStats(statsObj);
 
@@ -764,53 +811,84 @@ export default function BBPSHistory() {
 
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
-            <Receipt size={24} />
-          </div>
+        {/* TOTAL PAYMENTS */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Payments</p>
-            <p className="text-2xl font-black text-slate-950 leading-none">{stats.count}</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Total Payments</p>
+            <p className="text-xl font-black text-slate-950 leading-none">₹{stats.totalDebited.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <span className="text-[10px] font-bold text-slate-500 mt-1 block">{stats.count} Txns</span>
+          </div>
+          <div className="w-11 h-11 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+            <Receipt size={22} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
-            <IndianRupee size={24} />
-          </div>
+        {/* SUCCESS PAYMENTS */}
+        <div 
+          onClick={() => setFilter(filter === 'approved' ? 'all' : 'approved')}
+          className={`p-5 rounded-3xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+            filter === 'approved' 
+              ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20 shadow-sm' 
+              : 'bg-white border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/30'
+          }`}
+        >
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Base Amount</p>
-            <p className="text-2xl font-black text-slate-950 leading-none">₹{stats.totalBase.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest leading-none mb-1.5">Total Success</p>
+            <p className="text-xl font-black text-emerald-950 leading-none">₹{stats.successAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <span className="text-[10px] font-bold text-emerald-700 mt-1 block">{stats.successCount} Txns</span>
+          </div>
+          <div className="w-11 h-11 bg-emerald-100/70 text-emerald-600 rounded-2xl flex items-center justify-center shrink-0">
+            <CheckCircle2 size={22} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
-            <Shield size={24} />
-          </div>
+        {/* PENDING PAYMENTS */}
+        <div 
+          onClick={() => setFilter(filter === 'pending' ? 'all' : 'pending')}
+          className={`p-5 rounded-3xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+            filter === 'pending' 
+              ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-500/20 shadow-sm' 
+              : 'bg-white border-slate-200 hover:border-amber-200 hover:bg-amber-50/30'
+          }`}
+        >
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Commission</p>
-            <p className="text-2xl font-black text-slate-950 leading-none">₹{stats.totalCharges.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest leading-none mb-1.5">Total Pending</p>
+            <p className="text-xl font-black text-amber-950 leading-none">₹{stats.pendingAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <span className="text-[10px] font-bold text-amber-700 mt-1 block">{stats.pendingCount} Txns</span>
+          </div>
+          <div className="w-11 h-11 bg-amber-100/70 text-amber-600 rounded-2xl flex items-center justify-center shrink-0">
+            <Clock size={22} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
-            <IndianRupee size={24} />
-          </div>
+        {/* REJECTED PAYMENTS */}
+        <div 
+          onClick={() => setFilter(filter === 'failed' ? 'all' : 'failed')}
+          className={`p-5 rounded-3xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+            filter === 'failed' 
+              ? 'bg-rose-50 border-rose-300 ring-2 ring-rose-500/20 shadow-sm' 
+              : 'bg-white border-slate-200 hover:border-rose-200 hover:bg-rose-50/30'
+          }`}
+        >
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">BBPS Commission</p>
-            <p className="text-2xl font-black text-slate-950 leading-none">₹{stats.totalBbpsCommission.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest leading-none mb-1.5">Total Rejected</p>
+            <p className="text-xl font-black text-rose-950 leading-none">₹{stats.failedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <span className="text-[10px] font-bold text-rose-700 mt-1 block">{stats.failedCount} Txns</span>
+          </div>
+          <div className="w-11 h-11 bg-rose-100/70 text-rose-600 rounded-2xl flex items-center justify-center shrink-0">
+            <XCircle size={22} />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-2xl flex items-center justify-center shrink-0">
-            <IndianRupee size={24} />
-          </div>
+        {/* CHARGES & BASE AMOUNT */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Total Debited</p>
-            <p className="text-2xl font-black text-slate-950 leading-none">₹{stats.totalDebited.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Base & Charges</p>
+            <p className="text-xl font-black text-slate-950 leading-none">₹{stats.totalBase.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <span className="text-[10px] font-bold text-indigo-600 mt-1 block">Charges: ₹{stats.totalCharges.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</span>
+          </div>
+          <div className="w-11 h-11 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center shrink-0">
+            <Shield size={22} />
           </div>
         </div>
       </div>
@@ -1150,7 +1228,13 @@ export default function BBPSHistory() {
                 <p className="text-[10px] text-slate-400 font-bold mt-1">
                   (Base: ₹{Number(selectedReceipt.amount).toLocaleString('en-IN')} + Commission: ₹{Number(selectedReceipt.charges).toLocaleString('en-IN')})
                 </p>
-                <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mt-2">Transaction Success</p>
+                {selectedReceipt.status === 'approved' || selectedReceipt.status === 'success' || selectedReceipt.status === 'successful' ? (
+                  <p className="text-xs font-black text-emerald-600 uppercase tracking-widest mt-2">Transaction Success</p>
+                ) : selectedReceipt.status === 'pending' || selectedReceipt.status === 'processing' ? (
+                  <p className="text-xs font-black text-amber-600 uppercase tracking-widest mt-2">Transaction Pending</p>
+                ) : (
+                  <p className="text-xs font-black text-rose-600 uppercase tracking-widest mt-2">Transaction Failed</p>
+                )}
               </div>
 
               {/* Slate Receipt detail rows */}
