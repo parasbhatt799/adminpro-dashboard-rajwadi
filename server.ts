@@ -20,7 +20,7 @@ import b2bRoutes from "./api/b2b/routes.js";
 
 // Initialize CRON Jobs
 import "./jobs/billavenue-cron.js";
-import "./jobs/payout-cron.js";
+import { processPendingPayoutsCron } from "./jobs/payout-cron.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -4558,6 +4558,21 @@ async function startServer() {
     } catch (error: any) {
       console.error("[Payout Status Check Error]:", error);
       res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
+  // Trigger Payout Cron Auto-Check on demand or via Vercel/External Cron
+  app.all(["/api/cron/payout-status-check", "/api/payout/sync-pending"], async (req, res) => {
+    try {
+      const summary = await processPendingPayoutsCron();
+      return res.json({
+        success: true,
+        message: "Payout status auto-check completed",
+        summary
+      });
+    } catch (error: any) {
+      console.error("[Payout Cron Route Error]:", error);
+      return res.status(500).json({ success: false, message: error.message });
     }
   });
 

@@ -297,6 +297,27 @@ export default function AdminCamlenioPayoutHistory() {
     }
   };
 
+  const [syncingPending, setSyncingPending] = useState(false);
+
+  const handleSyncPending = async () => {
+    setSyncingPending(true);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/cron/payout-status-check');
+      const data = await res.json();
+      if (data.success) {
+        setMessage({ type: 'success', text: `Sync complete: Checked ${data.summary?.processed || 0} pending/processing payout(s). Approved: ${data.summary?.approved || 0}, Rejected: ${data.summary?.rejected || 0}.` });
+        fetchData();
+      } else {
+        setMessage({ type: 'error', text: data.message || 'Failed to sync payout statuses.' });
+      }
+    } catch (err: any) {
+      setMessage({ type: 'error', text: `Sync error: ${err.message}` });
+    } finally {
+      setSyncingPending(false);
+    }
+  };
+
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     setMessage(null);
@@ -389,6 +410,16 @@ export default function AdminCamlenioPayoutHistory() {
               {settings.camlenio_is_enabled ? 'Active (ON)' : 'Disabled (OFF)'}
             </span>
           </div>
+
+          <button
+            onClick={handleSyncPending}
+            disabled={syncingPending}
+            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+            title="Check and update all pending/processing payout statuses"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${syncingPending ? 'animate-spin' : ''}`} />
+            <span>Sync Pending Status</span>
+          </button>
 
           <button
             onClick={fetchData}
