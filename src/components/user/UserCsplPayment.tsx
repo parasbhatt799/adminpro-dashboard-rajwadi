@@ -1322,7 +1322,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
       const data = await res.json();
 
       if (data.status === 'SUCCESS' || data.status === 'SUCCESSFUL' || data.responseCode === '000' || data?.data?.responseCode === '000') {
-        toast.success('Bill paid successfully via BillAvenue Bharat Connect!');
+        toast.success('Bill paid successfully via CSPL Bharat Connect!');
         const baseAmt = amt;
         const convFee = ccf1Fee;
         const totAmt = baseAmt + convFee;

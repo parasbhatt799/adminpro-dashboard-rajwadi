@@ -45,7 +45,41 @@ interface BBPSTransaction {
     name: string;
     firm_name: string;
     profile_photo_url?: string;
+    mobile_number?: string;
+    email?: string;
   };
+}
+
+export function getCategoryGatewayInfo(item: any): { key: string; label: string; badgeClass: string } {
+  const st = String(item?.service_type || '').toLowerCase();
+  const meta = item?.metadata || {};
+  const gateway = String(meta.gateway || '').toLowerCase();
+  const csplResp = meta.csplResponse;
+  const rejReason = String(item?.rejection_reason || '').toLowerCase();
+
+  // 1. Credit Card
+  if (st.includes('credit card') || gateway.includes('credit card')) {
+    return { key: 'Credit Card', label: 'Credit Card', badgeClass: 'bg-purple-50 text-purple-700 border border-purple-200' };
+  }
+
+  // 2. CSPL (Bill Payment 3)
+  if (st.includes('cspl') || gateway.includes('cspl') || csplResp || rejReason.startsWith('cspl')) {
+    return { key: 'CSPL BBPS', label: 'CSPL BBPS', badgeClass: 'bg-amber-50 text-amber-700 border border-amber-200' };
+  }
+
+  // 3. BillAvenue (Bill Payment 2)
+  if (st.includes('billavenue') || gateway.includes('billavenue') || meta.billerResponse || meta.bConnectTxnId) {
+    return { key: 'BillAvenue BBPS', label: 'BillAvenue BBPS', badgeClass: 'bg-indigo-50 text-indigo-600 border border-indigo-200' };
+  }
+
+  // 4. PayPrime (Bill Payment 1)
+  if (st.includes('payprime') || gateway.includes('payprime') || meta.fetchResponse) {
+    return { key: 'PayPrime BBPS', label: 'PayPrime BBPS', badgeClass: 'bg-emerald-50 text-emerald-600 border border-emerald-200' };
+  }
+
+  // Default fallback if service_type exists, else Utility
+  const fallbackLabel = item?.service_type || 'Utility';
+  return { key: fallbackLabel, label: fallbackLabel, badgeClass: 'bg-slate-100 text-slate-700 border border-slate-200' };
 }
 
 const getTodayStr = () => {
@@ -239,11 +273,6 @@ export default function BBPSHistory() {
           query = query.eq('status', filter);
         }
 
-        // Apply Category Filter
-        if (categoryFilter !== 'all') {
-          query = query.eq('service_type', categoryFilter);
-        }
-
         // Apply Search Filter (on user firm/name or biller details)
         if (searchQuery.trim()) {
           const term = searchQuery.trim();
@@ -336,10 +365,16 @@ export default function BBPSHistory() {
         }
       }
 
-      if (error) throw error;
-
-      // Filter locally for firm_name/name if search query is active
+      // Filter locally for categoryFilter and search query for 100% precision
       let filteredData = data || [];
+
+      if (categoryFilter !== 'all') {
+        filteredData = filteredData.filter(item => {
+          const catInfo = getCategoryGatewayInfo(item);
+          return catInfo.key === categoryFilter;
+        });
+      }
+
       if (searchQuery.trim()) {
         const term = searchQuery.toLowerCase().trim();
         filteredData = filteredData.filter(item => {
@@ -952,9 +987,9 @@ export default function BBPSHistory() {
               className="px-4 py-2 h-10 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
             >
               <option value="all">All Categories</option>
-              <option value="BillAvenue BBPS">BillAvenue BBPS</option>
-              <option value="CSPL BBPS">CSPL BBPS</option>
-              <option value="PayPrime BBPS">PayPrime BBPS</option>
+              <option value="PayPrime BBPS">Bill Payment 1 (PayPrime)</option>
+              <option value="BillAvenue BBPS">Bill Payment 2 (BillAvenue)</option>
+              <option value="CSPL BBPS">Bill Payment 3 (CSPL)</option>
               <option value="Credit Card">Credit Card</option>
             </select>
 
@@ -1072,9 +1107,14 @@ export default function BBPSHistory() {
 
                     {/* Category */}
                     <td className="px-6 py-4 text-center">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-600 uppercase whitespace-nowrap">
-                        {item.service_type || 'Utility'}
-                      </span>
+                      {(() => {
+                        const catInfo = getCategoryGatewayInfo(item);
+                        return (
+                          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md uppercase whitespace-nowrap ${catInfo.badgeClass}`}>
+                            {catInfo.label}
+                          </span>
+                        );
+                      })()}
                     </td>
 
                     {/* Provider */}

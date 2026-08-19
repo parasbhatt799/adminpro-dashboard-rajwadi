@@ -1663,7 +1663,7 @@ async function startServer() {
           .from("bbps_submissions")
           .insert({
             user_id: userId,
-            service_type: service_type || "BBPS Bill Pay",
+            service_type: service_type?.includes("Credit Card") ? "Credit Card" : "PayPrime BBPS",
             provider: provider || biller_id,
             consumer_number: consumer_number || "BBPS Account",
             amount: paymentAmount,
@@ -1672,6 +1672,7 @@ async function startServer() {
             transaction_id: txnId,
             rejection_reason: txnId,
             metadata: {
+              gateway: "PayPrime",
               billerName: provider || biller_id,
               date: new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
               consumerDetails: customerParams,
@@ -1964,7 +1965,7 @@ async function startServer() {
 
         const { error: insertError } = await supabaseAdmin.from("bbps_submissions").insert({
           user_id: userId,
-          service_type: "BBPS Bill Pay",
+          service_type: "CSPL BBPS",
           provider: billerId,
           consumer_number: Object.values(customerParams || {})[0] || "BBPS Account",
           amount: Number(amount),
@@ -1972,6 +1973,7 @@ async function startServer() {
           status: "approved",
           rejection_reason: txnRefId,
           metadata: {
+            gateway: "CSPL",
             billerName: billerName || billDetails?.billerName || billDetails?.customerName || billerId,
             date: new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }),
             consumerDetails: customerParams,
