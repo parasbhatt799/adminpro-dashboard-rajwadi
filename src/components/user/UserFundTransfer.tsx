@@ -22,6 +22,8 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
   const [userBalance, setUserBalance] = useState<number>(0);
   const [isServiceEnabled, setIsServiceEnabled] = useState(true);
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const [dsMinLimit, setDsMinLimit] = useState<number>(0);
+  const [mdMinLimit, setMdMinLimit] = useState<number>(0);
 
   // Form states
   const [targetUserId, setTargetUserId] = useState('usepay_');
@@ -81,7 +83,7 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
     try {
       const { data, error: profileError } = await supabase
         .from('users_profiles')
-        .select('wallet_balance, tpin, name, firm_name')
+        .select('wallet_balance, tpin, name, firm_name, role')
         .eq('id', userId)
         .single();
 
@@ -134,11 +136,13 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
         try {
           const { data } = await supabase
             .from('qr_settings')
-            .select('is_fund_transfer_enabled')
+            .select('is_fund_transfer_enabled, ds_min_fund_transfer_limit, md_min_fund_transfer_limit')
             .eq('id', 1)
             .single();
           if (data) {
             setIsServiceEnabled(data.is_fund_transfer_enabled !== false);
+            setDsMinLimit(Number(data.ds_min_fund_transfer_limit) || 0);
+            setMdMinLimit(Number(data.md_min_fund_transfer_limit) || 0);
           }
         } catch (err) {
           console.error('Error fetching service status:', err);
@@ -278,6 +282,16 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
 
     if (isNaN(amountNum) || amountNum <= 0) {
       setError('Please enter a valid amount greater than 0.');
+      return;
+    }
+
+    if (userProfile?.role === 'super_distributor' && mdMinLimit > 0 && amountNum < mdMinLimit) {
+      setError(`Minimum fund transfer limit for Master Distributor is ₹${mdMinLimit.toLocaleString()}.`);
+      return;
+    }
+
+    if (userProfile?.role === 'distributor' && dsMinLimit > 0 && amountNum < dsMinLimit) {
+      setError(`Minimum fund transfer limit for Distributor is ₹${dsMinLimit.toLocaleString()}.`);
       return;
     }
 
@@ -496,6 +510,16 @@ export default function UserFundTransfer({ userId }: UserFundTransferProps) {
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all font-bold text-slate-800"
                     />
                   </div>
+                  {userProfile?.role === 'super_distributor' && mdMinLimit > 0 && (
+                    <p className="text-[10px] font-bold text-blue-600 mt-1.5 ml-1">
+                      * Min transfer limit for Master Distributor is ₹{mdMinLimit.toLocaleString()}
+                    </p>
+                  )}
+                  {userProfile?.role === 'distributor' && dsMinLimit > 0 && (
+                    <p className="text-[10px] font-bold text-emerald-600 mt-1.5 ml-1">
+                      * Min transfer limit for Distributor is ₹{dsMinLimit.toLocaleString()}
+                    </p>
+                  )}
                 </div>
 
                 {/* Remarks (Optional) */}

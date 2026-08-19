@@ -22,7 +22,8 @@ import {
   LayoutGrid,
   History,
   Smartphone,
-  Activity
+  Activity,
+  Send
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
@@ -51,6 +52,7 @@ const menuItems = [
   },
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: FileText, path: '/bill-payment-requests' },
+  { id: 'camlenio-payouts', label: 'AEPS Payout', icon: Send, path: '/camlenio-payouts' },
   { id: 'bbps-history', label: 'BBPS Bill History', icon: History, path: '/bbps-history' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },
@@ -62,7 +64,6 @@ const menuItems = [
     subItems: [
       { id: 'qr-payment-requests', label: 'Wallet Load Request', path: '/qr-payment-requests' },
       { id: 'payout-requests', label: 'Payout Request', path: '/payout-requests' },
-      { id: 'camlenio-payouts', label: 'AEPS Payout History', path: '/camlenio-payouts' },
       { id: 'qr-history', label: 'QR Tracking History', path: '/qr-history' },
       { id: 'qr-gallery', label: 'QR Gallery', path: '/qr-gallery' }
     ]
@@ -194,7 +195,7 @@ export default function Sidebar({ onLogout, isCollapsed, adminRole, adminPermiss
     if (item.id === 'change-password') return item;
 
     // Everything else requires explicit permission
-    const hasPerm = adminPermissions ? adminPermissions.includes(item.id) : false;
+    const hasPerm = adminPermissions ? (adminPermissions.includes(item.id) || (item.id === 'camlenio-payouts' && adminPermissions.includes('payout-requests'))) : false;
     return hasPerm ? item : null;
   }).filter((item): item is Exclude<typeof item, null> => item !== null);
 

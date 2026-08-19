@@ -50,6 +50,8 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [dailyLiveBbpsLimit, setDailyLiveBbpsLimit] = useState<number>(500000);
   const [dailyNormalBillLimit, setDailyNormalBillLimit] = useState<number>(500000);
   const [tPlusOneLimit, setTPlusOneLimit] = useState<number>(0);
+  const [dsMinFundTransferLimit, setDsMinFundTransferLimit] = useState<number>(0);
+  const [mdMinFundTransferLimit, setMdMinFundTransferLimit] = useState<number>(0);
   const [limitsSaving, setLimitsSaving] = useState(false);
   const [limitsSuccess, setLimitsSuccess] = useState<string | null>(null);
   const [limitsError, setLimitsError] = useState<string | null>(null);
@@ -90,7 +92,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       try {
         const { data } = await supabase
           .from('qr_settings')
-          .select('qr_min_limit, qr_max_limit, bbps_max_limit, billavenue_max_limit, cspl_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled, t_plus_one_limit')
+          .select('qr_min_limit, qr_max_limit, bbps_max_limit, billavenue_max_limit, cspl_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled, t_plus_one_limit, ds_min_fund_transfer_limit, md_min_fund_transfer_limit')
           .eq('id', 1)
           .single();
         if (data) {
@@ -102,6 +104,8 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           setDailyLiveBbpsLimit(Number(data.daily_live_bbps_limit) || 500000);
           setDailyNormalBillLimit(Number(data.daily_normal_bill_limit) || 500000);
           setTPlusOneLimit(data.t_plus_one_limit !== undefined && data.t_plus_one_limit !== null ? Number(data.t_plus_one_limit) : 0);
+          setDsMinFundTransferLimit(Number(data.ds_min_fund_transfer_limit) || 0);
+          setMdMinFundTransferLimit(Number(data.md_min_fund_transfer_limit) || 0);
           setIsFundTransferEnabled(data.is_fund_transfer_enabled !== false);
         }
       } catch (err) {
@@ -146,7 +150,9 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           cspl_max_limit: csplMaxLimit,
           daily_live_bbps_limit: dailyLiveBbpsLimit,
           daily_normal_bill_limit: dailyNormalBillLimit,
-          t_plus_one_limit: tPlusOneLimit
+          t_plus_one_limit: tPlusOneLimit,
+          ds_min_fund_transfer_limit: dsMinFundTransferLimit,
+          md_min_fund_transfer_limit: mdMinFundTransferLimit
         })
         .eq('id', 1);
 
@@ -403,6 +409,30 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
                 value={tPlusOneLimit || ''}
                 onChange={(e) => setTPlusOneLimit(Number(e.target.value))}
                 className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest ml-1 flex items-center gap-1">
+                DS Min Fund Transfer Limit (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 500"
+                value={dsMinFundTransferLimit || ''}
+                onChange={(e) => setDsMinFundTransferLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-emerald-50/50 border border-emerald-200 rounded-xl text-sm font-bold text-emerald-900 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+              />
+            </div>
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-bold text-blue-600 uppercase tracking-widest ml-1 flex items-center gap-1">
+                MD Min Fund Transfer Limit (₹)
+              </label>
+              <input
+                type="number"
+                placeholder="e.g. 1000"
+                value={mdMinFundTransferLimit || ''}
+                onChange={(e) => setMdMinFundTransferLimit(Number(e.target.value))}
+                className="w-full px-4 py-2.5 bg-blue-50/50 border border-blue-200 rounded-xl text-sm font-bold text-blue-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all"
               />
             </div>
           </div>

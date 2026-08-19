@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle, Eye, FileSpreadsheet, FileText, ZoomIn, ZoomOut, RotateCw, Maximize2 } from 'lucide-react';
+import { Wallet, Check, X, Search, Clock, ExternalLink, Calendar, CheckCircle2, XCircle, Eye, FileSpreadsheet, FileText, ZoomIn, ZoomOut, RotateCw, Maximize2, Loader2, AlertCircle } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
 import { format } from 'date-fns';
+import Tesseract from 'tesseract.js';
 
 export default function B2BAdminFundRequests() {
   const toast = useToast();
@@ -16,6 +17,96 @@ export default function B2BAdminFundRequests() {
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [selectedProofReq, setSelectedProofReq] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // OCR state variables for proof verification
+  const [ocrState, setOcrState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [detectedUtrs, setDetectedUtrs] = useState<string[]>([]);
+  const [ocrUtrMatchStatus, setOcrUtrMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
+  const [ocrAmountMatchStatus, setOcrAmountMatchStatus] = useState<'matched' | 'mismatch' | 'unchecked'>('unchecked');
+  const [bypassOcr, setBypassOcr] = useState(false);
+
+  const runOcrOnProof = async (imageUrl: string, targetUtr: string, targetAmount: number) => {
+    if (!imageUrl) {
+      setOcrState('error');
+      return;
+    }
+
+    setOcrState('loading');
+    setOcrProgress(0);
+    setDetectedUtrs([]);
+    setOcrUtrMatchStatus('unchecked');
+    setOcrAmountMatchStatus('unchecked');
+    setBypassOcr(false);
+
+    try {
+      const response = await fetch(imageUrl);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const result = await Tesseract.recognize(
+        blobUrl,
+        'eng',
+        {
+          logger: (m) => {
+            if (m.status === 'recognizing text') {
+              setOcrProgress(Math.round(m.progress * 100));
+            }
+          }
+        }
+      );
+
+      URL.revokeObjectURL(blobUrl);
+
+      const text = result.data.text || '';
+
+      // 1. UTR Match Checking
+      const matches = text.match(/\b\d{12}\b/g) || [];
+      const uniqueMatches = Array.from(new Set(matches));
+      setDetectedUtrs(uniqueMatches);
+
+      const cleanText = text.replace(/[^a-zA-Z0-9]/g, '');
+      const cleanTargetUtr = (targetUtr || '').replace(/[^a-zA-Z0-9]/g, '');
+
+      const isUtrMatched = cleanTargetUtr.length > 0 && (uniqueMatches.includes(cleanTargetUtr) || cleanText.includes(cleanTargetUtr));
+      setOcrUtrMatchStatus(isUtrMatched ? 'matched' : 'mismatch');
+
+      // 2. Amount Match Checking
+      const candidates = text.match(/[0-9,.]+/g) || [];
+      const uniqueAmounts = Array.from(new Set(
+        candidates
+          .map(c => {
+            let clean = c.replace(/[,]/g, '').replace(/\.$/, '');
+            return parseFloat(clean);
+          })
+          .filter(v => !isNaN(v) && v > 0)
+      ));
+      const isAmountMatched = uniqueAmounts.some(val => Math.abs(val - Number(targetAmount)) < 0.01);
+      setOcrAmountMatchStatus(isAmountMatched ? 'matched' : 'mismatch');
+
+      setOcrState('success');
+    } catch (err) {
+      console.error('[B2B OCR Error]', err);
+      setOcrState('error');
+    }
+  };
+
+  useEffect(() => {
+    if (selectedProofReq && selectedProofReq.proof_url) {
+      runOcrOnProof(
+        selectedProofReq.proof_url,
+        selectedProofReq.utr_number || '',
+        Number(selectedProofReq.amount || 0)
+      );
+    } else {
+      setOcrState('idle');
+      setOcrProgress(0);
+      setDetectedUtrs([]);
+      setOcrUtrMatchStatus('unchecked');
+      setOcrAmountMatchStatus('unchecked');
+      setBypassOcr(false);
+    }
+  }, [selectedProofReq]);
 
   useEffect(() => {
     fetchRequests();
@@ -730,6 +821,101 @@ export default function B2BAdminFundRequests() {
               );
             })()}
 
+            {/* OCR Verification Status Card */}
+            {selectedProofReq.proof_url && (
+              <div className="bg-slate-900/90 border border-slate-700 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {ocrState === 'loading' && (
+                      <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs">
+                        <Loader2 size={16} className="animate-spin" />
+                        <span>Scanning Payment Screenshot ({ocrProgress}%)...</span>
+                      </div>
+                    )}
+                    {ocrState === 'success' && (
+                      (ocrUtrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched') ? (
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+                          <CheckCircle2 size={16} />
+                          <span>OCR Verification Successful (UTR & Amount Matched)</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
+                          <AlertCircle size={16} />
+                          <span>OCR Verification Warning (UTR or Amount Mismatch)</span>
+                        </div>
+                      )
+                    )}
+                    {ocrState === 'error' && (
+                      <div className="flex items-center gap-1.5 text-rose-400 font-bold text-xs">
+                        <XCircle size={16} />
+                        <span>OCR Scan Failed / Low Image Clarity</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => runOcrOnProof(selectedProofReq.proof_url, selectedProofReq.utr_number || '', Number(selectedProofReq.amount || 0))}
+                    disabled={ocrState === 'loading'}
+                    className="text-[11px] font-bold text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1 rounded-lg border border-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                  >
+                    {ocrState === 'loading' ? 'Scanning...' : 'Re-Scan OCR'}
+                  </button>
+                </div>
+
+                {/* Progress bar */}
+                {ocrState === 'loading' && (
+                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div className="h-full bg-indigo-500 transition-all duration-200" style={{ width: `${ocrProgress}%` }} />
+                  </div>
+                )}
+
+                {/* Detection Details Cards */}
+                {ocrState === 'success' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
+                    {/* UTR Check Box */}
+                    <div className={`p-3 rounded-xl border flex flex-col justify-between ${
+                      ocrUtrMatchStatus === 'matched' ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-400">UTR Matching</span>
+                        <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase border ${
+                          ocrUtrMatchStatus === 'matched' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {ocrUtrMatchStatus === 'matched' ? '✓ Found' : '✗ Mismatch'}
+                        </span>
+                      </div>
+                      <div className="font-mono text-xs font-bold mt-1">
+                        Requested UTR: <span className="text-white">{selectedProofReq.utr_number}</span>
+                      </div>
+                      {detectedUtrs.length > 0 && (
+                        <div className="text-[10px] text-slate-400 mt-1">
+                          Detected in Image: <span className="font-mono text-slate-200">{detectedUtrs.join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Amount Check Box */}
+                    <div className={`p-3 rounded-xl border flex flex-col justify-between ${
+                      ocrAmountMatchStatus === 'matched' ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
+                    }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-400">Amount Matching</span>
+                        <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase border ${
+                          ocrAmountMatchStatus === 'matched' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                          {ocrAmountMatchStatus === 'matched' ? '✓ Matched' : '✗ Mismatch'}
+                        </span>
+                      </div>
+                      <div className="font-mono text-xs font-bold mt-1">
+                        Requested Amount: <span className="text-white">₹{Number(selectedProofReq.amount).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Proof Preview Image with Interactive Zoom & Pan Movement */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -755,6 +941,30 @@ export default function B2BAdminFundRequests() {
               )}
             </div>
 
+            {/* Bypass OCR Checkbox */}
+            {selectedProofReq.status === 'pending' && (
+              <div className="pt-2">
+                <label className={`flex items-center gap-3 p-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                  bypassOcr 
+                    ? 'bg-amber-950/40 border-amber-500/50 text-amber-300 shadow-md' 
+                    : 'bg-slate-900/60 border-slate-700/80 text-slate-300 hover:border-slate-600'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={bypassOcr}
+                    onChange={(e) => setBypassOcr(e.target.checked)}
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-700 cursor-pointer"
+                  />
+                  <div>
+                    <span>Bypass OCR Verification (I have manually verified payment screenshot)</span>
+                    <p className="text-[10px] font-normal text-slate-400 mt-0.5">
+                      Check this box to enable the Approve button if OCR mismatch occurred or image clarity is low.
+                    </p>
+                  </div>
+                </label>
+              </div>
+            )}
+
             {/* Bottom Actions inside Modal */}
             <div className="flex items-center justify-between pt-4 border-t border-slate-700">
               <div className="text-xs text-slate-400 font-medium">
@@ -777,18 +987,24 @@ export default function B2BAdminFundRequests() {
                       <X className="w-4 h-4" /> Reject Request
                     </button>
 
-                    <button
-                      disabled={actionLoading}
-                      onClick={async () => {
-                        setActionLoading(true);
-                        await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
-                        setActionLoading(false);
-                        setSelectedProofReq(null);
-                      }}
-                      className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
-                    >
-                      <Check className="w-4 h-4" /> Approve & Credit Balance
-                    </button>
+                    {(() => {
+                      const isOcrPassed = (ocrUtrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched') || bypassOcr;
+                      return (
+                        <button
+                          disabled={actionLoading || ocrState === 'loading' || !isOcrPassed}
+                          onClick={async () => {
+                            setActionLoading(true);
+                            await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
+                            setActionLoading(false);
+                            setSelectedProofReq(null);
+                          }}
+                          title={!isOcrPassed ? 'OCR Verification failed or pending. Check Bypass OCR box to enable.' : ''}
+                          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 active:scale-95"
+                        >
+                          <Check className="w-4 h-4" /> Approve & Credit Balance
+                        </button>
+                      );
+                    })()}
                   </>
                 ) : (
                   <button
