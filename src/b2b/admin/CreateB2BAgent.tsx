@@ -464,8 +464,9 @@ export default function CreateB2BAgent() {
     const mobile = (agent.mobile || '').toLowerCase();
     const charge = agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? agent.charge_per_bill.toString() : 'global';
     const tag = (agent.agent_tag || '').toLowerCase();
+    const baId = (agent.billavenue_agent_id || '').toLowerCase();
 
-    return fullName.includes(term) || loginId.includes(term) || mobile.includes(term) || charge.includes(term) || tag.includes(term);
+    return fullName.includes(term) || loginId.includes(term) || mobile.includes(term) || charge.includes(term) || tag.includes(term) || baId.includes(term);
   });
 
   const renderList = () => (
@@ -552,7 +553,19 @@ export default function CreateB2BAgent() {
                           </div>
                         )}
                         <div>
-                          <div>{agent.first_name} {agent.last_name}</div>
+                          <div className="font-bold text-white text-sm">{agent.first_name} {agent.last_name}</div>
+                          {agent.billavenue_agent_id ? (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded flex items-center gap-1" title="BillAvenue Mapping Agent ID">
+                                <span className="text-slate-400 font-sans text-[9px] uppercase tracking-wider">BA Agent ID:</span>
+                                <span>{agent.billavenue_agent_id}</span>
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-500 font-mono italic mt-0.5">
+                              No BillAvenue ID
+                            </div>
+                          )}
                         </div>
                       </div>
                     </td>
