@@ -503,7 +503,7 @@ export default function CreateB2BAgent() {
 
           <button
             onClick={() => {
-              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', agentTag: '' });
+              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '' });
               setView('create');
             }}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
