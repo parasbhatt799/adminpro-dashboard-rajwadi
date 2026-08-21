@@ -80,6 +80,7 @@ export default function AddUser({
     hold_input: initialData?.hold_balance?.toString() || '0',
     role: initialData?.role || (isSuperDistributorView ? 'distributor' : 'user'),
     admin_base_qr_charge: initialData?.admin_base_qr_charge?.toString() || '0',
+    admin_base_t_plus_one_charge: initialData?.admin_base_t_plus_one_charge?.toString() || '0',
     distributor_id: initialData?.distributor_id || '',
     super_distributor_id: initialData?.super_distributor_id || ''
   });
@@ -220,6 +221,9 @@ export default function AddUser({
         role: finalRole,
         admin_base_qr_charge: (finalRole === 'distributor' || finalRole === 'super_distributor')
           ? (parseFloat(formData.admin_base_qr_charge) || 0)
+          : 0,
+        admin_base_t_plus_one_charge: (finalRole === 'distributor' || finalRole === 'super_distributor')
+          ? (parseFloat(formData.admin_base_t_plus_one_charge) || 0)
           : 0,
         distributor_id: finalRole === 'user'
           ? (isDistributorView ? (initialData?.distributor_id || null) : (formData.distributor_id || null))
@@ -686,7 +690,7 @@ export default function AddUser({
                             try {
                               const { data, error } = await supabase
                                 .from('users_profiles')
-                                .select('admin_base_qr_charge')
+                                .select('admin_base_qr_charge, admin_base_t_plus_one_charge')
                                 .eq('id', superDistId)
                                 .single();
                               
@@ -694,7 +698,8 @@ export default function AddUser({
                               if (data) {
                                 setFormData(prev => ({
                                   ...prev,
-                                  admin_base_qr_charge: data.admin_base_qr_charge?.toString() || '0'
+                                  admin_base_qr_charge: data.admin_base_qr_charge?.toString() || '0',
+                                  admin_base_t_plus_one_charge: data.admin_base_t_plus_one_charge?.toString() || '0'
                                 }));
                               }
                             } catch (err) {
@@ -703,7 +708,7 @@ export default function AddUser({
                               setIsFetchingDistributor(false);
                             }
                           } else {
-                            setFormData(prev => ({ ...prev, admin_base_qr_charge: '0' }));
+                            setFormData(prev => ({ ...prev, admin_base_qr_charge: '0', admin_base_t_plus_one_charge: '0' }));
                           }
                         }}
                       >
@@ -742,9 +747,16 @@ export default function AddUser({
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Field 1: Normal QR Charge or Base QR Charge */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                  {isSuperDistributorView ? 'Distributor Base QR Charge (%)' : 'QR Service Charge (%)'} <span className="text-rose-500">*</span>
+                  {isSuperDistributorView 
+                    ? 'Distributor Base QR Charge (%)' 
+                    : (formData.role === 'distributor' 
+                        ? 'Distributor Base QR Charge (%)' 
+                        : (formData.role === 'super_distributor' 
+                            ? 'Super Distributor Base QR Charge (%)' 
+                            : 'QR Service Charge (%)'))} <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
@@ -754,10 +766,10 @@ export default function AddUser({
                     step="0.01"
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                     placeholder="0.00"
-                    value={isSuperDistributorView ? formData.admin_base_qr_charge : formData.charge_percentage}
+                    value={isSuperDistributorView || formData.role === 'distributor' || formData.role === 'super_distributor' ? formData.admin_base_qr_charge : formData.charge_percentage}
                     onChange={(e) => setFormData({ 
                       ...formData, 
-                      [isSuperDistributorView ? 'admin_base_qr_charge' : 'charge_percentage']: e.target.value 
+                      [isSuperDistributorView || formData.role === 'distributor' || formData.role === 'super_distributor' ? 'admin_base_qr_charge' : 'charge_percentage']: e.target.value 
                     })}
                   />
                 </div>
@@ -773,31 +785,39 @@ export default function AddUser({
                 )}
               </div>
 
-              {!isSuperDistributorView && (
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
-                    T+1 QR Service Charge (%) {isDistributorView && "(Min 0.80% or 0)"} <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                    <input
-                      required
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
-                      placeholder="0.00"
-                      value={formData.t_plus_one_charge}
-                      onChange={(e) => setFormData({ ...formData, t_plus_one_charge: e.target.value })}
-                    />
-                  </div>
-                  {isDistributorView && (
-                    <p className="text-[10px] text-amber-600 mt-2 font-bold uppercase tracking-widest">
-                      Must be 0 to disable, or at least 0.80% to enable.
-                    </p>
-                  )}
+              {/* Field 2: T+1 QR Charge or Base T+1 Charge */}
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 ml-1">
+                  {isSuperDistributorView 
+                    ? 'Distributor Base T+1 Charge (%)' 
+                    : (formData.role === 'distributor' 
+                        ? 'Distributor Base T+1 Charge (%)' 
+                        : (formData.role === 'super_distributor' 
+                            ? 'Super Distributor Base T+1 Charge (%)' 
+                            : 'T+1 QR Service Charge (%)'))} {isDistributorView && "(Min 0.80% or 0)"} <span className="text-rose-500">*</span>
+                </label>
+                <div className="relative">
+                  <Percent className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                  <input
+                    required
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    placeholder="0.00"
+                    value={isSuperDistributorView || formData.role === 'distributor' || formData.role === 'super_distributor' ? formData.admin_base_t_plus_one_charge : formData.t_plus_one_charge}
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      [isSuperDistributorView || formData.role === 'distributor' || formData.role === 'super_distributor' ? 'admin_base_t_plus_one_charge' : 't_plus_one_charge']: e.target.value 
+                    })}
+                  />
                 </div>
-              )}
+                {isDistributorView && (
+                  <p className="text-[10px] text-amber-600 mt-2 font-bold uppercase tracking-widest">
+                    Must be 0 to disable, or at least 0.80% to enable.
+                  </p>
+                )}
+              </div>
 
               {!isDistributorView && (
                 <>

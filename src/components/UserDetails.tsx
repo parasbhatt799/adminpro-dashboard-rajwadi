@@ -559,17 +559,25 @@ export default function UserDetails({ user, onBack, onEdit, onDelete, isDistribu
                     <p className="text-sm font-medium text-slate-600 leading-relaxed">{user.firm_address || 'Not provided'}</p>
                   </div>
                   <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">QR Service Charge (%)</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                      {user.role === 'distributor' || user.role === 'super_distributor' ? 'Base QR Charge (%)' : 'QR Service Charge (%)'}
+                    </p>
                     <div className="flex items-center gap-2 text-indigo-600">
                       <Percent size={20} />
-                      <p className="text-2xl font-bold">{user.charge_percentage}</p>
+                      <p className="text-2xl font-bold">
+                        {user.role === 'distributor' || user.role === 'super_distributor' ? user.admin_base_qr_charge : user.charge_percentage}
+                      </p>
                     </div>
                   </div>
                   <div className="p-6 rounded-2xl bg-slate-50/50 border border-slate-100">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">T+1 QR Charge (%)</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">
+                      {user.role === 'distributor' || user.role === 'super_distributor' ? 'Base T+1 Charge (%)' : 'T+1 QR Charge (%)'}
+                    </p>
                     <div className="flex items-center gap-2 text-indigo-600">
                       <Percent size={20} />
-                      <p className="text-2xl font-bold">{user.t_plus_one_charge ?? 0}</p>
+                      <p className="text-2xl font-bold">
+                        {user.role === 'distributor' || user.role === 'super_distributor' ? (user.admin_base_t_plus_one_charge ?? 0) : (user.t_plus_one_charge ?? 0)}
+                      </p>
                     </div>
                   </div>
                   {!isDistributorView && (
