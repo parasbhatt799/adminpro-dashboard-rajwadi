@@ -607,7 +607,7 @@ export default function B2BAPIDocumentation() {
           </div>
 
           <p className="text-xs text-slate-300 relative z-10">
-            Execute the bill payment. Validates wallet balance, applies fee charges, deducts funds, and processes payment via BBPS gateway.
+            Execute the bill payment. Validates agent wallet balance, checks single-transaction maximum limit set by admin, applies dynamic fee charge multiplier (1x for &lt; ₹50k, 2x for ₹50k–₹99.9k, 3x for ₹100k–₹149.9k, etc.), deducts funds, and processes payment via BBPS gateway.
           </p>
 
           <div className="relative z-10">

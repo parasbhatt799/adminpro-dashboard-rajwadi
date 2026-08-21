@@ -586,40 +586,62 @@ export const payBill = async (req: Request, res: Response) => {
       });
     }
 
-    // Fetch agent's charge_per_bill, developer_charge, and owner_charge
+    // Fetch agent's charge_per_bill, developer_charge, owner_charge, custom_max_bill_payment_limit
     const { data: agentData } = await supabaseAdmin
       .from('b2b_api_credentials')
-      .select('charge_per_bill, developer_charge, owner_charge, webhook_url')
+      .select('charge_per_bill, developer_charge, owner_charge, custom_max_bill_payment_limit, webhook_url')
       .eq('id', agentId)
       .single();
 
-    let chargePerBill = 0;
-    let developerCharge = parseFloat(agentData?.developer_charge?.toString() || '0');
-    let ownerCharge = parseFloat(agentData?.owner_charge?.toString() || '0');
+    // Fetch global settings
+    const { data: globalSettings } = await supabaseAdmin
+      .from('b2b_settings')
+      .select('global_charge_per_bill, max_bill_payment_limit')
+      .limit(1)
+      .maybeSingle();
+
+    // 1. Dynamic Max Single Bill Payment Limit Check
+    const customAgentLimit = parseFloat(agentData?.custom_max_bill_payment_limit?.toString() || '0');
+    const globalMaxLimit = parseFloat(globalSettings?.max_bill_payment_limit?.toString() || '100000');
+    const maxAllowedLimit = customAgentLimit > 0 ? customAgentLimit : globalMaxLimit;
+
+    if (parsedAmount > maxAllowedLimit) {
+      console.error(`[B2B PayBill - ERROR] Bill amount ₹${parsedAmount} exceeds max limit ₹${maxAllowedLimit}`);
+      return res.status(400).json({
+        status: 'error',
+        message: `Transaction amount ₹${parsedAmount.toLocaleString('en-IN')} exceeds maximum allowed single bill payment limit of ₹${maxAllowedLimit.toLocaleString('en-IN')}.`
+      });
+    }
+
+    let baseChargePerBill = 0;
+    let baseDeveloperCharge = parseFloat(agentData?.developer_charge?.toString() || '0');
+    let baseOwnerCharge = parseFloat(agentData?.owner_charge?.toString() || '0');
 
     if (agentData?.charge_per_bill !== null && agentData?.charge_per_bill !== undefined) {
-      chargePerBill = parseFloat(agentData.charge_per_bill);
-    } else {
-      // Fetch global setting
-      const { data: globalSettings, error: globalErr } = await supabaseAdmin
-        .from('b2b_settings')
-        .select('global_charge_per_bill')
-        .limit(1)
-        .maybeSingle();
-      
-      if (!globalErr && globalSettings) {
-        chargePerBill = parseFloat(globalSettings.global_charge_per_bill || '0');
-      }
+      baseChargePerBill = parseFloat(agentData.charge_per_bill);
+    } else if (globalSettings) {
+      baseChargePerBill = parseFloat(globalSettings.global_charge_per_bill?.toString() || '0');
     }
 
-    // If split charges are missing or incomplete, ensure they equal chargePerBill
-    if (developerCharge === 0 && ownerCharge === 0 && chargePerBill > 0) {
-      ownerCharge = chargePerBill;
+    // If split charges are missing or incomplete, ensure baseOwnerCharge equals baseChargePerBill
+    if (baseDeveloperCharge === 0 && baseOwnerCharge === 0 && baseChargePerBill > 0) {
+      baseOwnerCharge = baseChargePerBill;
     }
+
+    // Dynamic 50k Slab Multiplier:
+    // ₹1 to ₹49,999 => 1x (Base Charge)
+    // ₹50,000 to ₹99,999 => 2x (Double Charge)
+    // ₹1,00,000 to ₹1,49,999 => 3x (Triple Charge)
+    // ₹1,50,000 to ₹1,99,999 => 4x (4-Times Charge)
+    const multiplier = Math.floor(parsedAmount / 50000) + 1;
+
+    const developerCharge = baseDeveloperCharge * multiplier;
+    const ownerCharge = baseOwnerCharge * multiplier;
+    const chargePerBill = developerCharge + ownerCharge;
 
     const totalDeduction = parsedAmount + chargePerBill;
 
-    console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ${parsedAmount} + Charge: ${chargePerBill} [Dev: ${developerCharge}, Owner: ${ownerCharge}])...`);
+    console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ₹${parsedAmount}, Multiplier: ${multiplier}x, Charge: ₹${chargePerBill} [Dev: ₹${developerCharge}, Owner: ₹${ownerCharge}])...`);
 
     // 1. Deduct total amount securely from b2b wallet via Atomic RPC
     const { data: deductSuccess, error: walletDeductError } = await supabaseAdmin.rpc('deduct_b2b_wallet_balance', {

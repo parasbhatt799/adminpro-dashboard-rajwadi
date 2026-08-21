@@ -100,9 +100,6 @@ export default function B2BAdminDashboard() {
           0
         );
 
-        let dVal = Number(log.developer_charge ?? req?.developerCharge ?? req?.developer_charge ?? 0);
-        let oVal = Number(log.owner_charge ?? req?.ownerCharge ?? req?.owner_charge ?? (chargeVal - dVal));
-
         totalSum += chargeVal;
         devSum += dVal;
         ownerSum += oVal;
@@ -119,7 +116,7 @@ export default function B2BAdminDashboard() {
         
       setActiveAgentsCount(count || 0);
 
-      // Fetch global charge
+      // Fetch global charge and max limit
       const { data: settingsData } = await supabase
         .from('b2b_settings')
         .select('*')
@@ -128,6 +125,7 @@ export default function B2BAdminDashboard() {
 
       if (settingsData) {
         setGlobalCharge(settingsData.global_charge_per_bill?.toString() || '0');
+        setGlobalMaxLimit(settingsData.max_bill_payment_limit?.toString() || '100000');
         setGlobalChargeId(settingsData.id);
       }
 
@@ -141,23 +139,32 @@ export default function B2BAdminDashboard() {
   const handleSaveGlobalCharge = async () => {
     setSavingCharge(true);
     try {
+      const chargeVal = parseFloat(globalCharge) || 0;
+      const limitVal = parseFloat(globalMaxLimit) || 100000;
+
       if (globalChargeId) {
         await supabase
           .from('b2b_settings')
-          .update({ global_charge_per_bill: parseFloat(globalCharge) })
+          .update({ 
+            global_charge_per_bill: chargeVal,
+            max_bill_payment_limit: limitVal
+          })
           .eq('id', globalChargeId);
       } else {
         const { data } = await supabase
           .from('b2b_settings')
-          .insert({ global_charge_per_bill: parseFloat(globalCharge) })
+          .insert({ 
+            global_charge_per_bill: chargeVal,
+            max_bill_payment_limit: limitVal
+          })
           .select('id')
           .single();
         if (data) setGlobalChargeId(data.id);
       }
-      alert('Global charge updated successfully!');
+      alert('Global settings updated successfully!');
     } catch (e) {
-      console.error('Failed to update global charge', e);
-      alert('Error updating global charge');
+      console.error('Failed to update global settings', e);
+      alert('Error updating global settings');
     }
     setSavingCharge(false);
   };
@@ -231,32 +238,54 @@ export default function B2BAdminDashboard() {
 
           {/* Global Settings Card */}
           <div className="bg-amber-950/30 border border-amber-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
-            <div className="flex items-center gap-4 mb-2">
+            <div className="flex items-center gap-4 mb-1">
               <div className="bg-amber-500/10 p-3 rounded-full text-amber-400 border border-amber-500/20">
                 <Settings className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-sm font-bold text-amber-400 uppercase tracking-wider mb-1">Global Charge Per Bill</p>
+                <p className="text-sm font-bold text-amber-400 uppercase tracking-wider">B2B Global Settings</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-bold text-amber-400">₹</span>
-              <input
-                type="number"
-                value={globalCharge}
-                onChange={(e) => setGlobalCharge(e.target.value)}
-                step="0.01"
-                className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-2 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
-              />
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs text-amber-300 font-semibold block mb-1">Global Base Charge Per Bill (₹)</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-amber-400">₹</span>
+                  <input
+                    type="number"
+                    value={globalCharge}
+                    onChange={(e) => setGlobalCharge(e.target.value)}
+                    step="0.01"
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-1.5 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-amber-300 font-semibold block mb-1">Max Single Bill Payment Limit (₹)</label>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-amber-400">₹</span>
+                  <input
+                    type="number"
+                    value={globalMaxLimit}
+                    onChange={(e) => setGlobalMaxLimit(e.target.value)}
+                    step="1000"
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg px-3 py-1.5 font-bold text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+              </div>
+
               <button
                 onClick={handleSaveGlobalCharge}
                 disabled={savingCharge}
-                className="bg-amber-500 hover:bg-amber-600 text-slate-950 p-2.5 rounded-lg font-bold transition-colors flex items-center justify-center disabled:opacity-50"
+                className="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 py-2 px-4 rounded-lg font-bold text-xs transition-colors flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
               >
-                {savingCharge ? <LoadingSpinner size="sm" /> : <Save className="w-5 h-5" />}
+                {savingCharge ? <LoadingSpinner size="sm" /> : <Save className="w-4 h-4" />}
+                <span>Save B2B Settings</span>
               </button>
             </div>
-            <p className="text-xs text-amber-400/80">Default deduction applied if an agent has no custom charge set.</p>
+            <p className="text-[11px] text-amber-400/80">Every ₹50,000 block doubles the charge multiplier (1x, 2x, 3x...). Transactions above max limit are rejected.</p>
           </div>
         </div>
       )}
