@@ -470,7 +470,7 @@ export default function CreateB2BAgent() {
   });
 
   const renderList = () => (
-    <div className="max-w-7xl mx-auto">
+    <div className="w-full space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
         <div>
           <h2 className="text-2xl font-bold text-white">B2B Agents</h2>
@@ -957,7 +957,7 @@ export default function CreateB2BAgent() {
   );
 
   const renderForm = () => (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full space-y-6">
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => setView('list')}
