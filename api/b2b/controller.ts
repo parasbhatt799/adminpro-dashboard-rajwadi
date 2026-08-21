@@ -586,10 +586,10 @@ export const payBill = async (req: Request, res: Response) => {
       });
     }
 
-    // Fetch agent's charge_per_bill, developer_charge, owner_charge, custom_max_bill_payment_limit
+    // Fetch agent's charge_per_bill, developer_charge, owner_charge, custom_max_bill_payment_limit, fixed_deposit_amount, wallet_balance
     const { data: agentData } = await supabaseAdmin
       .from('b2b_api_credentials')
-      .select('charge_per_bill, developer_charge, owner_charge, custom_max_bill_payment_limit, webhook_url')
+      .select('charge_per_bill, developer_charge, owner_charge, custom_max_bill_payment_limit, fixed_deposit_amount, wallet_balance, webhook_url')
       .eq('id', agentId)
       .single();
 
@@ -641,6 +641,19 @@ export const payBill = async (req: Request, res: Response) => {
 
     const totalDeduction = parsedAmount + chargePerBill;
 
+    // Check fixed deposit frozen balance rule
+    const fixedDepositAmount = parseFloat(agentData?.fixed_deposit_amount?.toString() || '0');
+    const currentWalletBal = parseFloat(agentData?.wallet_balance?.toString() || '0');
+    const usableBalance = Math.max(0, currentWalletBal - fixedDepositAmount);
+
+    if (fixedDepositAmount > 0 && (currentWalletBal - totalDeduction) < fixedDepositAmount) {
+      console.error(`[B2B PayBill - ERROR] Usable balance insufficient due to Fixed Security Deposit requirement. Current: ₹${currentWalletBal}, Deposit Frozen: ₹${fixedDepositAmount}, Needed: ₹${totalDeduction}`);
+      return res.status(400).json({
+        status: 'error',
+        message: `Insufficient usable balance. ₹${fixedDepositAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} is frozen as Fixed Security Deposit. Available usable balance: ₹${usableBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}.`
+      });
+    }
+
     console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ₹${parsedAmount}, Multiplier: ${multiplier}x, Charge: ₹${chargePerBill} [Dev: ₹${developerCharge}, Owner: ₹${ownerCharge}])...`);
 
     // 1. Deduct total amount securely from b2b wallet via Atomic RPC
@@ -653,7 +666,9 @@ export const payBill = async (req: Request, res: Response) => {
       console.error(`[B2B PayBill - WALLET ERROR] Failed to deduct ₹${totalDeduction} from agent ${agentId}. Error:`, walletDeductError);
       return res.status(400).json({
         status: 'error',
-        message: 'Insufficient balance or transaction failed'
+        message: fixedDepositAmount > 0 
+          ? `Insufficient usable balance. ₹${fixedDepositAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} is frozen as Fixed Security Deposit. Available usable balance: ₹${usableBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}.`
+          : 'Insufficient wallet balance or transaction failed'
       });
     }
 

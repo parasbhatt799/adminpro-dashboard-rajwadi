@@ -18,6 +18,7 @@ interface Agent {
   charge_per_bill: number;
   developer_charge?: number;
   owner_charge?: number;
+  fixed_deposit_amount?: number;
   agent_tag?: string;
   api_key?: string;
   secret_key?: string;
@@ -61,6 +62,7 @@ export default function CreateB2BAgent() {
     chargePerBill: '0',
     developerCharge: '0',
     ownerCharge: '0',
+    fixedDepositAmount: '0',
     agentTag: ''
   });
 
@@ -170,6 +172,7 @@ export default function CreateB2BAgent() {
       chargePerBill: agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? agent.charge_per_bill.toString() : '',
       developerCharge: agent.developer_charge !== null && agent.developer_charge !== undefined ? agent.developer_charge.toString() : '0',
       ownerCharge: agent.owner_charge !== null && agent.owner_charge !== undefined ? agent.owner_charge.toString() : '0',
+      fixedDepositAmount: agent.fixed_deposit_amount !== null && agent.fixed_deposit_amount !== undefined ? agent.fixed_deposit_amount.toString() : '0',
       agentTag: agent.agent_tag || ''
     });
     setView('edit');
@@ -390,6 +393,7 @@ export default function CreateB2BAgent() {
             charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0),
             developer_charge: parseFloat(formData.developerCharge) || 0,
             owner_charge: parseFloat(formData.ownerCharge) || 0,
+            fixed_deposit_amount: parseFloat(formData.fixedDepositAmount) || 0,
             agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
             profile_photo_url: uploadedPhotoUrl || null,
             is_active: true
@@ -415,6 +419,7 @@ export default function CreateB2BAgent() {
           charge_per_bill: formData.chargePerBill === '' ? null : (parseFloat(formData.chargePerBill) || 0),
           developer_charge: parseFloat(formData.developerCharge) || 0,
           owner_charge: parseFloat(formData.ownerCharge) || 0,
+          fixed_deposit_amount: parseFloat(formData.fixedDepositAmount) || 0,
           agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
           profile_photo_url: uploadedPhotoUrl || null
         };
@@ -441,7 +446,7 @@ export default function CreateB2BAgent() {
       }
 
       setFormData({
-        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', agentTag: ''
+        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: ''
       });
       setProfilePhoto(null);
       setPhotoPreview(null);
@@ -597,9 +602,16 @@ export default function CreateB2BAgent() {
                       )}
                     </td>
                     <td className="p-4 text-right">
-                      <div className="flex items-center justify-end gap-1 font-bold text-emerald-400">
-                        <span>₹</span>
-                        <span>{parseFloat(agent.wallet_balance?.toString() || '0').toFixed(2)}</span>
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center justify-end gap-1 font-bold text-emerald-400">
+                          <span>₹</span>
+                          <span>{parseFloat(agent.wallet_balance?.toString() || '0').toFixed(2)}</span>
+                        </div>
+                        {agent.fixed_deposit_amount && parseFloat(agent.fixed_deposit_amount.toString()) > 0 ? (
+                          <span className="text-[10px] text-amber-400 font-mono font-semibold bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded" title="Frozen Security Deposit Balance">
+                            🔒 Deposit: ₹{parseFloat(agent.fixed_deposit_amount.toString()).toFixed(2)}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="p-4">
@@ -1080,6 +1092,24 @@ export default function CreateB2BAgent() {
                   placeholder="e.g. 10.00"
                 />
                 <p className="text-xs text-slate-400 mt-1">Total charge deducted from agent wallet per bill.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-amber-300 mb-1 flex items-center justify-between">
+                  <span>Fix Security Deposit Amount (₹)</span>
+                  <span className="text-[11px] text-amber-400/80 font-normal">Frozen from wallet</span>
+                </label>
+                <input
+                  type="number"
+                  name="fixedDepositAmount"
+                  value={formData.fixedDepositAmount}
+                  onChange={handleChange}
+                  min="0"
+                  step="100"
+                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-400 font-bold placeholder-slate-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all font-mono text-base"
+                  placeholder="e.g. 5000"
+                />
+                <p className="text-xs text-slate-400 mt-1">Deposit amount frozen from wallet. Usable balance = Wallet - Deposit. Set to 0 to unfreeze.</p>
               </div>
 
               {/* Developer & Owner Charge Split */}

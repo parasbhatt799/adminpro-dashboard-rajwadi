@@ -11,6 +11,7 @@ export default function B2BAgentLayout() {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [fixedDepositAmount, setFixedDepositAmount] = useState<number>(0);
   const [agentProfile, setAgentProfile] = useState<{ first_name?: string; last_name?: string; profile_photo_url?: string } | null>(null);
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export default function B2BAgentLayout() {
         },
         (payload) => {
           setWalletBalance(payload.new.wallet_balance || 0);
+          setFixedDepositAmount(payload.new.fixed_deposit_amount || 0);
           if (payload.new.profile_photo_url) {
             setAgentProfile(prev => ({ ...prev, profile_photo_url: payload.new.profile_photo_url }));
           }
@@ -51,12 +53,13 @@ export default function B2BAgentLayout() {
     try {
       const { data } = await supabase
         .from('b2b_api_credentials')
-        .select('wallet_balance, first_name, last_name, profile_photo_url')
+        .select('wallet_balance, fixed_deposit_amount, first_name, last_name, profile_photo_url')
         .eq('id', agentId)
         .single();
         
       if (data) {
         setWalletBalance(data.wallet_balance || 0);
+        setFixedDepositAmount(data.fixed_deposit_amount || 0);
         setAgentProfile({
           first_name: data.first_name,
           last_name: data.last_name,
@@ -131,12 +134,26 @@ export default function B2BAgentLayout() {
               <B2BPWAInstallButton variant="header" />
 
               {/* Wallet Balance Display */}
-              <div className="flex items-center gap-2 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
+              <div className="flex items-center gap-3 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
                 <Wallet className="h-4 w-4 text-emerald-400" />
                 <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase leading-none mb-1">Wallet Balance</span>
+                  <span className="text-[10px] text-slate-400 font-semibold uppercase leading-none mb-1">
+                    {fixedDepositAmount > 0 ? 'Total Wallet' : 'Wallet Balance'}
+                  </span>
                   <span className="text-emerald-400 font-bold leading-none tracking-tight">₹ {walletBalance.toFixed(2)}</span>
                 </div>
+                {fixedDepositAmount > 0 && (
+                  <>
+                    <div className="flex flex-col border-l border-slate-700 pl-3">
+                      <span className="text-[10px] text-amber-400 font-semibold uppercase leading-none mb-1">🔒 Deposit Frozen</span>
+                      <span className="text-amber-400 font-bold leading-none tracking-tight">₹ {fixedDepositAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex flex-col border-l border-slate-700 pl-3">
+                      <span className="text-[10px] text-cyan-400 font-semibold uppercase leading-none mb-1">Usable Balance</span>
+                      <span className="text-cyan-400 font-bold leading-none tracking-tight">₹ {Math.max(0, walletBalance - fixedDepositAmount).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Agent Profile Avatar */}
