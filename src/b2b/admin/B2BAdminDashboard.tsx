@@ -11,6 +11,7 @@ export default function B2BAdminDashboard() {
   const [savingCharge, setSavingCharge] = useState(false);
   const [activeAgentsCount, setActiveAgentsCount] = useState(0);
   const [globalCharge, setGlobalCharge] = useState<string>('0');
+  const [globalMaxLimit, setGlobalMaxLimit] = useState<string>('100000');
   const [globalChargeId, setGlobalChargeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -99,6 +100,9 @@ export default function B2BAdminDashboard() {
           (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
           0
         );
+
+        let dVal = Number(log.developer_charge ?? req?.developerCharge ?? req?.developer_charge ?? 0);
+        let oVal = Number(log.owner_charge ?? req?.ownerCharge ?? req?.owner_charge ?? (chargeVal - dVal));
 
         totalSum += chargeVal;
         devSum += dVal;
