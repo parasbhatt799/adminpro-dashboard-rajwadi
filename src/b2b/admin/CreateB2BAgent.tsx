@@ -556,9 +556,8 @@ export default function CreateB2BAgent() {
                           <div className="font-bold text-white text-sm">{agent.first_name} {agent.last_name}</div>
                           {agent.billavenue_agent_id ? (
                             <div className="flex items-center gap-1 mt-0.5">
-                              <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded flex items-center gap-1" title="BillAvenue Mapping Agent ID">
-                                <span className="text-slate-400 font-sans text-[9px] uppercase tracking-wider">BA Agent ID:</span>
-                                <span>{agent.billavenue_agent_id}</span>
+                              <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded" title="BillAvenue Mapping Agent ID">
+                                {agent.billavenue_agent_id}
                               </span>
                             </div>
                           ) : (
