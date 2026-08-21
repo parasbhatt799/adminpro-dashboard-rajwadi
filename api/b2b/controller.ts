@@ -561,16 +561,29 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
 export const payBill = async (req: Request, res: Response) => {
   try {
 
-    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo, paymentMode } = req.body;
+    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo, paymentMode, pan, customerPan } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
+    const finalPan = (customerPan || pan || '').trim();
 
-    console.log(`\n[B2B PayBill - START] Agent: ${agentId}, Biller: ${billerId}, Amount: ${amount}`);
+    console.log(`\n[B2B PayBill - START] Agent: ${agentId}, Biller: ${billerId}, Amount: ${amount}, PAN: ${finalPan || 'N/A'}`);
     console.log(`[B2B PayBill] Request Body:`, JSON.stringify(req.body));
 
     if (!billerId || !amount || !customerParams || !mobile) {
       console.error(`[B2B PayBill - ERROR] Missing parameters`);
       return res.status(400).json({ status: 'error', message: 'Missing required parameters for payment' });
+    }
+
+    const parsedAmount = parseFloat(amount);
+    const selectedMode = (paymentMode || 'Cash').trim();
+
+    // Check RBI/BillAvenue rule: Cash payment of >= 50,000 requires PAN card
+    if (parsedAmount >= 50000 && selectedMode.toUpperCase() === 'CASH' && !finalPan) {
+      console.error(`[B2B PayBill - ERROR] PAN Card missing for transaction >= ₹50,000 with Cash mode`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'PAN Card (customerPan / pan) is mandatory for Cash bill payments of ₹50,000 or above as per RBI guidelines. Alternatively, pass paymentMode as "UPI" or "Internet Banking".'
+      });
     }
 
     // Fetch agent's charge_per_bill, developer_charge, and owner_charge
@@ -604,7 +617,6 @@ export const payBill = async (req: Request, res: Response) => {
       ownerCharge = chargePerBill;
     }
 
-    const parsedAmount = parseFloat(amount);
     const totalDeduction = parsedAmount + chargePerBill;
 
     console.log(`[B2B PayBill - WALLET CHECK] Attempting to deduct ₹${totalDeduction} from agent ${agentId} wallet (Bill: ${parsedAmount} + Charge: ${chargePerBill} [Dev: ${developerCharge}, Owner: ${ownerCharge}])...`);
@@ -694,20 +706,21 @@ export const payBill = async (req: Request, res: Response) => {
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
-      console.log(`[B2B PayBill - BILLAVENUE REQ] Calling billavenue.payBill with amount ${parsedAmount}, initChannel AGT...`);
+      console.log(`[B2B PayBill - BILLAVENUE REQ] Calling billavenue.payBill with amount ${parsedAmount}, initChannel AGT, PAN: ${finalPan || 'None'}...`);
       apiResponse = await billAvenue.payBill(
         billerId,
         formattedParams,
         mobile,
         parsedAmount,
-        paymentMode || 'Cash', // paymentMode (Agent typically uses Cash/Wallet, or custom mode like UPI/Debit Card)
+        selectedMode, // paymentMode (Agent typically uses Cash/Wallet, or custom mode like UPI/Debit Card)
         'N', // quickPay
         undefined, // ccf1
         { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails
         undefined, // remitterName
         'AGT', // initChannel
         fetchRequestId, // fetchRequestId
-        billavenueAgentId
+        billavenueAgentId,
+        finalPan || undefined // customerPan
       );
       console.log(`[B2B PayBill - BILLAVENUE SUCCESS] Response received:`, JSON.stringify(apiResponse.json));
     } catch (payErr: any) {

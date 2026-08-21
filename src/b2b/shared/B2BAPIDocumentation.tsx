@@ -619,6 +619,7 @@ export default function B2BAPIDocumentation() {
               { name: "paymentMode", type: "String", required: false, desc: "Payment mode: 'Cash', 'UPI', 'Internet Banking', 'Debit Card', 'Credit Card'. Default: 'Cash'. (Note: Electricity billers have 'Cash' disabled in BillAvenue, pass 'UPI' or 'Internet Banking')." },
               { name: "client_transaction_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency & tracing. If omitted, a BBPSU... ID is auto-generated." },
               { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } matching required biller parameters." },
+              { name: "customerPan", type: "String", required: false, desc: "Customer 10-digit PAN Card (e.g. 'ABCDE1234F'). MANDATORY for Cash payments of ₹50,000 or above as per RBI guidelines." },
               { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact billerResponse object returned by /fetch-bill (customerName, billAmount, dueDate, billDate)." },
               { name: "additionalInfo", type: "Array of Objects", required: false, desc: "Optional metadata array like [{ infoName: 'Remark', infoValue: 'Payment' }]." }
             ]} />

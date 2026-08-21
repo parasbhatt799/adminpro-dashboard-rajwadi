@@ -377,7 +377,8 @@ export async function payBill(
   remitterName?: string,
   initChannel: string = 'AGT',
   fetchRequestId?: string,
-  billavenueAgentId?: string
+  billavenueAgentId?: string,
+  customerPan?: string
 ): Promise<any> {
   const finalAgentId = billavenueAgentId || AGENT_ID;
   // Amount converted to paise as required
@@ -406,7 +407,7 @@ export async function payBill(
     <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>
+        <customerMobile>${customerMobile}</customerMobile>${customerPan ? `\n        <customerPan>${escapeXml(customerPan.toUpperCase())}</customerPan>` : ''}
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
