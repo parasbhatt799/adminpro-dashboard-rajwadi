@@ -208,19 +208,7 @@ export default function B2BAdminDashboard() {
           <LoadingSpinner size="lg" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-          {/* All Agents Total Wallet Balance Card */}
-          <div className="bg-gradient-to-br from-emerald-950/40 to-teal-950/40 border border-emerald-500/30 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
-            <div className="flex items-center gap-4">
-              <div className="bg-emerald-500/20 p-3.5 rounded-full text-emerald-400 border border-emerald-500/30">
-                <Wallet className="h-7 w-7" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Agents Balance</p>
-                <p className="text-2xl font-bold text-emerald-300">₹{totalAgentsBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-              </div>
-            </div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Total Earnings Card */}
           <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
             <div className="flex items-center gap-4">
