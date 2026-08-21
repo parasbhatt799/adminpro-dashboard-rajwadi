@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ShieldCheck, Activity, Settings, Save } from 'lucide-react';
+import { ShieldCheck, Activity, Settings, Save, Wallet } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
 export default function B2BAdminDashboard() {
@@ -10,6 +10,7 @@ export default function B2BAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [savingCharge, setSavingCharge] = useState(false);
   const [activeAgentsCount, setActiveAgentsCount] = useState(0);
+  const [totalAgentsBalance, setTotalAgentsBalance] = useState<number>(0);
   const [globalCharge, setGlobalCharge] = useState<string>('0');
   const [globalMaxLimit, setGlobalMaxLimit] = useState<string>('100000');
   const [globalChargeId, setGlobalChargeId] = useState<string | null>(null);
@@ -113,12 +114,21 @@ export default function B2BAdminDashboard() {
       setDeveloperEarnings(devSum);
       setOwnerEarnings(ownerSum);
 
-      const { count } = await supabase
+      // Fetch active agents count & sum of all agent wallet balances
+      const { data: agentsData } = await supabase
         .from('b2b_api_credentials')
-        .select('*', { count: 'exact', head: true })
-        .eq('is_active', true);
+        .select('wallet_balance, is_active');
         
-      setActiveAgentsCount(count || 0);
+      if (agentsData) {
+        let activeCount = 0;
+        let totalBal = 0;
+        agentsData.forEach((ag: any) => {
+          if (ag.is_active) activeCount++;
+          totalBal += parseFloat(ag.wallet_balance?.toString() || '0');
+        });
+        setActiveAgentsCount(activeCount);
+        setTotalAgentsBalance(totalBal);
+      }
 
       // Fetch global charge and max limit
       const { data: settingsData } = await supabase
@@ -180,6 +190,17 @@ export default function B2BAdminDashboard() {
           <h2 className="text-2xl font-bold text-white">API Reseller Dashboard</h2>
           <p className="text-slate-400 mt-1">Overview of your B2B API integrations.</p>
         </div>
+        
+        {/* Header Total Agents Balance Badge */}
+        <div className="bg-gradient-to-r from-emerald-900/40 to-teal-900/40 border border-emerald-500/30 rounded-2xl px-5 py-3 flex items-center gap-3.5 shadow-xl backdrop-blur-md">
+          <div className="bg-emerald-500/20 p-2.5 rounded-xl border border-emerald-400/30 text-emerald-400">
+            <Wallet className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wider">All B2B Agents Wallet Balance</p>
+            <p className="text-2xl font-black text-emerald-400">₹{totalAgentsBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -187,7 +208,19 @@ export default function B2BAdminDashboard() {
           <LoadingSpinner size="lg" />
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          {/* All Agents Total Wallet Balance Card */}
+          <div className="bg-gradient-to-br from-emerald-950/40 to-teal-950/40 border border-emerald-500/30 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
+            <div className="flex items-center gap-4">
+              <div className="bg-emerald-500/20 p-3.5 rounded-full text-emerald-400 border border-emerald-500/30">
+                <Wallet className="h-7 w-7" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total Agents Balance</p>
+                <p className="text-2xl font-bold text-emerald-300">₹{totalAgentsBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+            </div>
+          </div>
           {/* Total Earnings Card */}
           <div className="bg-emerald-950/30 border border-emerald-500/20 rounded-2xl px-6 py-6 flex flex-col justify-center gap-4 shadow-xl backdrop-blur-sm">
             <div className="flex items-center gap-4">
