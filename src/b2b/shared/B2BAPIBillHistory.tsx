@@ -613,8 +613,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         reqBody?.owner_charge ?? 
         Math.max(0, chg - devChg)
       );
-
-      const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
       const agentIdKey = log.agent_id || 'unknown';
       const info = agentMap[agentIdKey];
       const loginId = info?.b2b_login_id || agentIdKey;
@@ -664,6 +662,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const reqBody = log.request_payload || log.request_body || {};
         const resBody = log.response_payload || log.response_body || {};
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
+        const txnId = resBody?.transaction_id || 'N/A';
+        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
+        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
+          ? reqBody.customerParams[0].value 
+          : null;
         const isFailed = statusInfo.text.toLowerCase() === 'failed';
         const chargeVal = isFailed ? 0 : Number(
           (log as any).charge_deducted ?? 
@@ -776,6 +779,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const reqBody = log.request_payload || log.request_body || {};
         const resBody = log.response_payload || log.response_body || {};
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
+        const txnId = resBody?.transaction_id || 'N/A';
+        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
+        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
+          ? reqBody.customerParams[0].value 
+          : null;
         const isFailed = statusInfo.text.toLowerCase() === 'failed';
         const chargeVal = isFailed ? 0 : Number(
           (log as any).charge_deducted ?? 
