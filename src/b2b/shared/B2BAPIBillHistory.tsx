@@ -20,6 +20,9 @@ interface LogEntry {
   response_body?: any;
   status_code: number;
   payment_status?: string;
+  developer_charge?: number;
+  owner_charge?: number;
+  charge_deducted?: number;
 }
 
 export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistoryProps) {
@@ -481,12 +484,18 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     let successCount = 0;
     let successAmount = 0;
     let successCharge = 0;
+    let successDevCharge = 0;
+    let successOwnerCharge = 0;
     let pendingCount = 0;
     let pendingAmount = 0;
     let pendingCharge = 0;
+    let pendingDevCharge = 0;
+    let pendingOwnerCharge = 0;
     let failedCount = 0;
     let failedAmount = 0;
     let failedCharge = 0;
+    let failedDevCharge = 0;
+    let failedOwnerCharge = 0;
 
     filteredLogs.forEach(log => {
       const reqBody = log.request_payload || log.request_body || {};
@@ -500,26 +509,47 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
         0
       );
+      const devChg = Number(
+        log.developer_charge ?? 
+        reqBody?.developerCharge ?? 
+        reqBody?.developer_charge ?? 
+        0
+      );
+      const ownerChg = Number(
+        log.owner_charge ?? 
+        reqBody?.ownerCharge ?? 
+        reqBody?.owner_charge ?? 
+        Math.max(0, chg - devChg)
+      );
+
       const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
 
       if (statusInfo.text === 'Success') {
         successCount++;
         successAmount += amt;
         successCharge += chg;
+        successDevCharge += devChg;
+        successOwnerCharge += ownerChg;
       } else if (statusInfo.text === 'Pending') {
         pendingCount++;
         pendingAmount += amt;
         pendingCharge += chg;
+        pendingDevCharge += devChg;
+        pendingOwnerCharge += ownerChg;
       } else {
         failedCount++;
         failedAmount += amt;
         failedCharge += chg;
+        failedDevCharge += devChg;
+        failedOwnerCharge += ownerChg;
       }
     });
 
     const totalCount = filteredLogs.length;
     const totalAmount = successAmount + pendingAmount + failedAmount;
     const totalCharge = successCharge + pendingCharge + failedCharge;
+    const totalDevCharge = successDevCharge + pendingDevCharge + failedDevCharge;
+    const totalOwnerCharge = successOwnerCharge + pendingOwnerCharge + failedOwnerCharge;
 
     return {
       successCount,
@@ -533,7 +563,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       failedCharge,
       totalCount,
       totalAmount,
-      totalCharge
+      totalCharge,
+      totalDevCharge,
+      totalOwnerCharge
     };
   }, [filteredLogs]);
 
@@ -548,6 +580,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       successBills: number;
       totalVolume: number;
       totalCharge: number;
+      totalDevCharge: number;
+      totalOwnerCharge: number;
     }> = {};
 
     logs.forEach(log => {
@@ -562,6 +596,19 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
         0
       );
+      const devChg = Number(
+        log.developer_charge ?? 
+        reqBody?.developerCharge ?? 
+        reqBody?.developer_charge ?? 
+        0
+      );
+      const ownerChg = Number(
+        log.owner_charge ?? 
+        reqBody?.ownerCharge ?? 
+        reqBody?.owner_charge ?? 
+        Math.max(0, chg - devChg)
+      );
+
       const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
       const agentIdKey = log.agent_id || 'unknown';
       const info = agentMap[agentIdKey];
@@ -578,7 +625,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           totalBills: 0,
           successBills: 0,
           totalVolume: 0,
-          totalCharge: 0
+          totalCharge: 0,
+          totalDevCharge: 0,
+          totalOwnerCharge: 0
         };
       }
 
@@ -588,6 +637,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       }
       summaryMap[agentIdKey].totalVolume += amt;
       summaryMap[agentIdKey].totalCharge += chg;
+      summaryMap[agentIdKey].totalDevCharge += devChg;
+      summaryMap[agentIdKey].totalOwnerCharge += ownerChg;
     });
 
     return Object.values(summaryMap).sort((a, b) => b.totalCharge - a.totalCharge);
@@ -621,6 +672,18 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
           0
         );
+        const devChargeVal = Number(
+          log.developer_charge ?? 
+          reqBody?.developerCharge ?? 
+          reqBody?.developer_charge ?? 
+          0
+        );
+        const ownerChargeVal = Number(
+          log.owner_charge ?? 
+          reqBody?.ownerCharge ?? 
+          reqBody?.owner_charge ?? 
+          Math.max(0, chargeVal - devChargeVal)
+        );
 
         const row: Record<string, any> = {
           'S.No': idx + 1,
@@ -638,6 +701,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         row['Mobile'] = reqBody.mobile || '';
         row['Amount (₹)'] = Number(reqBody.amount || 0);
         row['Charge (₹)'] = Number(chargeVal.toFixed(2));
+        if (isAdmin) {
+          row['Dev Charge (₹)'] = Number(devChargeVal.toFixed(2));
+          row['Owner Charge (₹)'] = Number(ownerChargeVal.toFixed(2));
+        }
         row['API Txn ID'] = txnId;
         row['BBPS Ref ID'] = bbpsTxnId;
         row['Status'] = statusInfo.text;
@@ -667,6 +734,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         );
         return acc + chg;
       }, 0).toFixed(2));
+      if (isAdmin) {
+        summaryRow['Dev Charge (₹)'] = Number(stats.totalDevCharge.toFixed(2));
+        summaryRow['Owner Charge (₹)'] = Number(stats.totalOwnerCharge.toFixed(2));
+      }
       summaryRow['API Txn ID'] = '';
       summaryRow['BBPS Ref ID'] = '';
       summaryRow['Status'] = '';
@@ -674,9 +745,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       exportData.push(summaryRow);
 
       const ws = XLSX.utils.json_to_sheet(exportData);
-      ws['!cols'] = [
-        { wch: 8 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 12 }
-      ];
+      ws['!cols'] = isAdmin 
+        ? [{ wch: 8 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 12 }]
+        : [{ wch: 8 }, { wch: 22 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 12 }];
 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'API Bill Payments');
@@ -717,6 +788,19 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
           0
         );
+        const devChargeVal = Number(
+          log.developer_charge ?? 
+          reqBody?.developerCharge ?? 
+          reqBody?.developer_charge ?? 
+          0
+        );
+        const ownerChargeVal = Number(
+          log.owner_charge ?? 
+          reqBody?.ownerCharge ?? 
+          reqBody?.owner_charge ?? 
+          Math.max(0, chargeVal - devChargeVal)
+        );
+
         totalCharges += chargeVal;
 
         const row = [
@@ -732,7 +816,17 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           reqBody.billerId || 'N/A',
           primaryParam || reqBody.mobile || 'N/A',
           `₹ ${Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-          `₹ ${chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          `₹ ${chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+        );
+
+        if (isAdmin) {
+          row.push(
+            `₹ ${devChargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+            `₹ ${ownerChargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+          );
+        }
+
+        row.push(
           txnId,
           bbpsTxnId,
           statusInfo.text
@@ -743,7 +837,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
       const headers = ['#', 'Date / Time'];
       if (isAdmin) headers.push('Agent ID');
-      headers.push('Biller ID', 'Param / Mobile', 'Amount', 'Charge', 'API Txn ID', 'BBPS Txn ID', 'Status');
+      headers.push('Biller ID', 'Param / Mobile', 'Amount', 'Charge');
+      if (isAdmin) headers.push('Dev Chg', 'Owner Chg');
+      headers.push('API Txn ID', 'BBPS Txn ID', 'Status');
 
       const footerRow = [
         'TOTAL',
@@ -754,11 +850,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         '',
         '',
         `₹ ${stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-        `₹ ${totalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
-        '',
-        '',
-        ''
+        `₹ ${totalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
       );
+      if (isAdmin) {
+        footerRow.push(
+          `₹ ${stats.totalDevCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
+          `₹ ${stats.totalOwnerCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+        );
+      }
+      footerRow.push('', '', '');
 
       doc.setFontSize(14);
       doc.text('B2B API Bill Payments History Report', 14, 15);
@@ -1226,6 +1326,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   <th className="px-3 py-3">CARD / MOBILE</th>
                   <th className="px-3 py-3">Amount</th>
                   <th className="px-3 py-3 text-amber-400">Charge</th>
+                  {isAdmin && <th className="px-3 py-3 text-cyan-400">Dev Charge</th>}
+                  {isAdmin && <th className="px-3 py-3 text-purple-400">Owner Charge</th>}
                   <th className="px-3 py-3 text-slate-300">API TXN ID</th>
                   <th className="px-3 py-3 text-indigo-400">BBPS TXN ID</th>
                   <th className="px-3 py-3">Status</th>
@@ -1252,6 +1354,20 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     reqBody?.charge ?? 
                     (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
                     0
+                  );
+
+                  const devChargeVal = Number(
+                    log.developer_charge ?? 
+                    reqBody?.developerCharge ?? 
+                    reqBody?.developer_charge ?? 
+                    0
+                  );
+
+                  const ownerChargeVal = Number(
+                    log.owner_charge ?? 
+                    reqBody?.ownerCharge ?? 
+                    reqBody?.owner_charge ?? 
+                    Math.max(0, chargeVal - devChargeVal)
                   );
                   
                   return (
@@ -1302,10 +1418,26 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       </td>
 
                       <td className="px-3 py-3">
-                        <div className="font-bold text-amber-400 text-xs">
+                        <div className="font-bold text-amber-400 text-xs font-mono">
                           {chargeVal > 0 ? `₹ ${chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹ 0.00'}
                         </div>
                       </td>
+
+                      {isAdmin && (
+                        <td className="px-3 py-3">
+                          <div className="font-bold text-cyan-400 text-xs font-mono">
+                            {devChargeVal > 0 ? `₹ ${devChargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹ 0.00'}
+                          </div>
+                        </td>
+                      )}
+
+                      {isAdmin && (
+                        <td className="px-3 py-3">
+                          <div className="font-bold text-purple-400 text-xs font-mono">
+                            {ownerChargeVal > 0 ? `₹ ${ownerChargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '₹ 0.00'}
+                          </div>
+                        </td>
+                      )}
 
                       <td className="px-3 py-3 font-mono text-xs text-slate-300">
                         {txnId !== 'N/A' ? (
@@ -1462,11 +1594,25 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               0
             );
 
+            const devChargeVal = Number(
+              selectedLog.developer_charge ?? 
+              req?.developerCharge ?? 
+              req?.developer_charge ?? 
+              0
+            );
+
+            const ownerChargeVal = Number(
+              selectedLog.owner_charge ?? 
+              req?.ownerCharge ?? 
+              req?.owner_charge ?? 
+              Math.max(0, chargeVal - devChargeVal)
+            );
+
             return (
               <div className="space-y-6">
                 
                 {/* Summary Header */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                <div className={`grid grid-cols-2 ${isAdmin ? 'md:grid-cols-4 lg:grid-cols-7' : 'md:grid-cols-5'} gap-4`}>
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Bill Amount</div>
                     <div className="text-lg font-bold text-white">₹ {Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
@@ -1475,6 +1621,18 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     <div className="text-xs text-amber-500 uppercase font-bold mb-1">Service Charge</div>
                     <div className="text-lg font-bold text-amber-400">₹ {chargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
                   </div>
+                  {isAdmin && (
+                    <div className="bg-slate-900 border border-cyan-500/20 rounded-xl p-4">
+                      <div className="text-xs text-cyan-400 uppercase font-bold mb-1">Dev Charge</div>
+                      <div className="text-lg font-bold text-cyan-400">₹ {devChargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                  )}
+                  {isAdmin && (
+                    <div className="bg-slate-900 border border-purple-500/20 rounded-xl p-4">
+                      <div className="text-xs text-purple-400 uppercase font-bold mb-1">Owner Charge</div>
+                      <div className="text-lg font-bold text-purple-400">₹ {ownerChargeVal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                    </div>
+                  )}
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-emerald-500 uppercase font-bold mb-1">Total Amount</div>
                     <div className="text-lg font-bold text-emerald-400">₹ {(Number(req.amount || 0) + chargeVal).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
@@ -1638,6 +1796,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     <th className="px-4 py-3 text-center">Total Bills</th>
                     <th className="px-4 py-3 text-right">Total Volume</th>
                     <th className="px-4 py-3 text-right text-amber-400">Total Charge Collected</th>
+                    <th className="px-4 py-3 text-right text-cyan-400">Dev Charge</th>
+                    <th className="px-4 py-3 text-right text-purple-400">Owner Charge</th>
                     <th className="px-4 py-3 text-right">Action</th>
                   </tr>
                 </thead>
@@ -1668,6 +1828,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-amber-400">
                           ₹ {item.totalCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-cyan-400">
+                          ₹ {item.totalDevCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </td>
+                        <td className="px-4 py-3 text-right font-bold text-purple-400">
+                          ₹ {item.totalOwnerCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button
