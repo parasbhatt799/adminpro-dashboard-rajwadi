@@ -931,7 +931,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isAdmin ? 'md:grid-cols-4 lg:grid-cols-7' : 'lg:grid-cols-5'} gap-4`}>
         {/* Success Card */}
         <div className="bg-slate-800/90 border border-emerald-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-emerald-500/40 transition-all">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-xl group-hover:bg-emerald-500/10 transition-all"></div>
@@ -1031,6 +1031,50 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             </span>
           </div>
         </div>
+
+        {/* Dev Charges Card */}
+        {isAdmin && (
+          <div className="bg-slate-800/90 border border-cyan-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-cyan-500/40 transition-all">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-500/5 rounded-full blur-xl group-hover:bg-cyan-500/10 transition-all"></div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Dev Charges</span>
+              <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+                <Receipt className="w-5 h-5 text-cyan-400" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-cyan-400 tracking-tight mb-1">
+              ₹ {stats.totalDevCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Dev Share</span>
+              <span className="font-bold text-cyan-400 bg-cyan-500/10 px-2.5 py-0.5 rounded-full border border-cyan-500/20">
+                ₹ {(stats.totalCount > 0 ? stats.totalDevCharge / stats.totalCount : 0).toFixed(2)} / bill avg
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Owner Charges Card */}
+        {isAdmin && (
+          <div className="bg-slate-800/90 border border-purple-500/20 rounded-2xl p-5 shadow-lg relative overflow-hidden group hover:border-purple-500/40 transition-all">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-xl group-hover:bg-purple-500/10 transition-all"></div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Owner Charges</span>
+              <div className="w-9 h-9 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+                <Receipt className="w-5 h-5 text-purple-400" />
+              </div>
+            </div>
+            <div className="text-2xl font-black text-purple-400 tracking-tight mb-1">
+              ₹ {stats.totalOwnerCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </div>
+            <div className="text-xs text-slate-400 flex items-center justify-between">
+              <span>Owner Share</span>
+              <span className="font-bold text-purple-400 bg-purple-500/10 px-2.5 py-0.5 rounded-full border border-purple-500/20">
+                ₹ {(stats.totalCount > 0 ? stats.totalOwnerCharge / stats.totalCount : 0).toFixed(2)} / bill avg
+              </span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filter Controls Bar */}
