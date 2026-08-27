@@ -230,7 +230,12 @@ export default function B2BAdminWithdrawals() {
       fetchData();
     } catch (err: any) {
       console.error('Error logging withdrawal:', err);
-      toast.error(err.message || 'Failed to log withdrawal.');
+      if (err.message && err.message.includes('b2b_revenue_withdrawals_role_check')) {
+        toast.error('SQL Constraint Error: Please update the constraint in Supabase SQL Editor!');
+        alert('⚠️ Supabase SQL Constraint Error!\n\nYour existing Supabase table only allowed (\'developer\', \'owner\'). Please copy & run this query in your Supabase SQL Editor to allow \'general\' role:\n\nALTER TABLE public.b2b_revenue_withdrawals DROP CONSTRAINT IF EXISTS b2b_revenue_withdrawals_role_check;\nALTER TABLE public.b2b_revenue_withdrawals ADD CONSTRAINT b2b_revenue_withdrawals_role_check CHECK (role IN (\'developer\', \'owner\', \'general\'));');
+      } else {
+        toast.error(err.message || 'Failed to log withdrawal.');
+      }
     } finally {
       setSubmitting(false);
     }
