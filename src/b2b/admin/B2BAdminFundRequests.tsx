@@ -772,21 +772,10 @@ export default function B2BAdminFundRequests() {
                         <button
                           disabled={actionLoading}
                           onClick={() => handleAction(req.id, req.agent_id, req.amount, 'revert_approved', req.b2b_api_credentials?.wallet_balance)}
-                          className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1 inline-flex"
-                          title="Reject this request and revert credited balance"
+                          className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center justify-center"
+                          title="Reject & Revert Balance"
                         >
-                          <RotateCw className="w-3 h-3" />
-                          <span>Reject & Revert</span>
-                        </button>
-                      )}
-                      {req.status === 'rejected' && (
-                        <button
-                          disabled={actionLoading}
-                          onClick={() => handleAction(req.id, req.agent_id, req.amount, 'approve')}
-                          className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-                          title="Approve request & credit balance"
-                        >
-                          Approve
+                          <RotateCw className="w-4 h-4" />
                         </button>
                       )}
                     </td>
@@ -1096,24 +1085,12 @@ export default function B2BAdminFundRequests() {
                     </button>
                   </>
                 ) : (
-                  <>
-                    <button
-                      disabled={actionLoading}
-                      onClick={async () => {
-                        await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
-                        setSelectedProofReq(null);
-                      }}
-                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
-                    >
-                      <Check className="w-4 h-4" /> Approve & Credit Balance
-                    </button>
-                    <button
-                      onClick={() => setSelectedProofReq(null)}
-                      className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
-                    >
-                      Close
-                    </button>
-                  </>
+                  <button
+                    onClick={() => setSelectedProofReq(null)}
+                    className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
+                  >
+                    Close
+                  </button>
                 )}
               </div>
             </div>
