@@ -1271,7 +1271,7 @@ export default function App() {
           <Route path="distributors" element={(adminRole === 'full' || adminPermissions.includes('distributors')) ? <DistributorsList /> : <Navigate to="/dashboard" replace />} />
           <Route path="distributor-withdrawals" element={(adminRole === 'full' || adminPermissions.includes('distributor-withdrawals')) ? <AdminDistributorWithdrawals /> : <Navigate to="/dashboard" replace />} />
           <Route path="service-charge" element={(adminRole === 'full' || adminPermissions.includes('service-charge')) ? <ServiceChargeManagement adminRole={adminRole} /> : <Navigate to="/dashboard" replace />} />
-          <Route path="qr-payment-requests" element={(adminRole === 'full' || adminPermissions.includes('qr-payment-requests')) ? <QRPaymentRequests /> : <Navigate to="/dashboard" replace />} />
+          <Route path="qr-payment-requests" element={(adminRole === 'full' || adminPermissions.includes('qr-payment-requests')) ? <QRPaymentRequests adminRole={adminRole} adminPermissions={adminPermissions} /> : <Navigate to="/dashboard" replace />} />
           <Route path="bill-payment-requests" element={(adminRole === 'full' || adminPermissions.includes('bill-payment-requests')) ? <BillPaymentRequests /> : <Navigate to="/dashboard" replace />} />
           <Route path="payout-requests" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <PayoutManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="camlenio-payouts" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <AdminCamlenioPayoutHistory /> : <Navigate to="/dashboard" replace />} />

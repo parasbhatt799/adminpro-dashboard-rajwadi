@@ -53,6 +53,7 @@ interface AdminManagementProps {
     { id: 'qr-history', label: 'QR Tracking History' },
     { id: 'qr-master', label: 'QR Name Entry' },
     { id: 'qr-gallery', label: 'QR Gallery' },
+    { id: 'qr-pencil-edit', label: 'QR Edit (Pencil Icon)' },
     { id: 'bank-upload', label: 'Bank Upload' },
     { id: 'reason-entry', label: 'Reason entry' },
     { id: 'service-charge', label: 'Service charge' },

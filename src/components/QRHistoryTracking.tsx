@@ -60,8 +60,16 @@ interface QRHistoryItem {
   };
 }
 
-export default function QRHistoryTracking({ adminRole }: { adminRole?: string | null }) {
+export default function QRHistoryTracking({ adminRole, adminPermissions }: { adminRole?: string | null; adminPermissions?: string[] }) {
   const isFullAdmin = adminRole === 'full';
+  const savedPermissions: string[] = adminPermissions || (() => {
+    try {
+      return JSON.parse(localStorage.getItem('adminPermissions') || '[]');
+    } catch (e) {
+      return [];
+    }
+  })();
+  const canEditQRName = isFullAdmin || savedPermissions.includes('qr-pencil-edit');
   const [loading, setLoading] = useState(true);
   const [qrHistory, setQrHistory] = useState<QRHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -722,7 +730,7 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
                                 )}
                               </div>
                             </div>
-                            {isDeveloper && (
+                            {(isDeveloper || canEditQRName) && (
                               <>
                                 <button
                                   onClick={() => setEditingHistoryId(item.id)}
@@ -731,13 +739,15 @@ export default function QRHistoryTracking({ adminRole }: { adminRole?: string | 
                                 >
                                   <Pencil size={12} />
                                 </button>
-                                <button
-                                  onClick={() => deleteHistoryRow(item.id)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg opacity-0 group-hover/name:opacity-100 transition-all"
-                                  title="Delete QR History"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
+                                {isDeveloper && (
+                                  <button
+                                    onClick={() => deleteHistoryRow(item.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg opacity-0 group-hover/name:opacity-100 transition-all"
+                                    title="Delete QR History"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>

@@ -1209,7 +1209,7 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
                                 )}
                               </div>
                             </div>
-                            {isDeveloper && (
+                            {(isDeveloper || (adminRole === 'full' || adminPermissions?.includes('qr-pencil-edit'))) && (
                               <>
                                 <button
                                   onClick={() => setEditingHistoryId(item.id)}
@@ -1218,13 +1218,15 @@ export default function QRManagement({ adminRole, adminPermissions }: { adminRol
                                 >
                                   <Pencil size={12} />
                                 </button>
-                                <button
-                                  onClick={() => deleteHistoryRow(item.id)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg opacity-0 group-hover/name:opacity-100 transition-all"
-                                  title="Delete QR History"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
+                                {isDeveloper && (
+                                  <button
+                                    onClick={() => deleteHistoryRow(item.id)}
+                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg opacity-0 group-hover/name:opacity-100 transition-all"
+                                    title="Delete QR History"
+                                  >
+                                    <Trash2 size={12} />
+                                  </button>
+                                )}
                               </>
                             )}
                           </div>

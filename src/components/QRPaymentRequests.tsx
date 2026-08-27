@@ -70,7 +70,12 @@ const getTodayStr = () => {
   return localDate.toISOString().split('T')[0];
 };
 
-export default function QRPaymentRequests() {
+interface QRPaymentRequestsProps {
+  adminRole?: string;
+  adminPermissions?: string[];
+}
+
+export default function QRPaymentRequests({ adminRole, adminPermissions }: QRPaymentRequestsProps = {}) {
   const toast = useToast();
   const [requests, setRequests] = useState<QRPaymentRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -99,6 +104,19 @@ export default function QRPaymentRequests() {
   const [totalApprovedAmount, setTotalApprovedAmount] = useState(0);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const currentUserId = localStorage.getItem('userId');
+  const isDeveloper = currentUserId === '9999099999';
+  const isGodAdmin = currentUserId === '7777077377';
+
+  const savedRole = adminRole || localStorage.getItem('adminRole') || 'full';
+  const savedPermissions: string[] = adminPermissions || (() => {
+    try {
+      return JSON.parse(localStorage.getItem('adminPermissions') || '[]');
+    } catch (e) {
+      return [];
+    }
+  })();
+
+  const canEditQR = isDeveloper || isGodAdmin || savedRole === 'full' || savedPermissions.includes('qr-pencil-edit');
 
   // OCR state variables
   const [ocrState, setOcrState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -236,9 +254,6 @@ export default function QRPaymentRequests() {
       setDetectedUpi(null);
     }
   }, [selectedProof]);
-  const isDeveloper = currentUserId === '9999099999';
-  const isGodAdmin = currentUserId === '7777077377';
-  const canEditQR = isDeveloper || isGodAdmin;
   const itemsPerPage = 10;
 
   const clearFilters = () => {
