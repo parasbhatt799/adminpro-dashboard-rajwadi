@@ -167,7 +167,7 @@ export default function StatementReport() {
               charge_percentage
             ), 
             qr_history(qr_name)
-          `).in('status', ['approved', 'rejected']); 
+          `).in('status', ['approved', 'T+1 Approved', 'rejected']); 
 
           if (firmName) q = q.ilike('users_profiles.firm_name', `%${firmName}%`);
           if (exactAmount) q = q.eq('amount', Number(exactAmount));

@@ -310,7 +310,7 @@ export default function QRDistributorReport({ userId }: QRDistributorReportProps
 
   // Calculate total approved request amount
   const totalApprovedAmount = filteredRequests
-    .filter(req => req.status === 'approved')
+    .filter(req => req.status === 'approved' || req.status === 'T+1 Approved')
     .reduce((sum, req) => sum + (Number(req.amount) || 0), 0);
 
   const handleReset = () => {
@@ -330,13 +330,13 @@ export default function QRDistributorReport({ userId }: QRDistributorReportProps
       'UTR ID': req.utr_id,
       'QR Code Used': req.qr_history?.qr_name || 'N/A',
       'Amount (Rs)': Number(req.amount || 0),
-      'Profit Share (Rs)': req.status === 'approved' ? Number(req.super_distributor_share || 0) : 0,
+      'Profit Share (Rs)': (req.status === 'approved' || req.status === 'T+1 Approved') ? Number(req.super_distributor_share || 0) : 0,
       'Status': req.status.toUpperCase()
     }));
 
     // Add totals row
     const totalFilteredAmount = filteredRequests.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
-    const totalFilteredProfit = filteredRequests.reduce((sum, r) => sum + (r.status === 'approved' ? Number(r.super_distributor_share || 0) : 0), 0);
+    const totalFilteredProfit = filteredRequests.reduce((sum, r) => sum + ((r.status === 'approved' || r.status === 'T+1 Approved') ? Number(r.super_distributor_share || 0) : 0), 0);
 
     exportData.push({
       'Date': 'TOTAL',
@@ -559,7 +559,7 @@ export default function QRDistributorReport({ userId }: QRDistributorReportProps
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {req.status === 'approved' ? (
+                      {(req.status === 'approved' || req.status === 'T+1 Approved') ? (
                         <span className="text-sm font-bold text-emerald-600 flex items-center justify-center">
                           <IndianRupee size={14} className="mr-0.5" />
                           {Number(req.super_distributor_share || 0).toFixed(2)}
@@ -570,12 +570,12 @@ export default function QRDistributorReport({ userId }: QRDistributorReportProps
                     </td>
                     <td className="px-6 py-4 text-center">
                       <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
+                        (req.status === 'approved' || req.status === 'T+1 Approved') ? 'bg-emerald-50 text-emerald-600' :
                         req.status === 'rejected' ? 'bg-rose-50 text-rose-600' :
                         'bg-amber-50 text-amber-600'
                       }`}>
                         {req.status === 'pending' && <Clock size={10} />}
-                        {req.status === 'approved' && <CheckCircle2 size={10} />}
+                        {(req.status === 'approved' || req.status === 'T+1 Approved') && <CheckCircle2 size={10} />}
                         {req.status === 'rejected' && <XCircle size={10} />}
                         {req.status}
                       </span>

@@ -75,7 +75,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         const startDateTime = `${startDate}T00:00:00`;
         
         const [qrPre, billPre, bbpsPre, payoutPre, fundPre] = await Promise.all([
-          fetchAll((f, t) => supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).eq('status', 'approved').lt('created_at', startDateTime).range(f, t)),
+          fetchAll((f, t) => supabase.from('payment_submissions').select('amount, charges').eq('user_id', userId).in('status', ['approved', 'T+1 Approved']).lt('created_at', startDateTime).range(f, t)),
           fetchAll((f, t) => supabase.from('bill_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
           fetchAll((f, t) => supabase.from('bbps_submissions').select('amount, charges, status').eq('user_id', userId).in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
           fetchAll((f, t) => supabase.from('payout_submissions').select('amount, charge_amount, status').eq('user_id', userId).in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']).lt('created_at', startDateTime).range(f, t)),
@@ -126,7 +126,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             .from('payment_submissions')
             .select('*, qr_history(qr_name)')
             .eq('user_id', userId)
-            .eq('status', 'approved');
+            .in('status', ['approved', 'T+1 Approved']);
 
           if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
           if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);

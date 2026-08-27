@@ -31,7 +31,7 @@ interface QRPaymentRequest {
   super_distributor_share?: number;
   card_number: string;
   proof_url: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'T+1 Approved';
   created_at: string;
   users_profiles?: {
     name: string;
@@ -151,7 +151,9 @@ export default function QRPaymentReport() {
       query = query.neq('status', 'rejected');
 
       // Apply Filters
-      if (statusFilter !== 'all') {
+      if (statusFilter === 'approved') {
+        query = query.in('status', ['approved', 'T+1 Approved']);
+      } else if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
       }
       if (firmName) {
@@ -213,7 +215,8 @@ export default function QRPaymentReport() {
         .select(selectStr)
         .neq('status', 'rejected');
 
-      if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+      if (statusFilter === 'approved') query = query.in('status', ['approved', 'T+1 Approved']);
+      else if (statusFilter !== 'all') query = query.eq('status', statusFilter);
       if (firmName) query = query.ilike('users_profiles.firm_name', `%${firmName}%`);
       if (qrNameFilter) query = query.ilike('qr_history.qr_name', `%${qrNameFilter}%`);
       if (exactAmount) query = query.eq('amount', Number(exactAmount));
@@ -792,7 +795,7 @@ export default function QRPaymentReport() {
                         ₹{(Number(req.amount) - Number(req.charges || 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${req.status === 'approved' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${(req.status === 'approved' || req.status === 'T+1 Approved') ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'
                           }`}>
                           {req.status}
                         </span>

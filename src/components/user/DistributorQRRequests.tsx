@@ -176,13 +176,13 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
       'UTR ID': req.utr_id,
       'QR Used': req.qr_history?.qr_name || 'N/A',
       'Amount': Number(req.amount || 0),
-      'My Profit': Number((isSD ? req.super_distributor_share : req.distributor_share) || 0),
+      'My Profit': (req.status === 'approved' || req.status === 'T+1 Approved') ? Number((isSD ? req.super_distributor_share : req.distributor_share) || 0) : 0,
       'Status': req.status.toUpperCase()
     }));
 
     // Add totals row
     const totalAmount = filteredRequests.reduce((acc, req) => acc + (Number(req.amount) || 0), 0);
-    const totalProfit = filteredRequests.reduce((acc, req) => acc + (Number(isSD ? req.super_distributor_share : req.distributor_share) || 0), 0);
+    const totalProfit = filteredRequests.reduce((acc, req) => acc + ((req.status === 'approved' || req.status === 'T+1 Approved') ? Number(isSD ? req.super_distributor_share : req.distributor_share) || 0 : 0), 0);
 
     exportData.push({
       'Date': 'TOTAL',
@@ -369,7 +369,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      {req.status === 'approved' ? (
+                      {(req.status === 'approved' || req.status === 'T+1 Approved') ? (
                         <span className="text-sm font-bold text-emerald-600 flex items-center justify-center">
                           <IndianRupee size={14} className="mr-0.5" />
                           {Number(isSD ? (req.super_distributor_share || 0) : (req.distributor_share || 0)).toFixed(2)}
@@ -433,7 +433,7 @@ export default function DistributorQRRequests({ userId }: DistributorQRRequestsP
                   <td className="px-6 py-4 text-center">
                     <span className="text-sm font-black text-emerald-700 flex items-center justify-center">
                       <IndianRupee size={14} className="mr-0.5" />
-                      {filteredRequests.reduce((acc, req) => acc + (Number(isSD ? req.super_distributor_share : req.distributor_share) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {filteredRequests.reduce((acc, req) => acc + ((req.status === 'approved' || req.status === 'T+1 Approved') ? Number(isSD ? req.super_distributor_share : req.distributor_share) || 0 : 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </td>
                   <td colSpan={2}></td>

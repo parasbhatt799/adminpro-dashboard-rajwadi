@@ -105,7 +105,7 @@ export default function AdminStatementReport() {
         users_profiles!payment_submissions_user_id_fkey!inner(name, firm_name),
         qr_history(qr_name)
       `)
-      .in('status', ['approved', 'rejected'])
+      .in('status', ['approved', 'T+1 Approved', 'rejected'])
       .order('created_at', { ascending: false });
       
       // Bill Payments (All statuses)

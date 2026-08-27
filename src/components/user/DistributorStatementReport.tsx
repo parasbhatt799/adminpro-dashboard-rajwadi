@@ -151,7 +151,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
 
         if (userProfile) {
           const targetUserId = userProfile.id;
-          const qrPreQ = supabase.from('payment_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
+          const qrPreQ = supabase.from('payment_submissions').select('amount, charges').eq('user_id', targetUserId).in('status', ['approved', 'T+1 Approved']).lt('created_at', `${startDate}T00:00:00`);
           const billPreQ = supabase.from('bill_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
           const bbpsPreQ = supabase.from('bbps_submissions').select('amount, charges').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
           const payoutPreQ = supabase.from('payout_submissions').select('amount, charge_amount').eq('user_id', targetUserId).eq('status', 'approved').lt('created_at', `${startDate}T00:00:00`);
@@ -196,7 +196,7 @@ export default function DistributorStatementReport({ userId }: { userId: string 
           ), 
           qr_history(qr_name)
         `)
-          .eq('status', 'approved');
+          .in('status', ['approved', 'T+1 Approved']);
 
         if (currentUserRole === 'super_distributor') {
           if (distIds.length > 0) {
