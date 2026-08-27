@@ -14,6 +14,7 @@ const B2BAdminDashboard = lazy(() => import('./b2b/admin/B2BAdminDashboard'));
 const CreateB2BAgent = lazy(() => import('./b2b/admin/CreateB2BAgent'));
 const B2BAdminFundRequests = lazy(() => import('./b2b/admin/B2BAdminFundRequests'));
 const B2BAdminBankAccounts = lazy(() => import('./b2b/admin/B2BAdminBankAccounts'));
+const B2BAdminWithdrawals = lazy(() => import('./b2b/admin/B2BAdminWithdrawals'));
 const B2BAPIDocumentation = lazy(() => import('./b2b/shared/B2BAPIDocumentation'));
 const B2BAdminBillHistory = lazy(() => import('./b2b/admin/B2BAdminBillHistory'));
 
@@ -1379,6 +1380,7 @@ export default function App() {
         <Route path="/b2b/admin" element={<B2BAdminLayout />}>
           <Route index element={<Navigate to="/b2b/admin/dashboard" replace />} />
           <Route path="dashboard" element={<B2BAdminDashboard />} />
+          <Route path="withdrawals" element={<B2BAdminWithdrawals />} />
           <Route path="create-agent" element={<CreateB2BAgent />} />
           <Route path="fund-requests" element={<B2BAdminFundRequests />} />
           <Route path="bank-accounts" element={<B2BAdminBankAccounts />} />

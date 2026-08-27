@@ -110,9 +110,24 @@ export default function B2BAdminDashboard() {
         ownerSum += oVal;
       });
       
-      setTotalEarnings(totalSum);
-      setDeveloperEarnings(devSum);
-      setOwnerEarnings(ownerSum);
+      // Fetch total withdrawals to compute net earnings
+      const { data: wData } = await supabase
+        .from('b2b_revenue_withdrawals')
+        .select('role, amount');
+
+      let devW = 0;
+      let ownerW = 0;
+      if (wData) {
+        wData.forEach((w: any) => {
+          const amt = Number(w.amount || 0);
+          if (w.role === 'developer') devW += amt;
+          if (w.role === 'owner') ownerW += amt;
+        });
+      }
+      
+      setTotalEarnings(totalSum - (devW + ownerW));
+      setDeveloperEarnings(devSum - devW);
+      setOwnerEarnings(ownerSum - ownerW);
 
       // Fetch active agents count & sum of all agent wallet balances
       const { data: agentsData } = await supabase
