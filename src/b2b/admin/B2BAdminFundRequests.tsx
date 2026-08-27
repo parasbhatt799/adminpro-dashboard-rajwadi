@@ -176,25 +176,68 @@ export default function B2BAdminFundRequests() {
     }
   };
 
-  const handleAction = async (requestId: string, agentId: string, amount: number, action: 'approve' | 'reject') => {
-    if (!window.confirm(`Are you sure you want to ${action} this fund request of ₹${amount}?`)) return;
+  const handleAction = async (
+    requestId: string,
+    agentId: string,
+    amount: number,
+    action: 'approve' | 'reject' | 'revert_approved',
+    currentBalance?: number
+  ) => {
+    if (action === 'revert_approved') {
+      let warning = '';
+      if (typeof currentBalance === 'number' && currentBalance < amount) {
+        warning = `\n\n⚠️ WARNING: Agent's current balance (₹${currentBalance.toLocaleString('en-IN')}) is less than the request amount (₹${amount.toLocaleString('en-IN')}). Reverting will result in a negative balance of ₹${(currentBalance - amount).toLocaleString('en-IN')}.`;
+      }
+
+      if (!window.confirm(`Are you sure you want to REJECT this previously approved request of ₹${amount.toLocaleString('en-IN')}?\n\nThis action will DEDUCT / REVERT ₹${amount.toLocaleString('en-IN')} from the agent's wallet balance.${warning}`)) {
+        return;
+      }
+
+      try {
+        setActionLoading(true);
+        // Deduct/revert balance atomically (-amount)
+        const { data: success, error: rpcError } = await supabase.rpc('add_b2b_wallet_balance', {
+          p_agent_id: agentId,
+          p_amount: -amount
+        });
+
+        if (rpcError || !success) throw rpcError || new Error('Failed to revert balance');
+
+        await supabase
+          .from('b2b_fund_requests')
+          .update({ status: 'rejected', updated_at: new Date().toISOString() })
+          .eq('id', requestId);
+
+        toast.success(`Fund request rejected & ₹${amount.toLocaleString('en-IN')} balance reverted successfully!`);
+        fetchRequests();
+      } catch (err) {
+        console.error('Error reverting request:', err);
+        toast.error('Failed to revert fund request and balance');
+      } finally {
+        setActionLoading(false);
+      }
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to ${action} this fund request of ₹${amount.toLocaleString('en-IN')}?`)) return;
 
     try {
+      setActionLoading(true);
       if (action === 'approve') {
-        // Atomic balance update
+        // Atomic balance update (+amount)
         const { data: success, error: rpcError } = await supabase.rpc('add_b2b_wallet_balance', {
           p_agent_id: agentId,
           p_amount: amount
         });
 
         if (rpcError || !success) throw rpcError || new Error('Failed to update balance');
-        
+
         await supabase
           .from('b2b_fund_requests')
           .update({ status: 'approved', updated_at: new Date().toISOString() })
           .eq('id', requestId);
 
-        toast.success(`Fund request of ₹${amount} approved successfully!`);
+        toast.success(`Fund request of ₹${amount.toLocaleString('en-IN')} approved successfully!`);
       } else {
         await supabase
           .from('b2b_fund_requests')
@@ -203,11 +246,13 @@ export default function B2BAdminFundRequests() {
 
         toast.success(`Fund request rejected.`);
       }
-      
+
       fetchRequests();
     } catch (err) {
       console.error('Error processing request:', err);
       toast.error('Failed to process request');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -708,18 +753,41 @@ export default function B2BAdminFundRequests() {
                       {req.status === 'pending' && (
                         <>
                           <button
+                            disabled={actionLoading}
                             onClick={() => handleAction(req.id, req.agent_id, req.amount, 'approve')}
-                            className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
                           >
                             Approve
                           </button>
                           <button
+                            disabled={actionLoading}
                             onClick={() => handleAction(req.id, req.agent_id, req.amount, 'reject')}
-                            className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
                           >
                             Reject
                           </button>
                         </>
+                      )}
+                      {req.status === 'approved' && (
+                        <button
+                          disabled={actionLoading}
+                          onClick={() => handleAction(req.id, req.agent_id, req.amount, 'revert_approved', req.b2b_api_credentials?.wallet_balance)}
+                          className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1 inline-flex"
+                          title="Reject this request and revert credited balance"
+                        >
+                          <RotateCw className="w-3 h-3" />
+                          <span>Reject & Revert</span>
+                        </button>
+                      )}
+                      {req.status === 'rejected' && (
+                        <button
+                          disabled={actionLoading}
+                          onClick={() => handleAction(req.id, req.agent_id, req.amount, 'approve')}
+                          className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                          title="Approve request & credit balance"
+                        >
+                          Approve
+                        </button>
                       )}
                     </td>
                   </tr>
@@ -977,9 +1045,7 @@ export default function B2BAdminFundRequests() {
                     <button
                       disabled={actionLoading}
                       onClick={async () => {
-                        setActionLoading(true);
                         await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'reject');
-                        setActionLoading(false);
                         setSelectedProofReq(null);
                       }}
                       className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
@@ -993,9 +1059,7 @@ export default function B2BAdminFundRequests() {
                         <button
                           disabled={actionLoading || ocrState === 'loading' || !isOcrPassed}
                           onClick={async () => {
-                            setActionLoading(true);
                             await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
-                            setActionLoading(false);
                             setSelectedProofReq(null);
                           }}
                           title={!isOcrPassed ? 'OCR Verification failed or pending. Check Bypass OCR box to enable.' : ''}
@@ -1006,13 +1070,50 @@ export default function B2BAdminFundRequests() {
                       );
                     })()}
                   </>
+                ) : selectedProofReq.status === 'approved' ? (
+                  <>
+                    <button
+                      disabled={actionLoading}
+                      onClick={async () => {
+                        await handleAction(
+                          selectedProofReq.id,
+                          selectedProofReq.agent_id,
+                          selectedProofReq.amount,
+                          'revert_approved',
+                          selectedProofReq.b2b_api_credentials?.wallet_balance
+                        );
+                        setSelectedProofReq(null);
+                      }}
+                      className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                    >
+                      <RotateCw className="w-4 h-4" /> Reject & Revert Balance
+                    </button>
+                    <button
+                      onClick={() => setSelectedProofReq(null)}
+                      className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
+                    >
+                      Close
+                    </button>
+                  </>
                 ) : (
-                  <button
-                    onClick={() => setSelectedProofReq(null)}
-                    className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
-                  >
-                    Close
-                  </button>
+                  <>
+                    <button
+                      disabled={actionLoading}
+                      onClick={async () => {
+                        await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
+                        setSelectedProofReq(null);
+                      }}
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                    >
+                      <Check className="w-4 h-4" /> Approve & Credit Balance
+                    </button>
+                    <button
+                      onClick={() => setSelectedProofReq(null)}
+                      className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
+                    >
+                      Close
+                    </button>
+                  </>
                 )}
               </div>
             </div>
