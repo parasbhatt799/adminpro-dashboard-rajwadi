@@ -215,7 +215,7 @@ export default function B2BAdminDashboard() {
           </div>
           <div>
             <p className="text-[11px] font-extrabold text-emerald-300 uppercase tracking-wider">All B2B Agents Wallet Balance</p>
-            <p className="text-2xl font-black text-emerald-400">₹{totalAgentsBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            <p className="text-xl font-bold text-emerald-400 truncate">₹{totalAgentsBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
         </div>
       </div>
@@ -234,7 +234,7 @@ export default function B2BAdminDashboard() {
               </div>
               <div>
                 <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-1">Total API Revenue</p>
-                <p className="text-2xl font-bold text-emerald-300">₹{totalEarnings.toFixed(2)}</p>
+                <p className="text-xl font-bold text-emerald-300 truncate">₹{totalEarnings.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -247,7 +247,7 @@ export default function B2BAdminDashboard() {
               </div>
               <div>
                 <p className="text-xs font-bold text-blue-400 uppercase tracking-wider mb-1">Developer Share Total</p>
-                <p className="text-2xl font-bold text-blue-300">₹{developerEarnings.toFixed(2)}</p>
+                <p className="text-xl font-bold text-blue-300 truncate">₹{developerEarnings.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -260,7 +260,7 @@ export default function B2BAdminDashboard() {
               </div>
               <div>
                 <p className="text-xs font-bold text-purple-400 uppercase tracking-wider mb-1">Owner Share Total</p>
-                <p className="text-2xl font-bold text-purple-300">₹{ownerEarnings.toFixed(2)}</p>
+                <p className="text-xl font-bold text-purple-300 truncate">₹{ownerEarnings.toFixed(2)}</p>
               </div>
             </div>
           </div>

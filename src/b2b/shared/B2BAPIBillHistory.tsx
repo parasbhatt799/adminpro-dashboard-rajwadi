@@ -946,7 +946,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <CheckCircle2 className="w-5 h-5 text-emerald-400" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white tracking-tight mb-1">
+          <div className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1 truncate">
             ₹ {stats.successAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-slate-400 flex items-center justify-between">
@@ -966,7 +966,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <Clock className="w-5 h-5 text-amber-400" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white tracking-tight mb-1">
+          <div className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1 truncate">
             ₹ {stats.pendingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-slate-400 flex items-center justify-between">
@@ -986,7 +986,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <XCircle className="w-5 h-5 text-rose-400" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white tracking-tight mb-1">
+          <div className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1 truncate">
             ₹ {stats.failedAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-slate-400 flex items-center justify-between">
@@ -1006,7 +1006,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <CreditCard className="w-5 h-5 text-indigo-400" />
             </div>
           </div>
-          <div className="text-2xl font-black text-white tracking-tight mb-1">
+          <div className="text-lg sm:text-xl font-bold text-white tracking-tight mb-1 truncate">
             ₹ {stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-slate-400 flex items-center justify-between">
@@ -1026,7 +1026,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <Receipt className="w-5 h-5 text-amber-400" />
             </div>
           </div>
-          <div className="text-2xl font-black text-amber-400 tracking-tight mb-1">
+          <div className="text-lg sm:text-xl font-bold text-amber-400 tracking-tight mb-1 truncate">
             ₹ {stats.totalCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-xs text-slate-400 flex items-center justify-between">
@@ -1047,7 +1047,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 <Receipt className="w-5 h-5 text-cyan-400" />
               </div>
             </div>
-            <div className="text-2xl font-black text-cyan-400 tracking-tight mb-1">
+            <div className="text-lg sm:text-xl font-bold text-cyan-400 tracking-tight mb-1 truncate">
               ₹ {stats.totalDevCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
             <div className="text-xs text-slate-400 flex items-center justify-between">
@@ -1069,7 +1069,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 <Receipt className="w-5 h-5 text-purple-400" />
               </div>
             </div>
-            <div className="text-2xl font-black text-purple-400 tracking-tight mb-1">
+            <div className="text-lg sm:text-xl font-bold text-purple-400 tracking-tight mb-1 truncate">
               ₹ {stats.totalOwnerCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </div>
             <div className="text-xs text-slate-400 flex items-center justify-between">

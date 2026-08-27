@@ -309,7 +309,7 @@ export default function B2BAdminWithdrawals() {
                   <ShieldCheck className="w-6 h-6" />
                 </div>
               </div>
-              <div className="text-3xl font-black text-emerald-300 tracking-tight mb-2">
+              <div className="text-lg sm:text-xl font-bold text-emerald-300 tracking-tight mb-2 truncate">
                 ₹ {netTotalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="text-xs text-slate-400 flex items-center justify-between border-t border-emerald-500/20 pt-3 mt-1">
@@ -329,7 +329,7 @@ export default function B2BAdminWithdrawals() {
                   <Activity className="w-6 h-6" />
                 </div>
               </div>
-              <div className="text-3xl font-black text-blue-300 tracking-tight mb-2">
+              <div className="text-lg sm:text-xl font-bold text-blue-300 tracking-tight mb-2 truncate">
                 ₹ {netDeveloperBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="text-xs text-slate-400 flex items-center justify-between border-t border-blue-500/20 pt-3 mt-1">
@@ -349,7 +349,7 @@ export default function B2BAdminWithdrawals() {
                   <Wallet className="w-6 h-6" />
                 </div>
               </div>
-              <div className="text-3xl font-black text-purple-300 tracking-tight mb-2">
+              <div className="text-lg sm:text-xl font-bold text-purple-300 tracking-tight mb-2 truncate">
                 ₹ {netOwnerBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>
               <div className="text-xs text-slate-400 flex items-center justify-between border-t border-purple-500/20 pt-3 mt-1">
