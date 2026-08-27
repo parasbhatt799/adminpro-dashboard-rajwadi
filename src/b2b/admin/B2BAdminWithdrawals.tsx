@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, ShieldCheck, Activity, ArrowUpRight, Crown, User, PlusCircle, History, Search, FileSpreadsheet, FileText, Trash2, Clock } from 'lucide-react';
+import { Wallet, ShieldCheck, Activity, ArrowUpRight, Crown, User, PlusCircle, History, Search, Trash2, Clock, Landmark } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { format } from 'date-fns';
 
@@ -19,7 +19,7 @@ export default function B2BAdminWithdrawals() {
   const [withdrawals, setWithdrawals] = useState<any[]>([]);
 
   // Form State
-  const [selectedRole, setSelectedRole] = useState<'developer' | 'owner'>('developer');
+  const [selectedRole, setSelectedRole] = useState<'developer' | 'owner' | 'general'>('general');
   const [amount, setAmount] = useState<string>('');
   const [remark, setRemark] = useState<string>('');
 
@@ -152,24 +152,46 @@ export default function B2BAdminWithdrawals() {
     }
   };
 
-  // Calculate Withdrawn Totals
-  const { totalDevWithdrawn, totalOwnerWithdrawn } = useMemo(() => {
+  // Calculate Withdrawn Totals by Category
+  const { totalDevWithdrawn, totalOwnerWithdrawn, totalGeneralWithdrawn } = useMemo(() => {
     let devW = 0;
     let ownerW = 0;
+    let genW = 0;
 
     withdrawals.forEach((w) => {
       const amt = Number(w.amount || 0);
       if (w.role === 'developer') devW += amt;
-      if (w.role === 'owner') ownerW += amt;
+      else if (w.role === 'owner') ownerW += amt;
+      else genW += amt; // 'general' or any other
     });
 
-    return { totalDevWithdrawn: devW, totalOwnerWithdrawn: ownerW };
+    return {
+      totalDevWithdrawn: devW,
+      totalOwnerWithdrawn: ownerW,
+      totalGeneralWithdrawn: genW
+    };
   }, [withdrawals]);
 
   // Calculated Net Balances
   const netDeveloperBalance = grossDeveloperEarnings - totalDevWithdrawn;
   const netOwnerBalance = grossOwnerEarnings - totalOwnerWithdrawn;
-  const netTotalRevenue = grossTotalRevenue - (totalDevWithdrawn + totalOwnerWithdrawn);
+  const totalAllWithdrawn = totalDevWithdrawn + totalOwnerWithdrawn + totalGeneralWithdrawn;
+  const netTotalRevenue = grossTotalRevenue - totalAllWithdrawn;
+
+  // Available balance for currently selected radio option
+  const availableBalForSelected =
+    selectedRole === 'developer'
+      ? netDeveloperBalance
+      : selectedRole === 'owner'
+      ? netOwnerBalance
+      : netTotalRevenue;
+
+  const roleLabel =
+    selectedRole === 'developer'
+      ? 'Developer Share'
+      : selectedRole === 'owner'
+      ? 'Owner Share'
+      : 'Total Net API Revenue';
 
   // Submit Withdrawal Entry
   const handleSubmitWithdrawal = async (e: React.FormEvent) => {
@@ -181,15 +203,12 @@ export default function B2BAdminWithdrawals() {
       return;
     }
 
-    const availableBal = selectedRole === 'developer' ? netDeveloperBalance : netOwnerBalance;
-    const roleLabel = selectedRole === 'developer' ? 'Developer' : 'Owner';
-
     let warningText = '';
-    if (numAmount > availableBal) {
-      warningText = `\n\n⚠️ WARNING: Requested amount (₹${numAmount.toLocaleString('en-IN')}) is greater than available ${roleLabel} balance (₹${availableBal.toLocaleString('en-IN')}). Net balance will become negative!`;
+    if (numAmount > availableBalForSelected) {
+      warningText = `\n\n⚠️ WARNING: Requested amount (₹${numAmount.toLocaleString('en-IN')}) is greater than available ${roleLabel} balance (₹${availableBalForSelected.toLocaleString('en-IN')}). Balance will become negative!`;
     }
 
-    if (!window.confirm(`Are you sure you want to log a withdrawal of ₹${numAmount.toLocaleString('en-IN')} for ${roleLabel}?${warningText}`)) {
+    if (!window.confirm(`Are you sure you want to log a withdrawal of ₹${numAmount.toLocaleString('en-IN')} from [ ${roleLabel} ]?${warningText}`)) {
       return;
     }
 
@@ -205,13 +224,13 @@ export default function B2BAdminWithdrawals() {
 
       if (error) throw error;
 
-      toast.success(`Withdrawal of ₹${numAmount.toLocaleString('en-IN')} for ${roleLabel} logged successfully!`);
+      toast.success(`Withdrawal of ₹${numAmount.toLocaleString('en-IN')} for [ ${roleLabel} ] logged successfully!`);
       setAmount('');
       setRemark('');
       fetchData();
     } catch (err: any) {
       console.error('Error logging withdrawal:', err);
-      toast.error(err.message || 'Failed to log withdrawal. Ensure b2b_revenue_withdrawals table exists.');
+      toast.error(err.message || 'Failed to log withdrawal.');
     } finally {
       setSubmitting(false);
     }
@@ -219,8 +238,14 @@ export default function B2BAdminWithdrawals() {
 
   // Delete Withdrawal Entry
   const handleDeleteWithdrawal = async (id: string, role: string, amt: number) => {
-    const roleLabel = role === 'developer' ? 'Developer' : 'Owner';
-    if (!window.confirm(`Are you sure you want to delete this withdrawal entry of ₹${amt.toLocaleString('en-IN')} for ${roleLabel}? This will RESTORE the balance.`)) {
+    const rLabel =
+      role === 'developer'
+        ? 'Developer Share'
+        : role === 'owner'
+        ? 'Owner Share'
+        : 'Total Net API Revenue';
+
+    if (!window.confirm(`Are you sure you want to delete this withdrawal entry of ₹${amt.toLocaleString('en-IN')} for [ ${rLabel} ]? This will RESTORE the balance.`)) {
       return;
     }
 
@@ -232,7 +257,7 @@ export default function B2BAdminWithdrawals() {
 
       if (error) throw error;
 
-      toast.success(`Withdrawal entry deleted and ₹${amt.toLocaleString('en-IN')} restored to ${roleLabel} balance!`);
+      toast.success(`Withdrawal entry deleted and ₹${amt.toLocaleString('en-IN')} restored to balance!`);
       fetchData();
     } catch (err: any) {
       console.error('Error deleting withdrawal:', err);
@@ -259,7 +284,7 @@ export default function B2BAdminWithdrawals() {
             <ArrowUpRight className="h-6 w-6 text-indigo-400" />
             Revenue Withdrawals
           </h2>
-          <p className="text-slate-400">Directly deduct and log payouts for Developer & Owner earnings.</p>
+          <p className="text-slate-400">Directly deduct payouts from Total API Revenue, Developer Share, or Owner Share.</p>
         </div>
       </div>
 
@@ -271,7 +296,7 @@ export default function B2BAdminWithdrawals() {
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Total Net API Revenue */}
+            {/* Total Net API Revenue Card */}
             <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-2xl p-6 shadow-xl backdrop-blur-md relative overflow-hidden group">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-xs font-black text-emerald-400 uppercase tracking-wider">Total Net API Revenue</span>
@@ -284,7 +309,7 @@ export default function B2BAdminWithdrawals() {
               </div>
               <div className="text-xs text-slate-400 flex items-center justify-between border-t border-emerald-500/20 pt-3 mt-1">
                 <span>Gross: <strong className="text-slate-200">₹{grossTotalRevenue.toLocaleString('en-IN')}</strong></span>
-                <span>Withdrawn: <strong className="text-emerald-400">₹{(totalDevWithdrawn + totalOwnerWithdrawn).toLocaleString('en-IN')}</strong></span>
+                <span>Total Withdrawn: <strong className="text-emerald-400">₹{totalAllWithdrawn.toLocaleString('en-IN')}</strong></span>
               </div>
             </div>
 
@@ -337,12 +362,42 @@ export default function B2BAdminWithdrawals() {
             </h3>
 
             <form onSubmit={handleSubmitWithdrawal} className="space-y-5">
-              {/* Radio Selection */}
+              {/* Radio Selection: 3 Options */}
               <div>
                 <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">
-                  Select Payout Account
+                  Select Payout Account / Target
                 </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Total Net API Revenue Option */}
+                  <label
+                    className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
+                      selectedRole === 'general'
+                        ? 'bg-emerald-950/50 border-emerald-500 text-white shadow-lg shadow-emerald-500/10'
+                        : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:border-slate-600'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      value="general"
+                      checked={selectedRole === 'general'}
+                      onChange={() => setSelectedRole('general')}
+                      className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-emerald-300">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                          Total Net API Revenue
+                        </span>
+                      </div>
+                      <div className="text-xs font-mono text-emerald-400 font-bold mt-1">
+                        Bal: ₹{netTotalRevenue.toLocaleString('en-IN')}
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Deducts ONLY from Total Net API Revenue</span>
+                    </div>
+                  </label>
+
                   {/* Developer Option */}
                   <label
                     className={`flex items-center gap-3 p-4 rounded-xl border cursor-pointer transition-all ${
@@ -361,15 +416,15 @@ export default function B2BAdminWithdrawals() {
                     />
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm flex items-center gap-1.5 text-blue-300">
-                          <User className="w-4 h-4 text-blue-400" />
+                        <span className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-blue-300">
+                          <User className="w-4 h-4 text-blue-400 shrink-0" />
                           Developer Share
                         </span>
-                        <span className="text-xs font-mono text-blue-400 font-bold">
-                          Bal: ₹{netDeveloperBalance.toLocaleString('en-IN')}
-                        </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 block mt-0.5">Deducts directly from Developer Earnings & API Revenue</span>
+                      <div className="text-xs font-mono text-blue-400 font-bold mt-1">
+                        Bal: ₹{netDeveloperBalance.toLocaleString('en-IN')}
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Deducts from Developer Share & Revenue</span>
                     </div>
                   </label>
 
@@ -391,15 +446,15 @@ export default function B2BAdminWithdrawals() {
                     />
                     <div className="flex-1">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-sm flex items-center gap-1.5 text-purple-300">
-                          <Crown className="w-4 h-4 text-purple-400" />
+                        <span className="font-bold text-xs sm:text-sm flex items-center gap-1.5 text-purple-300">
+                          <Crown className="w-4 h-4 text-purple-400 shrink-0" />
                           Owner Share
                         </span>
-                        <span className="text-xs font-mono text-purple-400 font-bold">
-                          Bal: ₹{netOwnerBalance.toLocaleString('en-IN')}
-                        </span>
                       </div>
-                      <span className="text-[11px] text-slate-400 block mt-0.5">Deducts directly from Owner Earnings & API Revenue</span>
+                      <div className="text-xs font-mono text-purple-400 font-bold mt-1">
+                        Bal: ₹{netOwnerBalance.toLocaleString('en-IN')}
+                      </div>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Deducts from Owner Share & Revenue</span>
                     </div>
                   </label>
                 </div>
@@ -431,7 +486,7 @@ export default function B2BAdminWithdrawals() {
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Personal payout / Server bill payment"
+                    placeholder="e.g. Server costs / Personal withdrawal"
                     value={remark}
                     onChange={(e) => setRemark(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -483,7 +538,7 @@ export default function B2BAdminWithdrawals() {
                   <thead className="bg-slate-950/60 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-800">
                     <tr>
                       <th className="px-6 py-3">Date & Time</th>
-                      <th className="px-6 py-3">Account Type</th>
+                      <th className="px-6 py-3">Target Account</th>
                       <th className="px-6 py-3">Withdrawn Amount</th>
                       <th className="px-6 py-3">Remark / Note</th>
                       <th className="px-6 py-3 text-right">Actions</th>
@@ -499,11 +554,15 @@ export default function B2BAdminWithdrawals() {
                         <td className="px-6 py-4">
                           {w.role === 'developer' ? (
                             <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20 inline-flex items-center gap-1">
-                              <User className="w-3.5 h-3.5" /> Developer
+                              <User className="w-3.5 h-3.5" /> Developer Share
+                            </span>
+                          ) : w.role === 'owner' ? (
+                            <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 inline-flex items-center gap-1">
+                              <Crown className="w-3.5 h-3.5" /> Owner Share
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20 inline-flex items-center gap-1">
-                              <Crown className="w-3.5 h-3.5" /> Owner
+                            <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 inline-flex items-center gap-1">
+                              <ShieldCheck className="w-3.5 h-3.5" /> Total Net API Revenue
                             </span>
                           )}
                         </td>

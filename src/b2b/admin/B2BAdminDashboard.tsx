@@ -117,15 +117,17 @@ export default function B2BAdminDashboard() {
 
       let devW = 0;
       let ownerW = 0;
+      let genW = 0;
       if (wData) {
         wData.forEach((w: any) => {
           const amt = Number(w.amount || 0);
           if (w.role === 'developer') devW += amt;
-          if (w.role === 'owner') ownerW += amt;
+          else if (w.role === 'owner') ownerW += amt;
+          else genW += amt;
         });
       }
       
-      setTotalEarnings(totalSum - (devW + ownerW));
+      setTotalEarnings(totalSum - (devW + ownerW + genW));
       setDeveloperEarnings(devSum - devW);
       setOwnerEarnings(ownerSum - ownerW);
 

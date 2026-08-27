@@ -1,7 +1,7 @@
 -- Create b2b_revenue_withdrawals table
 CREATE TABLE IF NOT EXISTS public.b2b_revenue_withdrawals (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    role TEXT NOT NULL CHECK (role IN ('developer', 'owner')),
+    role TEXT NOT NULL CHECK (role IN ('developer', 'owner', 'general')),
     amount NUMERIC NOT NULL CHECK (amount > 0),
     remark TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
