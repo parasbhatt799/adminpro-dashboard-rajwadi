@@ -14,8 +14,18 @@ import { playMogoSound } from '../../lib/audio';
 
 const getUtrOrTxnId = (item: any): string => {
   if (!item) return 'N/A';
+  
+  // Prioritize CC01 B-Connect Transaction Reference ID if available
+  if (item.rejection_reason && String(item.rejection_reason).startsWith('CC01')) return item.rejection_reason;
+  if (item.metadata?.txnRefId && String(item.metadata.txnRefId).startsWith('CC01')) return item.metadata.txnRefId;
+  if (item.metadata?.txnid && String(item.metadata.txnid).startsWith('CC01')) return item.metadata.txnid;
+  if (item.metadata?.bConnectTxnId && String(item.metadata.bConnectTxnId).startsWith('CC01')) return item.metadata.bConnectTxnId;
+  if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
+  if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
+
+  // Fallback to rejection_reason or transaction_id if not BA- placeholder
+  if (item.rejection_reason && item.rejection_reason !== 'N/A' && !String(item.rejection_reason).startsWith('BA-')) return item.rejection_reason;
   if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
-  if (item.rejection_reason && item.rejection_reason !== 'N/A') return item.rejection_reason;
   if (item.metadata?.txnid) return item.metadata.txnid;
   if (item.metadata?.rrn) return item.metadata.rrn;
   if (item.metadata?.reference) return item.metadata.reference;
