@@ -29,15 +29,18 @@ const getUtrOrTxnId = (item: any): string => {
   if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
   if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
-  // Fallback to rejection_reason or transaction_id if not BA- placeholder
-  if (item.rejection_reason && item.rejection_reason !== 'N/A' && !String(item.rejection_reason).startsWith('BA-')) return item.rejection_reason;
+  // Show available transaction / reference ID even if pending
   if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
+  if (item.rejection_reason && item.rejection_reason !== 'N/A') return item.rejection_reason;
   if (item.metadata?.txnid) return item.metadata.txnid;
+  if (item.metadata?.bConnectTxnId) return item.metadata.bConnectTxnId;
+  if (item.metadata?.txnRefId) return item.metadata.txnRefId;
   if (item.metadata?.rrn) return item.metadata.rrn;
   if (item.metadata?.reference) return item.metadata.reference;
   if (item.metadata?.utr) return item.metadata.utr;
   if (item.metadata?.billerResponse?.txnid) return item.metadata.billerResponse.txnid;
   if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
+  if (item.metadata?.idempotencyKey) return item.metadata.idempotencyKey;
   return 'N/A';
 };
 
