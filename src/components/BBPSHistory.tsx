@@ -18,10 +18,7 @@ import {
   Phone,
   Loader2,
   CheckCircle2,
-  XCircle,
-  CreditCard,
-  Hash,
-  Filter
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -94,47 +91,24 @@ const getTodayStr = () => {
 
 const getUtrOrTxnId = (item: any): string => {
   if (!item) return 'N/A';
+  
+  // Prioritize CC01 B-Connect Transaction Reference ID if available
+  if (item.rejection_reason && String(item.rejection_reason).startsWith('CC01')) return item.rejection_reason;
+  if (item.metadata?.txnRefId && String(item.metadata.txnRefId).startsWith('CC01')) return item.metadata.txnRefId;
+  if (item.metadata?.txnid && String(item.metadata.txnid).startsWith('CC01')) return item.metadata.txnid;
+  if (item.metadata?.bConnectTxnId && String(item.metadata.bConnectTxnId).startsWith('CC01')) return item.metadata.bConnectTxnId;
+  if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
+  if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
-  // 1. Thoroughly search for ANY property value starting with 'CC01' in item or nested metadata
-  const findCC01 = (obj: any, depth = 0): string | null => {
-    if (!obj || depth > 4) return null;
-    if (typeof obj === 'string') {
-      const trimmed = obj.trim();
-      if (trimmed.startsWith('CC01')) return trimmed;
-    } else if (typeof obj === 'object') {
-      for (const key of Object.keys(obj)) {
-        const res = findCC01(obj[key], depth + 1);
-        if (res) return res;
-      }
-    }
-    return null;
-  };
-
-  const cc01Match = findCC01(item);
-  if (cc01Match) return cc01Match;
-
-  // 2. Helper to validate any valid non-empty ID (includes BA- request IDs / rejection reasons)
-  const isValidTxnId = (val: any): boolean => {
-    if (!val) return false;
-    const str = String(val).trim();
-    if (!str || str === 'N/A' || str === 'null' || str === 'undefined') return false;
-    return true;
-  };
-
-  // Check bConnectTxnId, txnRefId, rejection_reason, transaction_id, requestId, etc.
-  if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId).trim();
-  if (isValidTxnId(item.metadata?.txnRefId)) return String(item.metadata.txnRefId).trim();
-  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason).trim();
-  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id).trim();
-  if (isValidTxnId(item.metadata?.requestId)) return String(item.metadata.requestId).trim();
-  if (isValidTxnId(item.metadata?.txnid)) return String(item.metadata.txnid).trim();
-  if (isValidTxnId(item.metadata?.rrn)) return String(item.metadata.rrn).trim();
-  if (isValidTxnId(item.metadata?.reference)) return String(item.metadata.reference).trim();
-  if (isValidTxnId(item.metadata?.utr)) return String(item.metadata.utr).trim();
-  if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId).trim();
-  if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid).trim();
-  if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid).trim();
-
+  // Fallback to rejection_reason or transaction_id if not BA- placeholder
+  if (item.rejection_reason && item.rejection_reason !== 'N/A' && !String(item.rejection_reason).startsWith('BA-')) return item.rejection_reason;
+  if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
+  if (item.metadata?.txnid) return item.metadata.txnid;
+  if (item.metadata?.rrn) return item.metadata.rrn;
+  if (item.metadata?.reference) return item.metadata.reference;
+  if (item.metadata?.utr) return item.metadata.utr;
+  if (item.metadata?.billerResponse?.txnid) return item.metadata.billerResponse.txnid;
+  if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
   return 'N/A';
 };
 
@@ -147,9 +121,6 @@ export default function BBPSHistory() {
   const [loading, setLoading] = useState(true);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [utrFilter, setUtrFilter] = useState('');
-  const [consumerNoFilter, setConsumerNoFilter] = useState('');
-  const [mobileFilter, setMobileFilter] = useState('');
   const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'failed'>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('today');
@@ -161,28 +132,6 @@ export default function BBPSHistory() {
 
   const [selectedUserProfile, setSelectedUserProfile] = useState<any | null>(null);
   const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
-  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
-
-  const handleCheckPendingStatus = async (item: BBPSTransaction) => {
-    const utr = getUtrOrTxnId(item);
-    const refId = (utr && utr !== 'N/A') ? utr : (item.rejection_reason || item.metadata?.requestId || item.transaction_id);
-
-    if (!refId || refId === 'N/A') {
-      alert("No valid Transaction ID / Reference ID available to check status.");
-      return;
-    }
-
-    setCheckingStatusId(item.id);
-    try {
-      const trackType = String(refId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
-      await fetch(`/api/bbps/status?requestId=${encodeURIComponent(refId)}&trackType=${trackType}`);
-      await fetchTransactions(true);
-    } catch (err) {
-      console.error("Error checking pending status:", err);
-    } finally {
-      setCheckingStatusId(null);
-    }
-  };
 
   const handleViewUserProfile = async (userId: string, profileObj?: any) => {
     if (!userId) return;
@@ -253,9 +202,6 @@ export default function BBPSHistory() {
 
   const clearFilters = () => {
     setSearchQuery('');
-    setUtrFilter('');
-    setConsumerNoFilter('');
-    setMobileFilter('');
     setFilter('all');
     setCategoryFilter('all');
     setDateFilter('today');
@@ -332,6 +278,11 @@ export default function BBPSHistory() {
           .from('bbps_submissions')
           .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
+        // Apply Status Filter
+        if (filter !== 'all') {
+          query = query.eq('status', filter);
+        }
+
         // Apply Search Filter (on user firm/name or biller details)
         if (searchQuery.trim()) {
           const term = searchQuery.trim();
@@ -379,9 +330,9 @@ export default function BBPSHistory() {
       let data = allData;
       let error = fetchError;
 
-      // Fallback: If DB query failed, fetch base rows
-      if (error) {
-        console.warn('DB search/filter query failed, using base fallback:', error);
+      // Fallback: If DB search query failed, fetch base filtered rows in chunks
+      if (error && searchQuery.trim()) {
+        console.warn('DB search query failed, using client-side search fallback:', error);
         let fallbackAll: any[] = [];
         let fbFrom = 0;
         let fbHasMore = true;
@@ -391,6 +342,8 @@ export default function BBPSHistory() {
             .from('bbps_submissions')
             .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
+          if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
+          if (categoryFilter !== 'all') fallbackQuery = fallbackQuery.eq('service_type', categoryFilter);
           if (startDate) {
             const [y, m, d] = startDate.split('-').map(Number);
             fallbackQuery = fallbackQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
@@ -422,158 +375,43 @@ export default function BBPSHistory() {
         }
       }
 
-      let enrichedData = data || [];
+      // Filter locally for categoryFilter and search query for 100% precision
+      let filteredData = data || [];
 
-      // 2. Fetch billavenue_transactions in batches (newest first) to enrich CC01 UTRs & statuses
-      try {
-        let baTxns: any[] = [];
-        let baFrom = 0;
-        const baStep = 1000;
-        let baHasMore = true;
-
-        while (baHasMore) {
-          let baQuery = supabase
-            .from('billavenue_transactions')
-            .select('id, request_id, txn_ref_id, status, customer_mobile, amount, response, created_at');
-
-          if (startDate) {
-            const [y, m, d] = startDate.split('-').map(Number);
-            baQuery = baQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
-          }
-          if (endDate) {
-            const [y, m, d] = endDate.split('-').map(Number);
-            baQuery = baQuery.lte('created_at', new Date(y, m - 1, d, 23, 59, 59, 999).toISOString());
-          }
-
-          const { data: chunk, error: baErr } = await baQuery
-            .order('created_at', { ascending: false })
-            .range(baFrom, baFrom + baStep - 1);
-
-          if (baErr || !chunk || chunk.length === 0) {
-            baHasMore = false;
-          } else {
-            baTxns = baTxns.concat(chunk);
-            if (chunk.length < baStep) {
-              baHasMore = false;
-            } else {
-              baFrom += baStep;
-            }
-          }
-        }
-
-        if (baTxns && baTxns.length > 0) {
-          const baReqMap = new Map<string, any>();
-          const baTxnRefMap = new Map<string, any>();
-          const baMobileAmountMap = new Map<string, any[]>();
-
-          baTxns.forEach(ba => {
-            if (ba.request_id) {
-              const reqStr = String(ba.request_id).trim();
-              baReqMap.set(reqStr, ba);
-              if (reqStr.startsWith('BA-')) {
-                baReqMap.set(reqStr.substring(3), ba);
-              }
-            }
-            if (ba.txn_ref_id && ba.txn_ref_id !== 'N/A') {
-              const refStr = String(ba.txn_ref_id).trim();
-              baTxnRefMap.set(refStr, ba);
-              if (refStr.startsWith('BA-')) {
-                baTxnRefMap.set(refStr.substring(3), ba);
-              }
-            }
-            if (ba.response && typeof ba.response === 'object') {
-              const res = ba.response;
-              const req = res?.requestId || res?.request_id;
-              const ref = res?.ExtBillPayResponse?.txnRefId || res?.extBillPayResponse?.txnRefId || res?.billPayResponse?.txnRefId || res?.txnRefId;
-              if (req) {
-                const reqS = String(req).trim();
-                baReqMap.set(reqS, ba);
-                if (reqS.startsWith('BA-')) baReqMap.set(reqS.substring(3), ba);
-              }
-              if (ref && ref !== 'N/A') {
-                const refS = String(ref).trim();
-                baTxnRefMap.set(refS, ba);
-                if (refS.startsWith('BA-')) baTxnRefMap.set(refS.substring(3), ba);
-              }
-            }
-          });
-
-          enrichedData = enrichedData.map(item => {
-            let baMatch: any = null;
-
-            // Strict Level 1: Match strictly by request_id, transaction_id, or txn_ref_id
-            if (item.metadata?.requestId) {
-              const reqId = String(item.metadata.requestId).trim();
-              baMatch = baReqMap.get(reqId) || (reqId.startsWith('BA-') ? baReqMap.get(reqId.substring(3)) : null);
-            }
-            if (!baMatch && item.rejection_reason && item.rejection_reason !== 'N/A') {
-              const rStr = String(item.rejection_reason).trim();
-              baMatch = baReqMap.get(rStr) || baTxnRefMap.get(rStr);
-              if (!baMatch && rStr.startsWith('BA-')) {
-                baMatch = baReqMap.get(rStr.substring(3)) || baTxnRefMap.get(rStr.substring(3));
-              }
-            }
-            if (!baMatch && item.transaction_id && item.transaction_id !== 'N/A') {
-              const tStr = String(item.transaction_id).trim();
-              baMatch = baReqMap.get(tStr) || baTxnRefMap.get(tStr);
-              if (!baMatch && tStr.startsWith('BA-')) {
-                baMatch = baReqMap.get(tStr.substring(3)) || baTxnRefMap.get(tStr.substring(3));
-              }
-            }
-            if (!baMatch && item.metadata?.txnRefId && item.metadata.txnRefId !== 'N/A') {
-              const refId = String(item.metadata.txnRefId).trim();
-              baMatch = baTxnRefMap.get(refId) || baReqMap.get(refId);
-            }
-            if (!baMatch && item.metadata?.bConnectTxnId && item.metadata.bConnectTxnId !== 'N/A') {
-              const bId = String(item.metadata.bConnectTxnId).trim();
-              baMatch = baTxnRefMap.get(bId) || baReqMap.get(bId);
-            }
-
-            if (baMatch) {
-              const updatedMeta = { ...item.metadata };
-              let updatedRejReason = item.rejection_reason;
-
-              const baTxnRefVal = baMatch.txn_ref_id || baMatch.rrn || baMatch.utr || baMatch.biller_approval_code || baMatch.response?.billPayResponse?.txnRefId || baMatch.response?.ExtBillPayResponse?.txnRefId;
-              if (baTxnRefVal && baTxnRefVal !== 'N/A' && !String(baTxnRefVal).startsWith('BA-')) {
-                const refStr = String(baTxnRefVal).trim();
-                updatedMeta.bConnectTxnId = refStr;
-                updatedMeta.txnRefId = refStr;
-                if (!updatedRejReason || updatedRejReason === 'N/A' || String(updatedRejReason).startsWith('BA-')) {
-                  updatedRejReason = refStr;
-                }
-              }
-
-              let updatedStatus = item.status;
-              if (baMatch.status === 'success' || baMatch.status === 'approved') {
-                updatedStatus = 'approved';
-              } else if (baMatch.status === 'failed' || baMatch.status === 'rejected') {
-                updatedStatus = 'rejected';
-              }
-
-              return {
-                ...item,
-                status: updatedStatus,
-                rejection_reason: updatedRejReason,
-                metadata: updatedMeta
-              };
-            }
-            return item;
-          });
-        }
-      } catch (enrichErr) {
-        console.warn('Enrichment with billavenue_transactions failed:', enrichErr);
-      }
-
-      // Calculate Stats over all Category-matched items before applying status/search filters
-      let categoryMatchedData = enrichedData;
       if (categoryFilter !== 'all') {
-        categoryMatchedData = categoryMatchedData.filter(item => {
+        filteredData = filteredData.filter(item => {
           const catInfo = getCategoryGatewayInfo(item);
           return catInfo.key === categoryFilter;
         });
       }
 
-      const statsObj = categoryMatchedData.reduce((acc, curr) => {
+      if (searchQuery.trim()) {
+        const term = searchQuery.toLowerCase().trim();
+        filteredData = filteredData.filter(item => {
+          const firmName = (item.users_profiles?.firm_name || '').toLowerCase();
+          const userName = (item.users_profiles?.name || '').toLowerCase();
+          const mobile = ((item.users_profiles as any)?.mobile_number || '').toLowerCase();
+          const consumerNo = (item.consumer_number || '').toLowerCase();
+          const provider = (item.provider || '').toLowerCase();
+          const txId = (getUtrOrTxnId(item)).toLowerCase();
+          const serviceType = (item.service_type || '').toLowerCase();
+          const consumerDetailsStr = item.metadata?.consumerDetails ? JSON.stringify(item.metadata.consumerDetails).toLowerCase() : '';
+
+          return firmName.includes(term) ||
+            userName.includes(term) ||
+            mobile.includes(term) ||
+            consumerNo.includes(term) ||
+            provider.includes(term) ||
+            txId.includes(term) ||
+            serviceType.includes(term) ||
+            consumerDetailsStr.includes(term);
+        });
+      }
+
+      setTransactions(filteredData);
+
+      // Calculate Stats
+      const statsObj = filteredData.reduce((acc, curr) => {
         const amt = Number(curr.amount) || 0;
         const chg = Number(curr.charges) || 0;
         const total = amt + chg;
@@ -625,79 +463,6 @@ export default function BBPSHistory() {
       });
 
       setStats(statsObj);
-
-      // Now apply local filters for table display
-      let filteredData = categoryMatchedData;
-
-      // Filter locally for status for 100% precision
-      if (filter !== 'all') {
-        filteredData = filteredData.filter(item => {
-          const st = (item.status || '').toLowerCase();
-          if (filter === 'approved') return st === 'approved' || st === 'success' || st === 'successful';
-          if (filter === 'pending') return st === 'pending' || st === 'processing';
-          if (filter === 'failed') return st === 'failed' || st === 'rejected' || st === 'refunded';
-          return true;
-        });
-      }
-
-      // Filter by Transaction UTR Filter
-      if (utrFilter.trim()) {
-        const uTerm = utrFilter.toLowerCase().trim();
-        filteredData = filteredData.filter(item => {
-          const utr = (getUtrOrTxnId(item)).toLowerCase();
-          const rejReason = (item.rejection_reason || '').toLowerCase();
-          const txnId = (item.transaction_id || '').toLowerCase();
-          const bConnId = (item.metadata?.bConnectTxnId || '').toLowerCase();
-          const refId = (item.metadata?.txnRefId || '').toLowerCase();
-          return utr.includes(uTerm) || rejReason.includes(uTerm) || txnId.includes(uTerm) || bConnId.includes(uTerm) || refId.includes(uTerm);
-        });
-      }
-
-      // Filter by Consumer Number / Card Number Filter
-      if (consumerNoFilter.trim()) {
-        const cTerm = consumerNoFilter.toLowerCase().trim();
-        filteredData = filteredData.filter(item => {
-          const consumerNo = (item.consumer_number || '').toLowerCase();
-          const detailsList = getConsumerDetailsList(item).map(d => String(d).toLowerCase());
-          return consumerNo.includes(cTerm) || detailsList.some(d => d.includes(cTerm));
-        });
-      }
-
-      // Filter by Customer Mobile Number Filter
-      if (mobileFilter.trim()) {
-        const mTerm = mobileFilter.toLowerCase().trim();
-        filteredData = filteredData.filter(item => {
-          const mob = (getCustomerMobileNumber(item)).toLowerCase();
-          const userMob = ((item.users_profiles as any)?.mobile_number || '').toLowerCase();
-          return mob.includes(mTerm) || userMob.includes(mTerm);
-        });
-      }
-
-      // Filter locally for general search query
-      if (searchQuery.trim()) {
-        const term = searchQuery.toLowerCase().trim();
-        filteredData = filteredData.filter(item => {
-          const firmName = (item.users_profiles?.firm_name || '').toLowerCase();
-          const userName = (item.users_profiles?.name || '').toLowerCase();
-          const mobile = (getCustomerMobileNumber(item)).toLowerCase();
-          const consumerNo = (item.consumer_number || '').toLowerCase();
-          const provider = (item.provider || '').toLowerCase();
-          const txId = (getUtrOrTxnId(item)).toLowerCase();
-          const serviceType = (item.service_type || '').toLowerCase();
-          const consumerDetailsStr = item.metadata?.consumerDetails ? JSON.stringify(item.metadata.consumerDetails).toLowerCase() : '';
-
-          return firmName.includes(term) ||
-            userName.includes(term) ||
-            mobile.includes(term) ||
-            consumerNo.includes(term) ||
-            provider.includes(term) ||
-            txId.includes(term) ||
-            serviceType.includes(term) ||
-            consumerDetailsStr.includes(term);
-        });
-      }
-
-      setTransactions(filteredData);
 
       // Fetch admin list if not present
       if (Object.keys(adminMap).length === 0) {
@@ -855,11 +620,11 @@ export default function BBPSHistory() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [filter, categoryFilter, searchQuery, startDate, endDate, utrFilter, consumerNoFilter, mobileFilter]);
+  }, [filter, categoryFilter, searchQuery, startDate, endDate]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filter, categoryFilter, searchQuery, startDate, endDate, utrFilter, consumerNoFilter, mobileFilter]);
+  }, [filter, categoryFilter, searchQuery, startDate, endDate]);
 
   const handlePrint = () => {
     window.print();
@@ -1175,7 +940,6 @@ export default function BBPSHistory() {
 
       {/* Filter and Query bar */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
-        {/* Row 1: Dropdown Filters & General Search */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
           {/* Quick Filters */}
           <div className="flex items-center gap-3 flex-wrap">
@@ -1241,99 +1005,23 @@ export default function BBPSHistory() {
 
             <button
               onClick={clearFilters}
-              className="px-3 py-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-2xs"
+              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white cursor-pointer"
               title="Clear All Filters"
             >
-              <RotateCcw size={15} />
-              <span>Reset</span>
+              <RotateCcw size={18} />
             </button>
           </div>
 
-          {/* General Search bar */}
+          {/* Search bar */}
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
-              placeholder="Search Firm, Name, Operator..."
+              placeholder="Search Firm, Name, Operator, Consumer No..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-8 py-2 h-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              className="w-full pl-10 pr-4 py-2 h-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
             />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Row 2: 3 Dedicated Specific Filters (UTR, Card/Consumer No, Mobile Number) */}
-        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {/* Filter 1: Transaction UTR */}
-          <div className="relative">
-            <Receipt className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500" size={15} />
-            <input
-              type="text"
-              placeholder="Filter by Transaction UTR / CC01..."
-              value={utrFilter}
-              onChange={(e) => setUtrFilter(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 h-10 bg-indigo-50/40 border border-indigo-100 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-            />
-            {utrFilter && (
-              <button
-                type="button"
-                onClick={() => setUtrFilter('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Filter 2: Card Number / Consumer Number */}
-          <div className="relative">
-            <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={15} />
-            <input
-              type="text"
-              placeholder="Filter by Card / Consumer Number..."
-              value={consumerNoFilter}
-              onChange={(e) => setConsumerNoFilter(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 h-10 bg-emerald-50/40 border border-emerald-100 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
-            />
-            {consumerNoFilter && (
-              <button
-                type="button"
-                onClick={() => setConsumerNoFilter('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {/* Filter 3: Customer Mobile Number */}
-          <div className="relative">
-            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500" size={15} />
-            <input
-              type="text"
-              placeholder="Filter by Customer Mobile..."
-              value={mobileFilter}
-              onChange={(e) => setMobileFilter(e.target.value)}
-              className="w-full pl-9 pr-8 py-2 h-10 bg-amber-50/40 border border-amber-100 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
-            />
-            {mobileFilter && (
-              <button
-                type="button"
-                onClick={() => setMobileFilter('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-              >
-                <X size={14} />
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -1492,31 +1180,13 @@ export default function BBPSHistory() {
 
                     {/* Status */}
                     <td className="px-6 py-4 text-center">
-                      <div className="flex flex-col items-center justify-center gap-1.5">
-                        <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                          item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                          item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                          'bg-rose-50 text-rose-600 border border-rose-100'
-                        }`}>
-                          {item.status === 'approved' ? 'Success' : item.status}
-                        </span>
-                        {item.status === 'pending' && (
-                          <button
-                            type="button"
-                            onClick={() => handleCheckPendingStatus(item)}
-                            disabled={checkingStatusId === item.id}
-                            className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
-                            title="Check Live Status with Gateway & Update Database"
-                          >
-                            {checkingStatusId === item.id ? (
-                              <Loader2 size={10} className="animate-spin text-indigo-600" />
-                            ) : (
-                              <RotateCcw size={10} />
-                            )}
-                            Check Status
-                          </button>
-                        )}
-                      </div>
+                      <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                        item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                        item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                        'bg-rose-50 text-rose-600 border border-rose-100'
+                      }`}>
+                        {item.status === 'approved' ? 'Success' : item.status}
+                      </span>
                     </td>
 
                     {/* Print Action */}

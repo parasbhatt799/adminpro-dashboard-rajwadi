@@ -3376,67 +3376,61 @@ async function startServer() {
       }
       const response = await billAvenue.getTransactionStatus(requestId as string, trackType as string);
 
-      const statusResponse = response.json?.transactionStatusResp || response.json?.transactionStatusResponse || response.json?.transactionStatusRes;
+      const statusResponse = response.json?.transactionStatusResp || response.json?.transactionStatusResponse;
       if (statusResponse) {
-        const txnList = Array.isArray(statusResponse.txnList) ? statusResponse.txnList[0] : statusResponse.txnList;
-        const rawStatus = (txnList?.txnStatus || statusResponse.status || '').toLowerCase();
-        const txnRefId = txnList?.txnReferenceId || statusResponse.txnRefId || (requestId as string);
-
+        const txnStatus = statusResponse.status?.toLowerCase();
         let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
         let mappedSubmissionStatus = 'pending';
 
-        if (rawStatus === 'success' || rawStatus === 'approved') {
+        if (txnStatus === 'success' || txnStatus === 'approved') {
           mappedStatus = 'success';
           mappedSubmissionStatus = 'approved';
-        } else if (rawStatus === 'failed' || rawStatus === 'failure' || rawStatus === 'rejected') {
+        } else if (txnStatus === 'failed' || txnStatus === 'rejected') {
           mappedStatus = 'failed';
           mappedSubmissionStatus = 'rejected';
         }
 
-        // 1. Update billavenue_transactions table (matching by request_id OR txn_ref_id)
+        const { data: existingSubmission } = await supabaseAdmin
+          .from("bbps_submissions")
+          .select("id, status, user_id, metadata")
+          .eq("metadata->>requestId", requestId)
+          .maybeSingle();
+
         await supabaseAdmin
           .from("billavenue_transactions")
           .update({
-            txn_ref_id: txnRefId,
+            txn_ref_id: statusResponse.txnRefId,
             status: mappedStatus,
             response: response.json
           })
-          .or(`request_id.eq.${requestId},txn_ref_id.eq.${requestId},txn_ref_id.eq.${txnRefId}`);
+          .eq("request_id", requestId);
 
-        // 2. Update matching bbps_submissions table and handle refund if failed
-        const { data: existingSubmissions } = await supabaseAdmin
-          .from("bbps_submissions")
-          .select("id, status, user_id, amount, charges, metadata")
-          .or(`metadata->>requestId.eq.${requestId},rejection_reason.eq.${requestId},rejection_reason.eq.${txnRefId},metadata->>txnRefId.eq.${requestId},metadata->>bConnectTxnId.eq.${requestId},transaction_id.eq.${requestId}`);
+        if (existingSubmission) {
+          await supabaseAdmin
+            .from("bbps_submissions")
+            .update({
+              status: mappedSubmissionStatus,
+              rejection_reason: statusResponse.txnRefId || requestId
+            })
+            .eq("id", existingSubmission.id);
 
-        if (existingSubmissions && existingSubmissions.length > 0) {
-          for (const existingSubmission of existingSubmissions) {
-            await supabaseAdmin
-              .from("bbps_submissions")
-              .update({
-                status: mappedSubmissionStatus,
-                rejection_reason: txnRefId
-              })
-              .eq("id", existingSubmission.id);
+          if (existingSubmission.status === 'pending' && mappedSubmissionStatus === 'rejected') {
+            const totalDeducted = existingSubmission.metadata?.totalDeducted;
+            if (totalDeducted && typeof totalDeducted === 'number') {
+              const { data: userProfile } = await supabaseAdmin
+                .from("users_profiles")
+                .select("wallet_balance")
+                .eq("id", existingSubmission.user_id)
+                .single();
 
-            if (existingSubmission.status === 'pending' && mappedSubmissionStatus === 'rejected') {
-              const totalDeducted = existingSubmission.metadata?.totalDeducted || (Number(existingSubmission.amount) + Number(existingSubmission.charges || 0));
-              if (totalDeducted && typeof totalDeducted === 'number' && totalDeducted > 0) {
-                const { data: userProfile } = await supabaseAdmin
+              if (userProfile) {
+                const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
+                await supabaseAdmin
                   .from("users_profiles")
-                  .select("wallet_balance")
-                  .eq("id", existingSubmission.user_id)
-                  .single();
+                  .update({ wallet_balance: refundedBalance })
+                  .eq("id", existingSubmission.user_id);
 
-                if (userProfile) {
-                  const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
-                  await supabaseAdmin
-                    .from("users_profiles")
-                    .update({ wallet_balance: refundedBalance })
-                    .eq("id", existingSubmission.user_id);
-
-                  console.log(`[BillAvenue Status] Refunded ₹${totalDeducted} to user ${existingSubmission.user_id} for failed pending transaction ${requestId}`);
-                }
+                console.log(`[BillAvenue Status] Refunded ₹${totalDeducted} to user ${existingSubmission.user_id} for failed pending transaction ${requestId}`);
               }
             }
           }

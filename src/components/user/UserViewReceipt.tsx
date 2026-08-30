@@ -14,47 +14,24 @@ import { playMogoSound } from '../../lib/audio';
 
 const getUtrOrTxnId = (item: any): string => {
   if (!item) return 'N/A';
+  
+  // Prioritize CC01 B-Connect Transaction Reference ID if available
+  if (item.rejection_reason && String(item.rejection_reason).startsWith('CC01')) return item.rejection_reason;
+  if (item.metadata?.txnRefId && String(item.metadata.txnRefId).startsWith('CC01')) return item.metadata.txnRefId;
+  if (item.metadata?.txnid && String(item.metadata.txnid).startsWith('CC01')) return item.metadata.txnid;
+  if (item.metadata?.bConnectTxnId && String(item.metadata.bConnectTxnId).startsWith('CC01')) return item.metadata.bConnectTxnId;
+  if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
+  if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
-  // 1. Thoroughly search for ANY property value starting with 'CC01' in item or nested metadata
-  const findCC01 = (obj: any, depth = 0): string | null => {
-    if (!obj || depth > 4) return null;
-    if (typeof obj === 'string') {
-      const trimmed = obj.trim();
-      if (trimmed.startsWith('CC01')) return trimmed;
-    } else if (typeof obj === 'object') {
-      for (const key of Object.keys(obj)) {
-        const res = findCC01(obj[key], depth + 1);
-        if (res) return res;
-      }
-    }
-    return null;
-  };
-
-  const cc01Match = findCC01(item);
-  if (cc01Match) return cc01Match;
-
-  // 2. Helper to validate any valid non-empty ID (includes BA- request IDs / rejection reasons)
-  const isValidTxnId = (val: any): boolean => {
-    if (!val) return false;
-    const str = String(val).trim();
-    if (!str || str === 'N/A' || str === 'null' || str === 'undefined') return false;
-    return true;
-  };
-
-  // Check bConnectTxnId, txnRefId, rejection_reason, transaction_id, requestId, etc.
-  if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId).trim();
-  if (isValidTxnId(item.metadata?.txnRefId)) return String(item.metadata.txnRefId).trim();
-  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason).trim();
-  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id).trim();
-  if (isValidTxnId(item.metadata?.requestId)) return String(item.metadata.requestId).trim();
-  if (isValidTxnId(item.metadata?.txnid)) return String(item.metadata.txnid).trim();
-  if (isValidTxnId(item.metadata?.rrn)) return String(item.metadata.rrn).trim();
-  if (isValidTxnId(item.metadata?.reference)) return String(item.metadata.reference).trim();
-  if (isValidTxnId(item.metadata?.utr)) return String(item.metadata.utr).trim();
-  if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId).trim();
-  if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid).trim();
-  if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid).trim();
-
+  // Fallback to rejection_reason or transaction_id if not BA- placeholder
+  if (item.rejection_reason && item.rejection_reason !== 'N/A' && !String(item.rejection_reason).startsWith('BA-')) return item.rejection_reason;
+  if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
+  if (item.metadata?.txnid) return item.metadata.txnid;
+  if (item.metadata?.rrn) return item.metadata.rrn;
+  if (item.metadata?.reference) return item.metadata.reference;
+  if (item.metadata?.utr) return item.metadata.utr;
+  if (item.metadata?.billerResponse?.txnid) return item.metadata.billerResponse.txnid;
+  if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
   return 'N/A';
 };
 
