@@ -23,18 +23,26 @@ const getUtrOrTxnId = (item: any): string => {
   if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
   if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
-  // Show available transaction / reference ID even if pending
-  if (item.transaction_id && item.transaction_id !== 'N/A') return item.transaction_id;
-  if (item.rejection_reason && item.rejection_reason !== 'N/A') return item.rejection_reason;
-  if (item.metadata?.txnid) return item.metadata.txnid;
-  if (item.metadata?.bConnectTxnId) return item.metadata.bConnectTxnId;
-  if (item.metadata?.txnRefId) return item.metadata.txnRefId;
-  if (item.metadata?.rrn) return item.metadata.rrn;
-  if (item.metadata?.reference) return item.metadata.reference;
-  if (item.metadata?.utr) return item.metadata.utr;
-  if (item.metadata?.billerResponse?.txnid) return item.metadata.billerResponse.txnid;
-  if (item.metadata?.rawFetchData?.txnid) return item.metadata.rawFetchData.txnid;
-  if (item.metadata?.idempotencyKey) return item.metadata.idempotencyKey;
+  // Helper to validate real UTR / Txn ID (excludes BA- internal idempotency keys)
+  const isValidTxnId = (val: any): boolean => {
+    if (!val) return false;
+    const str = String(val).trim();
+    if (!str || str === 'N/A' || str.startsWith('BA-')) return false;
+    return true;
+  };
+
+  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id);
+  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason);
+  if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId);
+  if (isValidTxnId(item.metadata?.txnRefId)) return String(item.metadata.txnRefId);
+  if (isValidTxnId(item.metadata?.txnid)) return String(item.metadata.txnid);
+  if (isValidTxnId(item.metadata?.rrn)) return String(item.metadata.rrn);
+  if (isValidTxnId(item.metadata?.reference)) return String(item.metadata.reference);
+  if (isValidTxnId(item.metadata?.utr)) return String(item.metadata.utr);
+  if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId);
+  if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid);
+  if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid);
+
   return 'N/A';
 };
 
