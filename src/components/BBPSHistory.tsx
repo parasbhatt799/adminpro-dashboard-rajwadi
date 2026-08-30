@@ -423,7 +423,7 @@ export default function BBPSHistory() {
 
       let enrichedData = data || [];
 
-      // 2. Fetch billavenue_transactions in batches (newest first) to enrich CC01 UTRs & statuses strictly by ID
+      // 2. Fetch billavenue_transactions in batches (newest first) to enrich CC01 UTRs & statuses
       try {
         let baTxns: any[] = [];
         let baFrom = 0;
@@ -433,7 +433,7 @@ export default function BBPSHistory() {
         while (baHasMore) {
           const { data: chunk, error: baErr } = await supabase
             .from('billavenue_transactions')
-            .select('id, request_id, txn_ref_id, status, response')
+            .select('id, request_id, txn_ref_id, status, customer_mobile, amount, response')
             .order('id', { ascending: false })
             .range(baFrom, baFrom + baStep - 1);
 
@@ -452,6 +452,7 @@ export default function BBPSHistory() {
         if (baTxns && baTxns.length > 0) {
           const baReqMap = new Map<string, any>();
           const baTxnRefMap = new Map<string, any>();
+          const baMobileAmountMap = new Map<string, any[]>();
 
           baTxns.forEach(ba => {
             if (ba.request_id) {
@@ -468,10 +469,19 @@ export default function BBPSHistory() {
                 baTxnRefMap.set(refStr.substring(3), ba);
               }
             }
+            if (ba.customer_mobile && ba.amount) {
+              const mob = String(ba.customer_mobile).trim();
+              const amt = Math.round(Number(ba.amount));
+              const key = `${mob}_${amt}`;
+              if (!baMobileAmountMap.has(key)) baMobileAmountMap.set(key, []);
+              baMobileAmountMap.get(key)!.push(ba);
+            }
           });
 
           enrichedData = enrichedData.map(item => {
             let baMatch: any = null;
+
+            // Level 1: Match strictly by request_id or txn_ref_id
             if (item.metadata?.requestId) {
               const reqId = String(item.metadata.requestId).trim();
               baMatch = baReqMap.get(reqId) || (reqId.startsWith('BA-') ? baReqMap.get(reqId.substring(3)) : null);
@@ -491,11 +501,26 @@ export default function BBPSHistory() {
               }
             }
 
+            // Level 2 Fallback: Match by customer mobile + transaction amount
+            if (!baMatch) {
+              const mob = getCustomerMobileNumber(item) || (item.users_profiles as any)?.mobile_number;
+              const amt = Math.round(Number(item.amount));
+              if (mob && amt) {
+                const mobClean = String(mob).trim();
+                const candidates = baMobileAmountMap.get(`${mobClean}_${amt}`);
+                if (candidates && candidates.length > 0) {
+                  baMatch = candidates.find(c => c.txn_ref_id && c.txn_ref_id !== 'N/A' && String(c.txn_ref_id).startsWith('CC01'))
+                    || candidates.find(c => c.txn_ref_id && c.txn_ref_id !== 'N/A')
+                    || candidates[0];
+                }
+              }
+            }
+
             if (baMatch) {
               const updatedMeta = { ...item.metadata };
               let updatedRejReason = item.rejection_reason;
 
-              const baTxnRefVal = baMatch.txn_ref_id || baMatch.rrn || baMatch.utr || baMatch.biller_approval_code || baMatch.response?.billPayResponse?.txnRefId;
+              const baTxnRefVal = baMatch.txn_ref_id || baMatch.rrn || baMatch.utr || baMatch.biller_approval_code || baMatch.response?.billPayResponse?.txnRefId || baMatch.response?.ExtBillPayResponse?.txnRefId;
               if (baTxnRefVal && baTxnRefVal !== 'N/A' && !String(baTxnRefVal).startsWith('BA-')) {
                 const refStr = String(baTxnRefVal).trim();
                 updatedMeta.bConnectTxnId = refStr;
