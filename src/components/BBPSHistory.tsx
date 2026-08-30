@@ -320,18 +320,6 @@ export default function BBPSHistory() {
           .from('bbps_submissions')
           .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
-      // Fetch all records in batches of 1000 to bypass Supabase PostgREST default 1000-row limit
-      let allData: any[] = [];
-      let from = 0;
-      const step = 1000;
-      let hasMore = true;
-      let fetchError: any = null;
-
-      while (hasMore) {
-        let query = supabase
-          .from('bbps_submissions')
-          .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
-
         // Apply Search Filter (on user firm/name or biller details)
         if (searchQuery.trim()) {
           const term = searchQuery.trim();
