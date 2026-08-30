@@ -33,26 +33,27 @@ const getUtrOrTxnId = (item: any): string => {
   const cc01Match = findCC01(item);
   if (cc01Match) return cc01Match;
 
-  // 2. Helper to validate real UTR / Txn ID (excludes BA- internal request IDs)
+  // 2. Helper to validate any valid non-empty ID (includes BA- request IDs / rejection reasons)
   const isValidTxnId = (val: any): boolean => {
     if (!val) return false;
     const str = String(val).trim();
-    if (!str || str === 'N/A' || str.startsWith('BA-')) return false;
+    if (!str || str === 'N/A' || str === 'null' || str === 'undefined') return false;
     return true;
   };
 
-  // Check any other valid non-BA UTR / Ref ID
-  if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId);
-  if (isValidTxnId(item.metadata?.txnRefId)) return String(item.metadata.txnRefId);
-  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason);
-  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id);
-  if (isValidTxnId(item.metadata?.txnid)) return String(item.metadata.txnid);
-  if (isValidTxnId(item.metadata?.rrn)) return String(item.metadata.rrn);
-  if (isValidTxnId(item.metadata?.reference)) return String(item.metadata.reference);
-  if (isValidTxnId(item.metadata?.utr)) return String(item.metadata.utr);
-  if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId);
-  if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid);
-  if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid);
+  // Check bConnectTxnId, txnRefId, rejection_reason, transaction_id, requestId, etc.
+  if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId).trim();
+  if (isValidTxnId(item.metadata?.txnRefId)) return String(item.metadata.txnRefId).trim();
+  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason).trim();
+  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id).trim();
+  if (isValidTxnId(item.metadata?.requestId)) return String(item.metadata.requestId).trim();
+  if (isValidTxnId(item.metadata?.txnid)) return String(item.metadata.txnid).trim();
+  if (isValidTxnId(item.metadata?.rrn)) return String(item.metadata.rrn).trim();
+  if (isValidTxnId(item.metadata?.reference)) return String(item.metadata.reference).trim();
+  if (isValidTxnId(item.metadata?.utr)) return String(item.metadata.utr).trim();
+  if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId).trim();
+  if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid).trim();
+  if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid).trim();
 
   return 'N/A';
 };
