@@ -15,19 +15,31 @@ import { playMogoSound } from '../../lib/audio';
 const getUtrOrTxnId = (item: any): string => {
   if (!item) return 'N/A';
 
-  // Helper to validate real UTR / Txn ID (excludes BA- internal request IDs)
+  // 1. Thoroughly search for ANY property value starting with 'CC01' in item or nested metadata
+  const findCC01 = (obj: any, depth = 0): string | null => {
+    if (!obj || depth > 4) return null;
+    if (typeof obj === 'string') {
+      const trimmed = obj.trim();
+      if (trimmed.startsWith('CC01')) return trimmed;
+    } else if (typeof obj === 'object') {
+      for (const key of Object.keys(obj)) {
+        const res = findCC01(obj[key], depth + 1);
+        if (res) return res;
+      }
+    }
+    return null;
+  };
+
+  const cc01Match = findCC01(item);
+  if (cc01Match) return cc01Match;
+
+  // 2. Helper to validate real UTR / Txn ID (excludes BA- internal request IDs)
   const isValidTxnId = (val: any): boolean => {
     if (!val) return false;
     const str = String(val).trim();
     if (!str || str === 'N/A' || str.startsWith('BA-')) return false;
     return true;
   };
-
-  // Prioritize CC01 / Bank UTR in rejection_reason, transaction_id, or metadata
-  if (isValidTxnId(item.rejection_reason) && String(item.rejection_reason).startsWith('CC01')) return String(item.rejection_reason);
-  if (isValidTxnId(item.metadata?.txnRefId) && String(item.metadata.txnRefId).startsWith('CC01')) return String(item.metadata.txnRefId);
-  if (isValidTxnId(item.metadata?.bConnectTxnId) && String(item.metadata.bConnectTxnId).startsWith('CC01')) return String(item.metadata.bConnectTxnId);
-  if (isValidTxnId(item.transaction_id) && String(item.transaction_id).startsWith('CC01')) return String(item.transaction_id);
 
   // Check any other valid non-BA UTR / Ref ID
   if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId);
