@@ -143,6 +143,28 @@ export default function BBPSHistory() {
 
   const [selectedUserProfile, setSelectedUserProfile] = useState<any | null>(null);
   const [loadingProfileId, setLoadingProfileId] = useState<string | null>(null);
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+
+  const handleCheckPendingStatus = async (item: BBPSTransaction) => {
+    const utr = getUtrOrTxnId(item);
+    const refId = (utr && utr !== 'N/A') ? utr : (item.rejection_reason || item.metadata?.requestId || item.transaction_id);
+
+    if (!refId || refId === 'N/A') {
+      alert("No valid Transaction ID / Reference ID available to check status.");
+      return;
+    }
+
+    setCheckingStatusId(item.id);
+    try {
+      const trackType = String(refId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+      await fetch(`/api/bbps/status?requestId=${encodeURIComponent(refId)}&trackType=${trackType}`);
+      await fetchTransactions(true);
+    } catch (err) {
+      console.error("Error checking pending status:", err);
+    } finally {
+      setCheckingStatusId(null);
+    }
+  };
 
   const handleViewUserProfile = async (userId: string, profileObj?: any) => {
     if (!userId) return;
@@ -1191,13 +1213,31 @@ export default function BBPSHistory() {
 
                     {/* Status */}
                     <td className="px-6 py-4 text-center">
-                      <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                        item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                        item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                        'bg-rose-50 text-rose-600 border border-rose-100'
-                      }`}>
-                        {item.status === 'approved' ? 'Success' : item.status}
-                      </span>
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                          item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                          item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                          'bg-rose-50 text-rose-600 border border-rose-100'
+                        }`}>
+                          {item.status === 'approved' ? 'Success' : item.status}
+                        </span>
+                        {item.status === 'pending' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCheckPendingStatus(item)}
+                            disabled={checkingStatusId === item.id}
+                            className="text-[9px] font-bold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200 transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50 shadow-2xs"
+                            title="Check Live Status with Gateway & Update Database"
+                          >
+                            {checkingStatusId === item.id ? (
+                              <Loader2 size={10} className="animate-spin text-indigo-600" />
+                            ) : (
+                              <RotateCcw size={10} />
+                            )}
+                            Check Status
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     {/* Print Action */}

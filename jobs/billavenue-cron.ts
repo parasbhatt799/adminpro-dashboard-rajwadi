@@ -272,6 +272,111 @@ cron.schedule('*/10 * * * *', async () => {
         }
       }
     }
+
+    // ==========================================
+    // 3. Process Pending Records in `billavenue_transactions` Table Directly
+    // ==========================================
+    const { data: pendingBATxns, error: baError } = await supabaseAdmin
+      .from('billavenue_transactions')
+      .select('*')
+      .eq('status', 'pending');
+
+    if (baError) {
+      console.error('[CRON] Error fetching pending billavenue_transactions:', baError);
+    } else if (pendingBATxns && pendingBATxns.length > 0) {
+      console.log(`[CRON] Found ${pendingBATxns.length} pending billavenue_transactions. Checking status...`);
+
+      for (const baTxn of pendingBATxns) {
+        const refId = baTxn.txn_ref_id || baTxn.request_id;
+        if (!refId || refId === 'N/A') continue;
+
+        const trackType = String(refId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+        try {
+          console.log(`[CRON BA Table] Checking status for ${refId} (${trackType})...`);
+          const statusResult = await getTransactionStatus(String(refId), trackType);
+
+          const root = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusResponse || statusResult?.json?.transactionStatusRes;
+          if (root) {
+            let txnStatus = '';
+            let finalTxnRefId = baTxn.txn_ref_id || refId;
+
+            if (root.responseCode !== '000') {
+              txnStatus = 'failed';
+            } else {
+              const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
+              txnStatus = (txnList?.txnStatus || root.status || '').toLowerCase();
+              finalTxnRefId = txnList?.txnReferenceId || root.txnRefId || finalTxnRefId;
+            }
+
+            let mappedStatus: 'success' | 'failed' | 'pending' = 'pending';
+            let mappedSubmissionStatus = 'pending';
+
+            if (txnStatus === 'success' || txnStatus === 'approved') {
+              mappedStatus = 'success';
+              mappedSubmissionStatus = 'approved';
+            } else if (txnStatus === 'failed' || txnStatus === 'failure' || txnStatus === 'rejected') {
+              mappedStatus = 'failed';
+              mappedSubmissionStatus = 'rejected';
+            }
+
+            if (mappedStatus !== 'pending') {
+              console.log(`[CRON BA Table] Updating billavenue_transactions ID ${baTxn.id} to ${mappedStatus}`);
+
+              // 1. Update billavenue_transactions table in Supabase DB
+              await supabaseAdmin
+                .from('billavenue_transactions')
+                .update({
+                  status: mappedStatus,
+                  txn_ref_id: finalTxnRefId,
+                  response: statusResult.json
+                })
+                .eq('id', baTxn.id);
+
+              // 2. Update matching bbps_submissions table in Supabase DB
+              const { data: matchedSubmissions } = await supabaseAdmin
+                .from('bbps_submissions')
+                .select('id, user_id, amount, charges, status, metadata')
+                .or(`rejection_reason.eq.${refId},rejection_reason.eq.${finalTxnRefId},transaction_id.eq.${refId},metadata->>requestId.eq.${refId},metadata->>txnRefId.eq.${refId},metadata->>bConnectTxnId.eq.${refId}`);
+
+              if (matchedSubmissions && matchedSubmissions.length > 0) {
+                for (const sub of matchedSubmissions) {
+                  await supabaseAdmin
+                    .from('bbps_submissions')
+                    .update({
+                      status: mappedSubmissionStatus,
+                      rejection_reason: finalTxnRefId
+                    })
+                    .eq('id', sub.id);
+
+                  if (sub.status === 'pending' && mappedSubmissionStatus === 'rejected') {
+                    const totalDeducted = sub.metadata?.totalDeducted || (Number(sub.amount) + Number(sub.charges || 0));
+                    if (totalDeducted && typeof totalDeducted === 'number' && totalDeducted > 0) {
+                      const { data: userProfile } = await supabaseAdmin
+                        .from('users_profiles')
+                        .select('wallet_balance')
+                        .eq('id', sub.user_id)
+                        .single();
+
+                      if (userProfile) {
+                        const refundedBalance = Number(userProfile.wallet_balance) + totalDeducted;
+                        await supabaseAdmin
+                          .from('users_profiles')
+                          .update({ wallet_balance: refundedBalance })
+                          .eq('id', sub.user_id);
+
+                        console.log(`[CRON BA Table] Refunded ₹${totalDeducted} to user ${sub.user_id} for failed transaction ${refId}`);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`[CRON BA Table] Error checking status for ${refId}:`, err);
+        }
+      }
+    }
   } catch (err) {
     console.error('[CRON] Global error in cron job:', err);
   }
