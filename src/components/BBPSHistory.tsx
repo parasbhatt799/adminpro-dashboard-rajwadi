@@ -469,19 +469,27 @@ export default function BBPSHistory() {
                 baTxnRefMap.set(refStr.substring(3), ba);
               }
             }
-            if (ba.customer_mobile && ba.amount) {
-              const mob = String(ba.customer_mobile).trim();
-              const amt = Math.round(Number(ba.amount));
-              const key = `${mob}_${amt}`;
-              if (!baMobileAmountMap.has(key)) baMobileAmountMap.set(key, []);
-              baMobileAmountMap.get(key)!.push(ba);
+            if (ba.response && typeof ba.response === 'object') {
+              const res = ba.response;
+              const req = res?.requestId || res?.request_id;
+              const ref = res?.ExtBillPayResponse?.txnRefId || res?.extBillPayResponse?.txnRefId || res?.billPayResponse?.txnRefId || res?.txnRefId;
+              if (req) {
+                const reqS = String(req).trim();
+                baReqMap.set(reqS, ba);
+                if (reqS.startsWith('BA-')) baReqMap.set(reqS.substring(3), ba);
+              }
+              if (ref && ref !== 'N/A') {
+                const refS = String(ref).trim();
+                baTxnRefMap.set(refS, ba);
+                if (refS.startsWith('BA-')) baTxnRefMap.set(refS.substring(3), ba);
+              }
             }
           });
 
           enrichedData = enrichedData.map(item => {
             let baMatch: any = null;
 
-            // Level 1: Match strictly by request_id or txn_ref_id
+            // Strict Level 1: Match strictly by request_id, transaction_id, or txn_ref_id
             if (item.metadata?.requestId) {
               const reqId = String(item.metadata.requestId).trim();
               baMatch = baReqMap.get(reqId) || (reqId.startsWith('BA-') ? baReqMap.get(reqId.substring(3)) : null);
@@ -500,20 +508,13 @@ export default function BBPSHistory() {
                 baMatch = baReqMap.get(tStr.substring(3)) || baTxnRefMap.get(tStr.substring(3));
               }
             }
-
-            // Level 2 Fallback: Match by customer mobile + transaction amount
-            if (!baMatch) {
-              const mob = getCustomerMobileNumber(item) || (item.users_profiles as any)?.mobile_number;
-              const amt = Math.round(Number(item.amount));
-              if (mob && amt) {
-                const mobClean = String(mob).trim();
-                const candidates = baMobileAmountMap.get(`${mobClean}_${amt}`);
-                if (candidates && candidates.length > 0) {
-                  baMatch = candidates.find(c => c.txn_ref_id && c.txn_ref_id !== 'N/A' && String(c.txn_ref_id).startsWith('CC01'))
-                    || candidates.find(c => c.txn_ref_id && c.txn_ref_id !== 'N/A')
-                    || candidates[0];
-                }
-              }
+            if (!baMatch && item.metadata?.txnRefId && item.metadata.txnRefId !== 'N/A') {
+              const refId = String(item.metadata.txnRefId).trim();
+              baMatch = baTxnRefMap.get(refId) || baReqMap.get(refId);
+            }
+            if (!baMatch && item.metadata?.bConnectTxnId && item.metadata.bConnectTxnId !== 'N/A') {
+              const bId = String(item.metadata.bConnectTxnId).trim();
+              baMatch = baTxnRefMap.get(bId) || baReqMap.get(bId);
             }
 
             if (baMatch) {
