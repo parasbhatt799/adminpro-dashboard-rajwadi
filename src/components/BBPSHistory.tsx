@@ -311,9 +311,13 @@ export default function BBPSHistory() {
           .from('bbps_submissions')
           .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
-        // Apply Status Filter
-        if (filter !== 'all') {
-          query = query.eq('status', filter);
+        // Apply Status Filter at DB level safely
+        if (filter === 'approved') {
+          query = query.in('status', ['approved', 'success', 'successful']);
+        } else if (filter === 'pending') {
+          query = query.in('status', ['pending', 'processing']);
+        } else if (filter === 'failed') {
+          query = query.in('status', ['failed', 'rejected', 'refunded']);
         }
 
         // Apply Search Filter (on user firm/name or biller details)
@@ -363,9 +367,9 @@ export default function BBPSHistory() {
       let data = allData;
       let error = fetchError;
 
-      // Fallback: If DB search query failed, fetch base filtered rows in chunks
-      if (error && searchQuery.trim()) {
-        console.warn('DB search query failed, using client-side search fallback:', error);
+      // Fallback: If DB query failed, fetch base rows
+      if (error) {
+        console.warn('DB search/filter query failed, using base fallback:', error);
         let fallbackAll: any[] = [];
         let fbFrom = 0;
         let fbHasMore = true;
@@ -375,8 +379,6 @@ export default function BBPSHistory() {
             .from('bbps_submissions')
             .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
-          if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
-          if (categoryFilter !== 'all') fallbackQuery = fallbackQuery.eq('service_type', categoryFilter);
           if (startDate) {
             const [y, m, d] = startDate.split('-').map(Number);
             fallbackQuery = fallbackQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
@@ -408,9 +410,84 @@ export default function BBPSHistory() {
         }
       }
 
-      // Filter locally for categoryFilter and search query for 100% precision
       let filteredData = data || [];
 
+      // 2. Fetch billavenue_transactions to enrich CC01 UTRs & statuses
+      try {
+        const { data: baTxns } = await supabase
+          .from('billavenue_transactions')
+          .select('id, request_id, txn_ref_id, customer_mobile, amount, status');
+
+        if (baTxns && baTxns.length > 0) {
+          const baReqMap = new Map<string, any>();
+          const baTxnRefMap = new Map<string, any>();
+          const baMobileAmtMap = new Map<string, any>();
+
+          baTxns.forEach(ba => {
+            if (ba.request_id) baReqMap.set(String(ba.request_id), ba);
+            if (ba.txn_ref_id && ba.txn_ref_id !== 'N/A') baTxnRefMap.set(String(ba.txn_ref_id), ba);
+            if (ba.customer_mobile && ba.amount) {
+              const k = `${ba.customer_mobile}_${Number(ba.amount)}`;
+              if (!baMobileAmtMap.has(k)) baMobileAmtMap.set(k, ba);
+            }
+          });
+
+          filteredData = filteredData.map(item => {
+            let baMatch = item.metadata?.requestId ? baReqMap.get(String(item.metadata.requestId)) : null;
+            if (!baMatch && item.rejection_reason) baMatch = baTxnRefMap.get(String(item.rejection_reason));
+            if (!baMatch) {
+              const mob = getCustomerMobileNumber(item);
+              if (mob && mob !== 'N/A') {
+                const k = `${mob}_${Number(item.amount)}`;
+                baMatch = baMobileAmtMap.get(k);
+              }
+            }
+
+            if (baMatch) {
+              const updatedMeta = { ...item.metadata };
+              let updatedRejReason = item.rejection_reason;
+
+              if (baMatch.txn_ref_id && baMatch.txn_ref_id !== 'N/A' && String(baMatch.txn_ref_id).startsWith('CC01')) {
+                updatedMeta.bConnectTxnId = baMatch.txn_ref_id;
+                updatedMeta.txnRefId = baMatch.txn_ref_id;
+                if (!updatedRejReason || updatedRejReason === 'N/A' || String(updatedRejReason).startsWith('BA-')) {
+                  updatedRejReason = baMatch.txn_ref_id;
+                }
+              }
+
+              let updatedStatus = item.status;
+              if (baMatch.status === 'success' || baMatch.status === 'approved') {
+                updatedStatus = 'approved';
+              } else if (baMatch.status === 'failed' || baMatch.status === 'rejected') {
+                updatedStatus = 'rejected';
+              }
+
+              return {
+                ...item,
+                status: updatedStatus,
+                rejection_reason: updatedRejReason,
+                metadata: updatedMeta
+              };
+            }
+            return item;
+          });
+        }
+      } catch (enrichErr) {
+        console.warn('Enrichment with billavenue_transactions failed:', enrichErr);
+      }
+
+      // Filter locally for status for 100% accuracy
+      if (filter !== 'all') {
+        filteredData = filteredData.filter(item => {
+          const st = (item.status || '').toLowerCase();
+          if (filter === 'approved') return st === 'approved' || st === 'success' || st === 'successful';
+          if (filter === 'pending') return st === 'pending' || st === 'processing';
+          if (filter === 'failed') return st === 'failed' || st === 'rejected' || st === 'refunded';
+          return true;
+        });
+      }
+
+      // Filter locally for categoryFilter for 100% precision
       if (categoryFilter !== 'all') {
         filteredData = filteredData.filter(item => {
           const catInfo = getCategoryGatewayInfo(item);
@@ -418,12 +495,13 @@ export default function BBPSHistory() {
         });
       }
 
+      // Filter locally for search query
       if (searchQuery.trim()) {
         const term = searchQuery.toLowerCase().trim();
         filteredData = filteredData.filter(item => {
           const firmName = (item.users_profiles?.firm_name || '').toLowerCase();
           const userName = (item.users_profiles?.name || '').toLowerCase();
-          const mobile = ((item.users_profiles as any)?.mobile_number || '').toLowerCase();
+          const mobile = (getCustomerMobileNumber(item)).toLowerCase();
           const consumerNo = (item.consumer_number || '').toLowerCase();
           const provider = (item.provider || '').toLowerCase();
           const txId = (getUtrOrTxnId(item)).toLowerCase();
