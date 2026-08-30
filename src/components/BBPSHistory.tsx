@@ -411,11 +411,31 @@ export default function BBPSHistory() {
 
       let enrichedData = data || [];
 
-      // 2. Fetch billavenue_transactions to enrich CC01 UTRs & statuses strictly by ID
+      // 2. Fetch billavenue_transactions in batches (newest first) to enrich CC01 UTRs & statuses strictly by ID
       try {
-        const { data: baTxns } = await supabase
-          .from('billavenue_transactions')
-          .select('id, request_id, txn_ref_id, status');
+        let baTxns: any[] = [];
+        let baFrom = 0;
+        const baStep = 1000;
+        let baHasMore = true;
+
+        while (baHasMore) {
+          const { data: chunk, error: baErr } = await supabase
+            .from('billavenue_transactions')
+            .select('id, request_id, txn_ref_id, status, response')
+            .order('id', { ascending: false })
+            .range(baFrom, baFrom + baStep - 1);
+
+          if (baErr || !chunk || chunk.length === 0) {
+            baHasMore = false;
+          } else {
+            baTxns = baTxns.concat(chunk);
+            if (chunk.length < baStep) {
+              baHasMore = false;
+            } else {
+              baFrom += baStep;
+            }
+          }
+        }
 
         if (baTxns && baTxns.length > 0) {
           const baReqMap = new Map<string, any>();
