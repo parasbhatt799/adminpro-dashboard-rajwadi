@@ -103,11 +103,11 @@ const getUtrOrTxnId = (item: any): string => {
   if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
   if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
-  // Helper to validate real UTR / Txn ID
+  // Helper to validate real UTR / Txn ID (excludes BA- internal request IDs)
   const isValidTxnId = (val: any): boolean => {
     if (!val) return false;
     const str = String(val).trim();
-    if (!str || str === 'N/A') return false;
+    if (!str || str === 'N/A' || str.startsWith('BA-')) return false;
     return true;
   };
 
@@ -122,7 +122,6 @@ const getUtrOrTxnId = (item: any): string => {
   if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId);
   if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid);
   if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid);
-  if (isValidTxnId(item.metadata?.requestId)) return String(item.metadata.requestId);
 
   return 'N/A';
 };
@@ -424,17 +423,41 @@ export default function BBPSHistory() {
           const baTxnRefMap = new Map<string, any>();
 
           baTxns.forEach(ba => {
-            if (ba.request_id) baReqMap.set(String(ba.request_id), ba);
-            if (ba.txn_ref_id && ba.txn_ref_id !== 'N/A') baTxnRefMap.set(String(ba.txn_ref_id), ba);
+            if (ba.request_id) {
+              const reqStr = String(ba.request_id).trim();
+              baReqMap.set(reqStr, ba);
+              if (reqStr.startsWith('BA-')) {
+                baReqMap.set(reqStr.substring(3), ba);
+              }
+            }
+            if (ba.txn_ref_id && ba.txn_ref_id !== 'N/A') {
+              const refStr = String(ba.txn_ref_id).trim();
+              baTxnRefMap.set(refStr, ba);
+              if (refStr.startsWith('BA-')) {
+                baTxnRefMap.set(refStr.substring(3), ba);
+              }
+            }
           });
 
           enrichedData = enrichedData.map(item => {
-            let baMatch = item.metadata?.requestId ? baReqMap.get(String(item.metadata.requestId)) : null;
-            if (!baMatch && item.rejection_reason && item.rejection_reason !== 'N/A' && !String(item.rejection_reason).startsWith('BA-')) {
-              baMatch = baTxnRefMap.get(String(item.rejection_reason));
+            let baMatch: any = null;
+            if (item.metadata?.requestId) {
+              const reqId = String(item.metadata.requestId).trim();
+              baMatch = baReqMap.get(reqId) || (reqId.startsWith('BA-') ? baReqMap.get(reqId.substring(3)) : null);
             }
-            if (!baMatch && item.transaction_id && item.transaction_id !== 'N/A' && !String(item.transaction_id).startsWith('BA-')) {
-              baMatch = baTxnRefMap.get(String(item.transaction_id));
+            if (!baMatch && item.rejection_reason && item.rejection_reason !== 'N/A') {
+              const rStr = String(item.rejection_reason).trim();
+              baMatch = baReqMap.get(rStr) || baTxnRefMap.get(rStr);
+              if (!baMatch && rStr.startsWith('BA-')) {
+                baMatch = baReqMap.get(rStr.substring(3)) || baTxnRefMap.get(rStr.substring(3));
+              }
+            }
+            if (!baMatch && item.transaction_id && item.transaction_id !== 'N/A') {
+              const tStr = String(item.transaction_id).trim();
+              baMatch = baReqMap.get(tStr) || baTxnRefMap.get(tStr);
+              if (!baMatch && tStr.startsWith('BA-')) {
+                baMatch = baReqMap.get(tStr.substring(3)) || baTxnRefMap.get(tStr.substring(3));
+              }
             }
 
             if (baMatch) {
