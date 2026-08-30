@@ -35,18 +35,18 @@ cron.schedule('*/10 * * * *', async () => {
     for (const log of pendingLogs) {
       const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
       const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || log.request_payload?.billerResponseInfo?.txnRefId;
+      const targetRefId = cc01RefId || log.response_payload?.requestId || log.request_payload?.requestId || log.id;
       const transactionId = log.request_payload?.transaction_id || log.response_payload?.transaction_id || log.id;
 
-      // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
-      if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
-        console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing valid BillAvenue CC01 reference ID. Found: ${cc01RefId}`);
+      if (!targetRefId || targetRefId === 'N/A') {
+        console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing reference ID.`);
         continue;
       }
 
       try {
-        const trackType = 'TRANS_REF_ID';
-        console.log(`[CRON] Checking status for B2B transaction via CC01 ID: ${cc01RefId}`);
-        const statusResult = await getTransactionStatus(String(cc01RefId), trackType);
+        const trackType = String(targetRefId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
+        console.log(`[CRON] Checking status for B2B transaction via ${trackType}: ${targetRefId}`);
+        const statusResult = await getTransactionStatus(String(targetRefId), trackType);
 
         let newStatus = 'pending';
         let bbpsStatus = '';
@@ -189,16 +189,15 @@ cron.schedule('*/10 * * * *', async () => {
         console.log(`Metadata:`, JSON.stringify(log.metadata || {}));
         console.log(`Rejection Reason (Txn Ref):`, log.rejection_reason);
 
-        // Identify if it's BillAvenue by checking if the reference ID starts with CC01
-        // (User confirmed BillAvenue IDs always start with CC01)
-        const referenceId = log.rejection_reason || log.metadata?.requestId;
+        // Identify BillAvenue reference ID (can be CC01... or BA-...)
+        const referenceId = log.rejection_reason || log.metadata?.requestId || log.transaction_id;
 
-        if (!referenceId || !String(referenceId).startsWith('CC01')) {
-          console.log(`-> Skipping ID ${log.id} - Not a BillAvenue transaction (ID does not start with CC01). Found: ${referenceId}`);
+        if (!referenceId || referenceId === 'N/A' || referenceId === 'null') {
+          console.log(`-> Skipping ID ${log.id} - Missing reference ID.`);
           continue;
         }
 
-        const trackType = 'TRANS_REF_ID';
+        const trackType = String(referenceId).startsWith('CC01') ? 'TRANS_REF_ID' : 'REQUEST_ID';
 
         try {
           console.log(`-> Checking B2C status via API with ${trackType}: ${referenceId}`);
