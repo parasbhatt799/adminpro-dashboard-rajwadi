@@ -14,27 +14,26 @@ import { playMogoSound } from '../../lib/audio';
 
 const getUtrOrTxnId = (item: any): string => {
   if (!item) return 'N/A';
-  
-  // Prioritize CC01 B-Connect Transaction Reference ID if available
-  if (item.rejection_reason && String(item.rejection_reason).startsWith('CC01')) return item.rejection_reason;
-  if (item.metadata?.txnRefId && String(item.metadata.txnRefId).startsWith('CC01')) return item.metadata.txnRefId;
-  if (item.metadata?.txnid && String(item.metadata.txnid).startsWith('CC01')) return item.metadata.txnid;
-  if (item.metadata?.bConnectTxnId && String(item.metadata.bConnectTxnId).startsWith('CC01')) return item.metadata.bConnectTxnId;
-  if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
-  if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
-  // Helper to validate real UTR / Txn ID
+  // Helper to validate real UTR / Txn ID (excludes BA- internal request IDs)
   const isValidTxnId = (val: any): boolean => {
     if (!val) return false;
     const str = String(val).trim();
-    if (!str || str === 'N/A') return false;
+    if (!str || str === 'N/A' || str.startsWith('BA-')) return false;
     return true;
   };
 
-  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id);
-  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason);
+  // Prioritize CC01 / Bank UTR in rejection_reason, transaction_id, or metadata
+  if (isValidTxnId(item.rejection_reason) && String(item.rejection_reason).startsWith('CC01')) return String(item.rejection_reason);
+  if (isValidTxnId(item.metadata?.txnRefId) && String(item.metadata.txnRefId).startsWith('CC01')) return String(item.metadata.txnRefId);
+  if (isValidTxnId(item.metadata?.bConnectTxnId) && String(item.metadata.bConnectTxnId).startsWith('CC01')) return String(item.metadata.bConnectTxnId);
+  if (isValidTxnId(item.transaction_id) && String(item.transaction_id).startsWith('CC01')) return String(item.transaction_id);
+
+  // Check any other valid non-BA UTR / Ref ID
   if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId);
   if (isValidTxnId(item.metadata?.txnRefId)) return String(item.metadata.txnRefId);
+  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason);
+  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id);
   if (isValidTxnId(item.metadata?.txnid)) return String(item.metadata.txnid);
   if (isValidTxnId(item.metadata?.rrn)) return String(item.metadata.rrn);
   if (isValidTxnId(item.metadata?.reference)) return String(item.metadata.reference);
@@ -42,7 +41,6 @@ const getUtrOrTxnId = (item: any): string => {
   if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId);
   if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid);
   if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid);
-  if (isValidTxnId(item.metadata?.requestId)) return String(item.metadata.requestId);
 
   return 'N/A';
 };

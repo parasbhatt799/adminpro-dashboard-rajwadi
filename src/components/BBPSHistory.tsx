@@ -94,14 +94,6 @@ const getTodayStr = () => {
 
 const getUtrOrTxnId = (item: any): string => {
   if (!item) return 'N/A';
-  
-  // Prioritize CC01 B-Connect Transaction Reference ID if available
-  if (item.rejection_reason && String(item.rejection_reason).startsWith('CC01')) return item.rejection_reason;
-  if (item.metadata?.txnRefId && String(item.metadata.txnRefId).startsWith('CC01')) return item.metadata.txnRefId;
-  if (item.metadata?.txnid && String(item.metadata.txnid).startsWith('CC01')) return item.metadata.txnid;
-  if (item.metadata?.bConnectTxnId && String(item.metadata.bConnectTxnId).startsWith('CC01')) return item.metadata.bConnectTxnId;
-  if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
-  if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
   // Helper to validate real UTR / Txn ID (excludes BA- internal request IDs)
   const isValidTxnId = (val: any): boolean => {
@@ -111,10 +103,17 @@ const getUtrOrTxnId = (item: any): string => {
     return true;
   };
 
-  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id);
-  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason);
+  // Prioritize CC01 / Bank UTR in rejection_reason, transaction_id, or metadata
+  if (isValidTxnId(item.rejection_reason) && String(item.rejection_reason).startsWith('CC01')) return String(item.rejection_reason);
+  if (isValidTxnId(item.metadata?.txnRefId) && String(item.metadata.txnRefId).startsWith('CC01')) return String(item.metadata.txnRefId);
+  if (isValidTxnId(item.metadata?.bConnectTxnId) && String(item.metadata.bConnectTxnId).startsWith('CC01')) return String(item.metadata.bConnectTxnId);
+  if (isValidTxnId(item.transaction_id) && String(item.transaction_id).startsWith('CC01')) return String(item.transaction_id);
+
+  // Check any other valid non-BA UTR / Ref ID
   if (isValidTxnId(item.metadata?.bConnectTxnId)) return String(item.metadata.bConnectTxnId);
   if (isValidTxnId(item.metadata?.txnRefId)) return String(item.metadata.txnRefId);
+  if (isValidTxnId(item.rejection_reason)) return String(item.rejection_reason);
+  if (isValidTxnId(item.transaction_id)) return String(item.transaction_id);
   if (isValidTxnId(item.metadata?.txnid)) return String(item.metadata.txnid);
   if (isValidTxnId(item.metadata?.rrn)) return String(item.metadata.rrn);
   if (isValidTxnId(item.metadata?.reference)) return String(item.metadata.reference);
@@ -464,11 +463,13 @@ export default function BBPSHistory() {
               const updatedMeta = { ...item.metadata };
               let updatedRejReason = item.rejection_reason;
 
-              if (baMatch.txn_ref_id && baMatch.txn_ref_id !== 'N/A' && String(baMatch.txn_ref_id).startsWith('CC01')) {
-                updatedMeta.bConnectTxnId = baMatch.txn_ref_id;
-                updatedMeta.txnRefId = baMatch.txn_ref_id;
+              const baTxnRefVal = baMatch.txn_ref_id || baMatch.rrn || baMatch.utr || baMatch.biller_approval_code || baMatch.response?.billPayResponse?.txnRefId;
+              if (baTxnRefVal && baTxnRefVal !== 'N/A' && !String(baTxnRefVal).startsWith('BA-')) {
+                const refStr = String(baTxnRefVal).trim();
+                updatedMeta.bConnectTxnId = refStr;
+                updatedMeta.txnRefId = refStr;
                 if (!updatedRejReason || updatedRejReason === 'N/A' || String(updatedRejReason).startsWith('BA-')) {
-                  updatedRejReason = baMatch.txn_ref_id;
+                  updatedRejReason = refStr;
                 }
               }
 
