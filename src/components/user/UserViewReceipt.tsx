@@ -23,11 +23,11 @@ const getUtrOrTxnId = (item: any): string => {
   if (item.metadata?.billerResponse?.txnRefId && String(item.metadata.billerResponse.txnRefId).startsWith('CC01')) return item.metadata.billerResponse.txnRefId;
   if (item.transaction_id && String(item.transaction_id).startsWith('CC01')) return item.transaction_id;
 
-  // Helper to validate real UTR / Txn ID (excludes BA- internal idempotency keys)
+  // Helper to validate real UTR / Txn ID
   const isValidTxnId = (val: any): boolean => {
     if (!val) return false;
     const str = String(val).trim();
-    if (!str || str === 'N/A' || str.startsWith('BA-')) return false;
+    if (!str || str === 'N/A') return false;
     return true;
   };
 
@@ -42,6 +42,7 @@ const getUtrOrTxnId = (item: any): string => {
   if (isValidTxnId(item.metadata?.billerResponse?.txnRefId)) return String(item.metadata.billerResponse.txnRefId);
   if (isValidTxnId(item.metadata?.billerResponse?.txnid)) return String(item.metadata.billerResponse.txnid);
   if (isValidTxnId(item.metadata?.rawFetchData?.txnid)) return String(item.metadata.rawFetchData.txnid);
+  if (isValidTxnId(item.metadata?.requestId)) return String(item.metadata.requestId);
 
   return 'N/A';
 };
