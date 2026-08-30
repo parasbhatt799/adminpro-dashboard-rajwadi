@@ -431,10 +431,21 @@ export default function BBPSHistory() {
         let baHasMore = true;
 
         while (baHasMore) {
-          const { data: chunk, error: baErr } = await supabase
+          let baQuery = supabase
             .from('billavenue_transactions')
-            .select('id, request_id, txn_ref_id, status, customer_mobile, amount, response')
-            .order('id', { ascending: false })
+            .select('id, request_id, txn_ref_id, status, customer_mobile, amount, response, created_at');
+
+          if (startDate) {
+            const [y, m, d] = startDate.split('-').map(Number);
+            baQuery = baQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
+          }
+          if (endDate) {
+            const [y, m, d] = endDate.split('-').map(Number);
+            baQuery = baQuery.lte('created_at', new Date(y, m - 1, d, 23, 59, 59, 999).toISOString());
+          }
+
+          const { data: chunk, error: baErr } = await baQuery
+            .order('created_at', { ascending: false })
             .range(baFrom, baFrom + baStep - 1);
 
           if (baErr || !chunk || chunk.length === 0) {
