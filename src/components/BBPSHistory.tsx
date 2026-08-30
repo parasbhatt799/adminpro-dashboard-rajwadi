@@ -18,7 +18,10 @@ import {
   Phone,
   Loader2,
   CheckCircle2,
-  XCircle
+  XCircle,
+  CreditCard,
+  Hash,
+  Filter
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
@@ -132,6 +135,9 @@ export default function BBPSHistory() {
   const [loading, setLoading] = useState(true);
   const [fetchingHistory, setFetchingHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [utrFilter, setUtrFilter] = useState('');
+  const [consumerNoFilter, setConsumerNoFilter] = useState('');
+  const [mobileFilter, setMobileFilter] = useState('');
   const [filter, setFilter] = useState<'all' | 'approved' | 'pending' | 'failed'>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('today');
@@ -235,6 +241,9 @@ export default function BBPSHistory() {
 
   const clearFilters = () => {
     setSearchQuery('');
+    setUtrFilter('');
+    setConsumerNoFilter('');
+    setMobileFilter('');
     setFilter('all');
     setCategoryFilter('all');
     setDateFilter('today');
@@ -495,6 +504,39 @@ export default function BBPSHistory() {
         });
       }
 
+      // Filter by Transaction UTR Filter
+      if (utrFilter.trim()) {
+        const uTerm = utrFilter.toLowerCase().trim();
+        filteredData = filteredData.filter(item => {
+          const utr = (getUtrOrTxnId(item)).toLowerCase();
+          const rejReason = (item.rejection_reason || '').toLowerCase();
+          const txnId = (item.transaction_id || '').toLowerCase();
+          const bConnId = (item.metadata?.bConnectTxnId || '').toLowerCase();
+          const refId = (item.metadata?.txnRefId || '').toLowerCase();
+          return utr.includes(uTerm) || rejReason.includes(uTerm) || txnId.includes(uTerm) || bConnId.includes(uTerm) || refId.includes(uTerm);
+        });
+      }
+
+      // Filter by Consumer Number / Card Number Filter
+      if (consumerNoFilter.trim()) {
+        const cTerm = consumerNoFilter.toLowerCase().trim();
+        filteredData = filteredData.filter(item => {
+          const consumerNo = (item.consumer_number || '').toLowerCase();
+          const detailsList = getConsumerDetailsList(item).map(d => String(d).toLowerCase());
+          return consumerNo.includes(cTerm) || detailsList.some(d => d.includes(cTerm));
+        });
+      }
+
+      // Filter by Customer Mobile Number Filter
+      if (mobileFilter.trim()) {
+        const mTerm = mobileFilter.toLowerCase().trim();
+        filteredData = filteredData.filter(item => {
+          const mob = (getCustomerMobileNumber(item)).toLowerCase();
+          const userMob = ((item.users_profiles as any)?.mobile_number || '').toLowerCase();
+          return mob.includes(mTerm) || userMob.includes(mTerm);
+        });
+      }
+
       // Filter locally for search query
       if (searchQuery.trim()) {
         const term = searchQuery.toLowerCase().trim();
@@ -731,11 +773,11 @@ export default function BBPSHistory() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [filter, categoryFilter, searchQuery, startDate, endDate]);
+  }, [filter, categoryFilter, searchQuery, startDate, endDate, utrFilter, consumerNoFilter, mobileFilter]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [filter, categoryFilter, searchQuery, startDate, endDate]);
+  }, [filter, categoryFilter, searchQuery, startDate, endDate, utrFilter, consumerNoFilter, mobileFilter]);
 
   const handlePrint = () => {
     window.print();
@@ -1051,6 +1093,7 @@ export default function BBPSHistory() {
 
       {/* Filter and Query bar */}
       <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm space-y-4">
+        {/* Row 1: Dropdown Filters & General Search */}
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
           {/* Quick Filters */}
           <div className="flex items-center gap-3 flex-wrap">
@@ -1116,23 +1159,99 @@ export default function BBPSHistory() {
 
             <button
               onClick={clearFilters}
-              className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white cursor-pointer"
+              className="px-3 py-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all border border-slate-200 bg-white cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-2xs"
               title="Clear All Filters"
             >
-              <RotateCcw size={18} />
+              <RotateCcw size={15} />
+              <span>Reset</span>
             </button>
           </div>
 
-          {/* Search bar */}
+          {/* General Search bar */}
           <div className="relative max-w-md w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
             <input
               type="text"
-              placeholder="Search Firm, Name, Operator, Consumer No..."
+              placeholder="Search Firm, Name, Operator..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 h-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+              className="w-full pl-10 pr-8 py-2 h-10 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Row 2: 3 Dedicated Specific Filters (UTR, Card/Consumer No, Mobile Number) */}
+        <div className="pt-3 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {/* Filter 1: Transaction UTR */}
+          <div className="relative">
+            <Receipt className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500" size={15} />
+            <input
+              type="text"
+              placeholder="Filter by Transaction UTR / CC01..."
+              value={utrFilter}
+              onChange={(e) => setUtrFilter(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 h-10 bg-indigo-50/40 border border-indigo-100 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+            />
+            {utrFilter && (
+              <button
+                type="button"
+                onClick={() => setUtrFilter('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Filter 2: Card Number / Consumer Number */}
+          <div className="relative">
+            <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-emerald-500" size={15} />
+            <input
+              type="text"
+              placeholder="Filter by Card / Consumer Number..."
+              value={consumerNoFilter}
+              onChange={(e) => setConsumerNoFilter(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 h-10 bg-emerald-50/40 border border-emerald-100 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none transition-all"
+            />
+            {consumerNoFilter && (
+              <button
+                type="button"
+                onClick={() => setConsumerNoFilter('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Filter 3: Customer Mobile Number */}
+          <div className="relative">
+            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-amber-500" size={15} />
+            <input
+              type="text"
+              placeholder="Filter by Customer Mobile..."
+              value={mobileFilter}
+              onChange={(e) => setMobileFilter(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 h-10 bg-amber-50/40 border border-amber-100 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+            />
+            {mobileFilter && (
+              <button
+                type="button"
+                onClick={() => setMobileFilter('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
         </div>
       </div>
