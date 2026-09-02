@@ -64,8 +64,6 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   const [searchMobile, setSearchMobile] = useState<string>('');
   const [searchStartDate, setSearchStartDate] = useState<string>('');
   const [searchEndDate, setSearchEndDate] = useState<string>('');
-  const [searchOtpInput, setSearchOtpInput] = useState<string>('');
-  const [otpSent, setOtpSent] = useState<boolean>(false);
   const [isAdvancedSearchActive, setIsAdvancedSearchActive] = useState<boolean>(false);
 
   // Fetch past bill submissions
@@ -149,10 +147,6 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
         toast.error('Please enter mobile number or date range to search.');
         return;
       }
-      if (otpSent && searchOtpInput && searchOtpInput !== '1234') {
-        toast.error('Invalid OTP. Please enter 1234.');
-        return;
-      }
       setIsAdvancedSearchActive(true);
       toast.success('Search applied for Mobile & Date Range.');
     }
@@ -163,8 +157,6 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
     setSearchMobile('');
     setSearchStartDate('');
     setSearchEndDate('');
-    setSearchOtpInput('');
-    setOtpSent(false);
     setIsAdvancedSearchActive(false);
     toast.info('Search filters reset.');
   };
@@ -332,43 +324,6 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
                     className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
                   />
                 </div>
-              </div>
-
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3 max-w-md">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-extrabold text-slate-800">OTP Verification</p>
-                    <p className="text-[10px] text-slate-500">Security check for mobile number history</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!searchMobile || searchMobile.length < 10) {
-                        toast.error('Please enter valid 10-digit mobile number first.');
-                        return;
-                      }
-                      setOtpSent(true);
-                      toast.info('OTP sent successfully. Demo OTP: 1234');
-                    }}
-                    className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer whitespace-nowrap"
-                  >
-                    {otpSent ? 'Resend OTP' : 'Send OTP'}
-                  </button>
-                </div>
-
-                {otpSent && (
-                  <div className="space-y-1.5 max-w-xs">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Enter 4-Digit OTP</label>
-                    <input
-                      type="password"
-                      maxLength={4}
-                      value={searchOtpInput}
-                      onChange={(e) => setSearchOtpInput(e.target.value.replace(/\D/g, ''))}
-                      placeholder="••••"
-                      className="w-full text-center tracking-[1em] py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-black"
-                    />
-                  </div>
-                )}
               </div>
             </div>
           )}
