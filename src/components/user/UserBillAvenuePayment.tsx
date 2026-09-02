@@ -557,7 +557,7 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
   // Removed complaints states as they are now on a dedicated page
 
   const resetForm = () => {
-    setStep(1);
+    setStep(selectedCategory ? 2 : 1);
     setReceipt(null);
     setBillDetails(null);
     setFormInputs({});

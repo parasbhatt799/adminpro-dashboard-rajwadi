@@ -520,7 +520,7 @@ export default function UserCsplPayment({ userId, mode = 'payment' }: { userId: 
   // Removed complaints states as they are now on a dedicated page
 
   const resetForm = () => {
-    setStep(1);
+    setStep(selectedCategory ? 2 : 1);
     setReceipt(null);
     setBillDetails(null);
     setFormInputs({});
