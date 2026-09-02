@@ -448,62 +448,69 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100 text-center">
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date / Time</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operator</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Ref</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">B-Connect Transaction ID</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amount</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Receipt</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date / Time</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operator</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customer Ref</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile Number</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">B-Connect Transaction ID</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Amount</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status</th>
+                  <th className="px-5 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Receipt</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                 {paginatedHistory.map((item, idx) => (
-                  <tr key={item.id || idx} className="hover:bg-slate-50/50 transition-colors">
-                    <td className="px-6 py-4 text-center">
-                      <p className="text-xs font-bold text-slate-900">{format(parseISO(item.created_at), 'dd MMM yyyy')}</p>
-                      <p className="text-[10px] text-slate-400 font-medium">{format(parseISO(item.created_at), 'hh:mm a')}</p>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-indigo-50 text-indigo-600">
-                        {item.service_type || 'Utility'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <p className="text-xs font-black text-slate-800">{item.provider}</p>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <p className="text-xs font-bold text-slate-600">{item.consumer_number}</p>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <p className="text-xs font-mono font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-100/50 w-fit mx-auto">
-                        {getUtrOrTxnId(item)}
-                      </p>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <p className="text-xs font-black text-slate-900">₹{Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
-                        item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                        item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                        'bg-rose-50 text-rose-600 border border-rose-100'
-                      }`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      <button
-                        onClick={() => navigate(`/user/view-receipt?id=${item.transaction_id}`)}
-                        className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-xl transition-all flex items-center justify-center mx-auto cursor-pointer"
-                        title="View & Print E-Receipt"
-                      >
-                        <Printer size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                 {paginatedHistory.map((item, idx) => {
+                  const mobileNo = item.metadata?.customerMobile || item.metadata?.customerNumber || item.metadata?.mobileNumber || item.metadata?.mobile || item.customer_mobile || 'N/A';
+                  return (
+                    <tr key={item.id || idx} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="px-5 py-4 text-center">
+                        <p className="text-xs font-bold text-slate-900">{format(parseISO(item.created_at), 'dd MMM yyyy')}</p>
+                        <p className="text-[10px] text-slate-400 font-medium">{format(parseISO(item.created_at), 'hh:mm a')}</p>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span className="text-[10px] font-bold px-2 py-1 rounded-md bg-indigo-50 text-indigo-600">
+                          {item.service_type || 'Utility'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <p className="text-xs font-black text-slate-800">{item.provider}</p>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <p className="text-xs font-bold text-slate-600">{item.consumer_number}</p>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <p className="text-xs font-bold text-slate-700 font-mono">{mobileNo}</p>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <p className="text-xs font-mono font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-100/50 w-fit mx-auto">
+                          {getUtrOrTxnId(item)}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <p className="text-xs font-black text-slate-900">₹{Number(item.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full ${
+                          item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                          item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                          'bg-rose-50 text-rose-600 border border-rose-100'
+                        }`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        <button
+                          onClick={() => navigate(`/user/view-receipt?id=${item.transaction_id}`)}
+                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 rounded-xl transition-all flex items-center justify-center mx-auto cursor-pointer"
+                          title="View & Print E-Receipt"
+                        >
+                          <Printer size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
