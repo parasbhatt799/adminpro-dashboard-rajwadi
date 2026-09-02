@@ -13,7 +13,9 @@ import {
   TrendingDown,
   CheckCircle2,
   Filter,
-  RotateCcw
+  RotateCcw,
+  Sparkles,
+  Wallet
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
@@ -51,6 +53,7 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   const navigate = useNavigate();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all'>('today');
   const [amountFilter, setAmountFilter] = useState<string>('');
@@ -66,7 +69,7 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   const [searchEndDate, setSearchEndDate] = useState<string>('');
   const [isAdvancedSearchActive, setIsAdvancedSearchActive] = useState<boolean>(false);
 
-  // Fetch past bill submissions
+  // Fetch past bill submissions & wallet balance
   const fetchHistory = async () => {
     try {
       setLoading(true);
@@ -88,6 +91,16 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   useEffect(() => {
     if (userId) {
       fetchHistory();
+      supabase
+        .from('users_profiles')
+        .select('main_wallet')
+        .eq('id', userId)
+        .maybeSingle()
+        .then(({ data }) => {
+          if (data && data.main_wallet !== undefined) {
+            setWalletBalance(Number(data.main_wallet) || 0);
+          }
+        });
     }
   }, [userId]);
 
@@ -219,20 +232,35 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
   return (
     <div className="space-y-8">
 
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
-            <Receipt className="text-emerald-500" size={28} />
-            BBPS Bill History
-          </h2>
-          <p className="text-slate-500 mt-1">View and print receipts of all your past utility bill payments.</p>
+      {/* Header card with current balance */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 p-8 rounded-[32px] border border-slate-700/50 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="relative z-10 space-y-2">
+          <span className="text-xs bg-indigo-500/20 text-indigo-300 px-3 py-1 rounded-full font-bold uppercase tracking-widest flex items-center gap-1.5 w-fit">
+            <Sparkles size={12} className="animate-spin-slow" />
+            Secure Gateway
+          </span>
+          <div className="flex items-center gap-4">
+            <h2 className="text-3xl font-black text-white tracking-tight">
+              Bharat Connect
+            </h2>
+          </div>
+          <p className="text-slate-400 max-w-md text-sm leading-relaxed">
+            View and print receipts of all your past utility bill payments with direct Bharat Connect settlement.
+          </p>
         </div>
-        <img
-          src="/bharat_connect.png"
-          alt="Bharat Connect"
-          className="h-10 md:h-12 w-auto object-contain shrink-0"
-        />
+
+        <div className="relative z-10 flex flex-wrap gap-4 items-center">
+          <div className="flex items-center gap-3.5 bg-white/5 backdrop-blur-md px-6 py-4 rounded-3xl border border-white/10 shadow-inner">
+            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400 shadow-md">
+              <Wallet size={24} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Balance</p>
+              <p className="text-xl font-black text-white">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Unified Search & Filter Panel */}
