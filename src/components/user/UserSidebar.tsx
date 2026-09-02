@@ -37,7 +37,6 @@ const menuItems = [
   { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
   { id: 'bill-payment', label: 'Bill Payment 1', icon: Receipt, path: '/user/bill-payment' },
   { id: 'billavenue-payment', label: 'Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
-  { id: 'billavenue-search', label: 'Search TXN', icon: Search, path: '/user/billavenue-search' },
   { id: 'cspl-payment', label: 'Bill Payment 3', icon: Receipt, path: '/user/cspl-payment' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },

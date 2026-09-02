@@ -1326,7 +1326,6 @@ export default function App() {
           <Route path="partner-fund-transfer" element={<PartnerFundTransfer userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />
           <Route path="billavenue-payment" element={<UserBillAvenuePayment userId={userId} mode="payment" />} />
-          <Route path="billavenue-search" element={<UserBillAvenuePayment userId={userId} mode="search" />} />
           <Route path="cspl-payment" element={<UserCsplPayment userId={userId} mode="payment" />} />
           <Route path="recharge" element={<UserRecharge userId={userId} />} />
           <Route path="aeps" element={<UserAeps userId={userId} />} />
