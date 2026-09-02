@@ -220,7 +220,7 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
     <div className="space-y-8">
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-slate-900 flex items-center gap-3">
             <Receipt className="text-emerald-500" size={28} />
@@ -228,6 +228,11 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
           </h2>
           <p className="text-slate-500 mt-1">View and print receipts of all your past utility bill payments.</p>
         </div>
+        <img
+          src="/bharat_connect.png"
+          alt="Bharat Connect"
+          className="h-10 md:h-12 w-auto object-contain shrink-0"
+        />
       </div>
 
       {/* Unified Search & Filter Panel */}
