@@ -1473,21 +1473,6 @@ export default function UserBillPayment({ userId }: { userId: string }) {
                               )}
                             </div>
 
-                            {/* Payment Mode Selection Dropdown */}
-                            <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
-                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">PAYMENT MODE</label>
-                              <select
-                                defaultValue="UPI"
-                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs cursor-pointer"
-                              >
-                                <option value="UPI">UPI</option>
-                                <option value="WALLET">Wallet Balance</option>
-                                <option value="NETBANKING">Net Banking</option>
-                                <option value="DEBIT_CARD">Debit Card</option>
-                                <option value="CREDIT_CARD">Credit Card</option>
-                              </select>
-                            </div>
-
                             {/* Pay Securely Now Button */}
                             <div className="pt-2">
                               <button

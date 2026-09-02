@@ -2114,66 +2114,6 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                                 ))}
                             </div>
 
-                            {/* Multiple Amount Option Card */}
-                            {billDetails?.fetchSupported && (
-                              <div className="space-y-2 pt-2 border-t border-slate-200/60">
-                                <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">Multiple Amount Option</label>
-                                <div className="bg-white/90 border border-slate-200/80 rounded-2xl p-3.5 space-y-2.5 shadow-2xs">
-                                  <label className="flex items-center justify-between cursor-pointer text-xs">
-                                    <div className="flex items-center gap-2.5">
-                                      <input
-                                        type="checkbox"
-                                        checked={amountOptions.base}
-                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, base: e.target.checked }))}
-                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                      />
-                                      <span className="font-bold text-slate-700">Base Bill Amount</span>
-                                    </div>
-                                    <span className="font-extrabold text-slate-800">₹{baseBillAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </label>
-
-                                  <label className="flex items-center justify-between cursor-pointer text-xs">
-                                    <div className="flex items-center gap-2.5">
-                                      <input
-                                        type="checkbox"
-                                        checked={amountOptions.lateFee}
-                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, lateFee: e.target.checked }))}
-                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                      />
-                                      <span className="font-bold text-slate-700">Late Payment Fee</span>
-                                    </div>
-                                    <span className="font-extrabold text-slate-800">₹{latePaymentFee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </label>
-
-                                  <label className="flex items-center justify-between cursor-pointer text-xs">
-                                    <div className="flex items-center gap-2.5">
-                                      <input
-                                        type="checkbox"
-                                        checked={amountOptions.additional}
-                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, additional: e.target.checked }))}
-                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                      />
-                                      <span className="font-bold text-slate-700">Additional Charges</span>
-                                    </div>
-                                    <span className="font-extrabold text-slate-800">₹{additionalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </label>
-
-                                  <label className="flex items-center justify-between cursor-pointer text-xs">
-                                    <div className="flex items-center gap-2.5">
-                                      <input
-                                        type="checkbox"
-                                        checked={amountOptions.fixed}
-                                        onChange={(e) => setAmountOptions(prev => ({ ...prev, fixed: e.target.checked }))}
-                                        className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
-                                      />
-                                      <span className="font-bold text-slate-700">Fixed Charges</span>
-                                    </div>
-                                    <span className="font-extrabold text-slate-800">₹{fixedCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
-                                  </label>
-                                </div>
-                              </div>
-                            )}
-
                             {/* Financial Totals */}
                             <div className="space-y-3 pt-2 border-t border-slate-200/60">
                               <div className="space-y-1.5">
@@ -2226,22 +2166,6 @@ export default function UserBillAvenuePayment({ userId, mode = 'payment' }: { us
                                   </div>
                                 </div>
                               )}
-                            </div>
-
-                            {/* Payment Mode Selection Dropdown */}
-                            <div className="space-y-1.5 pt-2 border-t border-slate-200/60">
-                              <label className="text-[11px] font-black text-slate-400 uppercase tracking-wider block">PAYMENT MODE</label>
-                              <select
-                                value={selectedPaymentMode}
-                                onChange={(e) => setSelectedPaymentMode(e.target.value)}
-                                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:border-indigo-500 transition-colors shadow-2xs cursor-pointer"
-                              >
-                                <option value="UPI">UPI</option>
-                                <option value="WALLET">Wallet Balance</option>
-                                <option value="NETBANKING">Net Banking</option>
-                                <option value="DEBIT_CARD">Debit Card</option>
-                                <option value="CREDIT_CARD">Credit Card</option>
-                              </select>
                             </div>
 
                             {/* Pay Securely Now Button */}
