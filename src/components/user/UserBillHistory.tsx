@@ -250,15 +250,13 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
           </p>
         </div>
 
-        <div className="relative z-10 flex flex-wrap gap-4 items-center">
-          <div className="flex items-center gap-3.5 bg-white/5 backdrop-blur-md px-6 py-4 rounded-3xl border border-white/10 shadow-inner">
-            <div className="w-12 h-12 bg-indigo-500/20 rounded-2xl flex items-center justify-center text-indigo-400 shadow-md">
-              <Wallet size={24} />
-            </div>
-            <div>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Available Balance</p>
-              <p className="text-xl font-black text-white">₹{walletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</p>
-            </div>
+        <div className="relative z-10 flex items-center">
+          <div className="bg-white/10 backdrop-blur-md p-4 md:p-5 rounded-3xl border border-white/10 shadow-inner flex items-center justify-center">
+            <img
+              src="/bharat_connect.png"
+              alt="Bharat Connect"
+              className="h-10 md:h-12 w-auto object-contain"
+            />
           </div>
         </div>
       </div>
