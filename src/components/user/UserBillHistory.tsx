@@ -145,11 +145,11 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
       setIsAdvancedSearchActive(true);
       toast.success('Search applied for Transaction ID.');
     } else {
-      if (!searchMobile.trim() || !searchStartDate || !searchEndDate) {
-        toast.error('Please enter mobile number and date range.');
+      if (!searchMobile.trim() && !searchStartDate && !searchEndDate) {
+        toast.error('Please enter mobile number or date range to search.');
         return;
       }
-      if (searchOtpInput !== '1234') {
+      if (otpSent && searchOtpInput && searchOtpInput !== '1234') {
         toast.error('Invalid OTP. Please enter 1234.');
         return;
       }
@@ -179,13 +179,30 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
         const rawRef = (item.rejection_reason || '').toLowerCase();
         return utrOrId.includes(idTerm) || rawTxnId.includes(idTerm) || rawRef.includes(idTerm);
       } else {
-        const mobTerm = searchMobile.trim();
-        const matchesMobile = (item.consumer_number || '').includes(mobTerm) || (item.metadata?.customerMobile || '').includes(mobTerm);
+        let matchesMobile = true;
+        if (searchMobile.trim()) {
+          const mobTerm = searchMobile.trim().toLowerCase();
+          const consumerNo = (item.consumer_number || '').toString().toLowerCase();
+          const custMobile = (item.metadata?.customerMobile || item.metadata?.customerNumber || item.metadata?.mobileNumber || item.metadata?.mobile || item.customer_mobile || '').toString().toLowerCase();
+          const metaStr = JSON.stringify(item.metadata || {}).toLowerCase();
+          matchesMobile = consumerNo.includes(mobTerm) || custMobile.includes(mobTerm) || metaStr.includes(mobTerm);
+        }
         
         let matchesCustomDate = true;
-        if (searchStartDate && searchEndDate) {
-          const createdStr = item.created_at;
-          matchesCustomDate = createdStr >= `${searchStartDate}T00:00:00` && createdStr <= `${searchEndDate}T23:59:59`;
+        if (item.created_at) {
+          const itemMs = new Date(item.created_at).getTime();
+          if (searchStartDate) {
+            const startMs = new Date(`${searchStartDate}T00:00:00`).getTime();
+            if (!isNaN(startMs) && itemMs < startMs) {
+              matchesCustomDate = false;
+            }
+          }
+          if (searchEndDate) {
+            const endMs = new Date(`${searchEndDate}T23:59:59.999`).getTime();
+            if (!isNaN(endMs) && itemMs > endMs) {
+              matchesCustomDate = false;
+            }
+          }
         }
         return matchesMobile && matchesCustomDate;
       }
