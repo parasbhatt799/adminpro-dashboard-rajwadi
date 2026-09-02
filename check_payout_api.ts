@@ -15,16 +15,13 @@ function testPayoutApi() {
   const payloadData = JSON.stringify({
     amount: testAmount,
     reference: 'REF' + Date.now(),
-    bankProfileId: '11263',
     bankAccount: '50100649427351',
     ifsc: 'HDFC0000588',
-    latitude: '23.0225',
-    longitude: '72.5714',
     name: 'TEST VANANI JIGNESH',
-    email: 'support@usepay.in',
+    bankName: 'HDFC BANK',
     phone: '9999999999',
-    address: 'Gujarat',
-    remarks: 'Test Payout Request'
+    beneficiaryMobile: '9999999999',
+    email: 'support@usepay.in'
   });
 
   const headers: Record<string, string> = {
@@ -35,7 +32,7 @@ function testPayoutApi() {
     'Content-Length': String(Buffer.byteLength(payloadData))
   };
 
-  console.log('📤 OUTGOING REQUEST TO: https://cspl.camlenio.com/api/v1/aer/payout/imps-payout');
+  console.log('📤 OUTGOING REQUEST TO: https://cspl.camlenio.com/api/v1/np/payout/imps-payout');
   console.log('Headers:', JSON.stringify(headers, null, 2));
   console.log('Payload:', payloadData);
   console.log('\n----------------------------------------------------\n');
@@ -43,7 +40,7 @@ function testPayoutApi() {
   const options: https.RequestOptions = {
     hostname: 'cspl.camlenio.com',
     port: 443,
-    path: '/api/v1/aer/payout/imps-payout',
+    path: '/api/v1/np/payout/imps-payout',
     method: 'POST',
     headers: headers,
     family: 4 // Force IPv4 socket resolution

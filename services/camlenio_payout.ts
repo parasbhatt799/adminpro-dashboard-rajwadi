@@ -39,7 +39,7 @@ export interface PayoutHeader {
 
 export function generateHeaders(): PayoutHeader {
   const timestamp = new Date().toISOString();
-  const requestId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  const requestId = randomUUID();
   
   return {
     'Content-Type': 'application/json',
@@ -160,41 +160,49 @@ export async function processImpsPayout(params: {
   bankAccount: string;
   ifsc: string;
   name: string;
+  bankName: string;
   email?: string;
   phone: string;
+  beneficiaryMobile?: string;
+  bankProfileId?: string;
   address?: string;
   remarks?: string;
-  bankProfileId: string;
 }): Promise<PayoutResponse> {
   try {
-    const data = await callPayoutApi('/api/v1/aer/payout/imps-payout', {
+    const cleanPhone = params.phone.replace(/[^0-9]/g, '').slice(-10) || '9999999999';
+    const cleanBeneficiaryMobile = (params.beneficiaryMobile || cleanPhone).replace(/[^0-9]/g, '').slice(-10);
+
+    const payload: Record<string, any> = {
       amount: params.amount,
       reference: params.reference,
-      bankProfileId: params.bankProfileId,
       bankAccount: params.bankAccount,
       ifsc: params.ifsc,
-      latitude: '23.0225', // Defaulting to Gujarat coordinates as fallback
-      longitude: '72.5714',
       name: params.name,
-      email: params.email || 'support@usepay.in',
-      phone: params.phone.replace(/[^0-9]/g, '').slice(-10) || '9999999999',
-      address: params.address || 'Gujarat',
-      remarks: params.remarks || 'Payout Request'
-    });
+      bankName: params.bankName || 'BANK',
+      phone: cleanPhone,
+      beneficiaryMobile: cleanBeneficiaryMobile,
+      email: params.email || 'support@usepay.in'
+    };
 
-    if (data.status === 'SUCCESS' || data.status === 'PENDING') {
+    const data = await callPayoutApi('/api/v1/np/payout/imps-payout', payload);
+
+    const nestedData = data.data?.data || data.data || {};
+    const statusStr = nestedData.status || data.status || 'PENDING';
+    const isSuccessOrPending = data.status === 'SUCCESS' || data.status === 'PENDING' || data.data?.success || statusStr === 'SUCCESS' || statusStr === 'PENDING';
+
+    if (isSuccessOrPending) {
       return {
         success: true,
-        status: data.status,
+        status: statusStr,
         statusCode: data.statusCode,
-        reference: data.reference || data.client_txnid || params.reference,
-        utr: data.utr || data.txnid,
-        txnId: data.txnId || data.txnid,
-        amount: data.amount,
-        message: data.message
+        reference: nestedData.client_ref || data.reference || data.client_txnid || data.txnid || params.reference,
+        utr: nestedData.utr || data.utr || data.txnid || data.txnId,
+        txnId: data.txnid || data.txnId || nestedData.merchant_ref,
+        amount: data.amount || nestedData.amount || params.amount,
+        message: data.message || nestedData.message || 'Your payout transaction is in process.'
       };
     } else {
-      const detailedMessage = data.data?.message || data.message || 'Payout failed';
+      const detailedMessage = nestedData.message || data.message || 'Payout failed';
       return {
         success: false,
         status: 'FAILED',
@@ -260,7 +268,7 @@ export async function checkPayoutStatus(txnId: string): Promise<{
   };
 }> {
   try {
-    const data = await callPayoutApi('/api/v1/aer/payout/check-status', {
+    const data = await callPayoutApi('/api/v1/np/payout/check-status', {
       txn_id: txnId
     });
     return data;

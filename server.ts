@@ -4447,7 +4447,9 @@ async function startServer() {
         bankAccount: accountNumber,
         ifsc: ifscCode,
         name: holderName,
+        bankName: bankName || 'BANK',
         phone: userPhone,
+        beneficiaryMobile: userPhone,
         bankProfileId: bankProfileId
       });
 
