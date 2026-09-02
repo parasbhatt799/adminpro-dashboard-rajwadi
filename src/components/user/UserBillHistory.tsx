@@ -135,21 +135,8 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
 
   const handleAdvancedSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchType === 'txnId') {
-      if (!searchTxnId.trim()) {
-        toast.error('Please enter B-Connect Transaction ID.');
-        return;
-      }
-      setIsAdvancedSearchActive(true);
-      toast.success('Search applied for Transaction ID.');
-    } else {
-      if (!searchMobile.trim() && !searchStartDate && !searchEndDate) {
-        toast.error('Please enter mobile number or date range to search.');
-        return;
-      }
-      setIsAdvancedSearchActive(true);
-      toast.success('Search applied for Mobile & Date Range.');
-    }
+    setIsAdvancedSearchActive(true);
+    toast.success('Filters applied successfully.');
   };
 
   const handleResetAdvancedSearch = () => {
@@ -157,61 +144,73 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
     setSearchMobile('');
     setSearchStartDate('');
     setSearchEndDate('');
+    setSearch('');
+    setDateFilter('today');
+    setAmountFilter('');
     setIsAdvancedSearchActive(false);
-    toast.info('Search filters reset.');
+    toast.info('Search & filters reset.');
   };
 
   // Filter history based on search, date, and amount
   const filteredHistory = history.filter(item => {
-    if (isAdvancedSearchActive) {
-      if (searchType === 'txnId') {
-        const idTerm = searchTxnId.trim().toLowerCase();
-        const utrOrId = getUtrOrTxnId(item).toLowerCase();
-        const rawTxnId = (item.transaction_id || '').toLowerCase();
-        const rawRef = (item.rejection_reason || '').toLowerCase();
-        return utrOrId.includes(idTerm) || rawTxnId.includes(idTerm) || rawRef.includes(idTerm);
-      } else {
-        let matchesMobile = true;
-        if (searchMobile.trim()) {
-          const mobTerm = searchMobile.trim().toLowerCase();
-          const consumerNo = (item.consumer_number || '').toString().toLowerCase();
-          const custMobile = (item.metadata?.customerMobile || item.metadata?.customerNumber || item.metadata?.mobileNumber || item.metadata?.mobile || item.customer_mobile || '').toString().toLowerCase();
-          const metaStr = JSON.stringify(item.metadata || {}).toLowerCase();
-          matchesMobile = consumerNo.includes(mobTerm) || custMobile.includes(mobTerm) || metaStr.includes(mobTerm);
-        }
-        
-        let matchesCustomDate = true;
-        if (item.created_at) {
-          const itemMs = new Date(item.created_at).getTime();
-          if (searchStartDate) {
-            const startMs = new Date(`${searchStartDate}T00:00:00`).getTime();
-            if (!isNaN(startMs) && itemMs < startMs) {
-              matchesCustomDate = false;
-            }
-          }
-          if (searchEndDate) {
-            const endMs = new Date(`${searchEndDate}T23:59:59.999`).getTime();
-            if (!isNaN(endMs) && itemMs > endMs) {
-              matchesCustomDate = false;
-            }
-          }
-        }
-        return matchesMobile && matchesCustomDate;
+    // 1. Transaction ID Filter (if filled in Txn ID mode)
+    if (searchType === 'txnId' && searchTxnId.trim()) {
+      const idTerm = searchTxnId.trim().toLowerCase();
+      const utrOrId = getUtrOrTxnId(item).toLowerCase();
+      const rawTxnId = (item.transaction_id || '').toLowerCase();
+      const rawRef = (item.rejection_reason || '').toLowerCase();
+      if (!utrOrId.includes(idTerm) && !rawTxnId.includes(idTerm) && !rawRef.includes(idTerm)) {
+        return false;
       }
     }
 
-    const term = search.toLowerCase();
-    const matchesSearch = (
-      (item.provider || '').toLowerCase().includes(term) ||
-      (item.consumer_number || '').toLowerCase().includes(term) ||
-      (getUtrOrTxnId(item)).toLowerCase().includes(term) ||
-      (item.service_type || '').toLowerCase().includes(term)
-    );
+    // 2. Mobile Filter (if filled in Mobile mode)
+    if (searchType === 'mobile' && searchMobile.trim()) {
+      const mobTerm = searchMobile.trim().toLowerCase();
+      const consumerNo = (item.consumer_number || '').toString().toLowerCase();
+      const custMobile = (item.metadata?.customerMobile || item.metadata?.customerNumber || item.metadata?.mobileNumber || item.metadata?.mobile || item.customer_mobile || '').toString().toLowerCase();
+      const metaStr = JSON.stringify(item.metadata || {}).toLowerCase();
+      if (!consumerNo.includes(mobTerm) && !custMobile.includes(mobTerm) && !metaStr.includes(mobTerm)) {
+        return false;
+      }
+    }
 
-    const matchesDate = checkDateFilter(item.created_at, dateFilter);
-    const matchesAmount = amountFilter ? Number(item.amount) >= Number(amountFilter) : true;
+    // 3. Custom Date Range Filter (if dates selected in Mobile mode)
+    if (searchType === 'mobile' && item.created_at) {
+      const itemMs = new Date(item.created_at).getTime();
+      if (searchStartDate) {
+        const startMs = new Date(`${searchStartDate}T00:00:00`).getTime();
+        if (!isNaN(startMs) && itemMs < startMs) return false;
+      }
+      if (searchEndDate) {
+        const endMs = new Date(`${searchEndDate}T23:59:59.999`).getTime();
+        if (!isNaN(endMs) && itemMs > endMs) return false;
+      }
+    }
 
-    return matchesSearch && matchesDate && matchesAmount;
+    // 4. Quick Date Range Filter (in Txn ID mode or when no custom dates)
+    if (searchType === 'txnId' && dateFilter && dateFilter !== 'all') {
+      if (!checkDateFilter(item.created_at, dateFilter)) return false;
+    }
+
+    // 5. Min Amount Filter
+    if (amountFilter && Number(item.amount) < Number(amountFilter)) {
+      return false;
+    }
+
+    // 6. Quick Text Search Filter
+    if (search.trim()) {
+      const term = search.toLowerCase();
+      const matchesSearch = (
+        (item.provider || '').toLowerCase().includes(term) ||
+        (item.consumer_number || '').toLowerCase().includes(term) ||
+        (getUtrOrTxnId(item)).toLowerCase().includes(term) ||
+        (item.service_type || '').toLowerCase().includes(term)
+      );
+      if (!matchesSearch) return false;
+    }
+
+    return true;
   });
 
   const totalPages = Math.ceil(filteredHistory.length / itemsPerPage);
@@ -231,102 +230,130 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
         </div>
       </div>
 
-      {/* Advanced Search TXN Panel */}
+      {/* Unified Search & Filter Panel */}
       <div className="bg-white p-6 md:p-8 rounded-[32px] border border-slate-200 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div>
-            <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
-              <Search className="text-indigo-600" size={18} />
-              Search Bharat Connect Transactions
-            </h3>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Find any bill payment using B-Connect ID or Mobile & Date Range</p>
-          </div>
-          {isAdvancedSearchActive && (
-            <button
-              type="button"
-              onClick={handleResetAdvancedSearch}
-              className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer w-fit"
-            >
-              <RotateCcw size={14} />
-              Reset Search Filter
-            </button>
-          )}
-        </div>
-
-        <form onSubmit={handleAdvancedSearch} className="space-y-5">
-          {/* Mode Switcher Tabs */}
-          <div className="space-y-1.5">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">SEARCH BY</label>
-            <div className="grid grid-cols-2 gap-3 max-w-md">
-              <button
-                type="button"
-                onClick={() => setSearchType('txnId')}
-                className={`py-3 px-4 text-xs font-black uppercase tracking-wider rounded-2xl border transition-all cursor-pointer ${searchType === 'txnId'
-                  ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-2xs'
-                  : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                  }`}
-              >
-                B-Connect Transaction ID
-              </button>
-              <button
-                type="button"
-                onClick={() => setSearchType('mobile')}
-                className={`py-3 px-4 text-xs font-black uppercase tracking-wider rounded-2xl border transition-all cursor-pointer ${searchType === 'mobile'
-                  ? 'bg-indigo-50 text-indigo-600 border-indigo-200 shadow-2xs'
-                  : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                  }`}
-              >
-                Mobile & Date Range
-              </button>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100/80">
+              <Filter size={20} />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">Search & Filter Transactions</h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Filter utility bills by Txn ID, Mobile, Date Range, or Amount</p>
             </div>
           </div>
 
+          {/* Mode Switcher Tabs */}
+          <div className="flex items-center bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 w-fit">
+            <button
+              type="button"
+              onClick={() => setSearchType('txnId')}
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${searchType === 'txnId'
+                ? 'bg-white text-indigo-600 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+                }`}
+            >
+              B-Connect Txn ID
+            </button>
+            <button
+              type="button"
+              onClick={() => setSearchType('mobile')}
+              className={`px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer ${searchType === 'mobile'
+                ? 'bg-white text-indigo-600 shadow-xs'
+                : 'text-slate-500 hover:text-slate-800'
+                }`}
+            >
+              Mobile & Date Range
+            </button>
+          </div>
+        </div>
+
+        <form onSubmit={handleAdvancedSearch}>
           {searchType === 'txnId' ? (
-            <div className="flex flex-col sm:flex-row items-end gap-3 max-w-3xl">
-              <div className="space-y-1.5 flex-1 w-full">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">B-Connect Transaction ID</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 items-end gap-4">
+              {/* Txn ID Input */}
+              <div className="lg:col-span-2 space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">B-Connect Transaction ID</label>
+                <div className="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-200 flex items-center gap-3 focus-within:bg-white focus-within:border-indigo-500 transition-all">
+                  <Search className="text-slate-400 shrink-0" size={16} />
+                  <input
+                    type="text"
+                    value={searchTxnId}
+                    onChange={(e) => setSearchTxnId(e.target.value)}
+                    placeholder="Enter CC01... or Ref ID"
+                    className="w-full text-xs outline-none font-semibold text-slate-800 bg-transparent placeholder-slate-400"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Date Range */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Quick Date</label>
+                <select
+                  value={dateFilter}
+                  onChange={(e: any) => setDateFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 transition-all cursor-pointer"
+                >
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="7days">Last 7 Days</option>
+                  <option value="30days">Last 30 Days</option>
+                  <option value="thisMonth">This Month</option>
+                  <option value="all">All Time</option>
+                </select>
+              </div>
+
+              {/* Min Amount */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Min Amount (₹)</label>
                 <input
-                  type="text"
-                  value={searchTxnId}
-                  onChange={(e) => setSearchTxnId(e.target.value)}
-                  placeholder="Enter B-Connect ID starting with CC01 or Transaction Ref"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                  type="number"
+                  placeholder="Min amount..."
+                  value={amountFilter}
+                  onChange={(e) => setAmountFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 transition-all placeholder-slate-400"
                 />
               </div>
-              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
                 <button
                   type="submit"
-                  className="py-3 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto"
+                  className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   <Search size={16} />
-                  Search Transactions
+                  Search
                 </button>
-                {isAdvancedSearchActive && (
+                {(searchTxnId || dateFilter !== 'today' || amountFilter || isAdvancedSearchActive) && (
                   <button
                     type="button"
                     onClick={handleResetAdvancedSearch}
-                    className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap"
+                    className="py-3 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap"
+                    title="Reset Filters"
                   >
-                    Clear Search
+                    <RotateCcw size={14} />
                   </button>
                 )}
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-4 items-end gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 items-end gap-4">
+              {/* Mobile Number */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Customer Mobile Number</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Customer Mobile</label>
                 <input
                   type="tel"
                   maxLength={10}
                   value={searchMobile}
                   onChange={(e) => setSearchMobile(e.target.value.replace(/\D/g, ''))}
-                  placeholder="Enter 10-digit mobile number"
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
+                  placeholder="10-digit mobile"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all placeholder-slate-400"
                 />
               </div>
+
+              {/* Start Date */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Start Date</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Start Date</label>
                 <input
                   type="date"
                   value={searchStartDate}
@@ -334,8 +361,10 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
                 />
               </div>
+
+              {/* End Date */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">End Date</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">End Date</label>
                 <input
                   type="date"
                   value={searchEndDate}
@@ -343,77 +372,42 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
                 />
               </div>
+
+              {/* Min Amount */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Min Amount (₹)</label>
+                <input
+                  type="number"
+                  placeholder="Min amount..."
+                  value={amountFilter}
+                  onChange={(e) => setAmountFilter(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 transition-all placeholder-slate-400"
+                />
+              </div>
+
+              {/* Action Buttons */}
               <div className="flex items-center gap-2">
                 <button
                   type="submit"
                   className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
                 >
                   <Search size={16} />
-                  Search Transactions
+                  Search
                 </button>
-                {isAdvancedSearchActive && (
+                {(searchMobile || searchStartDate || searchEndDate || amountFilter || isAdvancedSearchActive) && (
                   <button
                     type="button"
                     onClick={handleResetAdvancedSearch}
                     className="py-3 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap"
+                    title="Reset Filters"
                   >
-                    Clear Search
+                    <RotateCcw size={14} />
                   </button>
                 )}
               </div>
             </div>
           )}
         </form>
-      </div>
-
-      {/* Quick Filter Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-        {/* Search */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Quick Search</label>
-          <div className="bg-slate-50 px-4 py-3 rounded-2xl border border-slate-200 flex items-center gap-3">
-            <Search className="text-slate-400 shrink-0" size={18} />
-            <input
-              type="text"
-              placeholder="Search operator, consumer ID, UTR..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              disabled={isAdvancedSearchActive}
-              className="w-full text-xs outline-none font-semibold text-slate-700 bg-transparent placeholder-slate-400 disabled:opacity-50"
-            />
-          </div>
-        </div>
-
-        {/* Date Filter */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Quick Date Range</label>
-          <select
-            value={dateFilter}
-            onChange={(e: any) => setDateFilter(e.target.value)}
-            disabled={isAdvancedSearchActive}
-            className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all cursor-pointer disabled:opacity-50"
-          >
-            <option value="today">Today</option>
-            <option value="yesterday">Yesterday</option>
-            <option value="7days">Last 7 Days</option>
-            <option value="30days">Last 30 Days</option>
-            <option value="thisMonth">This Month</option>
-            <option value="all">All Time</option>
-          </select>
-        </div>
-
-        {/* Min Amount */}
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Min Amount (₹)</label>
-          <input
-            type="number"
-            placeholder="Min amount..."
-            value={amountFilter}
-            onChange={(e) => setAmountFilter(e.target.value)}
-            disabled={isAdvancedSearchActive}
-            className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-500 transition-all placeholder-slate-400 disabled:opacity-50"
-          />
-        </div>
       </div>
 
       {/* History Table / Grid */}
