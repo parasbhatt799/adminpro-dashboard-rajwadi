@@ -282,70 +282,87 @@ export default function UserBillHistory({ userId }: UserBillHistoryProps) {
           </div>
 
           {searchType === 'txnId' ? (
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">B-Connect Transaction ID</label>
-              <input
-                type="text"
-                value={searchTxnId}
-                onChange={(e) => setSearchTxnId(e.target.value)}
-                placeholder="Enter B-Connect ID starting with CC01 or Transaction Ref"
-                className="w-full max-w-lg px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
-              />
+            <div className="flex flex-col sm:flex-row items-end gap-3 max-w-3xl">
+              <div className="space-y-1.5 flex-1 w-full">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">B-Connect Transaction ID</label>
+                <input
+                  type="text"
+                  value={searchTxnId}
+                  onChange={(e) => setSearchTxnId(e.target.value)}
+                  placeholder="Enter B-Connect ID starting with CC01 or Transaction Ref"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all placeholder:text-slate-400"
+                />
+              </div>
+              <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                <button
+                  type="submit"
+                  className="py-3 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap w-full sm:w-auto"
+                >
+                  <Search size={16} />
+                  Search Transactions
+                </button>
+                {isAdvancedSearchActive && (
+                  <button
+                    type="button"
+                    onClick={handleResetAdvancedSearch}
+                    className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    Clear Search
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Customer Mobile Number</label>
-                  <input
-                    type="tel"
-                    maxLength={10}
-                    value={searchMobile}
-                    onChange={(e) => setSearchMobile(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Enter 10-digit mobile number"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Start Date</label>
-                  <input
-                    type="date"
-                    value={searchStartDate}
-                    onChange={(e) => setSearchStartDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">End Date</label>
-                  <input
-                    type="date"
-                    value={searchEndDate}
-                    onChange={(e) => setSearchEndDate(e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
-                  />
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 items-end gap-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Customer Mobile Number</label>
+                <input
+                  type="tel"
+                  maxLength={10}
+                  value={searchMobile}
+                  onChange={(e) => setSearchMobile(e.target.value.replace(/\D/g, ''))}
+                  placeholder="Enter 10-digit mobile number"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Start Date</label>
+                <input
+                  type="date"
+                  value={searchStartDate}
+                  onChange={(e) => setSearchStartDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">End Date</label>
+                <input
+                  type="date"
+                  value={searchEndDate}
+                  onChange={(e) => setSearchEndDate(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none text-xs font-semibold text-slate-800 focus:border-indigo-500 focus:bg-white transition-all"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap"
+                >
+                  <Search size={16} />
+                  Search Transactions
+                </button>
+                {isAdvancedSearchActive && (
+                  <button
+                    type="button"
+                    onClick={handleResetAdvancedSearch}
+                    className="py-3 px-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer whitespace-nowrap"
+                  >
+                    Clear Search
+                  </button>
+                )}
               </div>
             </div>
           )}
-
-          <div className="flex gap-3">
-            <button
-              type="submit"
-              className="py-3.5 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-md shadow-indigo-100 cursor-pointer flex items-center gap-2"
-            >
-              <Search size={16} />
-              Search Transactions
-            </button>
-            {isAdvancedSearchActive && (
-              <button
-                type="button"
-                onClick={handleResetAdvancedSearch}
-                className="py-3.5 px-6 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-black text-xs uppercase tracking-widest transition-all cursor-pointer"
-              >
-                Clear Search
-              </button>
-            )}
-          </div>
         </form>
       </div>
 
