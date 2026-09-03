@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ShieldCheck, Loader2, Send, AlertCircle, CheckCircle2, IndianRupee, Users, Trash2, Plus, Eye, EyeOff, AlertTriangle, X } from 'lucide-react';
+import { ShieldCheck, Loader2, Send, AlertCircle, CheckCircle2, IndianRupee, Users, Trash2, Plus, Eye, EyeOff, AlertTriangle, X, Search, Filter, RotateCcw, Building2, User } from 'lucide-react';
 import { sendAdminPushNotification } from '../../lib/notifications';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -53,6 +53,32 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   const [showTpinDigits, setShowTpinDigits] = useState(false);
   const [tpinError, setTpinError] = useState<string | null>(null);
   const [tpinLoading, setTpinLoading] = useState(false);
+
+  // Beneficiary Filters State
+  const [filterHolderName, setFilterHolderName] = useState('');
+  const [filterBankName, setFilterBankName] = useState('');
+  const [filterIfscCode, setFilterIfscCode] = useState('');
+
+  // Extract unique bank names from saved beneficiaries list
+  const uniqueSavedBanks = Array.from(
+    new Set(beneficiaries.map((b) => b.bank_name).filter(Boolean))
+  ).sort();
+
+  // Filter beneficiaries by Person Name, Bank Name, and IFSC Code
+  const filteredBeneficiaries = beneficiaries.filter((b) => {
+    const matchesHolder = !filterHolderName || b.holder_name?.toLowerCase().includes(filterHolderName.toLowerCase().trim());
+    const matchesBank = !filterBankName || b.bank_name?.toLowerCase().includes(filterBankName.toLowerCase().trim());
+    const matchesIfsc = !filterIfscCode || b.ifsc_code?.toLowerCase().includes(filterIfscCode.toLowerCase().trim());
+    return matchesHolder && matchesBank && matchesIfsc;
+  });
+
+  const isFilterActive = Boolean(filterHolderName || filterBankName || filterIfscCode);
+
+  const clearBeneficiaryFilters = () => {
+    setFilterHolderName('');
+    setFilterBankName('');
+    setFilterIfscCode('');
+  };
 
   useEffect(() => {
     fetchSettings();
@@ -442,12 +468,100 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
 
       {/* Beneficiaries Grid */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">Saved Beneficiaries</h2>
-          <span className="text-xs font-medium px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-500">
-            {beneficiaries.length} Accounts
-          </span>
+        <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-bold text-slate-900">Saved Beneficiaries</h2>
+            <span className="text-xs font-semibold px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-slate-600 shadow-2xs">
+              {isFilterActive ? `${filteredBeneficiaries.length} of ${beneficiaries.length}` : beneficiaries.length} Accounts
+            </span>
+          </div>
+          {isFilterActive && (
+            <button
+              onClick={clearBeneficiaryFilters}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 transition-colors self-start sm:self-auto cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Clear Filters
+            </button>
+          )}
         </div>
+
+        {/* Filter Inputs Bar */}
+        {beneficiaries.length > 0 && (
+          <div className="p-4 bg-slate-50/60 border-b border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {/* Person Name Filter */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <User className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Filter by Person Name..."
+                  value={filterHolderName}
+                  onChange={(e) => setFilterHolderName(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all"
+                />
+                {filterHolderName && (
+                  <button
+                    onClick={() => setFilterHolderName('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Bank Name Filter */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Building2 className="w-4 h-4" />
+                </div>
+                <select
+                  value={filterBankName}
+                  onChange={(e) => setFilterBankName(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 transition-all cursor-pointer"
+                >
+                  <option value="">All Banks ({uniqueSavedBanks.length})</option>
+                  {uniqueSavedBanks.map((bank) => (
+                    <option key={bank} value={bank}>
+                      {bank}
+                    </option>
+                  ))}
+                </select>
+                {filterBankName && (
+                  <button
+                    onClick={() => setFilterBankName('')}
+                    className="absolute inset-y-0 right-0 pr-6 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* IFSC Code Filter */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                  <Search className="w-4 h-4" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Filter by IFSC Code..."
+                  value={filterIfscCode}
+                  onChange={(e) => setFilterIfscCode(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all uppercase"
+                />
+                {filterIfscCode && (
+                  <button
+                    onClick={() => setFilterIfscCode('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="p-6">
           {beneficiaries.length === 0 ? (
@@ -456,9 +570,21 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
               <p className="text-slate-500">No beneficiaries added yet.</p>
               <p className="text-sm text-slate-400 mt-1">Click "Add Account" to start transferring.</p>
             </div>
+          ) : filteredBeneficiaries.length === 0 ? (
+            <div className="text-center py-10 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+              <Search className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="font-semibold text-slate-700">No beneficiaries found matching your filter criteria.</p>
+              <p className="text-xs text-slate-400 mt-1">Try clearing or adjusting your search filters.</p>
+              <button
+                onClick={clearBeneficiaryFilters}
+                className="mt-4 px-4 py-2 bg-indigo-600 text-white text-xs font-semibold rounded-xl hover:bg-indigo-700 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Reset Filters
+              </button>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {beneficiaries.map((b) => (
+              {filteredBeneficiaries.map((b) => (
                 <div
                   key={b.id}
                   className={`relative p-5 border rounded-2xl transition-all group overflow-hidden ${b.is_verified
