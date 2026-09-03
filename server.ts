@@ -130,8 +130,8 @@ async function startServer() {
 
   app.post('/api/v1/b2b/admin/whatsapp/restart', async (req, res) => {
     try {
-      await whatsappService.restartWhatsApp();
-      res.json({ success: true, message: 'WhatsApp bot restarting...' });
+      whatsappService.restartWhatsApp(true);
+      res.json({ success: true, message: 'WhatsApp bot restarting and generating fresh QR code...' });
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

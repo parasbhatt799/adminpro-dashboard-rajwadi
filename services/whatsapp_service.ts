@@ -161,23 +161,41 @@ export const getWhatsAppStatus = () => {
 };
 
 // Restart / Re-init WhatsApp
-export const restartWhatsApp = async () => {
-  console.log('[WhatsApp] Restarting WhatsApp client...');
+export const restartWhatsApp = async (cleanSession: boolean = true) => {
+  console.log(`[WhatsApp] Restarting WhatsApp client (cleanSession=${cleanSession})...`);
   if (initTimeoutTimer) clearTimeout(initTimeoutTimer);
-  try {
-    if (client) {
-      await client.destroy().catch(() => {});
-    }
-  } catch (err) {
-    console.error('[WhatsApp] Error destroying existing client:', err);
-  } finally {
-    client = null;
-    isConnected = false;
-    isInitializing = false;
-    qrCodeDataUrl = null;
-    connectedPhone = null;
-    initWhatsApp();
+
+  const oldClient = client;
+  client = null;
+  isConnected = false;
+  isInitializing = false;
+  qrCodeDataUrl = null;
+  connectedPhone = null;
+
+  if (oldClient) {
+    oldClient.destroy().catch((err: any) => console.warn('[WhatsApp] Destroy warning:', err.message));
   }
+
+  if (cleanSession) {
+    try {
+      const authDir = path.join(process.cwd(), '.wwebjs_auth');
+      if (fs.existsSync(authDir)) {
+        fs.rmSync(authDir, { recursive: true, force: true });
+        console.log('[WhatsApp] Cleared .wwebjs_auth session directory.');
+      }
+    } catch (err: any) {
+      console.warn('[WhatsApp] Could not clear .wwebjs_auth directory:', err.message);
+    }
+  } else {
+    try {
+      const lockFile = path.join(process.cwd(), '.wwebjs_auth', 'session', 'DevToolsActivePort');
+      if (fs.existsSync(lockFile)) fs.unlinkSync(lockFile);
+    } catch (_) {}
+  }
+
+  setTimeout(() => {
+    initWhatsApp();
+  }, 1000);
 };
 
 // Send direct WhatsApp text message to any phone number

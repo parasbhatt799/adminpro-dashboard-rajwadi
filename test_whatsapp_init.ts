@@ -1,7 +1,7 @@
-import { initWhatsApp, getWhatsAppStatus, restartWhatsApp } from './services/whatsapp_service.js';
+import { getWhatsAppStatus, restartWhatsApp } from './services/whatsapp_service.js';
 
-console.log('Testing WhatsApp init...');
-initWhatsApp();
+console.log('Testing WhatsApp init with cleanSession=true...');
+restartWhatsApp(true);
 
 const interval = setInterval(() => {
   const status = getWhatsAppStatus();
