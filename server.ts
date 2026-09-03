@@ -186,6 +186,54 @@ async function startServer() {
     }
   });
 
+  // WhatsApp Trigger: Notify B2B Agent when Fund Request is Rejected
+  app.post('/api/v1/b2b/admin/whatsapp/notify-rejected', async (req, res) => {
+    try {
+      const { agentId, amount, utr, reason } = req.body;
+      if (!agentId) {
+        return res.status(400).json({ success: false, error: 'Agent ID is required' });
+      }
+
+      // Fetch agent details
+      const { data: agent } = await supabaseAdmin
+        .from('b2b_agents')
+        .select('*')
+        .eq('id', agentId)
+        .single();
+
+      let agentPhone = agent?.phone || agent?.mobile;
+      let agentName = agent?.company_name || agent?.full_name || 'B2B Agent';
+
+      if (!agentPhone) {
+        const { data: profile } = await supabaseAdmin
+          .from('users_profiles')
+          .select('*')
+          .eq('id', agentId)
+          .single();
+        if (profile) {
+          agentPhone = profile.mobile || profile.phone;
+          agentName = profile.full_name || agentName;
+        }
+      }
+
+      if (agentPhone) {
+        whatsappService.notifyAgentFundRequestRejected({
+          agentName,
+          agentPhone,
+          amount: Number(amount) || 0,
+          utr: utr || 'N/A',
+          reason: reason || 'Verification Failed / Invalid UTR'
+        }).catch(err => console.error('[WhatsApp Rejection Notify Error]', err));
+      } else {
+        console.warn(`[WhatsApp] No phone number found for agent ${agentId}`);
+      }
+
+      res.json({ success: true, message: 'Rejection notification triggered' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // Secure Proxy Endpoint for bbps_submissions table queries (uses service role key to bypass RLS)
   app.use('/api/bbps-proxy', async (req, res) => {
     try {

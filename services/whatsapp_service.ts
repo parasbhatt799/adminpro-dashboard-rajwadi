@@ -186,3 +186,21 @@ export const notifyAgentFundRequestApproved = async (data: {
 
   return await sendWhatsAppMessage(data.agentPhone, message);
 };
+
+// Helper 3: Notify Agent when B2B Fund Request is Rejected
+export const notifyAgentFundRequestRejected = async (data: {
+  agentName: string;
+  agentPhone: string;
+  amount: number;
+  utr: string;
+  reason?: string;
+}) => {
+  const message = `❌ *B2B FUND REQUEST REJECTED*\n\n` +
+    `Dear ${data.agentName},\n\n` +
+    `Your fund request of *₹${Number(data.amount).toLocaleString('en-IN')}* (UTR: ${data.utr}) has been rejected by admin.\n\n` +
+    `📌 *Reason:* ${data.reason || 'Verification Failed / Invalid UTR'}\n` +
+    `🕒 *Time:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n` +
+    `If you believe this is an error, please contact admin support.`;
+
+  return await sendWhatsAppMessage(data.agentPhone, message);
+};
