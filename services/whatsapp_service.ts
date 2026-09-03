@@ -47,11 +47,15 @@ const getChromiumExecutablePath = (): string | undefined => {
   if (envPath && fs.existsSync(envPath)) return envPath;
 
   const candidatePaths = [
-    '/usr/bin/chromium-browser',
-    '/usr/bin/chromium',
     '/usr/bin/google-chrome-stable',
     '/usr/bin/google-chrome',
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/opt/google/chrome/chrome',
+    '/usr/lib/chromium-browser/chromium-browser',
+    '/usr/lib/chromium/chromium',
     '/snap/bin/chromium',
+    '/usr/bin/chrome',
     'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
     'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
   ];
@@ -181,16 +185,23 @@ export const initWhatsApp = () => {
       lastInitError = `Disconnected: ${reason}`;
     });
 
+    const formatLinuxError = (errMsg: string) => {
+      if (errMsg.includes('libatk') || errMsg.includes('shared object file') || errMsg.includes('Failed to launch the browser process')) {
+        return `Linux VPS is missing Chrome shared libraries (${errMsg.slice(0, 110)}...). Run command on server terminal: "sudo apt-get update && sudo apt-get install -y chromium-browser libatk1.0-0 libgbm1"`;
+      }
+      return errMsg;
+    };
+
     client.initialize().catch((err: any) => {
       console.error('[WhatsApp] Initialization error:', err);
       isInitializing = false;
-      lastInitError = err?.message || 'Failed to initialize Puppeteer browser';
+      lastInitError = formatLinuxError(err?.message || String(err));
       client = null;
     });
   } catch (err: any) {
     console.error('[WhatsApp] Unexpected error during init:', err);
     isInitializing = false;
-    lastInitError = err?.message || 'Unexpected error launching WhatsApp client';
+    lastInitError = formatLinuxError(err?.message || String(err));
     client = null;
   }
 };
