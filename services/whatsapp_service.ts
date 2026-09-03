@@ -42,6 +42,28 @@ export const setAdminWhatsAppNumbers = (numbers: string) => {
   }
 };
 
+const getChromiumExecutablePath = (): string | undefined => {
+  const envPath = process.env.PUPPETEER_EXECUTABLE_PATH || process.env.CHROME_BIN || process.env.CHROMIUM_PATH;
+  if (envPath && fs.existsSync(envPath)) return envPath;
+
+  const candidatePaths = [
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/snap/bin/chromium',
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe'
+  ];
+
+  for (const p of candidatePaths) {
+    try {
+      if (fs.existsSync(p)) return p;
+    } catch (_) {}
+  }
+  return undefined;
+};
+
 let initTimeoutTimer: NodeJS.Timeout | null = null;
 
 // Initialize WhatsApp Client
@@ -58,20 +80,30 @@ export const initWhatsApp = () => {
   console.log('[WhatsApp] Initializing self-hosted WhatsApp Web client...');
 
   try {
+    const execPath = getChromiumExecutablePath();
+    console.log(`[WhatsApp] Launching Puppeteer using ${execPath ? execPath : 'default bundled Chromium'}`);
+
+    const puppeteerOptions: any = {
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu',
+        '--ignore-certificate-errors'
+      ]
+    };
+
+    if (execPath) {
+      puppeteerOptions.executablePath = execPath;
+    }
+
     client = new Client({
       authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
-      puppeteer: {
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--no-first-run',
-          '--no-zygote',
-          '--disable-gpu'
-        ]
-      },
+      puppeteer: puppeteerOptions,
       webVersionCache: {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
