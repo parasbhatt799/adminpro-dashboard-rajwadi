@@ -117,17 +117,31 @@ async function startServer() {
     }
   });
 
-  // WhatsApp Trigger: Notify Admin on New B2B Fund Request
+  // WhatsApp Trigger: Notify Admin(s) on New B2B Fund Request
   app.post('/api/v1/b2b/admin/whatsapp/notify-new-request', async (req, res) => {
     try {
-      const { agentName, agentPhone, amount, utr, mode, proofUrl } = req.body;
+      const { agentName, agentPhone, amount, utr, mode, proofUrl, adminPhone } = req.body;
+      
+      let targetAdminPhones = adminPhone;
+      if (!targetAdminPhones && !process.env.ADMIN_WHATSAPP_NUMBERS) {
+        const { data: b2bAdmins } = await supabaseAdmin
+          .from('admin_profiles')
+          .select('mobile, phone')
+          .eq('is_b2b_admin', true);
+          
+        if (b2bAdmins && b2bAdmins.length > 0) {
+          targetAdminPhones = b2bAdmins.map(a => a.mobile || a.phone).filter(Boolean);
+        }
+      }
+
       whatsappService.notifyAdminNewB2BFundRequest({
         agentName: agentName || 'B2B Agent',
         agentPhone: agentPhone || 'N/A',
         amount: Number(amount) || 0,
         utr: utr || 'N/A',
         mode: mode || 'Bank Transfer',
-        proofUrl: proofUrl || undefined
+        proofUrl: proofUrl || undefined,
+        adminPhone: targetAdminPhones
       }).catch(err => console.error('[WhatsApp New Request Notify Error]', err));
 
       res.json({ success: true, message: 'Admin notification triggered' });

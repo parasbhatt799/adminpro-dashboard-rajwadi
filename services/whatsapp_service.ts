@@ -145,7 +145,7 @@ export const sendWhatsAppMessage = async (mobileNumber: string, message: string)
   }
 };
 
-// Helper 1: Notify Admin on New B2B Fund Request
+// Helper 1: Notify Admin(s) on New B2B Fund Request (Supports Multiple Admin WhatsApp Numbers)
 export const notifyAdminNewB2BFundRequest = async (data: {
   agentName: string;
   agentPhone: string;
@@ -153,10 +153,23 @@ export const notifyAdminNewB2BFundRequest = async (data: {
   utr: string;
   mode: string;
   proofUrl?: string;
-  adminPhone?: string;
+  adminPhone?: string | string[];
 }) => {
-  const adminMobile = data.adminPhone || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_MOBILE || '9876543210';
-  
+  let adminMobiles: string[] = [];
+
+  if (Array.isArray(data.adminPhone)) {
+    adminMobiles = data.adminPhone;
+  } else if (typeof data.adminPhone === 'string' && data.adminPhone.trim()) {
+    adminMobiles = data.adminPhone.split(',').map(n => n.trim()).filter(Boolean);
+  } else {
+    const rawEnv = process.env.ADMIN_WHATSAPP_NUMBERS || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_MOBILE || '9876543210';
+    adminMobiles = rawEnv.split(',').map(n => n.trim()).filter(Boolean);
+  }
+
+  if (adminMobiles.length === 0) {
+    adminMobiles = ['9876543210'];
+  }
+
   let message = `📥 *NEW B2B FUND REQUEST*\n\n` +
     `👤 *Agent Name:* ${data.agentName}\n` +
     `📞 *Agent Phone:* ${data.agentPhone}\n` +
@@ -177,29 +190,38 @@ export const notifyAdminNewB2BFundRequest = async (data: {
     return false;
   }
 
-  try {
-    const cleanNumber = adminMobile.replace(/\D/g, '');
-    const formattedNumber = cleanNumber.length === 10 ? `91${cleanNumber}` : cleanNumber;
-    const chatId = `${formattedNumber}@c.us`;
-
-    // If proof image URL is available, send proof image directly with caption!
-    if (data.proofUrl && typeof data.proofUrl === 'string' && data.proofUrl.startsWith('http')) {
-      try {
-        console.log(`[WhatsApp] Fetching proof image from ${data.proofUrl}...`);
-        const media = await MessageMedia.fromUrl(data.proofUrl, { unsafeMime: true });
-        await client.sendMessage(chatId, media, { caption: message });
-        console.log(`[WhatsApp] Sent fund request message with proof image photo to ${chatId}`);
-        return true;
-      } catch (mediaErr) {
-        console.error('[WhatsApp] Failed to fetch/send proof image, sending text fallback:', mediaErr);
-      }
+  let media: any = null;
+  if (data.proofUrl && typeof data.proofUrl === 'string' && data.proofUrl.startsWith('http')) {
+    try {
+      console.log(`[WhatsApp] Pre-fetching proof image from ${data.proofUrl}...`);
+      media = await MessageMedia.fromUrl(data.proofUrl, { unsafeMime: true });
+    } catch (mediaErr) {
+      console.error('[WhatsApp] Failed to fetch proof image for multi-admin send:', mediaErr);
     }
-
-    return await sendWhatsAppMessage(adminMobile, message);
-  } catch (err) {
-    console.error('[WhatsApp] Error in notifyAdminNewB2BFundRequest:', err);
-    return false;
   }
+
+  let anySent = false;
+  for (const mobile of adminMobiles) {
+    try {
+      const cleanNumber = mobile.replace(/\D/g, '');
+      if (!cleanNumber) continue;
+      const formattedNumber = cleanNumber.length === 10 ? `91${cleanNumber}` : cleanNumber;
+      const chatId = `${formattedNumber}@c.us`;
+
+      if (media) {
+        await client.sendMessage(chatId, media, { caption: message });
+        console.log(`[WhatsApp] Sent fund request proof image to admin ${chatId}`);
+      } else {
+        await client.sendMessage(chatId, message);
+        console.log(`[WhatsApp] Sent fund request text message to admin ${chatId}`);
+      }
+      anySent = true;
+    } catch (err) {
+      console.error(`[WhatsApp] Failed to send notification to admin mobile ${mobile}:`, err);
+    }
+  }
+
+  return anySent;
 };
 
 // Helper 2: Notify Agent when B2B Fund Request is Approved
