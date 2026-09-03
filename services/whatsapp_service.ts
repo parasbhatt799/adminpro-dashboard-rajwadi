@@ -65,6 +65,7 @@ const getChromiumExecutablePath = (): string | undefined => {
 };
 
 let lastInitError: string | null = null;
+let initTimeoutTimer: NodeJS.Timeout | null = null;
 
 // Initialize WhatsApp Client
 export const initWhatsApp = () => {
