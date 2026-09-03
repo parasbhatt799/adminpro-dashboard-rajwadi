@@ -42,9 +42,18 @@ export const setAdminWhatsAppNumbers = (numbers: string) => {
   }
 };
 
+let initTimeoutTimer: NodeJS.Timeout | null = null;
+
 // Initialize WhatsApp Client
 export const initWhatsApp = () => {
-  if (client || isInitializing) return;
+  if (client) {
+    if (!isConnected && !qrCodeDataUrl && !isInitializing) {
+      console.log('[WhatsApp] Client exists but missing QR. Re-initializing...');
+    } else {
+      return;
+    }
+  }
+
   isInitializing = true;
   console.log('[WhatsApp] Initializing self-hosted WhatsApp Web client...');
 
@@ -62,15 +71,29 @@ export const initWhatsApp = () => {
           '--no-zygote',
           '--disable-gpu'
         ]
+      },
+      webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
       }
     });
 
+    if (initTimeoutTimer) clearTimeout(initTimeoutTimer);
+    initTimeoutTimer = setTimeout(() => {
+      if (!isConnected && !qrCodeDataUrl && isInitializing) {
+        console.warn('[WhatsApp] Init timeout reached (35s) without QR. Resetting initialization state...');
+        isInitializing = false;
+      }
+    }, 35000);
+
     client.on('qr', async (qr: string) => {
       console.log('[WhatsApp] New QR code generated. Scan in B2B Admin Panel.');
+      if (initTimeoutTimer) clearTimeout(initTimeoutTimer);
       try {
         qrCodeDataUrl = await qrcode.toDataURL(qr);
         lastQrTimestamp = new Date().toISOString();
         isConnected = false;
+        isInitializing = false;
       } catch (err) {
         console.error('[WhatsApp] Failed to generate QR data URL:', err);
       }
@@ -78,6 +101,7 @@ export const initWhatsApp = () => {
 
     client.on('ready', () => {
       console.log('[WhatsApp] Client is Ready & Connected!');
+      if (initTimeoutTimer) clearTimeout(initTimeoutTimer);
       isConnected = true;
       isInitializing = false;
       qrCodeDataUrl = null;
@@ -112,15 +136,21 @@ export const initWhatsApp = () => {
     client.initialize().catch((err: any) => {
       console.error('[WhatsApp] Initialization error:', err);
       isInitializing = false;
+      client = null;
     });
   } catch (err) {
     console.error('[WhatsApp] Unexpected error during init:', err);
     isInitializing = false;
+    client = null;
   }
 };
 
 // Return current WhatsApp status
 export const getWhatsAppStatus = () => {
+  // Auto recover if client was initialized long ago but stuck without QR
+  if (!client && !isInitializing) {
+    initWhatsApp();
+  }
   return {
     isConnected,
     isInitializing,
@@ -133,10 +163,10 @@ export const getWhatsAppStatus = () => {
 // Restart / Re-init WhatsApp
 export const restartWhatsApp = async () => {
   console.log('[WhatsApp] Restarting WhatsApp client...');
+  if (initTimeoutTimer) clearTimeout(initTimeoutTimer);
   try {
     if (client) {
       await client.destroy().catch(() => {});
-      client = null;
     }
   } catch (err) {
     console.error('[WhatsApp] Error destroying existing client:', err);

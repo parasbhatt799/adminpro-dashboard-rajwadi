@@ -240,12 +240,22 @@ export default function B2BWhatsAppManager() {
               </div>
             ) : (
               /* Initializing / Loading State */
-              <div className="my-10 text-center py-8 space-y-3">
+              <div className="my-10 text-center py-6 space-y-4">
                 <RefreshCw className="w-10 h-10 text-indigo-500 animate-spin mx-auto" />
-                <p className="font-semibold text-slate-700 text-sm">
-                  {status.isInitializing ? 'Starting WhatsApp Web Client...' : 'Generating QR Code...'}
-                </p>
-                <p className="text-xs text-slate-400">Please wait a few moments...</p>
+                <div>
+                  <p className="font-semibold text-slate-700 text-sm">
+                    {status.isInitializing ? 'Starting WhatsApp Web Client...' : 'Generating QR Code...'}
+                  </p>
+                  <p className="text-xs text-slate-400 mt-1">Please wait a few moments for the QR code to load.</p>
+                </div>
+                <button
+                  onClick={handleRestart}
+                  disabled={restarting}
+                  className="px-4 py-2 bg-indigo-50 text-indigo-600 border border-indigo-200 text-xs font-bold rounded-xl hover:bg-indigo-100 transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${restarting ? 'animate-spin' : ''}`} />
+                  {restarting ? 'Initializing...' : 'Force Generate QR Code'}
+                </button>
               </div>
             )}
           </div>
