@@ -68,6 +68,13 @@ const getChromiumExecutablePath = (): string | undefined => {
   return undefined;
 };
 
+const formatLinuxError = (errMsg: string) => {
+  if (errMsg.includes('libatk') || errMsg.includes('shared object file') || errMsg.includes('Failed to launch the browser process')) {
+    return `Linux VPS is missing Chrome shared libraries (${errMsg.slice(0, 110)}...). Run command on server terminal: "sudo apt-get update && sudo apt-get install -y chromium-browser libatk1.0-0 libgbm1"`;
+  }
+  return errMsg;
+};
+
 let lastInitError: string | null = null;
 let initTimeoutTimer: NodeJS.Timeout | null = null;
 
@@ -184,13 +191,6 @@ export const initWhatsApp = () => {
       connectedPhone = null;
       lastInitError = `Disconnected: ${reason}`;
     });
-
-    const formatLinuxError = (errMsg: string) => {
-      if (errMsg.includes('libatk') || errMsg.includes('shared object file') || errMsg.includes('Failed to launch the browser process')) {
-        return `Linux VPS is missing Chrome shared libraries (${errMsg.slice(0, 110)}...). Run command on server terminal: "sudo apt-get update && sudo apt-get install -y chromium-browser libatk1.0-0 libgbm1"`;
-      }
-      return errMsg;
-    };
 
     client.initialize().catch((err: any) => {
       console.error('[WhatsApp] Initialization error:', err);
