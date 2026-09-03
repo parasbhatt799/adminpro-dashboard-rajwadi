@@ -91,6 +91,40 @@ async function startServer() {
     }
   });
 
+  app.get('/api/v1/b2b/admin/whatsapp/admin-numbers', async (req, res) => {
+    try {
+      let numbers = whatsappService.loadConfiguredAdminNumbers();
+      if (!numbers) {
+        const { data } = await supabaseAdmin.from('payout_settings').select('b2b_whatsapp_numbers').eq('id', 1).single();
+        if (data && data.b2b_whatsapp_numbers) {
+          numbers = data.b2b_whatsapp_numbers;
+          whatsappService.setAdminWhatsAppNumbers(numbers);
+        }
+      }
+      res.json({ success: true, adminNumbers: numbers || '' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/v1/b2b/admin/whatsapp/admin-numbers', async (req, res) => {
+    try {
+      const { adminNumbers } = req.body;
+      const sanitized = typeof adminNumbers === 'string' ? adminNumbers.trim() : '';
+      whatsappService.setAdminWhatsAppNumbers(sanitized);
+
+      await supabaseAdmin
+        .from('payout_settings')
+        .update({ b2b_whatsapp_numbers: sanitized })
+        .eq('id', 1)
+        .catch(err => console.warn('[WhatsApp] Could not update payout_settings DB:', err.message));
+
+      res.json({ success: true, message: 'Admin WhatsApp numbers saved successfully', adminNumbers: sanitized });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   app.post('/api/v1/b2b/admin/whatsapp/restart', async (req, res) => {
     try {
       await whatsappService.restartWhatsApp();

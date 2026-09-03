@@ -1,6 +1,8 @@
 import pkg from 'whatsapp-web.js';
 const { Client, LocalAuth, MessageMedia } = pkg;
 import qrcode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
 
 let client: any = null;
 let qrCodeDataUrl: string | null = null;
@@ -8,6 +10,37 @@ let isConnected = false;
 let isInitializing = false;
 let connectedPhone: string | null = null;
 let lastQrTimestamp: string | null = null;
+let configuredAdminNumbers: string = '';
+
+const CONFIG_FILE = path.join(process.cwd(), '.whatsapp_config.json');
+
+// Load saved Admin WhatsApp numbers from local config or env
+export const loadConfiguredAdminNumbers = (): string => {
+  if (configuredAdminNumbers) return configuredAdminNumbers;
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      if (data && data.adminNumbers) {
+        configuredAdminNumbers = data.adminNumbers;
+        return configuredAdminNumbers;
+      }
+    }
+  } catch (err) {
+    console.error('[WhatsApp] Error loading local config file:', err);
+  }
+  return configuredAdminNumbers || process.env.ADMIN_WHATSAPP_NUMBERS || process.env.ADMIN_WHATSAPP_NUMBER || '';
+};
+
+// Save Admin WhatsApp numbers dynamically
+export const setAdminWhatsAppNumbers = (numbers: string) => {
+  configuredAdminNumbers = numbers;
+  try {
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ adminNumbers: numbers, updatedAt: new Date().toISOString() }, null, 2));
+    console.log('[WhatsApp] Saved admin WhatsApp numbers to local config:', numbers);
+  } catch (err) {
+    console.error('[WhatsApp] Error writing local config file:', err);
+  }
+};
 
 // Initialize WhatsApp Client
 export const initWhatsApp = () => {
@@ -157,13 +190,18 @@ export const notifyAdminNewB2BFundRequest = async (data: {
 }) => {
   let adminMobiles: string[] = [];
 
-  if (Array.isArray(data.adminPhone)) {
+  if (Array.isArray(data.adminPhone) && data.adminPhone.length > 0) {
     adminMobiles = data.adminPhone;
   } else if (typeof data.adminPhone === 'string' && data.adminPhone.trim()) {
     adminMobiles = data.adminPhone.split(',').map(n => n.trim()).filter(Boolean);
   } else {
-    const rawEnv = process.env.ADMIN_WHATSAPP_NUMBERS || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_MOBILE || '9876543210';
-    adminMobiles = rawEnv.split(',').map(n => n.trim()).filter(Boolean);
+    const saved = loadConfiguredAdminNumbers();
+    if (saved) {
+      adminMobiles = saved.split(',').map(n => n.trim()).filter(Boolean);
+    } else {
+      const rawEnv = process.env.ADMIN_WHATSAPP_NUMBERS || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_MOBILE || '9876543210';
+      adminMobiles = rawEnv.split(',').map(n => n.trim()).filter(Boolean);
+    }
   }
 
   if (adminMobiles.length === 0) {

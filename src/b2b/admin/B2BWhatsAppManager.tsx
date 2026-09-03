@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, Phone, MessageSquare, ShieldCheck, Smartphone, Zap, X } from 'lucide-react';
+import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, Phone, MessageSquare, ShieldCheck, Smartphone, Zap, X, Save, Users } from 'lucide-react';
 
 interface WhatsAppStatus {
   isConnected: boolean;
@@ -21,6 +21,10 @@ export default function B2BWhatsAppManager() {
   const [restarting, setRestarting] = useState(false);
   const [toastBanner, setToastBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Admin Notification Numbers State
+  const [adminNumbersInput, setAdminNumbersInput] = useState('');
+  const [savingNumbers, setSavingNumbers] = useState(false);
+
   const showToast = (type: 'success' | 'error', message: string) => {
     setToastBanner({ type, message });
     setTimeout(() => setToastBanner(null), 4000);
@@ -30,6 +34,40 @@ export default function B2BWhatsAppManager() {
   const [testMobile, setTestMobile] = useState('');
   const [testMessage, setTestMessage] = useState('Hello from B2B WhatsApp Bot! Your connection is active.');
   const [sendingTest, setSendingTest] = useState(false);
+
+  const fetchAdminNumbers = async () => {
+    try {
+      const res = await fetch('/api/v1/b2b/admin/whatsapp/admin-numbers');
+      const data = await res.json();
+      if (data.success && data.adminNumbers) {
+        setAdminNumbersInput(data.adminNumbers);
+      }
+    } catch (err) {
+      console.error('Error fetching admin numbers:', err);
+    }
+  };
+
+  const handleSaveAdminNumbers = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSavingNumbers(true);
+      const res = await fetch('/api/v1/b2b/admin/whatsapp/admin-numbers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminNumbers: adminNumbersInput })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('success', 'Admin WhatsApp notification numbers saved successfully!');
+      } else {
+        showToast('error', data.error || 'Failed to save admin numbers');
+      }
+    } catch (err) {
+      showToast('error', 'Error saving admin numbers');
+    } finally {
+      setSavingNumbers(false);
+    }
+  };
 
   const fetchStatus = async () => {
     try {
@@ -53,6 +91,7 @@ export default function B2BWhatsAppManager() {
 
   useEffect(() => {
     fetchStatus();
+    fetchAdminNumbers();
     // Poll every 3 seconds to auto-detect QR scan completion
     const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
@@ -272,7 +311,7 @@ export default function B2BWhatsAppManager() {
               <button
                 type="submit"
                 disabled={sendingTest || !status.isConnected}
-                className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
               >
                 {sendingTest ? (
                   <>
@@ -293,6 +332,60 @@ export default function B2BWhatsAppManager() {
             </form>
           </div>
         </div>
+      </div>
+
+      {/* Admin WhatsApp Numbers Settings Card */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-4 border-b border-slate-100">
+          <div>
+            <h2 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              <Users className="w-5 h-5 text-indigo-600" />
+              Admin Notification Mobile Numbers
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Enter the WhatsApp numbers that will receive instant alerts & payment proof photos for new B2B Fund Requests.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSaveAdminNumbers} className="mt-4 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              Admin Mobile Numbers (comma separated for multiple numbers)
+            </label>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                <Phone className="w-4 h-4" />
+              </div>
+              <input
+                type="text"
+                placeholder="e.g. 9876543210, 9123456789"
+                value={adminNumbersInput}
+                onChange={(e) => setAdminNumbersInput(e.target.value)}
+                className="w-full pl-9 pr-3 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 font-mono"
+              />
+            </div>
+            <p className="text-xs text-slate-400 mt-1.5">
+              💡 Example: <code className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-bold">9876543210, 9123456789</code> (All numbers added here will receive proof images & notifications).
+            </p>
+          </div>
+
+          <button
+            type="submit"
+            disabled={savingNumbers}
+            className="px-6 py-2.5 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+          >
+            {savingNumbers ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" /> Saving Numbers...
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" /> Save Admin Numbers
+              </>
+            )}
+          </button>
+        </form>
       </div>
     </div>
   );
