@@ -75,9 +75,6 @@ async function startServer() {
     next();
   });
 
-  // Mount B2B API Routes
-  app.use("/api/v1/b2b", b2bRoutes);
-
   // Initialize WhatsApp Bot for B2B Automation
   whatsappService.initWhatsApp();
 
@@ -195,7 +192,6 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Agent ID is required' });
       }
 
-      // Fetch agent details from b2b_agents table or users_profiles
       const { data: agent } = await supabaseAdmin
         .from('b2b_agents')
         .select('*')
@@ -207,7 +203,6 @@ async function startServer() {
       let walletBalance = Number(agent?.wallet_balance) || 0;
 
       if (!agentPhone) {
-        // Fallback to users_profiles if not in b2b_agents
         const { data: profile } = await supabaseAdmin
           .from('users_profiles')
           .select('*')
@@ -246,7 +241,6 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Agent ID is required' });
       }
 
-      // Fetch agent details
       const { data: agent } = await supabaseAdmin
         .from('b2b_agents')
         .select('*')
@@ -285,6 +279,9 @@ async function startServer() {
       res.status(500).json({ success: false, error: err.message });
     }
   });
+
+  // Mount B2B API Routes
+  app.use("/api/v1/b2b", b2bRoutes);
 
   // Secure Proxy Endpoint for bbps_submissions table queries (uses service role key to bypass RLS)
   app.use('/api/bbps-proxy', async (req, res) => {

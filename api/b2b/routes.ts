@@ -19,6 +19,11 @@ router.use((req, res, next) => {
 // Admin/Global route to trigger status check (does not require agent auth)
 router.get('/admin/status/:transaction_id', checkStatusAdmin);
 
+// Bypass B2B Auth Middleware for admin whatsapp endpoints
+router.use('/admin/whatsapp', (req, res, next) => {
+  next('router');
+});
+
 // Apply B2B Auth Middleware to all B2B routes
 router.use(b2bAuthMiddleware);
 
