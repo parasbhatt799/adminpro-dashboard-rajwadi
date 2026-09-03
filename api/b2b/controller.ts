@@ -952,14 +952,52 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
 
     // 💬 Trigger WhatsApp notification to Admin
     try {
-      const agentProfile = (req as any).agentProfile || {};
+      let agentName = 'B2B Agent';
+      let agentPhone = 'N/A';
+
+      // 1. Fetch agent details from b2b_agents or users_profiles
+      const { data: agentData } = await supabaseAdmin
+        .from('b2b_agents')
+        .select('company_name, full_name, phone, mobile')
+        .eq('id', agentId)
+        .maybeSingle();
+
+      if (agentData) {
+        agentName = agentData.company_name || agentData.full_name || agentName;
+        agentPhone = agentData.phone || agentData.mobile || agentPhone;
+      } else {
+        const { data: userProfile } = await supabaseAdmin
+          .from('users_profiles')
+          .select('full_name, mobile, phone')
+          .eq('id', agentId)
+          .maybeSingle();
+
+        if (userProfile) {
+          agentName = userProfile.full_name || agentName;
+          agentPhone = userProfile.mobile || userProfile.phone || agentPhone;
+        }
+      }
+
+      // 2. Load configured admin WhatsApp numbers from payout_settings DB if needed
+      let targetAdminPhones: string | undefined = undefined;
+      const { data: set } = await supabaseAdmin
+        .from('payout_settings')
+        .select('b2b_whatsapp_numbers')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (set && set.b2b_whatsapp_numbers) {
+        targetAdminPhones = set.b2b_whatsapp_numbers;
+      }
+
       notifyAdminNewB2BFundRequest({
-        agentName: agentProfile.company_name || agentProfile.full_name || 'B2B Agent',
-        agentPhone: agentProfile.phone || agentProfile.mobile || 'N/A',
+        agentName,
+        agentPhone,
         amount: Number(requestData.amount),
         utr: requestData.utr_number,
         mode: (targetBankDetails as any)?.bank_name || 'Bank Transfer',
-        proofUrl: requestData.proof_url || proof_url || undefined
+        proofUrl: requestData.proof_url || proof_url || undefined,
+        adminPhone: targetAdminPhones
       }).catch(err => console.error('[WhatsApp Admin Notify Error]', err));
     } catch (wsErr) {
       console.error('[WhatsApp Trigger Error]', wsErr);

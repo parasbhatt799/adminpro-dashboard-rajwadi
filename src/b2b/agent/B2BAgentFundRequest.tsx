@@ -12,6 +12,7 @@ export default function B2BAgentFundRequest() {
   const [requests, setRequests] = useState<any[]>([]);
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentName, setAgentName] = useState<string>('B2B Agent');
+  const [agentPhone, setAgentPhone] = useState<string>('');
 
   // Filter States
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
@@ -108,12 +109,13 @@ export default function B2BAgentFundRequest() {
 
       const agentRes = await supabase
         .from('b2b_api_credentials')
-        .select('client_id, company_name, name')
+        .select('client_id, company_name, name, mobile, phone')
         .eq('id', id)
         .maybeSingle();
 
       if (agentRes.data) {
         setAgentName(agentRes.data.company_name || agentRes.data.name || agentRes.data.client_id || 'B2B Agent');
+        setAgentPhone(agentRes.data.mobile || agentRes.data.phone || '');
       }
     } catch (err) {
       console.error('Error fetching fund requests:', err);
@@ -428,7 +430,7 @@ export default function B2BAgentFundRequest() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             agentName: agentName || 'B2B Agent',
-            agentPhone: '',
+            agentPhone: agentPhone || 'N/A',
             amount: formData.amount,
             utr: formData.utrNumber,
             mode: selectedBank?.bank_name || 'Bank Transfer',
