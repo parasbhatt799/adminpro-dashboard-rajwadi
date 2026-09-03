@@ -237,6 +237,22 @@ export default function B2BAdminFundRequests() {
           .update({ status: 'approved', updated_at: new Date().toISOString() })
           .eq('id', requestId);
 
+        // 💬 Trigger WhatsApp Notification to Agent
+        try {
+          const reqItem = requests.find((r) => r.id === requestId);
+          fetch('/api/v1/b2b/admin/whatsapp/notify-approved', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agentId,
+              amount,
+              utr: reqItem?.utr_number || ''
+            })
+          }).catch(err => console.error('[WhatsApp Agent Notify Error]', err));
+        } catch (wsErr) {
+          console.error('[WhatsApp Call Error]', wsErr);
+        }
+
         toast.success(`Fund request of ₹${amount.toLocaleString('en-IN')} approved successfully!`);
       } else {
         await supabase

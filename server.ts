@@ -17,6 +17,7 @@ import * as camlenioAeps from "./services/camlenio_aeps.js";
 import * as camlenioBbps from "./services/camlenio_bbps.js";
 import * as camlenioPayout from "./services/camlenio_payout.js";
 import b2bRoutes from "./api/b2b/routes.js";
+import * as whatsappService from "./services/whatsapp_service.js";
 
 // Initialize CRON Jobs
 import "./jobs/billavenue-cron.js";
@@ -76,6 +77,114 @@ async function startServer() {
 
   // Mount B2B API Routes
   app.use("/api/v1/b2b", b2bRoutes);
+
+  // Initialize WhatsApp Bot for B2B Automation
+  whatsappService.initWhatsApp();
+
+  // WhatsApp API Endpoints for B2B Admin Management
+  app.get('/api/v1/b2b/admin/whatsapp/status', (req, res) => {
+    try {
+      const status = whatsappService.getWhatsAppStatus();
+      res.json({ success: true, ...status });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/v1/b2b/admin/whatsapp/restart', async (req, res) => {
+    try {
+      await whatsappService.restartWhatsApp();
+      res.json({ success: true, message: 'WhatsApp bot restarting...' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post('/api/v1/b2b/admin/whatsapp/send-test', async (req, res) => {
+    try {
+      const { mobileNumber, message } = req.body;
+      if (!mobileNumber || !message) {
+        return res.status(400).json({ success: false, error: 'Mobile number and message are required' });
+      }
+      const sent = await whatsappService.sendWhatsAppMessage(mobileNumber, message);
+      if (sent) {
+        res.json({ success: true, message: 'Test message sent successfully' });
+      } else {
+        res.status(500).json({ success: false, error: 'Failed to send WhatsApp message. Check connection status.' });
+      }
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // WhatsApp Trigger: Notify Admin on New B2B Fund Request
+  app.post('/api/v1/b2b/admin/whatsapp/notify-new-request', async (req, res) => {
+    try {
+      const { agentName, agentPhone, amount, utr, mode } = req.body;
+      whatsappService.notifyAdminNewB2BFundRequest({
+        agentName: agentName || 'B2B Agent',
+        agentPhone: agentPhone || 'N/A',
+        amount: Number(amount) || 0,
+        utr: utr || 'N/A',
+        mode: mode || 'Bank Transfer'
+      }).catch(err => console.error('[WhatsApp New Request Notify Error]', err));
+
+      res.json({ success: true, message: 'Admin notification triggered' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // WhatsApp Trigger: Notify B2B Agent when Fund Request is Approved
+  app.post('/api/v1/b2b/admin/whatsapp/notify-approved', async (req, res) => {
+    try {
+      const { agentId, amount, utr } = req.body;
+      if (!agentId) {
+        return res.status(400).json({ success: false, error: 'Agent ID is required' });
+      }
+
+      // Fetch agent details from b2b_agents table or users_profiles
+      const { data: agent } = await supabaseAdmin
+        .from('b2b_agents')
+        .select('*')
+        .eq('id', agentId)
+        .single();
+
+      let agentPhone = agent?.phone || agent?.mobile;
+      let agentName = agent?.company_name || agent?.full_name || 'B2B Agent';
+      let walletBalance = Number(agent?.wallet_balance) || 0;
+
+      if (!agentPhone) {
+        // Fallback to users_profiles if not in b2b_agents
+        const { data: profile } = await supabaseAdmin
+          .from('users_profiles')
+          .select('*')
+          .eq('id', agentId)
+          .single();
+        if (profile) {
+          agentPhone = profile.mobile || profile.phone;
+          agentName = profile.full_name || agentName;
+          walletBalance = Number(profile.wallet_balance) || walletBalance;
+        }
+      }
+
+      if (agentPhone) {
+        whatsappService.notifyAgentFundRequestApproved({
+          agentName,
+          agentPhone,
+          amount: Number(amount) || 0,
+          utr: utr || 'N/A',
+          updatedBalance: walletBalance
+        }).catch(err => console.error('[WhatsApp Approval Notify Error]', err));
+      } else {
+        console.warn(`[WhatsApp] No phone number found for agent ${agentId}`);
+      }
+
+      res.json({ success: true, message: 'Approval notification triggered' });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
 
   // Secure Proxy Endpoint for bbps_submissions table queries (uses service role key to bypass RLS)
   app.use('/api/bbps-proxy', async (req, res) => {

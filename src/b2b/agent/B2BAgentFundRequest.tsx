@@ -421,6 +421,23 @@ export default function B2BAgentFundRequest() {
         '/b2b/admin/fund-requests'
       );
 
+      // 💬 Send WhatsApp Notification to Admin
+      try {
+        fetch('/api/v1/b2b/admin/whatsapp/notify-new-request', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agentName: agentName || 'B2B Agent',
+            agentPhone: '',
+            amount: formData.amount,
+            utr: formData.utrNumber,
+            mode: selectedBank?.bank_name || 'Bank Transfer'
+          })
+        }).catch(err => console.error('[WhatsApp Admin Notify Error]', err));
+      } catch (wsErr) {
+        console.error('[WhatsApp Call Error]', wsErr);
+      }
+
       toast.success('Fund request submitted successfully');
       setFormData({ amount: '', utrNumber: '', proofUrl: '' });
       if (agentId) fetchRequests(agentId);

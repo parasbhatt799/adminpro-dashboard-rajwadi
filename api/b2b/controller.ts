@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../../server';
 import * as billAvenue from '../../services/billavenue';
+import { notifyAdminNewB2BFundRequest } from '../../services/whatsapp_service.js';
 
 export const getCategories = async (req: Request, res: Response) => {
   try {
@@ -948,6 +949,20 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
       .single();
 
     if (insertError) throw insertError;
+
+    // 💬 Trigger WhatsApp notification to Admin
+    try {
+      const agentProfile = (req as any).agentProfile || {};
+      notifyAdminNewB2BFundRequest({
+        agentName: agentProfile.company_name || agentProfile.full_name || 'B2B Agent',
+        agentPhone: agentProfile.phone || agentProfile.mobile || 'N/A',
+        amount: Number(requestData.amount),
+        utr: requestData.utr_number,
+        mode: (targetBankDetails as any)?.bank_name || 'Bank Transfer'
+      }).catch(err => console.error('[WhatsApp Admin Notify Error]', err));
+    } catch (wsErr) {
+      console.error('[WhatsApp Trigger Error]', wsErr);
+    }
 
     // Log the API call in b2b_api_logs
     await supabaseAdmin
