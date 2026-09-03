@@ -431,7 +431,8 @@ export default function B2BAgentFundRequest() {
             agentPhone: '',
             amount: formData.amount,
             utr: formData.utrNumber,
-            mode: selectedBank?.bank_name || 'Bank Transfer'
+            mode: selectedBank?.bank_name || 'Bank Transfer',
+            proofUrl: formData.proofUrl || ''
           })
         }).catch(err => console.error('[WhatsApp Admin Notify Error]', err));
       } catch (wsErr) {

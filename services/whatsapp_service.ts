@@ -1,5 +1,5 @@
 import pkg from 'whatsapp-web.js';
-const { Client, LocalAuth } = pkg;
+const { Client, LocalAuth, MessageMedia } = pkg;
 import qrcode from 'qrcode';
 
 let client: any = null;
@@ -152,20 +152,54 @@ export const notifyAdminNewB2BFundRequest = async (data: {
   amount: number;
   utr: string;
   mode: string;
+  proofUrl?: string;
   adminPhone?: string;
 }) => {
   const adminMobile = data.adminPhone || process.env.ADMIN_WHATSAPP_NUMBER || process.env.ADMIN_MOBILE || '9876543210';
   
-  const message = `📥 *NEW B2B FUND REQUEST*\n\n` +
+  let message = `📥 *NEW B2B FUND REQUEST*\n\n` +
     `👤 *Agent Name:* ${data.agentName}\n` +
     `📞 *Agent Phone:* ${data.agentPhone}\n` +
     `💰 *Amount:* ₹${Number(data.amount).toLocaleString('en-IN')}\n` +
     `🏦 *Payment Mode:* ${data.mode || 'Bank Transfer'}\n` +
     `🔢 *UTR / Ref:* ${data.utr}\n` +
-    `🕒 *Time:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n` +
-    `Please log in to the B2B Admin Panel to approve or reject this request.`;
+    `🕒 *Time:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n`;
 
-  return await sendWhatsAppMessage(adminMobile, message);
+  if (data.proofUrl) {
+    message += `📷 *Proof Link:* ${data.proofUrl}\n\n`;
+  } else {
+    message += `\n`;
+  }
+  message += `Please log in to the B2B Admin Panel to approve or reject this request.`;
+
+  if (!isConnected || !client) {
+    console.warn('[WhatsApp] Cannot send admin notification: Client is not connected.');
+    return false;
+  }
+
+  try {
+    const cleanNumber = adminMobile.replace(/\D/g, '');
+    const formattedNumber = cleanNumber.length === 10 ? `91${cleanNumber}` : cleanNumber;
+    const chatId = `${formattedNumber}@c.us`;
+
+    // If proof image URL is available, send proof image directly with caption!
+    if (data.proofUrl && typeof data.proofUrl === 'string' && data.proofUrl.startsWith('http')) {
+      try {
+        console.log(`[WhatsApp] Fetching proof image from ${data.proofUrl}...`);
+        const media = await MessageMedia.fromUrl(data.proofUrl, { unsafeMime: true });
+        await client.sendMessage(chatId, media, { caption: message });
+        console.log(`[WhatsApp] Sent fund request message with proof image photo to ${chatId}`);
+        return true;
+      } catch (mediaErr) {
+        console.error('[WhatsApp] Failed to fetch/send proof image, sending text fallback:', mediaErr);
+      }
+    }
+
+    return await sendWhatsAppMessage(adminMobile, message);
+  } catch (err) {
+    console.error('[WhatsApp] Error in notifyAdminNewB2BFundRequest:', err);
+    return false;
+  }
 };
 
 // Helper 2: Notify Agent when B2B Fund Request is Approved

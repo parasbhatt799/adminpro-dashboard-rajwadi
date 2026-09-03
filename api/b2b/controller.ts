@@ -958,7 +958,8 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
         agentPhone: agentProfile.phone || agentProfile.mobile || 'N/A',
         amount: Number(requestData.amount),
         utr: requestData.utr_number,
-        mode: (targetBankDetails as any)?.bank_name || 'Bank Transfer'
+        mode: (targetBankDetails as any)?.bank_name || 'Bank Transfer',
+        proofUrl: requestData.proof_url || proof_url || undefined
       }).catch(err => console.error('[WhatsApp Admin Notify Error]', err));
     } catch (wsErr) {
       console.error('[WhatsApp Trigger Error]', wsErr);

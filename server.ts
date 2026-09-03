@@ -120,13 +120,14 @@ async function startServer() {
   // WhatsApp Trigger: Notify Admin on New B2B Fund Request
   app.post('/api/v1/b2b/admin/whatsapp/notify-new-request', async (req, res) => {
     try {
-      const { agentName, agentPhone, amount, utr, mode } = req.body;
+      const { agentName, agentPhone, amount, utr, mode, proofUrl } = req.body;
       whatsappService.notifyAdminNewB2BFundRequest({
         agentName: agentName || 'B2B Agent',
         agentPhone: agentPhone || 'N/A',
         amount: Number(amount) || 0,
         utr: utr || 'N/A',
-        mode: mode || 'Bank Transfer'
+        mode: mode || 'Bank Transfer',
+        proofUrl: proofUrl || undefined
       }).catch(err => console.error('[WhatsApp New Request Notify Error]', err));
 
       res.json({ success: true, message: 'Admin notification triggered' });
