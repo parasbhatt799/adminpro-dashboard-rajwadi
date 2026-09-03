@@ -256,6 +256,46 @@ export const restartWhatsApp = async (cleanSession: boolean = true) => {
   }, 1000);
 };
 
+// Smart WhatsApp Chat ID resolver (prevents double country code 9191 bug and validates WhatsApp registration)
+export const getWhatsAppChatId = async (mobileNumber: string): Promise<string | null> => {
+  if (!client) return null;
+  const clean = mobileNumber.replace(/\D/g, '');
+  if (!clean) return null;
+
+  try {
+    if (clean.length === 10) {
+      if (clean.startsWith('91')) {
+        // e.g. 9173716868 (10 digits starting with 91)
+        const idDirect = await client.getNumberId(clean).catch(() => null);
+        if (idDirect?._serialized) return idDirect._serialized;
+
+        const idWithPrefix = await client.getNumberId(`91${clean}`).catch(() => null);
+        if (idWithPrefix?._serialized) return idWithPrefix._serialized;
+
+        return `${clean}@c.us`;
+      } else {
+        // Standard 10 digit Indian mobile (e.g. 9876543210)
+        const idWithPrefix = await client.getNumberId(`91${clean}`).catch(() => null);
+        if (idWithPrefix?._serialized) return idWithPrefix._serialized;
+
+        return `91${clean}@c.us`;
+      }
+    } else {
+      // 11, 12, or more digits (e.g. 919876543210)
+      const idDirect = await client.getNumberId(clean).catch(() => null);
+      if (idDirect?._serialized) return idDirect._serialized;
+
+      return `${clean}@c.us`;
+    }
+  } catch (err) {
+    console.warn(`[WhatsApp] Could not resolve getNumberId for ${clean}:`, err);
+    if (clean.length === 10 && !clean.startsWith('91')) {
+      return `91${clean}@c.us`;
+    }
+    return `${clean}@c.us`;
+  }
+};
+
 // Send direct WhatsApp text message to any phone number
 export const sendWhatsAppMessage = async (mobileNumber: string, message: string): Promise<boolean> => {
   if (!isConnected || !client) {
@@ -264,22 +304,18 @@ export const sendWhatsAppMessage = async (mobileNumber: string, message: string)
   }
 
   try {
-    // Sanitize mobile number to international standard (India prefix 91 if not present)
-    const cleanNumber = mobileNumber.replace(/\D/g, '');
-    if (!cleanNumber) {
-      console.error('[WhatsApp] Invalid phone number provided:', mobileNumber);
+    const chatId = await getWhatsAppChatId(mobileNumber);
+    if (!chatId) {
+      console.error('[WhatsApp] Could not resolve valid WhatsApp Chat ID for:', mobileNumber);
       return false;
     }
-
-    const formattedNumber = cleanNumber.length === 10 ? `91${cleanNumber}` : cleanNumber;
-    const chatId = `${formattedNumber}@c.us`;
 
     console.log(`[WhatsApp] Sending message to ${chatId}...`);
     await client.sendMessage(chatId, message);
     console.log(`[WhatsApp] Message sent successfully to ${chatId}`);
     return true;
-  } catch (err) {
-    console.error('[WhatsApp] Error sending message:', err);
+  } catch (err: any) {
+    console.error('[WhatsApp] Error sending message:', err?.message || err);
     return false;
   }
 };
@@ -347,10 +383,8 @@ export const notifyAdminNewB2BFundRequest = async (data: {
   let anySent = false;
   for (const mobile of adminMobiles) {
     try {
-      const cleanNumber = mobile.replace(/\D/g, '');
-      if (!cleanNumber) continue;
-      const formattedNumber = cleanNumber.length === 10 ? `91${cleanNumber}` : cleanNumber;
-      const chatId = `${formattedNumber}@c.us`;
+      const chatId = await getWhatsAppChatId(mobile);
+      if (!chatId) continue;
 
       if (media) {
         await client.sendMessage(chatId, media, { caption: message });
