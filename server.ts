@@ -113,11 +113,14 @@ async function startServer() {
       const sanitized = typeof adminNumbers === 'string' ? adminNumbers.trim() : '';
       whatsappService.setAdminWhatsAppNumbers(sanitized);
 
-      await supabaseAdmin
-        .from('payout_settings')
-        .update({ b2b_whatsapp_numbers: sanitized })
-        .eq('id', 1)
-        .catch(err => console.warn('[WhatsApp] Could not update payout_settings DB:', err.message));
+      try {
+        await supabaseAdmin
+          .from('payout_settings')
+          .update({ b2b_whatsapp_numbers: sanitized })
+          .eq('id', 1);
+      } catch (err: any) {
+        console.warn('[WhatsApp] Could not update payout_settings DB:', err.message);
+      }
 
       res.json({ success: true, message: 'Admin WhatsApp numbers saved successfully', adminNumbers: sanitized });
     } catch (err: any) {
