@@ -192,26 +192,43 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Agent ID is required' });
       }
 
-      const { data: agent } = await supabaseAdmin
-        .from('b2b_agents')
+      let agentPhone: string | null = null;
+      let agentName = 'B2B Agent';
+      let walletBalance = 0;
+
+      // 1. Fetch agent from b2b_api_credentials table
+      const { data: b2bAgent } = await supabaseAdmin
+        .from('b2b_api_credentials')
         .select('*')
         .eq('id', agentId)
-        .single();
+        .maybeSingle();
 
-      let agentPhone = agent?.phone || agent?.mobile;
-      let agentName = agent?.company_name || agent?.full_name || 'B2B Agent';
-      let walletBalance = Number(agent?.wallet_balance) || 0;
-
-      if (!agentPhone) {
-        const { data: profile } = await supabaseAdmin
-          .from('users_profiles')
+      if (b2bAgent) {
+        agentPhone = b2bAgent.mobile || b2bAgent.phone || null;
+        agentName = b2bAgent.company_name || b2bAgent.name || `${b2bAgent.first_name || ''} ${b2bAgent.last_name || ''}`.trim() || agentName;
+        walletBalance = Number(b2bAgent.wallet_balance) || 0;
+      } else {
+        // Fallback: Check b2b_agents or users_profiles
+        const { data: altAgent } = await supabaseAdmin
+          .from('b2b_agents')
           .select('*')
           .eq('id', agentId)
-          .single();
-        if (profile) {
-          agentPhone = profile.mobile || profile.phone;
-          agentName = profile.full_name || agentName;
-          walletBalance = Number(profile.wallet_balance) || walletBalance;
+          .maybeSingle();
+        if (altAgent) {
+          agentPhone = altAgent.mobile || altAgent.phone || null;
+          agentName = altAgent.company_name || altAgent.full_name || agentName;
+          walletBalance = Number(altAgent.wallet_balance) || walletBalance;
+        } else {
+          const { data: profile } = await supabaseAdmin
+            .from('users_profiles')
+            .select('*')
+            .eq('id', agentId)
+            .maybeSingle();
+          if (profile) {
+            agentPhone = profile.mobile || profile.phone || null;
+            agentName = profile.full_name || agentName;
+            walletBalance = Number(profile.wallet_balance) || walletBalance;
+          }
         }
       }
 
@@ -241,24 +258,37 @@ async function startServer() {
         return res.status(400).json({ success: false, error: 'Agent ID is required' });
       }
 
-      const { data: agent } = await supabaseAdmin
-        .from('b2b_agents')
+      let agentPhone: string | null = null;
+      let agentName = 'B2B Agent';
+
+      const { data: b2bAgent } = await supabaseAdmin
+        .from('b2b_api_credentials')
         .select('*')
         .eq('id', agentId)
-        .single();
+        .maybeSingle();
 
-      let agentPhone = agent?.phone || agent?.mobile;
-      let agentName = agent?.company_name || agent?.full_name || 'B2B Agent';
-
-      if (!agentPhone) {
-        const { data: profile } = await supabaseAdmin
-          .from('users_profiles')
+      if (b2bAgent) {
+        agentPhone = b2bAgent.mobile || b2bAgent.phone || null;
+        agentName = b2bAgent.company_name || b2bAgent.name || `${b2bAgent.first_name || ''} ${b2bAgent.last_name || ''}`.trim() || agentName;
+      } else {
+        const { data: altAgent } = await supabaseAdmin
+          .from('b2b_agents')
           .select('*')
           .eq('id', agentId)
-          .single();
-        if (profile) {
-          agentPhone = profile.mobile || profile.phone;
-          agentName = profile.full_name || agentName;
+          .maybeSingle();
+        if (altAgent) {
+          agentPhone = altAgent.mobile || altAgent.phone || null;
+          agentName = altAgent.company_name || altAgent.full_name || agentName;
+        } else {
+          const { data: profile } = await supabaseAdmin
+            .from('users_profiles')
+            .select('*')
+            .eq('id', agentId)
+            .maybeSingle();
+          if (profile) {
+            agentPhone = profile.mobile || profile.phone || null;
+            agentName = profile.full_name || agentName;
+          }
         }
       }
 

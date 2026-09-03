@@ -208,6 +208,23 @@ export default function B2BAdminFundRequests() {
           .update({ status: 'rejected', updated_at: new Date().toISOString() })
           .eq('id', requestId);
 
+        // 💬 Trigger WhatsApp Rejection Notification to Agent
+        try {
+          const reqItem = requests.find((r) => r.id === requestId);
+          fetch('/api/v1/b2b/admin/whatsapp/notify-rejected', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              agentId,
+              amount,
+              utr: reqItem?.utr_number || '',
+              reason: 'Reverted & Rejected by Admin'
+            })
+          }).catch(err => console.error('[WhatsApp Agent Revert Notify Error]', err));
+        } catch (wsErr) {
+          console.error('[WhatsApp Call Error]', wsErr);
+        }
+
         toast.success(`Fund request rejected & ₹${amount.toLocaleString('en-IN')} balance reverted successfully!`);
         fetchRequests();
       } catch (err) {
