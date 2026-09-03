@@ -64,7 +64,7 @@ const getChromiumExecutablePath = (): string | undefined => {
   return undefined;
 };
 
-let initTimeoutTimer: NodeJS.Timeout | null = null;
+let lastInitError: string | null = null;
 
 // Initialize WhatsApp Client
 export const initWhatsApp = () => {
@@ -77,6 +77,7 @@ export const initWhatsApp = () => {
   }
 
   isInitializing = true;
+  lastInitError = null;
   console.log('[WhatsApp] Initializing self-hosted WhatsApp Web client...');
 
   try {
@@ -93,6 +94,7 @@ export const initWhatsApp = () => {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
+        '--disable-software-rasterizer',
         '--ignore-certificate-errors'
       ]
     };
@@ -101,20 +103,27 @@ export const initWhatsApp = () => {
       puppeteerOptions.executablePath = execPath;
     }
 
-    client = new Client({
+    const clientConfig: any = {
       authStrategy: new LocalAuth({ dataPath: './.wwebjs_auth' }),
-      puppeteer: puppeteerOptions,
-      webVersionCache: {
+      puppeteer: puppeteerOptions
+    };
+
+    // Try applying webVersionCache with safety
+    try {
+      clientConfig.webVersionCache = {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.2412.54.html'
-      }
-    });
+      };
+    } catch (_) {}
+
+    client = new Client(clientConfig);
 
     if (initTimeoutTimer) clearTimeout(initTimeoutTimer);
     initTimeoutTimer = setTimeout(() => {
       if (!isConnected && !qrCodeDataUrl && isInitializing) {
         console.warn('[WhatsApp] Init timeout reached (35s) without QR. Resetting initialization state...');
         isInitializing = false;
+        lastInitError = 'Initialization timeout reached (35s). Click Force Generate QR Code.';
       }
     }, 35000);
 
@@ -126,8 +135,10 @@ export const initWhatsApp = () => {
         lastQrTimestamp = new Date().toISOString();
         isConnected = false;
         isInitializing = false;
-      } catch (err) {
+        lastInitError = null;
+      } catch (err: any) {
         console.error('[WhatsApp] Failed to generate QR data URL:', err);
+        lastInitError = err?.message || 'Failed to render QR Code';
       }
     });
 
@@ -137,6 +148,7 @@ export const initWhatsApp = () => {
       isConnected = true;
       isInitializing = false;
       qrCodeDataUrl = null;
+      lastInitError = null;
       try {
         if (client.info && client.info.wid) {
           connectedPhone = client.info.wid.user;
@@ -149,12 +161,14 @@ export const initWhatsApp = () => {
     client.on('authenticated', () => {
       console.log('[WhatsApp] Client authenticated successfully.');
       isInitializing = false;
+      lastInitError = null;
     });
 
     client.on('auth_failure', (msg: string) => {
       console.error('[WhatsApp] Authentication failure:', msg);
       isConnected = false;
       isInitializing = false;
+      lastInitError = `Authentication failure: ${msg}`;
     });
 
     client.on('disconnected', (reason: string) => {
@@ -163,32 +177,32 @@ export const initWhatsApp = () => {
       isInitializing = false;
       qrCodeDataUrl = null;
       connectedPhone = null;
+      lastInitError = `Disconnected: ${reason}`;
     });
 
     client.initialize().catch((err: any) => {
       console.error('[WhatsApp] Initialization error:', err);
       isInitializing = false;
+      lastInitError = err?.message || 'Failed to initialize Puppeteer browser';
       client = null;
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[WhatsApp] Unexpected error during init:', err);
     isInitializing = false;
+    lastInitError = err?.message || 'Unexpected error launching WhatsApp client';
     client = null;
   }
 };
 
 // Return current WhatsApp status
 export const getWhatsAppStatus = () => {
-  // Auto recover if client was initialized long ago but stuck without QR
-  if (!client && !isInitializing) {
-    initWhatsApp();
-  }
   return {
     isConnected,
     isInitializing,
     qrCodeDataUrl,
     connectedPhone,
-    lastQrTimestamp
+    lastQrTimestamp,
+    initError: lastInitError
   };
 };
 

@@ -7,6 +7,7 @@ interface WhatsAppStatus {
   qrCodeDataUrl: string | null;
   connectedPhone: string | null;
   lastQrTimestamp: string | null;
+  initError?: string | null;
 }
 
 export default function B2BWhatsAppManager() {
@@ -15,7 +16,8 @@ export default function B2BWhatsAppManager() {
     isInitializing: false,
     qrCodeDataUrl: null,
     connectedPhone: null,
-    lastQrTimestamp: null
+    lastQrTimestamp: null,
+    initError: null
   });
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [restarting, setRestarting] = useState(false);
@@ -79,7 +81,8 @@ export default function B2BWhatsAppManager() {
           isInitializing: data.isInitializing,
           qrCodeDataUrl: data.qrCodeDataUrl,
           connectedPhone: data.connectedPhone,
-          lastQrTimestamp: data.lastQrTimestamp
+          lastQrTimestamp: data.lastQrTimestamp,
+          initError: data.initError || null
         });
       }
     } catch (err) {
@@ -241,12 +244,18 @@ export default function B2BWhatsAppManager() {
             ) : (
               /* Initializing / Loading State */
               <div className="my-10 text-center py-6 space-y-4">
-                <RefreshCw className="w-10 h-10 text-indigo-500 animate-spin mx-auto" />
+                <RefreshCw className={`w-10 h-10 ${status.isInitializing ? 'text-indigo-500 animate-spin' : 'text-slate-400'} mx-auto`} />
                 <div>
                   <p className="font-semibold text-slate-700 text-sm">
-                    {status.isInitializing ? 'Starting WhatsApp Web Client...' : 'Generating QR Code...'}
+                    {status.isInitializing ? 'Starting WhatsApp Web Client...' : status.initError ? 'Initialization Notice' : 'Generating QR Code...'}
                   </p>
-                  <p className="text-xs text-slate-400 mt-1">Please wait a few moments for the QR code to load.</p>
+                  {status.initError ? (
+                    <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 p-2.5 rounded-xl mt-2 max-w-sm mx-auto font-medium">
+                      ⚠️ {status.initError}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400 mt-1">Please wait a few moments for the QR code to load.</p>
+                  )}
                 </div>
                 <button
                   onClick={handleRestart}
