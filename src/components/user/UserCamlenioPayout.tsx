@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ShieldCheck, Loader2, Send, AlertCircle, CheckCircle2, IndianRupee, Users, Trash2, Plus, Eye, EyeOff, AlertTriangle, X, Search, Filter, RotateCcw, Building2, User } from 'lucide-react';
+import { ShieldCheck, Loader2, Send, AlertCircle, CheckCircle2, IndianRupee, Users, Trash2, Plus, Eye, EyeOff, AlertTriangle, X, Search, Filter, RotateCcw, Building2, User, Phone } from 'lucide-react';
 import { sendAdminPushNotification } from '../../lib/notifications';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -14,6 +14,7 @@ interface Beneficiary {
   account_number: string;
   ifsc_code: string;
   holder_name: string;
+  phone?: string;
   is_verified: boolean;
 }
 
@@ -36,7 +37,8 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     bankName: '',
     accountNumber: '',
     ifscCode: '',
-    holderName: ''
+    holderName: '',
+    phone: ''
   });
 
   const [showBankDropdown, setShowBankDropdown] = useState(false);
@@ -46,6 +48,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   // Modal State
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
   const [payoutAmount, setPayoutAmount] = useState('');
+  const [payoutMobile, setPayoutMobile] = useState('');
 
   // T-PIN State
   const [showTpinModal, setShowTpinModal] = useState(false);
@@ -185,13 +188,14 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
           account_number: payoutForm.accountNumber,
           ifsc_code: payoutForm.ifscCode,
           holder_name: payoutForm.holderName,
+          phone: payoutForm.phone || '',
           is_verified: false
         });
 
       if (insertError) throw insertError;
 
       setSuccess(`Beneficiary account added successfully!`);
-      setPayoutForm({ bankName: '', accountNumber: '', ifscCode: '', holderName: '' });
+      setPayoutForm({ bankName: '', accountNumber: '', ifscCode: '', holderName: '', phone: '' });
       setIsAddModalOpen(false);
       fetchBeneficiaries(); // Refresh list
     } catch (err: any) {
@@ -389,6 +393,8 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
           holderName: selectedBeneficiary!.holder_name,
           accountNumber: selectedBeneficiary!.account_number,
           ifscCode: selectedBeneficiary!.ifsc_code,
+          phone: payoutMobile,
+          mobileNumber: payoutMobile,
           charge: charge,
           transactionId: localTxnId
         })
@@ -627,8 +633,11 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                           Verified
                         </div>
                         <button
-                          onClick={() => setSelectedBeneficiary(b)}
-                          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+                          onClick={() => {
+                            setSelectedBeneficiary(b);
+                            setPayoutMobile(b.phone || '');
+                          }}
+                          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
                         >
                           Pay
                         </button>
@@ -749,6 +758,23 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                 />
               </div>
 
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">Mobile Number (મોબાઈલ નંબર)</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={payoutForm.phone}
+                    onChange={(e) => setPayoutForm({ ...payoutForm, phone: e.target.value.replace(/\D/g, '') })}
+                    placeholder="Enter 10-digit Mobile Number"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all text-sm font-medium"
+                  />
+                </div>
+              </div>
+
               <div className="pt-2">
                 <button
                   type="submit"
@@ -778,11 +804,29 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
               </button>
             </div>
 
-            <form onSubmit={handleProcessPayoutSubmit} className="p-6 space-y-6">
+            <form onSubmit={handleProcessPayoutSubmit} className="p-6 space-y-5">
               <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex flex-col gap-1">
                 <div className="text-xs text-slate-400 uppercase tracking-wider font-bold mb-1">Beneficiary Details</div>
                 <div className="font-bold text-slate-900 text-lg">{selectedBeneficiary.bank_name}</div>
                 <div className="text-sm font-medium text-slate-600 font-mono tracking-wide">{selectedBeneficiary.account_number}</div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-bold text-slate-700">Mobile Number (મોબાઈલ નંબર)</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <input
+                    type="tel"
+                    maxLength={10}
+                    value={payoutMobile}
+                    onChange={(e) => setPayoutMobile(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Enter 10-digit Mobile Number"
+                    className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all font-bold text-slate-800 text-sm"
+                    required
+                  />
+                </div>
               </div>
 
               <div className="space-y-2">

@@ -4586,7 +4586,7 @@ async function startServer() {
 
   app.post("/api/payout/process-auto", async (req, res) => {
     try {
-      const { userId, amount, bankName, holderName, accountNumber, ifscCode, charge, transactionId } = req.body;
+      const { userId, amount, bankName, holderName, accountNumber, ifscCode, charge, transactionId, phone, mobileNumber, mobile } = req.body;
 
       if (!userId || !amount || !accountNumber || !ifscCode || !transactionId) {
         return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -4643,8 +4643,19 @@ async function startServer() {
         }
       }
 
-      const { data: userProfileForPhone } = await supabaseAdmin.from('users_profiles').select('phone').eq('id', userId).single();
-      const userPhone = userProfileForPhone?.phone || '9999999999';
+      // Determine phone number to send: user-entered mobile number from input field -> user profile phone -> fallback
+      const rawPhoneInput = phone || mobileNumber || mobile;
+      let userPhone = '9999999999';
+
+      if (rawPhoneInput && typeof rawPhoneInput === 'string' && rawPhoneInput.replace(/\D/g, '').length >= 10) {
+        userPhone = rawPhoneInput.replace(/\D/g, '').slice(-10);
+      } else {
+        const { data: userProfileForPhone } = await supabaseAdmin.from('users_profiles').select('phone, mobile').eq('id', userId).single();
+        const profilePhone = userProfileForPhone?.mobile || userProfileForPhone?.phone;
+        if (profilePhone && typeof profilePhone === 'string' && profilePhone.replace(/\D/g, '').length >= 10) {
+          userPhone = profilePhone.replace(/\D/g, '').slice(-10);
+        }
+      }
 
       // Shorten transactionId to prevent length-based validation failures (e.g. 15 chars)
       const shortRef = `P${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 1000)}`;
