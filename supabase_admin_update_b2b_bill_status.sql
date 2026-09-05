@@ -61,8 +61,11 @@ BEGIN
     END IF;
   ELSIF p_status = 'success' THEN
     IF v_current_status = 'failed' THEN
-        -- It was failed (and refunded previously). Now changing back to success. Need to deduct again.
-        PERFORM deduct_b2b_wallet_balance(v_agent_id, v_total_deduction);
+        -- It was failed (and refunded previously). Now changing back to success. Deduct total deduction from wallet.
+        UPDATE public.b2b_api_credentials 
+        SET wallet_balance = wallet_balance - v_total_deduction 
+        WHERE id = v_agent_id;
+        
         -- Add admin profit
         IF v_charge_deducted > 0 THEN
             PERFORM add_admin_balance(v_charge_deducted);

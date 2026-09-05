@@ -40,6 +40,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [cardMobileFilter, setCardMobileFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [syncingAll, setSyncingAll] = useState(false);
   const [showAgentSummaryModal, setShowAgentSummaryModal] = useState(false);
   const [agentSearchInModal, setAgentSearchInModal] = useState('');
 
@@ -272,6 +273,60 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       alert('Error checking status online');
     } finally {
       setUpdatingStatus(null);
+    }
+  };
+
+  const handleSyncAllBills = async () => {
+    const candidates = filteredLogs.filter(log => {
+      const res = log.response_payload || log.response_body || {};
+      const req = log.request_payload || log.request_body || {};
+      const bpr = res?.billPayResponse || res?.ExtBillPayResponse || res;
+      const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || req?.billerResponseInfo?.txnRefId;
+      return !!(cc01RefId && String(cc01RefId).toUpperCase().startsWith('CC01'));
+    });
+
+    if (candidates.length === 0) {
+      alert('No eligible transactions found with BillAvenue CC01 Reference IDs to sync.');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to sync status for ${candidates.length} transactions with BillAvenue gateway?`)) {
+      return;
+    }
+
+    try {
+      setSyncingAll(true);
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const log of candidates) {
+        const req = log.request_payload || log.request_body || {};
+        const res = log.response_payload || log.response_body || {};
+        const transactionId = req?.transaction_id || req?.requestId || res?.transaction_id;
+        
+        if (!transactionId) continue;
+
+        try {
+          const resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
+          const data = await resData.json();
+          if (data.status === 'success') {
+            successCount++;
+          } else {
+            errorCount++;
+          }
+        } catch (e) {
+          errorCount++;
+        }
+      }
+
+      alert(`Sync Complete!\nChecked ${candidates.length} transactions.\nSuccessfully updated: ${successCount}\nUnchanged/Errors: ${errorCount}`);
+      fetchLogs();
+    } catch (err: any) {
+      console.error('Error syncing bills:', err);
+      alert('Error during sync: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSyncingAll(false);
     }
   };
 
@@ -950,14 +1005,26 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         {/* Header Action Buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           {isAdmin && (
-            <button
-              onClick={() => setShowAgentSummaryModal(true)}
-              className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-sm"
-              title="Agent-Wise Charge Breakdown"
-            >
-              <BarChart3 className="h-4 w-4 text-indigo-400" />
-              <span>Agent Charge Breakdown</span>
-            </button>
+            <>
+              <button
+                onClick={handleSyncAllBills}
+                disabled={syncingAll}
+                className="flex items-center gap-1.5 bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-sm"
+                title="Sync All Eligible Pending & Failed Bills with Gateway"
+              >
+                <RefreshCw className={`h-4 w-4 text-amber-400 ${syncingAll ? 'animate-spin' : ''}`} />
+                <span>{syncingAll ? 'Syncing...' : 'Sync Gateway Bills'}</span>
+              </button>
+
+              <button
+                onClick={() => setShowAgentSummaryModal(true)}
+                className="flex items-center gap-1.5 bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                title="Agent-Wise Charge Breakdown"
+              >
+                <BarChart3 className="h-4 w-4 text-indigo-400" />
+                <span>Agent Charge Breakdown</span>
+              </button>
+            </>
           )}
 
           <button

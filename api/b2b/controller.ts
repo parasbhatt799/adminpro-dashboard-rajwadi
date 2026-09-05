@@ -781,11 +781,16 @@ export const payBill = async (req: Request, res: Response) => {
     const bpr = payJson?.billPayResponse || payJson?.ExtBillPayResponse || payJson;
     const responseCode = bpr?.responseCode || payJson?.responseCode;
     const txnStatus = (bpr?.txnStatus || payJson?.txnStatus || '').toUpperCase();
+    const txnRefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || payJson?.txnRefId;
+    const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
     const hasErrorInfo = !!(bpr?.errorInfo || payJson?.errorInfo || bpr?.reason || payJson?.reason);
 
     let finalStatus = 'pending';
     if (txnStatus === 'SUCCESS' || responseCode === '000') {
       finalStatus = 'success';
+    } else if (hasCC01 && txnStatus !== 'FAILED' && !hasErrorInfo) {
+      // CC01 Reference ID generated: BillAvenue accepted the request and is processing at biller
+      finalStatus = 'pending';
     } else if (txnStatus === 'FAILED' || (responseCode && responseCode !== '000') || hasErrorInfo) {
       finalStatus = 'failed';
       // Initiate refund (Refund total including charge)
@@ -798,7 +803,7 @@ export const payBill = async (req: Request, res: Response) => {
     // Update log
     if (logId) {
       const updatePayload: any = {
-        status_code: finalStatus === 'success' ? 200 : 500,
+        status_code: finalStatus === 'success' ? 200 : (finalStatus === 'pending' ? 202 : 500),
         payment_status: finalStatus,
         response_payload: { ...payJson, finalStatus, payment_status: finalStatus, transaction_id: customTxnId }
       };

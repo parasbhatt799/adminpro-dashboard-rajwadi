@@ -10,15 +10,14 @@ console.log('[CRON] Starting BillAvenue asynchronous status polling job...');
 cron.schedule('*/10 * * * *', async () => {
   console.log('[CRON] Running pending transactions check...');
   try {
-    // 1. Find all pending transactions created within the last 48 hours and older than 15 minutes
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
-    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     const { data: pendingLogs, error: logError } = await supabaseAdmin
       .from('b2b_api_logs')
       .select('*')
-      .or('status_code.eq.202,payment_status.eq.pending')
-      .gte('created_at', fortyEightHoursAgo)
+      .or('status_code.eq.202,payment_status.eq.pending,payment_status.eq.failed')
+      .gte('created_at', sevenDaysAgo)
       .lt('created_at', fifteenMinutesAgo)
       .limit(100);
 
@@ -28,11 +27,11 @@ cron.schedule('*/10 * * * *', async () => {
     }
 
     if (!pendingLogs || pendingLogs.length === 0) {
-      console.log('[CRON] No pending transactions found older than 15 minutes.');
+      console.log('[CRON] No pending or failed transactions found older than 15 minutes.');
       return;
     }
 
-    console.log(`[CRON] Found ${pendingLogs.length} pending transactions. Checking status...`);
+    console.log(`[CRON] Found ${pendingLogs.length} pending/failed transactions with possible BillAvenue status. Checking...`);
 
     for (const log of pendingLogs) {
       const bpr = log.response_payload?.billPayResponse || log.response_payload?.ExtBillPayResponse || log.response_payload;
@@ -41,7 +40,6 @@ cron.schedule('*/10 * * * *', async () => {
 
       // Strict rule: ONLY check status with BillAvenue CC01 Transaction Reference ID!
       if (!cc01RefId || !String(cc01RefId).startsWith('CC01')) {
-        console.log(`[CRON] Skipping B2B log ID ${log.id} - Missing valid BillAvenue CC01 reference ID. Found: ${cc01RefId}`);
         continue;
       }
 
@@ -71,46 +69,19 @@ cron.schedule('*/10 * * * *', async () => {
           }
         }
 
-        if (newStatus !== 'pending') {
-          console.log(`[CRON] Transaction ${transactionId} status changed to ${newStatus}`);
+        if (newStatus !== 'pending' && newStatus !== log.payment_status) {
+          console.log(`[CRON] Transaction ${transactionId} status changed from ${log.payment_status || 'pending'} to ${newStatus}`);
 
-          // Determine status code and charge
-          let newStatusCode = 200; // Success code by default
-          let chargeDeducted = log.request_payload?.chargeDeducted || 0;
-          let updatedPayload = log.response_payload || {};
+          // Use atomic RPC function to handle DB update, wallet balance deduction/refund & admin profit
+          const { data: updateRes, error: updateErr } = await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
+            p_log_id: log.id,
+            p_status: newStatus
+          });
 
-          updatedPayload = { ...updatedPayload, finalStatus: newStatus, payment_status: newStatus };
-
-          if (newStatus === 'failed') {
-            newStatusCode = 500;
-          }
-
-          // Update the b2b_api_logs record
-          await supabaseAdmin
-            .from('b2b_api_logs')
-            .update({
-              payment_status: newStatus,
-              status_code: newStatusCode,
-              charge_deducted: newStatus === 'success' ? chargeDeducted : 0,
-              response_payload: updatedPayload
-            })
-            .eq('id', log.id);
-
-          // Handle Wallets & Profits
-          if (newStatus === 'failed') {
-            const refundAmount = log.request_payload?.totalDeduction || 0;
-            if (refundAmount > 0) {
-              await supabaseAdmin.rpc('add_b2b_wallet_balance', {
-                p_agent_id: log.agent_id,
-                p_amount: refundAmount
-              });
-              console.log(`[CRON] Refunded ₹${refundAmount} to agent ${log.agent_id} for failed transaction ${transactionId}`);
-            }
-          } else if (newStatus === 'success') {
-            if (chargeDeducted > 0) {
-              await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargeDeducted });
-              console.log(`[CRON] Credited ₹${chargeDeducted} to admin balance for successful transaction ${transactionId}`);
-            }
+          if (updateErr) {
+            console.error(`[CRON] Error calling admin_update_b2b_bill_status for ${transactionId}:`, updateErr);
+          } else {
+            console.log(`[CRON] Wallet & DB updated successfully for ${transactionId}:`, updateRes?.message || 'Updated');
           }
 
           // Trigger Webhook
@@ -173,6 +144,7 @@ cron.schedule('*/10 * * * *', async () => {
     // 2. Process B2C Transactions (Main App)
     // ==========================================
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
     const { data: b2cPendingLogs, error: b2cError } = await supabaseAdmin
       .from('bbps_submissions')
