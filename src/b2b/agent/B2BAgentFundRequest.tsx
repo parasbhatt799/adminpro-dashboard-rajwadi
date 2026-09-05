@@ -109,13 +109,16 @@ export default function B2BAgentFundRequest() {
 
       const agentRes = await supabase
         .from('b2b_api_credentials')
-        .select('client_id, company_name, name, mobile, phone')
+        .select('*')
         .eq('id', id)
         .maybeSingle();
 
       if (agentRes.data) {
-        setAgentName(agentRes.data.company_name || agentRes.data.name || agentRes.data.client_id || 'B2B Agent');
-        setAgentPhone(agentRes.data.mobile || agentRes.data.phone || '');
+        const fullName = [agentRes.data.first_name, agentRes.data.last_name].filter(Boolean).join(' ').trim();
+        const resolvedName = fullName || agentRes.data.company_name || agentRes.data.name || agentRes.data.b2b_login_id || agentRes.data.client_id || 'B2B Agent';
+        const resolvedPhone = agentRes.data.mobile || agentRes.data.phone || '';
+        setAgentName(resolvedName);
+        setAgentPhone(resolvedPhone);
       }
     } catch (err) {
       console.error('Error fetching fund requests:', err);
@@ -429,6 +432,7 @@ export default function B2BAgentFundRequest() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
+            agentId,
             agentName: agentName || 'B2B Agent',
             agentPhone: agentPhone || 'N/A',
             amount: formData.amount,

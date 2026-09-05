@@ -10,15 +10,17 @@ console.log('[CRON] Starting BillAvenue asynchronous status polling job...');
 cron.schedule('*/10 * * * *', async () => {
   console.log('[CRON] Running pending transactions check...');
   try {
-    // 1. Find all pending transactions older than 15 minutes
-    // Current time minus 15 minutes
+    // 1. Find all pending transactions created within the last 48 hours and older than 15 minutes
     const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
     const { data: pendingLogs, error: logError } = await supabaseAdmin
       .from('b2b_api_logs')
       .select('*')
       .or('status_code.eq.202,payment_status.eq.pending')
-      .lt('created_at', fifteenMinutesAgo);
+      .gte('created_at', fortyEightHoursAgo)
+      .lt('created_at', fifteenMinutesAgo)
+      .limit(100);
 
     if (logError) {
       console.error('[CRON] Error fetching pending logs:', logError);
@@ -176,7 +178,9 @@ cron.schedule('*/10 * * * *', async () => {
       .from('bbps_submissions')
       .select('*')
       .eq('status', 'pending')
-      .lt('created_at', fiveMinutesAgo);
+      .gte('created_at', fortyEightHoursAgo)
+      .lt('created_at', fiveMinutesAgo)
+      .limit(100);
 
     if (b2cError) {
       console.error('[CRON] Error fetching B2C pending transactions:', b2cError);

@@ -356,14 +356,8 @@ export const notifyAdminNewB2BFundRequest = async (data: {
     `💰 *Amount:* ₹${Number(data.amount).toLocaleString('en-IN')}\n` +
     `🏦 *Payment Mode:* ${data.mode || 'Bank Transfer'}\n` +
     `🔢 *UTR / Ref:* ${data.utr}\n` +
-    `🕒 *Time:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n`;
-
-  if (data.proofUrl) {
-    message += `📷 *Proof Link:* ${data.proofUrl}\n\n`;
-  } else {
-    message += `\n`;
-  }
-  message += `Please log in to the B2B Admin Panel to approve or reject this request.`;
+    `🕒 *Time:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n\n` +
+    `Please log in to the B2B Admin Panel to approve or reject this request.`;
 
   if (!isConnected || !client) {
     console.warn('[WhatsApp] Cannot send admin notification: Client is not connected.');

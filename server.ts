@@ -154,8 +154,22 @@ async function startServer() {
   // WhatsApp Trigger: Notify Admin(s) on New B2B Fund Request
   app.post('/api/v1/b2b/admin/whatsapp/notify-new-request', async (req, res) => {
     try {
-      const { agentName, agentPhone, amount, utr, mode, proofUrl, adminPhone } = req.body;
+      let { agentId, agentName, agentPhone, amount, utr, mode, proofUrl, adminPhone } = req.body;
       
+      if ((!agentName || agentName === 'B2B Agent' || !agentPhone || agentPhone === 'N/A') && agentId) {
+        const { data: b2bCred } = await supabaseAdmin
+          .from('b2b_api_credentials')
+          .select('*')
+          .eq('id', agentId)
+          .maybeSingle();
+
+        if (b2bCred) {
+          const fullName = [b2bCred.first_name, b2bCred.last_name].filter(Boolean).join(' ').trim();
+          agentName = fullName || b2bCred.company_name || b2bCred.name || b2bCred.b2b_login_id || agentName;
+          agentPhone = b2bCred.mobile || b2bCred.phone || agentPhone;
+        }
+      }
+
       let targetAdminPhones = adminPhone;
       if (!targetAdminPhones && !process.env.ADMIN_WHATSAPP_NUMBERS) {
         const { data: b2bAdmins } = await supabaseAdmin

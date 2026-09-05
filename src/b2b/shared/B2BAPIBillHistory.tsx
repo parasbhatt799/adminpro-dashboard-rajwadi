@@ -57,7 +57,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   useEffect(() => {
     fetchLogs();
 
-    // Enable Supabase Realtime
+    // Enable Supabase Realtime with debounce/filter check
     const channel = supabase
       .channel('b2b_api_logs_changes')
       .on(
@@ -73,7 +73,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [isAdmin, agentId]);
+  }, [isAdmin, agentId, dateFilter, customRange]);
 
   const fetchLogs = async () => {
     try {
@@ -85,7 +85,47 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       let hasMore = true;
       let safetyCounter = 0;
 
-      while (hasMore && safetyCounter < 1000) {
+      // Calculate server-side date filter bounds
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+      let startDateIso: string | null = null;
+      let endDateIso: string | null = null;
+
+      if (dateFilter === 'today') {
+        startDateIso = todayStart.toISOString();
+        endDateIso = todayEnd.toISOString();
+      } else if (dateFilter === 'yesterday') {
+        const yesterdayStart = new Date(todayStart);
+        yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+        const yesterdayEnd = new Date(todayStart.getTime() - 1);
+        startDateIso = yesterdayStart.toISOString();
+        endDateIso = yesterdayEnd.toISOString();
+      } else if (dateFilter === '7days') {
+        const sevenDaysAgo = new Date(todayStart);
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        startDateIso = sevenDaysAgo.toISOString();
+      } else if (dateFilter === '30days') {
+        const thirtyDaysAgo = new Date(todayStart);
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        startDateIso = thirtyDaysAgo.toISOString();
+      } else if (dateFilter === 'thisMonth') {
+        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        startDateIso = firstDayOfMonth.toISOString();
+      } else if (dateFilter === 'custom') {
+        if (customRange.start) {
+          startDateIso = new Date(`${customRange.start}T00:00:00`).toISOString();
+        }
+        if (customRange.end) {
+          endDateIso = new Date(`${customRange.end}T23:59:59.999`).toISOString();
+        }
+      }
+
+      // Max safety pages (default 5 pages = 5000 logs max for 'all', 1-2 pages for filtered)
+      const maxPages = dateFilter === 'all' ? 5 : 20;
+
+      while (hasMore && safetyCounter < maxPages) {
         safetyCounter++;
         let query = supabase
           .from('b2b_api_logs')
@@ -96,6 +136,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
         if (!isAdmin && agentId) {
           query = query.eq('agent_id', agentId);
+        }
+
+        if (startDateIso) {
+          query = query.gte('created_at', startDateIso);
+        }
+        if (endDateIso) {
+          query = query.lte('created_at', endDateIso);
         }
 
         const { data, error } = await query;

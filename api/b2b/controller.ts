@@ -955,26 +955,38 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
       let agentName = 'B2B Agent';
       let agentPhone = 'N/A';
 
-      // 1. Fetch agent details from b2b_agents or users_profiles
-      const { data: agentData } = await supabaseAdmin
-        .from('b2b_agents')
-        .select('company_name, full_name, phone, mobile')
+      // 1. Fetch agent details from b2b_api_credentials, b2b_agents, or users_profiles
+      const { data: b2bCred } = await supabaseAdmin
+        .from('b2b_api_credentials')
+        .select('*')
         .eq('id', agentId)
         .maybeSingle();
 
-      if (agentData) {
-        agentName = agentData.company_name || agentData.full_name || agentName;
-        agentPhone = agentData.phone || agentData.mobile || agentPhone;
+      if (b2bCred) {
+        const fullName = [b2bCred.first_name, b2bCred.last_name].filter(Boolean).join(' ').trim();
+        agentName = fullName || b2bCred.company_name || b2bCred.name || b2bCred.b2b_login_id || agentName;
+        agentPhone = b2bCred.mobile || b2bCred.phone || agentPhone;
       } else {
-        const { data: userProfile } = await supabaseAdmin
-          .from('users_profiles')
-          .select('full_name, mobile, phone')
+        const { data: agentData } = await supabaseAdmin
+          .from('b2b_agents')
+          .select('company_name, full_name, phone, mobile')
           .eq('id', agentId)
           .maybeSingle();
 
-        if (userProfile) {
-          agentName = userProfile.full_name || agentName;
-          agentPhone = userProfile.mobile || userProfile.phone || agentPhone;
+        if (agentData) {
+          agentName = agentData.company_name || agentData.full_name || agentName;
+          agentPhone = agentData.phone || agentData.mobile || agentPhone;
+        } else {
+          const { data: userProfile } = await supabaseAdmin
+            .from('users_profiles')
+            .select('full_name, mobile, phone')
+            .eq('id', agentId)
+            .maybeSingle();
+
+          if (userProfile) {
+            agentName = userProfile.full_name || agentName;
+            agentPhone = userProfile.mobile || userProfile.phone || agentPhone;
+          }
         }
       }
 
