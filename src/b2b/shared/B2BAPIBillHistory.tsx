@@ -41,6 +41,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
   const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [syncingAll, setSyncingAll] = useState(false);
+  const [isApiEnabled, setIsApiEnabled] = useState(true);
+  const [togglingApi, setTogglingApi] = useState(false);
   const [showAgentSummaryModal, setShowAgentSummaryModal] = useState(false);
   const [agentSearchInModal, setAgentSearchInModal] = useState('');
 
@@ -327,6 +329,78 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       alert('Error during sync: ' + (err.message || 'Unknown error'));
     } finally {
       setSyncingAll(false);
+    }
+  };
+
+  // Fetch and listen for B2B API Master Toggle
+  useEffect(() => {
+    fetchApiToggleStatus();
+
+    const channel = supabase
+      .channel('b2b_settings_changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'b2b_settings' },
+        (payload) => {
+          const newRecord = payload.new as any;
+          if (newRecord && typeof newRecord.is_api_enabled === 'boolean') {
+            setIsApiEnabled(newRecord.is_api_enabled);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const fetchApiToggleStatus = async () => {
+    try {
+      const { data } = await supabase
+        .from('b2b_settings')
+        .select('is_api_enabled')
+        .limit(1)
+        .maybeSingle();
+
+      if (data && typeof data.is_api_enabled === 'boolean') {
+        setIsApiEnabled(data.is_api_enabled);
+      }
+    } catch (e) {
+      console.error('Error fetching B2B API toggle status:', e);
+    }
+  };
+
+  const handleMasterApiToggle = async () => {
+    if (!isAdmin) return;
+    const nextState = !isApiEnabled;
+    const confirmMsg = nextState 
+      ? "Are you sure you want to ENABLE all B2B Agent APIs?"
+      : "Are you sure you want to DISABLE all B2B Agent APIs?\nAll agent API calls will be immediately blocked!";
+    
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      setTogglingApi(true);
+      const { error } = await supabase
+        .from('b2b_settings')
+        .update({ is_api_enabled: nextState })
+        .eq('id', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11');
+
+      if (error) {
+        // If update fails (e.g. ID mismatch or row missing), upsert
+        await supabase
+          .from('b2b_settings')
+          .upsert({ id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', is_api_enabled: nextState });
+      }
+
+      setIsApiEnabled(nextState);
+      alert(`B2B Agent API service is now ${nextState ? 'ENABLED (ON)' : 'DISABLED (OFF)'}!`);
+    } catch (err: any) {
+      console.error('Error toggling B2B API master switch:', err);
+      alert('Error updating API toggle: ' + (err.message || 'Unknown error'));
+    } finally {
+      setTogglingApi(false);
     }
   };
 
@@ -1006,6 +1080,30 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         <div className="flex items-center gap-2 flex-wrap">
           {isAdmin && (
             <>
+              {/* B2B API Master Service Toggle Switch */}
+              <div className="flex items-center gap-3 bg-slate-800/90 border border-slate-700/80 px-3.5 py-1.5 rounded-xl shadow-sm">
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">All B2B Agents API</span>
+                  <span className={`text-xs font-bold flex items-center gap-1 ${isApiEnabled ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <span className={`w-2 h-2 rounded-full ${isApiEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500'}`}></span>
+                    {isApiEnabled ? 'ACTIVE / ON' : 'DISABLED / OFF'}
+                  </span>
+                </div>
+                <button
+                  onClick={handleMasterApiToggle}
+                  disabled={togglingApi}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
+                    isApiEnabled ? 'bg-emerald-500' : 'bg-rose-600'
+                  } ${togglingApi ? 'opacity-50 cursor-wait' : ''}`}
+                  title={isApiEnabled ? 'Click to TURN OFF API for all agents' : 'Click to TURN ON API for all agents'}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      isApiEnabled ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
               <button
                 onClick={handleSyncAllBills}
                 disabled={syncingAll}

@@ -3,6 +3,20 @@ import { supabaseAdmin } from '../../server'; // Assume server exports supabaseA
 
 export const b2bAuthMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // 0. Check Global B2B Master API Toggle Status
+    const { data: globalSettings } = await supabaseAdmin
+      .from('b2b_settings')
+      .select('is_api_enabled')
+      .limit(1)
+      .single();
+
+    if (globalSettings && globalSettings.is_api_enabled === false) {
+      return res.status(503).json({
+        status: 'error',
+        message: 'B2B API service is currently disabled by Administrator.'
+      });
+    }
+
     const apiKey = req.header('x-api-key');
     const secretKey = req.header('x-secret-key');
     // x-forwarded-for for proxies, or req.ip
