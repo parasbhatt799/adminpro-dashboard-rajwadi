@@ -268,9 +268,17 @@ export async function checkPayoutStatus(txnId: string): Promise<{
   };
 }> {
   try {
-    const data = await callPayoutApi('/api/v1/np/payout/check-status', {
-      txn_id: txnId
-    });
+    let data;
+    try {
+      data = await callPayoutApi('/api/v1/aer/payout/check-status', {
+        txn_id: txnId
+      });
+    } catch (aerErr: any) {
+      console.warn('[Payout Service] AER check-status failed, retrying with NP endpoint:', aerErr.message);
+      data = await callPayoutApi('/api/v1/np/payout/check-status', {
+        txn_id: txnId
+      });
+    }
     return data;
   } catch (error: any) {
     console.error('[Payout Service] Check Status API Error:', error);
