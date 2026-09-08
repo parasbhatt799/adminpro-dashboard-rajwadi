@@ -17,7 +17,11 @@ import {
   Hash,
   IndianRupee,
   HelpCircle,
-  Key
+  Key,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -51,7 +55,7 @@ const ERROR_CODES = [
 ];
 
 export default function AdminIndiaTekPayout() {
-  const [activeTab, setActiveTab] = useState<'send' | 'history' | 'settings' | 'errors'>('send');
+  const [activeTab, setActiveTab] = useState<'history' | 'settings' | 'errors'>('history');
   
   // Wallet Balance State
   const [balance, setBalance] = useState<number | null>(null);
@@ -66,23 +70,16 @@ export default function AdminIndiaTekPayout() {
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
-  // Send Payout Form State
-  const [formData, setFormData] = useState({
-    account_number: '',
-    ifsc_code: '',
-    amount: '',
-    beneficiary_name: '',
-    customer_mobile: '',
-    partner_reference: ''
-  });
-  const [sendingPayout, setSendingPayout] = useState(false);
-  const [payoutResult, setPayoutResult] = useState<any>(null);
-
   // History State
   const [submissions, setSubmissions] = useState<IndiaTekSubmission[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 15;
 
   // Message State
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -92,11 +89,6 @@ export default function AdminIndiaTekPayout() {
     fetchBalance();
     fetchHistory();
   }, []);
-
-  const generateRef = () => {
-    const ref = `ITP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-    setFormData(prev => ({ ...prev, partner_reference: ref }));
-  };
 
   const fetchSettings = async () => {
     try {
@@ -161,7 +153,7 @@ export default function AdminIndiaTekPayout() {
       });
       const data = await res.json();
       if (data?.success) {
-        setMessage({ type: 'success', text: 'IndiaTek Payout settings saved successfully!' });
+        setMessage({ type: 'success', text: 'IndiaTek Payout credentials saved successfully!' });
         fetchBalance();
       } else {
         setMessage({ type: 'error', text: data?.message || 'Failed to save settings' });
@@ -173,53 +165,16 @@ export default function AdminIndiaTekPayout() {
     }
   };
 
-  const handleSendPayout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSendingPayout(true);
-    setPayoutResult(null);
-    setMessage(null);
-
-    const ref = formData.partner_reference || `ITP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
-
-    try {
-      const res = await fetch('/api/indiatek-payout/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          account_number: formData.account_number,
-          ifsc_code: formData.ifsc_code,
-          amount: formData.amount,
-          beneficiary_name: formData.beneficiary_name,
-          customer_mobile: formData.customer_mobile,
-          partner_reference: ref
-        })
-      });
-      const data = await res.json();
-      setPayoutResult(data);
-
-      if (data?.success) {
-        setMessage({ type: 'success', text: `Payout initiated! Ref: ${ref}` });
-        setFormData({ account_number: '', ifsc_code: '', amount: '', beneficiary_name: '', customer_mobile: '', partner_reference: '' });
-        fetchBalance();
-        fetchHistory();
-      } else {
-        setMessage({ type: 'error', text: data?.message || 'Payout failed. Please check parameters.' });
-      }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err?.message || 'Network error initiating payout' });
-    } finally {
-      setSendingPayout(false);
-    }
-  };
-
   const handleCheckLiveStatus = async (partnerRef: string) => {
     setCheckingStatusId(partnerRef);
     try {
       const res = await fetch(`/api/indiatek-payout/status/${partnerRef}`);
       const data = await res.json();
       fetchHistory();
+      setMessage({ type: 'success', text: `Status for ${partnerRef}: ${data?.status || data?.data?.status || 'Fetched'}` });
     } catch (err) {
       console.error('Error checking live status:', err);
+      setMessage({ type: 'error', text: 'Failed to fetch status from IndiaTek API' });
     } finally {
       setCheckingStatusId(null);
     }
@@ -227,70 +182,83 @@ export default function AdminIndiaTekPayout() {
 
   const filteredHistory = submissions.filter(sub => {
     const q = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = 
       sub.partner_reference?.toLowerCase().includes(q) ||
       sub.transaction_id?.toLowerCase().includes(q) ||
       sub.account_number?.toLowerCase().includes(q) ||
       sub.beneficiary_name?.toLowerCase().includes(q) ||
       sub.customer_mobile?.toLowerCase().includes(q) ||
-      sub.status?.toLowerCase().includes(q)
-    );
+      sub.status?.toLowerCase().includes(q);
+
+    const matchesStatus = statusFilter === 'all' || sub.status?.toUpperCase() === statusFilter.toUpperCase();
+
+    return matchesSearch && matchesStatus;
   });
 
+  const totalPages = Math.ceil(filteredHistory.length / itemsPerPage) || 1;
+  const paginatedHistory = filteredHistory.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6 text-gray-100">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
       
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-purple-900/40 border border-blue-500/20 backdrop-blur-md rounded-2xl p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-blue-500/10 border border-blue-400/20 rounded-xl text-blue-400">
-              <Send className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-300 bg-clip-text text-transparent">
+      {/* Top Banner & Header */}
+      <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-900 border border-indigo-800/40 rounded-3xl p-6 md:p-8 shadow-xl text-white flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden">
+        <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-center gap-4 relative z-10">
+          <div className="p-4 bg-indigo-500/20 border border-indigo-400/30 rounded-2xl text-indigo-300 shadow-inner">
+            <Send className="w-8 h-8" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
                 IndiaTek Payout
               </h1>
-              <p className="text-sm text-gray-400">KingWallet by IndiaTek Payout Integration & Management</p>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/30 border border-indigo-400/40 text-indigo-200">
+                KingWallet Provider
+              </span>
             </div>
+            <p className="text-sm text-slate-300 mt-1 font-medium">
+              Manage KingWallet by IndiaTek Payout Gateway, API Credentials & Live Transactions
+            </p>
           </div>
         </div>
 
-        {/* Balance Card & Status */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="bg-gray-900/60 border border-gray-700/50 rounded-xl px-5 py-3 flex items-center gap-4">
-            <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
-              <Wallet className="w-5 h-5" />
+        {/* Live Balance Widget & Status Badge */}
+        <div className="flex items-center gap-4 flex-wrap relative z-10">
+          <div className="bg-white/10 border border-white/15 backdrop-blur-md rounded-2xl px-6 py-3.5 flex items-center gap-4 shadow-lg">
+            <div className="p-2.5 bg-emerald-400/20 text-emerald-300 border border-emerald-400/30 rounded-xl">
+              <Wallet className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-xs text-gray-400 font-medium">IndiaTek Live Balance</div>
-              <div className="text-lg font-bold text-emerald-400 flex items-center gap-1">
+              <div className="text-xs text-indigo-200 font-semibold tracking-wide uppercase">IndiaTek API Balance</div>
+              <div className="text-xl font-black text-emerald-300 flex items-center gap-2">
                 {fetchingBalance ? (
-                  <RefreshCw className="w-4 h-4 animate-spin text-gray-400" />
+                  <RefreshCw className="w-4 h-4 animate-spin text-slate-300" />
                 ) : balance !== null ? (
                   `₹ ${balance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
                 ) : (
-                  <span className="text-sm text-gray-400">Click refresh</span>
+                  <span className="text-sm text-slate-300">Click Refresh</span>
                 )}
               </div>
             </div>
             <button
               onClick={fetchBalance}
               disabled={fetchingBalance}
-              title="Refresh Balance"
-              className="p-1.5 hover:bg-gray-700/50 rounded-lg transition-colors text-gray-400 hover:text-white"
+              title="Refresh Live Balance"
+              className="p-2 hover:bg-white/20 rounded-xl transition-all text-slate-200 hover:text-white"
             >
               <RefreshCw className={`w-4 h-4 ${fetchingBalance ? 'animate-spin' : ''}`} />
             </button>
           </div>
 
-          <div className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 border ${
+          <div className={`px-4 py-3 rounded-2xl text-xs font-bold flex items-center gap-2 border shadow-lg ${
             settings.is_active 
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' 
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+              ? 'bg-emerald-500/20 border-emerald-400/40 text-emerald-200' 
+              : 'bg-rose-500/20 border-rose-400/40 text-rose-200'
           }`}>
-            <span className={`w-2 h-2 rounded-full ${settings.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
-            {settings.is_active ? 'Service Active' : 'Service Disabled'}
+            <span className={`w-2.5 h-2.5 rounded-full ${settings.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+            {settings.is_active ? 'Service Active' : 'Disabled'}
           </div>
         </div>
       </div>
@@ -302,336 +270,157 @@ export default function AdminIndiaTekPayout() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className={`p-4 rounded-xl border flex items-center justify-between ${
+            className={`p-4 rounded-2xl border flex items-center justify-between shadow-sm ${
               message.type === 'success'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                : 'bg-rose-50 border-rose-200 text-rose-800'
             }`}
           >
             <div className="flex items-center gap-3">
-              {message.type === 'success' ? <CheckCircle2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
-              <span className="text-sm font-medium">{message.text}</span>
+              {message.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-emerald-600" /> : <AlertCircle className="w-5 h-5 text-rose-600" />}
+              <span className="text-sm font-semibold">{message.text}</span>
             </div>
-            <button onClick={() => setMessage(null)} className="text-gray-400 hover:text-white text-sm font-bold px-2">✕</button>
+            <button onClick={() => setMessage(null)} className="text-slate-400 hover:text-slate-700 text-sm font-bold px-2">✕</button>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-gray-800 pb-2">
-        <button
-          onClick={() => setActiveTab('send')}
-          className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center gap-2 ${
-            activeTab === 'send'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-          }`}
-        >
-          <Send className="w-4 h-4" /> Send Payout
-        </button>
+      <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setActiveTab('history')}
-          className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center gap-2 ${
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 ${
             activeTab === 'history'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
           }`}
         >
-          <Clock className="w-4 h-4" /> Payout History ({submissions.length})
+          <Clock className="w-4 h-4" /> Payout Transactions ({submissions.length})
         </button>
         <button
           onClick={() => setActiveTab('settings')}
-          className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center gap-2 ${
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 ${
             activeTab === 'settings'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
           }`}
         >
-          <Settings2 className="w-4 h-4" /> API Credentials
+          <Settings2 className="w-4 h-4" /> API Credentials & Settings
         </button>
         <button
           onClick={() => setActiveTab('errors')}
-          className={`px-5 py-2.5 rounded-xl font-medium text-sm transition-all flex items-center gap-2 ${
+          className={`px-5 py-3 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 ${
             activeTab === 'errors'
-              ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
-              : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+              ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+              : 'bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 border border-slate-200'
           }`}
         >
-          <HelpCircle className="w-4 h-4" /> Error Codes
+          <HelpCircle className="w-4 h-4" /> Error Codes Reference
         </button>
       </div>
 
-      {/* TAB 1: SEND PAYOUT FORM */}
-      {activeTab === 'send' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 bg-gray-900/60 border border-gray-800 rounded-2xl p-6 shadow-xl space-y-6">
-            <h2 className="text-lg font-bold text-gray-200 flex items-center gap-2">
-              <Send className="w-5 h-5 text-blue-400" /> Initiate IndiaTek Payout
-            </h2>
-
-            <form onSubmit={handleSendPayout} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                    Beneficiary Name *
-                  </label>
-                  <div className="relative">
-                    <User className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Rahul Sharma"
-                      value={formData.beneficiary_name}
-                      onChange={e => setFormData({ ...formData, beneficiary_name: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                    Customer Mobile *
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
-                    <input
-                      type="text"
-                      required
-                      maxLength={10}
-                      placeholder="10-digit mobile number"
-                      value={formData.customer_mobile}
-                      onChange={e => setFormData({ ...formData, customer_mobile: e.target.value.replace(/\D/g, '') })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                    Account Number *
-                  </label>
-                  <div className="relative">
-                    <Building2 className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="Bank Account Number"
-                      value={formData.account_number}
-                      onChange={e => setFormData({ ...formData, account_number: e.target.value.trim() })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                    IFSC Code *
-                  </label>
-                  <div className="relative">
-                    <Hash className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. HDFC0001234"
-                      value={formData.ifsc_code}
-                      onChange={e => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase().trim() })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 uppercase font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                    Transfer Amount (INR) *
-                  </label>
-                  <div className="relative">
-                    <IndianRupee className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      placeholder="Amount in ₹"
-                      value={formData.amount}
-                      onChange={e => setFormData({ ...formData, amount: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 font-bold"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-gray-400">
-                      Partner Reference ID (Order ID)
-                    </label>
-                    <button
-                      type="button"
-                      onClick={generateRef}
-                      className="text-xs text-blue-400 hover:underline"
-                    >
-                      Generate Auto
-                    </button>
-                  </div>
-                  <div className="relative">
-                    <Hash className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
-                    <input
-                      type="text"
-                      placeholder="Auto generated if left blank"
-                      value={formData.partner_reference}
-                      onChange={e => setFormData({ ...formData, partner_reference: e.target.value.trim() })}
-                      className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-blue-500 font-mono"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={sendingPayout}
-                className="w-full mt-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {sendingPayout ? (
-                  <>
-                    <RefreshCw className="w-5 h-5 animate-spin" /> Processing Payout...
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-5 h-5" /> Execute IndiaTek Payout Now
-                  </>
-                )}
-              </button>
-            </form>
-          </div>
-
-          {/* Right Panel Result Box */}
-          <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 shadow-xl space-y-4">
-            <h3 className="text-sm font-bold text-gray-300 flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" /> Transaction Result
-            </h3>
-
-            {payoutResult ? (
-              <div className="space-y-3 bg-gray-800/50 p-4 rounded-xl border border-gray-700/50">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-400">Status:</span>
-                  <span className={`font-bold px-2 py-0.5 rounded ${
-                    payoutResult.success ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
-                  }`}>
-                    {payoutResult.status || (payoutResult.success ? 'SUCCESS' : 'FAILED')}
-                  </span>
-                </div>
-                {payoutResult.partner_reference && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400">Partner Ref:</span>
-                    <span className="font-mono text-gray-200">{payoutResult.partner_reference}</span>
-                  </div>
-                )}
-                {payoutResult.transaction_id && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400">Txn ID:</span>
-                    <span className="font-mono text-emerald-400">{payoutResult.transaction_id}</span>
-                  </div>
-                )}
-                <div className="text-xs text-gray-300 pt-2 border-t border-gray-700/50">
-                  <span className="font-semibold">Message:</span> {payoutResult.message || JSON.stringify(payoutResult)}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-12 text-gray-500 text-xs space-y-2">
-                <Send className="w-8 h-8 mx-auto opacity-30 text-blue-400" />
-                <p>Fill out the form and submit to initiate IndiaTek Payout.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB 2: PAYOUT HISTORY & STATUS */}
+      {/* TAB 1: PAYOUT TRANSACTIONS HISTORY & LIVE STATUS */}
       {activeTab === 'history' && (
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 shadow-xl space-y-4">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-5">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <h2 className="text-lg font-bold text-gray-200 flex items-center gap-2">
-              <Clock className="w-5 h-5 text-blue-400" /> Payout Submissions History
-            </h2>
-            <div className="relative w-full sm:w-72">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-gray-500" />
-              <input
-                type="text"
-                placeholder="Search Ref, Txn ID, Account..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-gray-800 border border-gray-700 rounded-xl text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-blue-500"
-              />
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-indigo-600" /> IndiaTek Payout History
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">Real-time status tracking for all KingWallet payouts</p>
+            </div>
+
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="all">All Statuses</option>
+                <option value="SUCCESS">SUCCESS / APPROVED</option>
+                <option value="PENDING">PENDING</option>
+                <option value="FAILED">FAILED / ERROR</option>
+              </select>
+
+              <div className="relative flex-1 sm:w-64">
+                <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search Ref, Txn ID, Account..."
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
             </div>
           </div>
 
-          <div className="overflow-x-auto rounded-xl border border-gray-800">
-            <table className="w-full text-left text-xs text-gray-300">
-              <thead className="bg-gray-800/80 text-gray-400 font-semibold border-b border-gray-800">
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
                 <tr>
-                  <th className="p-3">Date/Time</th>
-                  <th className="p-3">Partner Reference</th>
-                  <th className="p-3">Beneficiary Details</th>
-                  <th className="p-3">Amount</th>
-                  <th className="p-3">Txn ID</th>
-                  <th className="p-3">Status</th>
-                  <th className="p-3 text-right">Action</th>
+                  <th className="p-3.5">Date / Time</th>
+                  <th className="p-3.5">Partner Reference</th>
+                  <th className="p-3.5">Beneficiary Details</th>
+                  <th className="p-3.5">Amount</th>
+                  <th className="p-3.5">Txn ID</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/60">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {loadingHistory ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-gray-500">
-                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-400" /> Loading history...
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
+                      <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-indigo-600" /> Loading transactions...
                     </td>
                   </tr>
-                ) : filteredHistory.length === 0 ? (
+                ) : paginatedHistory.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-gray-500">
+                    <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
                       No IndiaTek payout transactions found.
                     </td>
                   </tr>
                 ) : (
-                  filteredHistory.map(sub => (
-                    <tr key={sub.id} className="hover:bg-gray-800/30 transition-colors">
-                      <td className="p-3 text-gray-400 whitespace-nowrap">
+                  paginatedHistory.map(sub => (
+                    <tr key={sub.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3.5 text-slate-500 whitespace-nowrap font-medium">
                         {new Date(sub.created_at).toLocaleString('en-IN')}
                       </td>
-                      <td className="p-3 font-mono font-semibold text-blue-300 whitespace-nowrap">
+                      <td className="p-3.5 font-mono font-bold text-indigo-600 whitespace-nowrap">
                         {sub.partner_reference}
                       </td>
-                      <td className="p-3">
-                        <div className="font-semibold text-gray-200">{sub.beneficiary_name}</div>
-                        <div className="text-gray-400 font-mono">{sub.account_number} ({sub.ifsc_code})</div>
-                        <div className="text-gray-500 text-[10px]">Mob: {sub.customer_mobile}</div>
+                      <td className="p-3.5">
+                        <div className="font-bold text-slate-900">{sub.beneficiary_name}</div>
+                        <div className="text-slate-500 font-mono text-[11px]">{sub.account_number} ({sub.ifsc_code})</div>
+                        <div className="text-slate-400 text-[10px]">Mob: {sub.customer_mobile}</div>
                       </td>
-                      <td className="p-3 font-bold text-emerald-400 whitespace-nowrap">
+                      <td className="p-3.5 font-black text-emerald-600 text-sm whitespace-nowrap">
                         ₹ {Number(sub.amount).toLocaleString('en-IN')}
                       </td>
-                      <td className="p-3 font-mono text-gray-400 whitespace-nowrap">
+                      <td className="p-3.5 font-mono text-slate-500 whitespace-nowrap">
                         {sub.transaction_id || '-'}
                       </td>
-                      <td className="p-3 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-full font-bold text-[10px] ${
+                      <td className="p-3.5 whitespace-nowrap">
+                        <span className={`px-3 py-1 rounded-full font-extrabold text-[10px] tracking-wide inline-flex items-center gap-1 ${
                           sub.status === 'SUCCESS' || sub.status === 'APPROVED'
-                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : sub.status === 'PENDING'
-                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
-                            : 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
                         }`}>
+                          {sub.status === 'SUCCESS' || sub.status === 'APPROVED' ? <CheckCircle2 className="w-3 h-3" /> : sub.status === 'PENDING' ? <Clock className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
                           {sub.status}
                         </span>
                       </td>
-                      <td className="p-3 text-right whitespace-nowrap">
+                      <td className="p-3.5 text-right whitespace-nowrap">
                         <button
                           onClick={() => handleCheckLiveStatus(sub.partner_reference)}
                           disabled={checkingStatusId === sub.partner_reference}
-                          className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-blue-400 hover:text-blue-300 rounded-lg text-xs font-semibold border border-gray-700 transition-colors inline-flex items-center gap-1.5"
+                          className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-indigo-700 hover:text-indigo-900 rounded-xl text-xs font-bold border border-slate-200 transition-colors inline-flex items-center gap-1.5"
                         >
                           <RefreshCw className={`w-3.5 h-3.5 ${checkingStatusId === sub.partner_reference ? 'animate-spin' : ''}`} />
-                          Check Live
+                          Check Live Status
                         </button>
                       </td>
                     </tr>
@@ -640,99 +429,134 @@ export default function AdminIndiaTekPayout() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between pt-2 text-xs text-slate-500 font-semibold">
+              <div>Page {currentPage} of {totalPages} ({filteredHistory.length} items)</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* TAB 3: API CREDENTIALS & SETTINGS */}
+      {/* TAB 2: API CREDENTIALS & SETTINGS */}
       {activeTab === 'settings' && (
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 shadow-xl space-y-6 max-w-2xl">
-          <h2 className="text-lg font-bold text-gray-200 flex items-center gap-2">
-            <Settings2 className="w-5 h-5 text-blue-400" /> KingWallet by IndiaTek Credentials
-          </h2>
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+              <Settings2 className="w-6 h-6 text-indigo-600" /> KingWallet by IndiaTek Credentials
+            </h2>
+            <p className="text-xs text-slate-500 mt-1">
+              Configure your registered mobile username and API secret headers for IndiaTek Payout API.
+            </p>
+          </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 Username (Registered Mobile Number) *
               </label>
               <div className="relative">
-                <Phone className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
+                <Phone className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                 <input
                   type="text"
                   required
                   placeholder="e.g. 9876543210"
                   value={settings.username}
                   onChange={e => setSettings({ ...settings, username: e.target.value.trim() })}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-blue-500 font-mono"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 font-mono font-semibold"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
                 X-API-SECRET Header Key *
               </label>
               <div className="relative">
-                <Key className="w-4 h-4 absolute left-3 top-3.5 text-gray-500" />
+                <Key className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                 <input
                   type="text"
                   required
                   placeholder="API Secret Key"
                   value={settings.api_secret}
                   onChange={e => setSettings({ ...settings, api_secret: e.target.value.trim() })}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-800/80 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-blue-500 font-mono"
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 font-mono font-semibold"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-400 mb-1.5">
-                Service Active Status
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                Service Status
               </label>
-              <label className="flex items-center gap-3 cursor-pointer p-3 bg-gray-800/50 rounded-xl border border-gray-700">
+              <label className="flex items-center gap-3 cursor-pointer p-4 bg-slate-50 rounded-2xl border border-slate-200 hover:bg-slate-100/60 transition-colors">
                 <input
                   type="checkbox"
                   checked={settings.is_active}
                   onChange={e => setSettings({ ...settings, is_active: e.target.checked })}
-                  className="w-4 h-4 rounded bg-gray-900 border-gray-700 text-blue-600 focus:ring-0"
+                  className="w-5 h-5 rounded bg-white border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
-                <span className="text-xs font-medium text-gray-200">Enable IndiaTek Payout API Service</span>
+                <div>
+                  <div className="text-sm font-bold text-slate-900">Enable IndiaTek Payout API Service</div>
+                  <div className="text-xs text-slate-500">Allow merchants/users to execute instant payouts via KingWallet API</div>
+                </div>
               </label>
             </div>
 
             <button
               type="submit"
               disabled={savingSettings}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
             >
-              {savingSettings ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Settings2 className="w-4 h-4" />}
+              {savingSettings ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Settings2 className="w-5 h-5" />}
               Save IndiaTek Credentials
             </button>
           </form>
         </div>
       )}
 
-      {/* TAB 4: ERROR CODES REFERENCE */}
+      {/* TAB 3: ERROR CODES REFERENCE */}
       {activeTab === 'errors' && (
-        <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-6 shadow-xl space-y-4">
-          <h2 className="text-lg font-bold text-gray-200 flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-blue-400" /> Standard API Error Codes Reference
-          </h2>
-          <div className="overflow-x-auto rounded-xl border border-gray-800">
-            <table className="w-full text-left text-xs text-gray-300">
-              <thead className="bg-gray-800/80 text-gray-400 font-semibold border-b border-gray-800">
+        <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <HelpCircle className="w-5 h-5 text-indigo-600" /> Standard API Error Codes Reference
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">IndiaTek KingWallet API HTTP response error codes documentation</p>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <table className="w-full text-left text-xs text-slate-600">
+              <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider border-b border-slate-200">
                 <tr>
-                  <th className="p-3">HTTP Code</th>
-                  <th className="p-3">Error Status</th>
-                  <th className="p-3">Description</th>
+                  <th className="p-3.5">HTTP Code</th>
+                  <th className="p-3.5">Error Status</th>
+                  <th className="p-3.5">Description</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/60 font-mono">
+              <tbody className="divide-y divide-slate-100 bg-white font-mono">
                 {ERROR_CODES.map((err, i) => (
-                  <tr key={i} className="hover:bg-gray-800/30">
-                    <td className="p-3 text-amber-400 font-bold">{err.code}</td>
-                    <td className="p-3 text-rose-400 font-bold">{err.status}</td>
-                    <td className="p-3 text-gray-300 font-sans">{err.desc}</td>
+                  <tr key={i} className="hover:bg-slate-50/80">
+                    <td className="p-3.5 text-amber-600 font-bold text-sm">{err.code}</td>
+                    <td className="p-3.5 text-rose-600 font-bold text-sm">{err.status}</td>
+                    <td className="p-3.5 text-slate-700 font-sans text-xs">{err.desc}</td>
                   </tr>
                 ))}
               </tbody>
