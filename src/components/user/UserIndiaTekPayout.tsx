@@ -308,7 +308,7 @@ export default function UserIndiaTekPayout() {
               </>
             ) : (
               <>
-                <Send className="w-5 h-5" /> Transfer Funds via IndiaTek Payout
+                <Send className="w-5 h-5" /> Transfer Fund
               </>
             )}
           </button>
