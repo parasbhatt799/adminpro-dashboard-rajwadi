@@ -10,13 +10,18 @@ import {
   User, 
   Hash, 
   IndianRupee,
-  ShieldCheck
+  ShieldCheck,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
 export default function UserIndiaTekPayout() {
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [isActive, setIsActive] = useState<boolean | null>(null);
+  const [checkingActive, setCheckingActive] = useState(true);
+
   const [formData, setFormData] = useState({
     account_number: '',
     ifsc_code: '',
@@ -30,7 +35,26 @@ export default function UserIndiaTekPayout() {
 
   useEffect(() => {
     fetchUserProfile();
+    fetchServiceStatus();
   }, []);
+
+  const fetchServiceStatus = async () => {
+    setCheckingActive(true);
+    try {
+      const res = await fetch('/api/indiatek-payout/settings');
+      const data = await res.json();
+      if (data?.success && data?.data) {
+        setIsActive(data.data.is_active !== false);
+      } else {
+        setIsActive(true);
+      }
+    } catch (err) {
+      console.error('Error fetching IndiaTek status:', err);
+      setIsActive(true);
+    } finally {
+      setCheckingActive(false);
+    }
+  };
 
   const fetchUserProfile = async () => {
     try {
@@ -79,7 +103,7 @@ export default function UserIndiaTekPayout() {
         setFormData({ account_number: '', ifsc_code: '', amount: '', beneficiary_name: '', customer_mobile: '' });
         fetchUserProfile();
       } else {
-        setMessage({ type: 'error', text: data?.message || 'Payout failed. Please verify details.' });
+        setMessage({ type: 'error', text: data?.message || 'Payout failed. Service may be disabled or parameters invalid.' });
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.message || 'Error processing payout request' });
@@ -87,6 +111,37 @@ export default function UserIndiaTekPayout() {
       setSubmitting(false);
     }
   };
+
+  if (checkingActive) {
+    return (
+      <div className="p-12 text-center text-slate-400">
+        <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-indigo-600" />
+        <p className="text-xs font-bold uppercase tracking-wider">Checking IndiaTek Payout status...</p>
+      </div>
+    );
+  }
+
+  if (isActive === false) {
+    return (
+      <div className="p-8 max-w-lg mx-auto my-12 bg-white border border-slate-200 rounded-3xl shadow-xl text-center space-y-5">
+        <div className="w-16 h-16 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+          <AlertCircle className="w-8 h-8" />
+        </div>
+        <div>
+          <h2 className="text-xl font-black text-slate-900">IndiaTek Payout Service Disabled</h2>
+          <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+            The IndiaTek Payout service has been disabled by administrator. You cannot submit payout requests at this time.
+          </p>
+        </div>
+        <Link
+          to="/user/dashboard"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 text-xs transition-all"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6 text-slate-800">

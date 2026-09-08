@@ -118,6 +118,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
   const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
   const [isFundTransferEnabled, setIsFundTransferEnabled] = useState(true);
   const [isCamlenioAepsPayoutEnabled, setIsCamlenioAepsPayoutEnabled] = useState(false);
+  const [isIndiaTekPayoutEnabled, setIsIndiaTekPayoutEnabled] = useState(true);
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
@@ -149,6 +150,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       if (!isCamlenioAepsPayoutEnabled && (item.id === 'camlenio-payout' || item.id === 'payout-history') && !isTester) {
         return false;
       }
+      if (!isIndiaTekPayoutEnabled && item.id === 'indiatek-payout') {
+        return false;
+      }
       return true;
     })
   ];
@@ -157,6 +161,11 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
     const fetchBranding = async () => {
       const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled').eq('id', 1).single();
       const { data: payoutData } = await supabase.from('payout_settings').select('camlenio_is_enabled').eq('id', 1).single();
+      const { data: indiatekData } = await supabase.from('indiatek_payout_settings').select('is_active').eq('id', 1).maybeSingle();
+
+      if (indiatekData) {
+        setIsIndiaTekPayoutEnabled(indiatekData.is_active !== false);
+      }
 
       if (data) {
         setBranding({
@@ -197,7 +206,11 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
           if ('is_fund_transfer_enabled' in payload.new) {
             setIsFundTransferEnabled(payload.new.is_fund_transfer_enabled ?? true);
           }
-
+        }
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'indiatek_payout_settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new && 'is_active' in payload.new) {
+          setIsIndiaTekPayoutEnabled((payload.new as any).is_active !== false);
         }
       })
       .subscribe();
