@@ -16,6 +16,7 @@ import * as recharge from "./services/recharge.js";
 import * as camlenioAeps from "./services/camlenio_aeps.js";
 import * as camlenioBbps from "./services/camlenio_bbps.js";
 import * as camlenioPayout from "./services/camlenio_payout.js";
+import * as indiatekPayout from "./services/indiatek_payout.js";
 import b2bRoutes from "./api/b2b/routes.js";
 import * as whatsappService from "./services/whatsapp_service.js";
 
@@ -5348,6 +5349,250 @@ async function startServer() {
       console.error("[T+1 Settlement] Scheduler error:", err);
     }
   }, 30000); // Check every 30 seconds
+
+  // ==========================================================
+  // INDIATEK PAYOUT API ROUTES (KingWallet by IndiaTek)
+  // ==========================================================
+
+  // 1. Get IndiaTek Payout Settings
+  app.get("/api/indiatek-payout/settings", async (req: any, res: any) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("indiatek_payout_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (error && error.code !== "PGRST116") {
+        console.error("[IndiaTek Settings Error]", error);
+      }
+
+      return res.json({
+        success: true,
+        data: data || {
+          username: process.env.INDIATEK_PAYOUT_USERNAME || "",
+          api_secret: process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC",
+          is_active: true,
+          charge_amount: 0
+        }
+      });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 2. Save IndiaTek Payout Settings
+  app.post("/api/indiatek-payout/settings", async (req: any, res: any) => {
+    try {
+      const { username, api_secret, is_active, charge_amount } = req.body;
+      const payload = {
+        id: 1,
+        username: (username || "").trim(),
+        api_secret: (api_secret || "").trim(),
+        is_active: is_active !== false,
+        charge_amount: Number(charge_amount || 0),
+        updated_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabaseAdmin
+        .from("indiatek_payout_settings")
+        .upsert(payload)
+        .select()
+        .single();
+
+      if (error) {
+        console.error("[IndiaTek Settings Save Error]", error);
+        return res.status(500).json({ success: false, message: error.message });
+      }
+
+      return res.json({ success: true, message: "IndiaTek settings saved successfully!", data });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 3. Get IndiaTek Wallet Balance
+  app.get("/api/indiatek-payout/balance", async (req: any, res: any) => {
+    try {
+      const { data: dbSettings } = await supabaseAdmin
+        .from("indiatek_payout_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const username = dbSettings?.username || process.env.INDIATEK_PAYOUT_USERNAME || "";
+      const apiSecret = dbSettings?.api_secret || process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC";
+
+      const response = await indiatekPayout.getIndiaTekBalance(username, apiSecret);
+      return res.json(response);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 4. Initiate IndiaTek Payout
+  app.post("/api/indiatek-payout/send", async (req: any, res: any) => {
+    try {
+      const { account_number, ifsc_code, amount, beneficiary_name, customer_mobile, partner_reference, user_id } = req.body;
+
+      if (!account_number || !ifsc_code || !amount || !beneficiary_name || !customer_mobile) {
+        return res.status(400).json({ success: false, message: "Required fields missing (account_number, ifsc_code, amount, beneficiary_name, customer_mobile)" });
+      }
+
+      const numAmount = Number(amount);
+      if (isNaN(numAmount) || numAmount <= 0) {
+        return res.status(400).json({ success: false, message: "Invalid transfer amount" });
+      }
+
+      const { data: dbSettings } = await supabaseAdmin
+        .from("indiatek_payout_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      if (dbSettings && dbSettings.is_active === false) {
+        return res.status(400).json({ success: false, message: "IndiaTek Payout service is currently disabled by administrator." });
+      }
+
+      const username = dbSettings?.username || process.env.INDIATEK_PAYOUT_USERNAME || "";
+      const apiSecret = dbSettings?.api_secret || process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC";
+
+      const finalPartnerRef = partner_reference || `ITP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+      // Execute IndiaTek Payout API
+      const payoutResult = await indiatekPayout.initiateIndiaTekPayout({
+        account_number: String(account_number).trim(),
+        ifsc_code: String(ifsc_code).trim().toUpperCase(),
+        amount: numAmount,
+        beneficiary_name: String(beneficiary_name).trim(),
+        customer_mobile: String(customer_mobile).trim(),
+        partner_reference: finalPartnerRef
+      }, username, apiSecret);
+
+      const statusStr = (payoutResult?.data?.status || payoutResult?.status || "PENDING").toString().toUpperCase();
+      const transactionId = payoutResult?.data?.transaction_id || payoutResult?.txn_id || null;
+
+      // Log submission into Supabase table
+      try {
+        await supabaseAdmin
+          .from("indiatek_payout_submissions")
+          .insert({
+            user_id: user_id || "admin",
+            account_number: String(account_number).trim(),
+            ifsc_code: String(ifsc_code).trim().toUpperCase(),
+            amount: numAmount,
+            beneficiary_name: String(beneficiary_name).trim(),
+            customer_mobile: String(customer_mobile).trim(),
+            partner_reference: finalPartnerRef,
+            transaction_id: transactionId,
+            status: statusStr,
+            charges: Number(dbSettings?.charge_amount || 0),
+            response_payload: payoutResult
+          });
+      } catch (logErr) {
+        console.warn("[IndiaTek Payout] Warning: Failed to insert submission log:", logErr);
+      }
+
+      return res.json({
+        success: statusStr === "SUCCESS" || statusStr === "PENDING",
+        partner_reference: finalPartnerRef,
+        transaction_id: transactionId,
+        status: statusStr,
+        message: payoutResult?.message || "Payout processed",
+        response: payoutResult
+      });
+    } catch (err: any) {
+      console.error("[IndiaTek Payout Send Error]", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 5. Check IndiaTek Payout Status
+  app.get("/api/indiatek-payout/status/:partnerRef", async (req: any, res: any) => {
+    try {
+      const partnerRef = req.params.partnerRef;
+      if (!partnerRef) {
+        return res.status(400).json({ success: false, message: "Partner Reference is required" });
+      }
+
+      const { data: dbSettings } = await supabaseAdmin
+        .from("indiatek_payout_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const username = dbSettings?.username || process.env.INDIATEK_PAYOUT_USERNAME || "";
+      const apiSecret = dbSettings?.api_secret || process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC";
+
+      const statusResult = await indiatekPayout.checkIndiaTekStatus(partnerRef, username, apiSecret);
+      const newStatus = (statusResult?.status || statusResult?.data?.status || "PENDING").toString().toUpperCase();
+
+      // Update DB record if exists
+      try {
+        await supabaseAdmin
+          .from("indiatek_payout_submissions")
+          .update({
+            status: newStatus,
+            transaction_id: statusResult?.txn_id || statusResult?.data?.transaction_id,
+            response_payload: statusResult,
+            updated_at: new Date().toISOString()
+          })
+          .eq("partner_reference", partnerRef);
+      } catch (_) {}
+
+      return res.json(statusResult);
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 6. Get IndiaTek Payout Submissions History
+  app.get("/api/indiatek-payout/history", async (req: any, res: any) => {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("indiatek_payout_submissions")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200);
+
+      if (error) {
+        console.error("[IndiaTek History Fetch Error]", error);
+        return res.status(500).json({ success: false, message: error.message });
+      }
+
+      return res.json({ success: true, data: data || [] });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // 7. Webhook Handler for IndiaTek Callbacks
+  app.post("/api/indiatek-payout/webhook", async (req: any, res: any) => {
+    try {
+      console.log("[IndiaTek Webhook Payload]:", JSON.stringify(req.body));
+      const { event, data } = req.body || {};
+
+      if (data && data.api_ref) {
+        const partnerRef = data.api_ref;
+        const newStatus = (data.status || "PENDING").toUpperCase();
+
+        await supabaseAdmin
+          .from("indiatek_payout_submissions")
+          .update({
+            status: newStatus,
+            transaction_id: data.txn_id || null,
+            response_payload: req.body,
+            updated_at: new Date().toISOString()
+          })
+          .eq("partner_reference", partnerRef);
+      }
+
+      return res.json({ success: true, message: "Webhook processed successfully" });
+    } catch (err: any) {
+      console.error("[IndiaTek Webhook Error]", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

@@ -41,6 +41,7 @@ const menuItems = [
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },
   { id: 'camlenio-payout', label: 'UsePay Payout', icon: Send, path: '/user/camlenio-payout' },
+  { id: 'indiatek-payout', label: 'IndiaTek Payout', icon: Send, path: '/user/indiatek-payout' },
   { id: 'payout-history', label: 'Payout History', icon: Clock, path: '/user/payout-history' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
