@@ -8,3 +8,6 @@ coverage/
 !.env.example
 scratch/
 .wwebjs_auth/
+sql_files/supabase_full_database_backup.sql
+.indiatek_settings.json
+run_indiatek_sql.js

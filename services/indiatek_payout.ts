@@ -1,5 +1,7 @@
 import dotenv from 'dotenv';
 import dns from 'dns';
+import fs from 'fs';
+import path from 'path';
 
 try {
   dns.setDefaultResultOrder('ipv4first');
@@ -10,6 +12,56 @@ dotenv.config();
 const BASE_URL = (process.env.INDIATEK_PAYOUT_BASE_URL || 'https://api.kingwallet.in/api/v1/b2b').replace(/['"]/g, '').trim().replace(/\/$/, '');
 const USERNAME = (process.env.INDIATEK_PAYOUT_USERNAME || '').replace(/['"]/g, '').trim();
 const API_SECRET = (process.env.INDIATEK_PAYOUT_API_SECRET || '$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC').replace(/['"]/g, '').trim();
+
+const SETTINGS_FILE = path.join(process.cwd(), '.indiatek_settings.json');
+
+export interface IndiaTekSettings {
+  username: string;
+  api_secret: string;
+  is_active: boolean;
+  charge_amount: number;
+}
+
+export function getLocalSettings(): IndiaTekSettings {
+  try {
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const content = fs.readFileSync(SETTINGS_FILE, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (parsed) {
+        return {
+          username: parsed.username !== undefined ? parsed.username : USERNAME,
+          api_secret: parsed.api_secret || API_SECRET,
+          is_active: parsed.is_active !== false,
+          charge_amount: Number(parsed.charge_amount || 0)
+        };
+      }
+    }
+  } catch (err) {
+    console.error('[IndiaTek] Error reading local settings file:', err);
+  }
+  return {
+    username: USERNAME,
+    api_secret: API_SECRET,
+    is_active: true,
+    charge_amount: 0
+  };
+}
+
+export function saveLocalSettings(settings: Partial<IndiaTekSettings>): IndiaTekSettings {
+  const current = getLocalSettings();
+  const updated = {
+    ...current,
+    ...settings,
+    updated_at: new Date().toISOString()
+  };
+  try {
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(updated, null, 2));
+    console.log('[IndiaTek] Saved settings to local config file:', SETTINGS_FILE);
+  } catch (err) {
+    console.error('[IndiaTek] Error writing local settings file:', err);
+  }
+  return updated;
+}
 
 export interface IndiaTekPayoutPayload {
   account_number: string;
@@ -27,9 +79,10 @@ export interface IndiaTekHeaders {
 }
 
 export function generateIndiaTekHeaders(username?: string, apiSecret?: string): IndiaTekHeaders {
+  const local = getLocalSettings();
   return {
-    'Username': (username || USERNAME).trim(),
-    'X-API-SECRET': (apiSecret || API_SECRET).trim(),
+    'Username': (username || local.username || USERNAME).trim(),
+    'X-API-SECRET': (apiSecret || local.api_secret || API_SECRET).trim(),
     'Content-Type': 'application/json'
   };
 }

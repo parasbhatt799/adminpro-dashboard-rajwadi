@@ -5363,21 +5363,19 @@ async function startServer() {
         .eq("id", 1)
         .maybeSingle();
 
-      if (error && error.code !== "PGRST116") {
-        console.error("[IndiaTek Settings Error]", error);
+      const local = indiatekPayout.getLocalSettings();
+
+      if (data) {
+        return res.json({ success: true, data });
       }
 
       return res.json({
         success: true,
-        data: data || {
-          username: process.env.INDIATEK_PAYOUT_USERNAME || "",
-          api_secret: process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC",
-          is_active: true,
-          charge_amount: 0
-        }
+        data: local
       });
     } catch (err: any) {
-      return res.status(500).json({ success: false, message: err.message });
+      const local = indiatekPayout.getLocalSettings();
+      return res.json({ success: true, data: local });
     }
   });
 
@@ -5394,18 +5392,27 @@ async function startServer() {
         updated_at: new Date().toISOString()
       };
 
-      const { data, error } = await supabaseAdmin
-        .from("indiatek_payout_settings")
-        .upsert(payload)
-        .select()
-        .single();
+      // Always save to local file as backup
+      const savedLocal = indiatekPayout.saveLocalSettings(payload);
 
-      if (error) {
-        console.error("[IndiaTek Settings Save Error]", error);
-        return res.status(500).json({ success: false, message: error.message });
+      // Try saving to Supabase if table exists
+      try {
+        const { data, error } = await supabaseAdmin
+          .from("indiatek_payout_settings")
+          .upsert(payload)
+          .select()
+          .single();
+
+        if (error) {
+          console.warn("[IndiaTek Settings DB Warn] Supabase table missing, saved to local file:", error.message);
+        } else {
+          return res.json({ success: true, message: "IndiaTek settings saved successfully!", data });
+        }
+      } catch (dbErr: any) {
+        console.warn("[IndiaTek Settings DB Catch] Saved to local file fallback:", dbErr.message);
       }
 
-      return res.json({ success: true, message: "IndiaTek settings saved successfully!", data });
+      return res.json({ success: true, message: "IndiaTek settings saved successfully!", data: savedLocal });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
@@ -5420,8 +5427,9 @@ async function startServer() {
         .eq("id", 1)
         .maybeSingle();
 
-      const username = dbSettings?.username || process.env.INDIATEK_PAYOUT_USERNAME || "";
-      const apiSecret = dbSettings?.api_secret || process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC";
+      const local = indiatekPayout.getLocalSettings();
+      const username = dbSettings?.username || local.username;
+      const apiSecret = dbSettings?.api_secret || local.api_secret;
 
       const response = await indiatekPayout.getIndiaTekBalance(username, apiSecret);
       return res.json(response);
@@ -5450,12 +5458,15 @@ async function startServer() {
         .eq("id", 1)
         .maybeSingle();
 
-      if (dbSettings && dbSettings.is_active === false) {
+      const local = indiatekPayout.getLocalSettings();
+      const isActive = dbSettings ? dbSettings.is_active !== false : local.is_active !== false;
+
+      if (!isActive) {
         return res.status(400).json({ success: false, message: "IndiaTek Payout service is currently disabled by administrator." });
       }
 
-      const username = dbSettings?.username || process.env.INDIATEK_PAYOUT_USERNAME || "";
-      const apiSecret = dbSettings?.api_secret || process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC";
+      const username = dbSettings?.username || local.username;
+      const apiSecret = dbSettings?.api_secret || local.api_secret;
 
       const finalPartnerRef = partner_reference || `ITP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
