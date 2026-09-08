@@ -5306,17 +5306,33 @@ async function startServer() {
     res.status(500).json({ error: "Internal Server Error", message: err.message });
   });
 
-  // Daily T+1 settlement checker
+  // Manual trigger endpoint for T+1 Settlement
+  app.post("/api/admin/trigger-t1-settlement", async (req: any, res: any) => {
+    try {
+      console.log("[T+1 Settlement] Manual trigger invoked...");
+      const { data, error } = await supabaseAdmin.rpc("settle_t_plus_one_payments");
+      if (error) {
+        console.error("[T+1 Settlement] Manual RPC error:", error);
+        return res.status(500).json({ success: false, message: error.message });
+      }
+      console.log("[T+1 Settlement] Manual RPC response:", data);
+      return res.json({ success: true, data });
+    } catch (err: any) {
+      console.error("[T+1 Settlement] Manual trigger exception:", err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // Daily T+1 settlement checker (runs if 11:00 AM or later and hasn't run yet today)
   let lastSettleDate: string = "";
   setInterval(async () => {
     try {
       const tzOffset = 5.5 * 60 * 60 * 1000;
       const istTime = new Date(Date.now() + tzOffset);
       const hours = istTime.getUTCHours();
-      const minutes = istTime.getUTCMinutes();
       const todayStr = istTime.toISOString().split("T")[0]; // YYYY-MM-DD
 
-      if (hours === 11 && minutes === 0) {
+      if (hours >= 11) {
         if (lastSettleDate !== todayStr) {
           console.log(`[T+1 Settlement] Starting automated next-day settlement for ${todayStr}...`);
           const { data, error } = await supabaseAdmin.rpc("settle_t_plus_one_payments");

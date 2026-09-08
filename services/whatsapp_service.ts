@@ -105,9 +105,11 @@ export const initWhatsApp = () => {
         '--disable-accelerated-2d-canvas',
         '--no-first-run',
         '--no-zygote',
+        '--single-process',
         '--disable-gpu',
         '--disable-software-rasterizer',
-        '--ignore-certificate-errors'
+        '--ignore-certificate-errors',
+        '--js-flags="--max-old-space-size=256"'
       ]
     };
 
