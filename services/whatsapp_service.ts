@@ -14,6 +14,39 @@ let configuredAdminNumbers: string = '';
 
 const CONFIG_FILE = path.join(process.cwd(), '.whatsapp_config.json');
 
+// Check if WhatsApp Bot is enabled
+export const isWhatsAppServiceEnabled = (): boolean => {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      if (typeof data.enabled === 'boolean') {
+        return data.enabled;
+      }
+    }
+  } catch (err) {
+    console.error('[WhatsApp] Error loading enabled state:', err);
+  }
+  return true; // Default to true if not explicitly disabled
+};
+
+// Set WhatsApp Bot enabled state in config file
+export const setWhatsAppServiceEnabled = (enabled: boolean) => {
+  try {
+    let currentData: any = {};
+    if (fs.existsSync(CONFIG_FILE)) {
+      try {
+        currentData = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      } catch (_) {}
+    }
+    currentData.enabled = enabled;
+    currentData.updatedAt = new Date().toISOString();
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentData, null, 2));
+    console.log(`[WhatsApp] Saved Bot enabled status: ${enabled}`);
+  } catch (err) {
+    console.error('[WhatsApp] Error updating enabled state:', err);
+  }
+};
+
 // Load saved Admin WhatsApp numbers from local config or env
 export const loadConfiguredAdminNumbers = (): string => {
   if (configuredAdminNumbers) return configuredAdminNumbers;
@@ -35,7 +68,15 @@ export const loadConfiguredAdminNumbers = (): string => {
 export const setAdminWhatsAppNumbers = (numbers: string) => {
   configuredAdminNumbers = numbers;
   try {
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ adminNumbers: numbers, updatedAt: new Date().toISOString() }, null, 2));
+    let currentData: any = {};
+    if (fs.existsSync(CONFIG_FILE)) {
+      try {
+        currentData = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      } catch (_) {}
+    }
+    currentData.adminNumbers = numbers;
+    currentData.updatedAt = new Date().toISOString();
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentData, null, 2));
     console.log('[WhatsApp] Saved admin WhatsApp numbers to local config:', numbers);
   } catch (err) {
     console.error('[WhatsApp] Error writing local config file:', err);
@@ -80,6 +121,11 @@ let initTimeoutTimer: NodeJS.Timeout | null = null;
 
 // Initialize WhatsApp Client
 export const initWhatsApp = () => {
+  if (!isWhatsAppServiceEnabled()) {
+    console.log('[WhatsApp] WhatsApp Bot is currently DISABLED by admin. Skipping Chromium launch to save RAM.');
+    return;
+  }
+
   if (client) {
     if (!isConnected && !qrCodeDataUrl && !isInitializing) {
       console.log('[WhatsApp] Client exists but missing QR. Re-initializing...');
@@ -211,6 +257,7 @@ export const initWhatsApp = () => {
 // Return current WhatsApp status
 export const getWhatsAppStatus = () => {
   return {
+    isEnabled: isWhatsAppServiceEnabled(),
     isConnected,
     isInitializing,
     qrCodeDataUrl,
@@ -218,6 +265,45 @@ export const getWhatsAppStatus = () => {
     lastQrTimestamp,
     initError: lastInitError
   };
+};
+
+// Stop WhatsApp Bot completely to free ~1GB RAM immediately
+export const stopWhatsAppBot = async () => {
+  console.log('[WhatsApp] Stopping WhatsApp Bot and closing Chromium to free RAM...');
+  setWhatsAppServiceEnabled(false);
+  if (initTimeoutTimer) clearTimeout(initTimeoutTimer);
+
+  const oldClient = client;
+  client = null;
+  isConnected = false;
+  isInitializing = false;
+  qrCodeDataUrl = null;
+  connectedPhone = null;
+  lastInitError = 'WhatsApp Bot is currently disabled by Admin to save RAM.';
+
+  if (oldClient) {
+    try {
+      await oldClient.destroy();
+    } catch (err: any) {
+      console.warn('[WhatsApp] Destroy warning:', err?.message || err);
+    }
+  }
+
+  // On Linux VPS, ensure Chromium process is completely killed
+  if (process.platform === 'linux') {
+    try {
+      const { exec } = await import('child_process');
+      exec("pkill -9 -f 'wwebjs_auth' || true");
+    } catch (_) {}
+  }
+  console.log('[WhatsApp] Bot stopped successfully. Chromium terminated and RAM freed.');
+};
+
+// Start WhatsApp Bot and launch Chromium
+export const startWhatsAppBot = async () => {
+  console.log('[WhatsApp] Enabling WhatsApp Bot on Admin request...');
+  setWhatsAppServiceEnabled(true);
+  initWhatsApp();
 };
 
 // Restart / Re-init WhatsApp

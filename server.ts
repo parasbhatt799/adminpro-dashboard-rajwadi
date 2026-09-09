@@ -77,14 +77,34 @@ async function startServer() {
     next();
   });
 
-  // Initialize WhatsApp Bot for B2B Automation
-  whatsappService.initWhatsApp();
+  // Initialize WhatsApp Bot for B2B Automation (respects admin toggle)
+  if (whatsappService.isWhatsAppServiceEnabled()) {
+    whatsappService.initWhatsApp();
+  } else {
+    console.log('[WhatsApp] WhatsApp Bot is DISABLED by Admin. Chromium not launched on startup (Saving ~1GB RAM).');
+  }
 
   // WhatsApp API Endpoints for B2B Admin Management
   app.get('/api/v1/b2b/admin/whatsapp/status', (req, res) => {
     try {
       const status = whatsappService.getWhatsAppStatus();
       res.json({ success: true, ...status });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  // Toggle WhatsApp Bot Enable / Disable to free RAM
+  app.post('/api/v1/b2b/admin/whatsapp/toggle', async (req, res) => {
+    try {
+      const { enabled } = req.body;
+      if (enabled) {
+        await whatsappService.startWhatsAppBot();
+        res.json({ success: true, isEnabled: true, message: 'WhatsApp Bot Enabled. Launching Chromium...' });
+      } else {
+        await whatsappService.stopWhatsAppBot();
+        res.json({ success: true, isEnabled: false, message: 'WhatsApp Bot Disabled. Chromium closed & ~1GB RAM freed!' });
+      }
     } catch (err: any) {
       res.status(500).json({ success: false, error: err.message });
     }

@@ -1315,6 +1315,7 @@ export default function App() {
               <Route path="category-settings" element={<AdminBillerCategories />} />
               <Route path="cc-biller-settings" element={<AdminCCBillerManagement />} />
               <Route path="developer-logs" element={<DeveloperLogs />} />
+              <Route path="whatsapp-bot" element={<B2BWhatsAppManager />} />
             </>
           )}
         </Route>

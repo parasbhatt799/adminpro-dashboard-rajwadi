@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, Phone, MessageSquare, ShieldCheck, Smartphone, Zap, X, Save, Users } from 'lucide-react';
+import { QrCode, RefreshCw, Send, CheckCircle2, AlertCircle, Phone, MessageSquare, ShieldCheck, Smartphone, Zap, X, Save, Users, Power, PowerOff, Cpu } from 'lucide-react';
 
 interface WhatsAppStatus {
+  isEnabled?: boolean;
   isConnected: boolean;
   isInitializing: boolean;
   qrCodeDataUrl: string | null;
@@ -12,6 +13,7 @@ interface WhatsAppStatus {
 
 export default function B2BWhatsAppManager() {
   const [status, setStatus] = useState<WhatsAppStatus>({
+    isEnabled: true,
     isConnected: false,
     isInitializing: false,
     qrCodeDataUrl: null,
@@ -21,6 +23,7 @@ export default function B2BWhatsAppManager() {
   });
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [restarting, setRestarting] = useState(false);
+  const [toggling, setToggling] = useState(false);
   const [toastBanner, setToastBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Admin Notification Numbers State
@@ -77,6 +80,7 @@ export default function B2BWhatsAppManager() {
       const data = await res.json();
       if (data.success) {
         setStatus({
+          isEnabled: data.isEnabled ?? true,
           isConnected: data.isConnected,
           isInitializing: data.isInitializing,
           qrCodeDataUrl: data.qrCodeDataUrl,
@@ -99,6 +103,28 @@ export default function B2BWhatsAppManager() {
     const interval = setInterval(fetchStatus, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleToggleBot = async (enable: boolean) => {
+    try {
+      setToggling(true);
+      const res = await fetch('/api/v1/b2b/admin/whatsapp/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: enable })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('success', data.message || (enable ? 'WhatsApp Bot Enabled!' : 'WhatsApp Bot Disabled! RAM freed.'));
+        fetchStatus();
+      } else {
+        showToast('error', data.error || 'Failed to toggle WhatsApp bot');
+      }
+    } catch (err) {
+      showToast('error', 'Error toggling WhatsApp bot');
+    } finally {
+      setToggling(false);
+    }
+  };
 
   const handleRestart = async () => {
     try {
@@ -171,18 +197,54 @@ export default function B2BWhatsAppManager() {
             <MessageSquare className="w-7 h-7 text-emerald-400" />
             B2B WhatsApp Automation Bot
           </h1>
-          <p className="text-slate-400 text-sm mt-1">
-            100% Free Self-Hosted WhatsApp Bot for B2B Fund Request Notifications
+          <p className="text-slate-400 text-sm mt-1 flex items-center gap-2">
+            <span>Self-Hosted WhatsApp Web Bot</span>
+            <span className="text-slate-600">•</span>
+            {status.isEnabled ? (
+              <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> Running (~1GB RAM active)
+              </span>
+            ) : (
+              <span className="text-rose-400 font-semibold flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-400"></span> Stopped (~1GB RAM Free)
+              </span>
+            )}
           </p>
         </div>
-        <button
-          onClick={handleRestart}
-          disabled={restarting}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-sm font-semibold rounded-xl border border-slate-600 transition-all disabled:opacity-50 cursor-pointer"
-        >
-          <RefreshCw className={`w-4 h-4 ${restarting ? 'animate-spin' : ''}`} />
-          Restart Bot
-        </button>
+
+        <div className="flex items-center gap-3">
+          {/* Main RAM / Bot Toggle Button */}
+          {status.isEnabled ? (
+            <button
+              onClick={() => handleToggleBot(false)}
+              disabled={toggling}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 text-sm font-semibold rounded-xl border border-rose-500/30 transition-all disabled:opacity-50 cursor-pointer shadow-sm"
+              title="Stop Chromium process and free ~1GB RAM immediately"
+            >
+              <PowerOff className="w-4 h-4 text-rose-400" />
+              {toggling ? 'Stopping...' : 'Disable Bot (Free 1GB RAM)'}
+            </button>
+          ) : (
+            <button
+              onClick={() => handleToggleBot(true)}
+              disabled={toggling}
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-xl transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-emerald-900/30"
+              title="Start Chromium and connect WhatsApp"
+            >
+              <Power className="w-4 h-4" />
+              {toggling ? 'Starting...' : 'Enable WhatsApp Bot'}
+            </button>
+          )}
+
+          <button
+            onClick={handleRestart}
+            disabled={restarting || !status.isEnabled}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-700/80 hover:bg-slate-600 text-slate-200 text-sm font-semibold rounded-xl border border-slate-600 transition-all disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw className={`w-4 h-4 ${restarting ? 'animate-spin' : ''}`} />
+            Restart Bot
+          </button>
+        </div>
       </div>
 
       {/* 3 Sections in 1 Single Row (3 Columns) */}
@@ -196,7 +258,11 @@ export default function B2BWhatsAppManager() {
                 <Smartphone className="w-5 h-5 text-indigo-400" />
                 Connection Status
               </h2>
-              {status.isConnected ? (
+              {!status.isEnabled ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold text-xs rounded-full uppercase tracking-wider">
+                  <PowerOff className="w-3.5 h-3.5" /> Bot Disabled
+                </span>
+              ) : status.isConnected ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold text-xs rounded-full uppercase tracking-wider">
                   <CheckCircle2 className="w-4 h-4" /> Connected
                 </span>
@@ -207,8 +273,31 @@ export default function B2BWhatsAppManager() {
               )}
             </div>
 
-            {/* Connected State */}
-            {status.isConnected ? (
+            {/* Disabled State */}
+            {!status.isEnabled ? (
+              <div className="my-6 p-5 bg-slate-900/90 border border-rose-500/30 rounded-2xl text-center space-y-3">
+                <div className="w-14 h-14 bg-rose-500/20 text-rose-400 rounded-full flex items-center justify-center mx-auto shadow-inner border border-rose-500/30">
+                  <PowerOff className="w-8 h-8" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-white">Bot is Currently Stopped</h3>
+                  <p className="text-xs font-bold text-emerald-400 mt-1 flex items-center justify-center gap-1.5">
+                    <Cpu className="w-4 h-4" /> Chromium Terminated - ~1 GB RAM Freed!
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                    જ્યારે જરૂર ન હોય ત્યારે Bot બંધ રાખવાથી સર્વરની 1 GB RAM બચે છે. જ્યારે ઓટોમેટિક મેસેજ ચાલુ કરવા હોય ત્યારે નીચે ક્લિક કરીને Bot ચાલુ કરી શકો છો.
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleToggleBot(true)}
+                  disabled={toggling}
+                  className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all inline-flex items-center gap-2 cursor-pointer shadow-md shadow-emerald-900/30"
+                >
+                  <Power className="w-4 h-4" />
+                  {toggling ? 'Starting Chromium...' : 'Enable WhatsApp Bot'}
+                </button>
+              </div>
+            ) : status.isConnected ? (
               <div className="my-6 p-5 bg-slate-900/90 border border-emerald-500/30 rounded-2xl text-center space-y-3">
                 <div className="w-14 h-14 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-inner border border-emerald-500/30">
                   <ShieldCheck className="w-8 h-8" />
