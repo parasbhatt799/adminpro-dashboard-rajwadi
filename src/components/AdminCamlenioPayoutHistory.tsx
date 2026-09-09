@@ -719,7 +719,7 @@ export default function AdminCamlenioPayoutHistory() {
             className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
           >
             <option value="all">All Gateways (બધા)</option>
-            <option value="cspl">CSPL (Camlenio)</option>
+            <option value="cspl">UsePay Payout</option>
             <option value="indiatek">UsePayout</option>
           </select>
 
@@ -835,7 +835,7 @@ export default function AdminCamlenioPayoutHistory() {
                           </span>
                         ) : (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
-                            CSPL
+                            UsePay Payout
                           </span>
                         )}
                       </div>

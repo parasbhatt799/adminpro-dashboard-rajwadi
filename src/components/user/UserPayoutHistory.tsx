@@ -447,7 +447,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                 className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer pr-1"
               >
                 <option value="all">All Gateways (બધા)</option>
-                <option value="cspl">CSPL (Camlenio)</option>
+                <option value="cspl">UsePay Payout</option>
                 <option value="indiatek">UsePayout</option>
               </select>
             </div>
@@ -537,7 +537,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
-                              CSPL (Camlenio)
+                              UsePay Payout
                             </span>
                           )}
                         </td>
@@ -687,7 +687,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                   {getPayoutGateway(selectedReceipt) === 'indiatek' ? (
                     <span className="text-orange-600 font-bold">UsePayout</span>
                   ) : (
-                    <span className="text-indigo-600 font-bold">CSPL (Camlenio)</span>
+                    <span className="text-indigo-600 font-bold">UsePay Payout</span>
                   )}
                 </span>
               </div>
