@@ -5830,7 +5830,12 @@ async function startServer() {
         res.setHeader("Content-Type", "text/html");
         return res.send(html);
       }
-      res.sendFile(indexPath);
+      return res.status(503).send(`
+        <div style="font-family:sans-serif; text-align:center; padding:40px;">
+          <h2>Application Build Missing</h2>
+          <p>Please run <code>npm run build</code> on the server to generate production assets.</p>
+        </div>
+      `);
     });
 
     app.use(express.static(distPath, {
@@ -5844,9 +5849,19 @@ async function startServer() {
         }
       }
     }));
+
     app.get("*", (req, res) => {
       res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(path.join(distPath, "index.html"));
+      const indexPath = path.join(distPath, "index.html");
+      if (!fs.existsSync(indexPath)) {
+        return res.status(503).send(`
+          <div style="font-family:sans-serif; text-align:center; padding:40px;">
+            <h2>Application Build Missing</h2>
+            <p>Please run <code>npm run build</code> on the server to generate production assets.</p>
+          </div>
+        `);
+      }
+      res.sendFile(indexPath);
     });
   }
 
