@@ -65,7 +65,8 @@ export function saveLocalSettings(settings: Partial<IndiaTekSettings>): IndiaTek
 
 export interface IndiaTekPayoutPayload {
   account_number: string;
-  ifsc_code: string;
+  ifsc?: string;
+  ifsc_code?: string;
   amount: number;
   beneficiary_name: string;
   customer_mobile: string;
@@ -120,9 +121,15 @@ export async function initiateIndiaTekPayout(payload: IndiaTekPayoutPayload, use
   const headers = generateIndiaTekHeaders(username, apiSecret);
 
   const refId = (payload.client_ref_id || payload.partner_reference || `PAYOUT_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`).trim();
+  const accNo = String(payload.account_number).trim();
+  const ifscCode = String(payload.ifsc || payload.ifsc_code || '').trim().toUpperCase();
+
   const requestBody = {
-    account_number: String(payload.account_number).trim(),
-    ifsc_code: String(payload.ifsc_code).trim().toUpperCase(),
+    account_number: accNo,
+    account_no: accNo,
+    accountNumber: accNo,
+    ifsc: ifscCode,
+    ifsc_code: ifscCode,
     amount: Number(payload.amount),
     beneficiary_name: String(payload.beneficiary_name).trim(),
     customer_mobile: String(payload.customer_mobile).trim(),
@@ -173,8 +180,11 @@ export async function checkIndiaTekStatus(partnerReference: string, username?: s
 
 export interface IndiaTekBankVerifyPayload {
   account_number: string;
-  ifsc_code: string;
-  client_ref_id: string;
+  account_no?: string;
+  accountNumber?: string;
+  ifsc?: string;
+  ifsc_code?: string;
+  client_ref_id?: string;
 }
 
 /**
@@ -185,14 +195,27 @@ export async function verifyIndiaTekBankAccount(payload: IndiaTekBankVerifyPaylo
   const url = `${BASE_URL}/bank-verify`;
   const headers = generateIndiaTekHeaders(username, apiSecret);
 
+  const accNo = String(payload.account_number || payload.account_no || payload.accountNumber || '').trim();
+  const ifscCode = String(payload.ifsc || payload.ifsc_code || '').trim().toUpperCase();
+  const refId = (payload.client_ref_id || `VER_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`).trim();
+
+  const requestBody = {
+    account_number: accNo,
+    account_no: accNo,
+    accountNumber: accNo,
+    ifsc: ifscCode,
+    ifsc_code: ifscCode,
+    client_ref_id: refId
+  };
+
   console.log('[IndiaTek Payout] Verifying Bank Account at:', url);
-  console.log('[IndiaTek Payout] Bank Verify Payload:', JSON.stringify(payload));
+  console.log('[IndiaTek Payout] Bank Verify Payload:', JSON.stringify(requestBody));
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: headers as any,
-      body: JSON.stringify(payload)
+      body: JSON.stringify(requestBody)
     });
     const data = await response.json();
     console.log('[IndiaTek Payout] Bank Verify Response:', data);

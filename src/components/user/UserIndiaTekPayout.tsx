@@ -240,7 +240,9 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
         body: JSON.stringify({
           userId: currentUserId,
           accountNumber: addForm.accountNumber.trim(),
+          account_number: addForm.accountNumber.trim(),
           ifsc: addForm.ifscCode.trim().toUpperCase(),
+          ifsc_code: addForm.ifscCode.trim().toUpperCase(),
           bankName: addForm.bankName.trim()
         })
       });
@@ -377,6 +379,8 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           account_number: selectedBeneficiary.account_number,
+          accountNumber: selectedBeneficiary.account_number,
+          ifsc: selectedBeneficiary.ifsc_code,
           ifsc_code: selectedBeneficiary.ifsc_code,
           amount: numAmount,
           beneficiary_name: selectedBeneficiary.holder_name,

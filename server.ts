@@ -5419,20 +5419,34 @@ async function startServer() {
       }
 
       const clientRefId = `VER_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+      const ifscValue = String(ifsc || req.body.ifsc_code || '').trim().toUpperCase();
+      const accountValue = String(accountNumber || req.body.account_number || '').trim();
 
-      console.log(`[IndiaTek Verify] Calling bank-verify for Account: ${accountNumber}, IFSC: ${ifsc}, Username: ${username}`);
+      console.log(`[IndiaTek Verify] Calling bank-verify for Account: ${accountValue}, IFSC: ${ifscValue}, Username: ${username}`);
       const verifyResult = await indiatekPayout.verifyIndiaTekBankAccount({
-        account_number: String(accountNumber).trim(),
-        ifsc_code: String(ifsc).trim().toUpperCase(),
+        account_number: accountValue,
+        account_no: accountValue,
+        accountNumber: accountValue,
+        ifsc: ifscValue,
+        ifsc_code: ifscValue,
         client_ref_id: clientRefId
       }, username, apiSecret);
 
       console.log("[IndiaTek Verify Result]:", verifyResult);
 
       const status = (verifyResult?.status || verifyResult?.transaction_status || "").toString().toUpperCase();
-      const verifiedName = verifyResult?.verified_name || verifyResult?.data?.verified_name || "";
+      const verifiedName = 
+        verifyResult?.verified_name || 
+        verifyResult?.data?.verified_name || 
+        verifyResult?.beneficiary_name ||
+        verifyResult?.data?.beneficiary_name ||
+        verifyResult?.account_holder_name ||
+        verifyResult?.data?.account_holder_name ||
+        verifyResult?.full_name ||
+        verifyResult?.data?.full_name ||
+        "";
 
-      if (status === "SUCCESS" && verifiedName) {
+      if ((status === "SUCCESS" || verifyResult?.statusCode === 200) && verifiedName) {
         return res.json({
           success: true,
           status: "SUCCESS",
@@ -5442,7 +5456,12 @@ async function startServer() {
           message: verifyResult?.message || "Bank account verified successfully"
         });
       } else {
-        const errorMsg = verifyResult?.message || verifyResult?.error || verifyResult?.data?.message || `Bank verification failed with status: ${status || 'FAILED'}`;
+        const errorMsg = 
+          verifyResult?.message || 
+          verifyResult?.error || 
+          (verifyResult?.errors ? Object.values(verifyResult.errors).flat().join(', ') : null) || 
+          verifyResult?.data?.message || 
+          `Bank verification failed with status: ${status || 'FAILED'}`;
         return res.status(400).json({
           success: false,
           status: status || "FAILED",
@@ -5546,10 +5565,12 @@ async function startServer() {
   // 4. Initiate IndiaTek Payout
   app.post("/api/indiatek-payout/send", async (req: any, res: any) => {
     try {
-      const { account_number, ifsc_code, amount, beneficiary_name, customer_mobile, partner_reference, user_id } = req.body;
+      const { account_number, ifsc_code, ifsc, amount, beneficiary_name, customer_mobile, partner_reference, user_id } = req.body;
+      const resolvedIfsc = String(ifsc || ifsc_code || '').trim().toUpperCase();
+      const resolvedAccount = String(account_number || req.body.accountNumber || '').trim();
 
-      if (!account_number || !ifsc_code || !amount || !beneficiary_name || !customer_mobile) {
-        return res.status(400).json({ success: false, message: "Required fields missing (account_number, ifsc_code, amount, beneficiary_name, customer_mobile)" });
+      if (!resolvedAccount || !resolvedIfsc || !amount || !beneficiary_name || !customer_mobile) {
+        return res.status(400).json({ success: false, message: "Required fields missing (account_number, ifsc, amount, beneficiary_name, customer_mobile)" });
       }
 
       const numAmount = Number(amount);
@@ -5596,8 +5617,9 @@ async function startServer() {
 
       // Execute IndiaTek Payout API
       const payoutResult = await indiatekPayout.initiateIndiaTekPayout({
-        account_number: String(account_number).trim(),
-        ifsc_code: String(ifsc_code).trim().toUpperCase(),
+        account_number: resolvedAccount,
+        ifsc: resolvedIfsc,
+        ifsc_code: resolvedIfsc,
         amount: numAmount,
         beneficiary_name: String(beneficiary_name).trim(),
         customer_mobile: String(customer_mobile).trim(),
@@ -5636,8 +5658,8 @@ async function startServer() {
           .from("indiatek_payout_submissions")
           .insert({
             user_id: user_id || "admin",
-            account_number: String(account_number).trim(),
-            ifsc_code: String(ifsc_code).trim().toUpperCase(),
+            account_number: resolvedAccount,
+            ifsc_code: resolvedIfsc,
             amount: numAmount,
             beneficiary_name: String(beneficiary_name).trim(),
             customer_mobile: String(customer_mobile).trim(),
@@ -5651,12 +5673,19 @@ async function startServer() {
         console.warn("[IndiaTek Payout] Warning: Failed to insert submission log:", logErr);
       }
 
+      const responseMessage = 
+        payoutResult?.message || 
+        payoutResult?.error || 
+        (payoutResult?.errors ? Object.values(payoutResult.errors).flat().join(', ') : null) || 
+        payoutResult?.data?.message || 
+        (isSuccessOrPending ? "Payout processed successfully" : `Payout failed: ${statusStr}`);
+
       return res.json({
         success: isSuccessOrPending,
         partner_reference: finalPartnerRef,
         transaction_id: transactionId,
         status: statusStr,
-        message: payoutResult?.message || (isSuccessOrPending ? "Payout processed successfully" : "Payout failed"),
+        message: responseMessage,
         response: payoutResult
       });
     } catch (err: any) {
