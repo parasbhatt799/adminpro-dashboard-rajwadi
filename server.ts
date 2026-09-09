@@ -5255,58 +5255,6 @@ async function startServer() {
     }
   });
 
-  // API 404 Handler - MUST be before Vite/Static fallback to return JSON instead of HTML
-  app.use('/api/*', (req, res) => {
-    res.status(404).json({ error: "API Route not found" });
-  });
-
-  // Vite middleware for development
-  if (process.env.NODE_ENV === "development") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-
-    // Serve B2B SPA routes with B2B PWA manifest injected in HTML
-    app.get(["/b2b", "/b2b/*"], (req, res) => {
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      const indexPath = path.join(distPath, "index.html");
-      if (fs.existsSync(indexPath)) {
-        let html = fs.readFileSync(indexPath, "utf8");
-        html = html.replace('href="/manifest.json"', 'href="/b2b-manifest.json"');
-        res.setHeader("Content-Type", "text/html");
-        return res.send(html);
-      }
-      res.sendFile(indexPath);
-    });
-
-    app.use(express.static(distPath, {
-      maxAge: "1y",
-      setHeaders: (res, filePath) => {
-        if (filePath.endsWith(".html")) {
-          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-        } else {
-          // Cache hashed assets for 1 year
-          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-        }
-      }
-    }));
-    app.get("*", (req, res) => {
-      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
-
-
-  // Global Error Handler
-  app.use((err: any, req: any, res: any, next: any) => {
-    console.error("[CRITICAL SERVER ERROR]", err);
-    res.status(500).json({ error: "Internal Server Error", message: err.message });
-  });
-
   // Manual trigger endpoint for T+1 Settlement
   app.post("/api/admin/trigger-t1-settlement", async (req: any, res: any) => {
     try {
@@ -5826,6 +5774,57 @@ async function startServer() {
       console.error("[IndiaTek Webhook Error]", err);
       return res.status(500).json({ success: false, message: err.message });
     }
+  });
+
+  // API 404 Handler - MUST be after all API routes and before Vite/Static fallback
+  app.use('/api/*', (req, res) => {
+    res.status(404).json({ error: "API Route not found" });
+  });
+
+  // Vite middleware for development
+  if (process.env.NODE_ENV === "development") {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: "spa",
+    });
+    app.use(vite.middlewares);
+  } else {
+    const distPath = path.join(process.cwd(), "dist");
+
+    // Serve B2B SPA routes with B2B PWA manifest injected in HTML
+    app.get(["/b2b", "/b2b/*"], (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      const indexPath = path.join(distPath, "index.html");
+      if (fs.existsSync(indexPath)) {
+        let html = fs.readFileSync(indexPath, "utf8");
+        html = html.replace('href="/manifest.json"', 'href="/b2b-manifest.json"');
+        res.setHeader("Content-Type", "text/html");
+        return res.send(html);
+      }
+      res.sendFile(indexPath);
+    });
+
+    app.use(express.static(distPath, {
+      maxAge: "1y",
+      setHeaders: (res, filePath) => {
+        if (filePath.endsWith(".html")) {
+          res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+        } else {
+          // Cache hashed assets for 1 year
+          res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+        }
+      }
+    }));
+    app.get("*", (req, res) => {
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  }
+
+  // Global Error Handler
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error("[CRITICAL SERVER ERROR]", err);
+    res.status(500).json({ error: "Internal Server Error", message: err.message });
   });
 
   app.listen(PORT, "0.0.0.0", () => {
