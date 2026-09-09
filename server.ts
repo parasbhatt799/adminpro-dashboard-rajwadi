@@ -6186,7 +6186,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const candidateDirs = [
+      path.join(__dirname, "dist"),
+      path.join(process.cwd(), "dist"),
+      "/var/www/adminpro-dashboard-rajwadi/dist",
+      path.join(__dirname, "dist_backup")
+    ];
+    const distPath = candidateDirs.find(d => fs.existsSync(path.join(d, "index.html"))) || path.join(__dirname, "dist");
 
     // Serve B2B SPA routes with B2B PWA manifest injected in HTML
     app.get(["/b2b", "/b2b/*"], (req, res) => {
