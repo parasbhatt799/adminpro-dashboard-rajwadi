@@ -5460,17 +5460,26 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "IndiaTek Payout service is currently disabled by administrator." });
       }
 
-      const username = dbSettings?.username || local.username;
-      const apiSecret = dbSettings?.api_secret || local.api_secret;
+      const username = (dbSettings?.username || local.username || "").trim();
+      const apiSecret = (dbSettings?.api_secret || local.api_secret || "").trim();
+
+      if (!username || !apiSecret) {
+        return res.status(400).json({
+          success: false,
+          message: "IndiaTek API Credentials Missing: Please configure your KingWallet Username (Registered Mobile Number) and API Secret in Admin -> IndiaTek Payout settings."
+        });
+      }
 
       const clientRefId = `VER_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
-      console.log(`[IndiaTek Verify] Calling bank-verify for Account: ${accountNumber}, IFSC: ${ifsc}`);
+      console.log(`[IndiaTek Verify] Calling bank-verify for Account: ${accountNumber}, IFSC: ${ifsc}, Username: ${username}`);
       const verifyResult = await indiatekPayout.verifyIndiaTekBankAccount({
         account_number: String(accountNumber).trim(),
         ifsc_code: String(ifsc).trim().toUpperCase(),
         client_ref_id: clientRefId
       }, username, apiSecret);
+
+      console.log("[IndiaTek Verify Result]:", verifyResult);
 
       const status = (verifyResult?.status || verifyResult?.transaction_status || "").toString().toUpperCase();
       const verifiedName = verifyResult?.verified_name || verifyResult?.data?.verified_name || "";
@@ -5485,10 +5494,11 @@ async function startServer() {
           message: verifyResult?.message || "Bank account verified successfully"
         });
       } else {
+        const errorMsg = verifyResult?.message || verifyResult?.error || verifyResult?.data?.message || `Bank verification failed with status: ${status || 'FAILED'}`;
         return res.status(400).json({
           success: false,
           status: status || "FAILED",
-          message: verifyResult?.message || verifyResult?.error || "Bank account verification failed. Please check account details."
+          message: errorMsg
         });
       }
     } catch (err: any) {

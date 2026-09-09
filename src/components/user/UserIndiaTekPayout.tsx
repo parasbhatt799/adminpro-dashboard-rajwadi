@@ -245,9 +245,14 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
         })
       });
 
-      const data = await res.json();
+      let data: any = null;
+      try {
+        data = await res.json();
+      } catch (jsonErr) {
+        console.warn('Response was not JSON:', jsonErr);
+      }
 
-      if (data?.success && data?.verified_name) {
+      if (res.ok && data?.success && data?.verified_name) {
         setVerifiedDetails({
           verifiedName: data.verified_name,
           txnId: data.txn_id
@@ -258,7 +263,8 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
         }));
         setSuccess(`Bank Account Verified Successfully! Account Holder: ${data.verified_name}`);
       } else {
-        setError(data?.message || 'Bank account verification failed. Please check the account number and IFSC code.');
+        const errorMsg = data?.message || data?.error || (res.status === 404 ? 'Server route not found. Please restart server/PM2 on live host.' : 'Bank account verification failed. Please check details or API credentials.');
+        setError(errorMsg);
       }
     } catch (err: any) {
       console.error('Error verifying bank:', err);
