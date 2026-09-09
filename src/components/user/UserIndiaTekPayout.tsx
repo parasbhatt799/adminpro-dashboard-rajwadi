@@ -101,19 +101,10 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
   const [filterBankName, setFilterBankName] = useState('');
   const [filterIfscCode, setFilterIfscCode] = useState('');
 
-  // Popular Banks for quick selection
-  const POPULAR_BANKS = [
-    'State Bank of India',
-    'HDFC Bank',
-    'ICICI Bank',
-    'Axis Bank',
-    'Bank of Baroda',
-    'Punjab National Bank',
-    'Kotak Mahindra Bank',
-    'IndusInd Bank',
-    'Union Bank of India',
-    'Canara Bank'
-  ];
+  // Dynamic Bank List fetched from camlenio_banks table in Supabase
+  const [showBankDropdown, setShowBankDropdown] = useState(false);
+  const [allBanksList, setAllBanksList] = useState<string[]>([]);
+  const [filteredBanks, setFilteredBanks] = useState<string[]>([]);
 
   // Resolve current user ID on mount
   useEffect(() => {
@@ -128,7 +119,27 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
       }
     };
     initUser();
+    fetchCamlenioBanks();
   }, [propUserId]);
+
+  const fetchCamlenioBanks = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('camlenio_banks')
+        .select('bank_name')
+        .limit(2000);
+      if (!error && data && data.length > 0) {
+        const bankNames = data
+          .map((b: any) => b.bank_name)
+          .filter(Boolean)
+          .sort();
+        setAllBanksList(bankNames);
+        setFilteredBanks(bankNames);
+      }
+    } catch (err) {
+      console.error('Error fetching camlenio banks:', err);
+    }
+  };
 
   useEffect(() => {
     if (currentUserId) {
@@ -915,23 +926,44 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
 
             <form onSubmit={handleSaveBeneficiary} className="p-6 space-y-4">
               {/* Bank Name */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">Bank Name</label>
+              <div className="space-y-1.5 relative">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                  Bank Name (બેંકનું નામ) *
+                </label>
                 <div className="relative">
                   <Building2 className="w-4 h-4 absolute left-3.5 top-3.5 text-slate-400" />
                   <input
                     type="text"
-                    list="popular_banks_list"
+                    required
                     value={addForm.bankName}
-                    onChange={(e) => setAddForm({ ...addForm, bankName: e.target.value })}
-                    placeholder="e.g. HDFC Bank, SBI..."
+                    onFocus={() => setShowBankDropdown(true)}
+                    onBlur={() => setTimeout(() => setShowBankDropdown(false), 200)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAddForm({ ...addForm, bankName: val });
+                      setFilteredBanks(allBanksList.filter((b) => b.toLowerCase().includes(val.toLowerCase())));
+                      setShowBankDropdown(true);
+                    }}
+                    placeholder="Search or Select Bank Name..."
                     className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
                   />
-                  <datalist id="popular_banks_list">
-                    {POPULAR_BANKS.map((b, idx) => (
-                      <option key={idx} value={b} />
-                    ))}
-                  </datalist>
+                  {showBankDropdown && filteredBanks.length > 0 && (
+                    <ul className="absolute z-30 w-full bg-white border border-slate-200 rounded-xl shadow-xl mt-1 max-h-48 overflow-y-auto text-sm">
+                      {filteredBanks.map((bank, idx) => (
+                        <li
+                          key={idx}
+                          className="px-4 py-2.5 hover:bg-indigo-50 cursor-pointer text-slate-700 border-b border-slate-50 last:border-0 font-medium text-xs flex items-center gap-2"
+                          onMouseDown={() => {
+                            setAddForm({ ...addForm, bankName: bank });
+                            setShowBankDropdown(false);
+                          }}
+                        >
+                          <Building2 className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                          <span>{bank}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               </div>
 
