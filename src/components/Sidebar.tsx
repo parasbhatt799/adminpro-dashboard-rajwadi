@@ -123,8 +123,7 @@ const menuItems = [
       { id: 'settings', label: 'Business Settings', path: '/settings', role: 'full' },
       { id: 'advertising', label: 'Advertising Settings', path: '/advertising', role: 'full' },
       { id: 'category-settings', label: 'Category Settings', path: '/category-settings', role: 'full' },
-      { id: 'cc-biller-settings', label: 'CC Biller Management', path: '/cc-biller-settings', role: 'full' },
-      { id: 'whatsapp-bot', label: 'WhatsApp Bot (RAM)', path: '/whatsapp-bot', role: 'full' }
+      { id: 'cc-biller-settings', label: 'CC Biller Management', path: '/cc-biller-settings', role: 'full' }
     ]
   },
   { id: 'developer-logs', label: 'System Logs', icon: FileText, path: '/developer-logs', role: 'developer' },
