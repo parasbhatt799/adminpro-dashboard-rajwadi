@@ -173,6 +173,131 @@ async function startServer() {
     }
   });
 
+  // Super-fast B2B Admin Dashboard & Withdrawal Stats API (In-Memory Cached & Server Parallelized)
+  let cachedDashboardStats: any = null;
+  let lastDashboardStatsTime = 0;
+  const DASHBOARD_CACHE_TTL_MS = 10000; // 10 seconds cache
+
+  app.get('/api/v1/b2b/admin/dashboard-stats', async (req, res) => {
+    try {
+      const forceRefresh = req.query.refresh === 'true';
+      const now = Date.now();
+      if (!forceRefresh && cachedDashboardStats && (now - lastDashboardStatsTime < DASHBOARD_CACHE_TTL_MS)) {
+        return res.json({ success: true, ...cachedDashboardStats, cached: true });
+      }
+
+      // Parallel database queries with lightweight columns only
+      const [logsRes, wDataRes, agentsRes, settingsRes] = await Promise.all([
+        supabaseAdmin
+          .from('b2b_api_logs')
+          .select('charge_deducted, developer_charge, owner_charge, status_code, payment_status, request_payload, response_payload')
+          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill"),
+        supabaseAdmin
+          .from('b2b_revenue_withdrawals')
+          .select('*')
+          .order('created_at', { ascending: false }),
+        supabaseAdmin
+          .from('b2b_api_credentials')
+          .select('wallet_balance, is_active'),
+        supabaseAdmin
+          .from('b2b_settings')
+          .select('*')
+          .limit(1)
+          .maybeSingle()
+      ]);
+
+      let totalSum = 0;
+      let devSum = 0;
+      let ownerSum = 0;
+
+      if (logsRes.data) {
+        logsRes.data.forEach((log: any) => {
+          const reqPayload = log.request_payload || {};
+          const resPayload = log.response_payload || {};
+          const bpr = resPayload?.ExtBillPayResponse || resPayload?.billPayResponse || resPayload;
+          const txnRefId = bpr?.txnRefId || resPayload?.txnRefId;
+          const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
+          const responseCode = bpr?.responseCode || resPayload?.responseCode;
+          const responseReason = (bpr?.responseReason || resPayload?.responseReason || '').toLowerCase();
+
+          const isSuccess =
+            resPayload?.payment_status === 'success' ||
+            resPayload?.finalStatus === 'success' ||
+            resPayload?.status === 'success' ||
+            log.payment_status === 'success' ||
+            responseCode === '000' ||
+            responseCode === '0000' ||
+            responseReason === 'successful' ||
+            (hasCC01 && log.status_code === 200 && resPayload?.payment_status !== 'failed');
+
+          if (!isSuccess) return;
+
+          const chargeVal = Number(
+            log.charge_deducted ??
+            reqPayload?.chargeDeducted ??
+            reqPayload?.chargePerBill ??
+            reqPayload?.charge ??
+            (reqPayload?.totalDeduction && reqPayload?.amount ? reqPayload.totalDeduction - reqPayload.amount : undefined) ??
+            0
+          );
+
+          let dVal = Number(log.developer_charge ?? reqPayload?.developerCharge ?? reqPayload?.developer_charge ?? 0);
+          let oVal = Number(log.owner_charge ?? reqPayload?.ownerCharge ?? reqPayload?.owner_charge ?? (chargeVal - dVal));
+
+          totalSum += chargeVal;
+          devSum += dVal;
+          ownerSum += oVal;
+        });
+      }
+
+      let devW = 0;
+      let ownerW = 0;
+      let genW = 0;
+      if (wDataRes.data) {
+        wDataRes.data.forEach((w: any) => {
+          const amt = Number(w.amount || 0);
+          if (w.role === 'developer') devW += amt;
+          else if (w.role === 'owner') ownerW += amt;
+          else genW += amt;
+        });
+      }
+
+      let activeCount = 0;
+      let totalBal = 0;
+      if (agentsRes.data) {
+        agentsRes.data.forEach((ag: any) => {
+          if (ag.is_active) activeCount++;
+          totalBal += parseFloat(ag.wallet_balance?.toString() || '0');
+        });
+      }
+
+      const globalCharge = settingsRes.data?.global_charge_per_bill?.toString() || '0';
+      const globalMaxLimit = settingsRes.data?.max_bill_payment_limit?.toString() || '100000';
+      const globalChargeId = settingsRes.data?.id || null;
+
+      cachedDashboardStats = {
+        totalGrossEarnings: totalSum,
+        devGrossEarnings: devSum,
+        ownerGrossEarnings: ownerSum,
+        totalEarnings: totalSum - (devW + ownerW + genW),
+        developerEarnings: devSum - devW,
+        ownerEarnings: ownerSum - ownerW,
+        activeAgentsCount: activeCount,
+        totalAgentsBalance: totalBal,
+        globalCharge,
+        globalMaxLimit,
+        globalChargeId,
+        withdrawals: wDataRes.data || []
+      };
+      lastDashboardStatsTime = now;
+
+      res.json({ success: true, ...cachedDashboardStats });
+    } catch (err: any) {
+      console.error('[B2B Dashboard Stats Error]', err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // WhatsApp Trigger: Notify Admin(s) on New B2B Fund Request
   app.post('/api/v1/b2b/admin/whatsapp/notify-new-request', async (req, res) => {
     try {

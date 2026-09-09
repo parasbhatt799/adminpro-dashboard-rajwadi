@@ -109,7 +109,7 @@ export default function B2BAdminFundRequests() {
   }, [selectedProofReq]);
 
   useEffect(() => {
-    fetchRequests();
+    fetchRequests(true);
 
     const channel = supabase
       .channel('b2b_admin_fund_requests_channel')
@@ -117,7 +117,7 @@ export default function B2BAdminFundRequests() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'b2b_fund_requests' },
         () => {
-          fetchRequests();
+          fetchRequests(false);
         }
       )
       .subscribe();
@@ -127,8 +127,8 @@ export default function B2BAdminFundRequests() {
     };
   }, [statusFilter]);
 
-  const fetchRequests = async () => {
-    setLoading(true);
+  const fetchRequests = async (isInitial = false) => {
+    if (isInitial) setLoading(true);
     try {
       let allReqs: any[] = [];
       let from = 0;
