@@ -69,7 +69,8 @@ export interface IndiaTekPayoutPayload {
   amount: number;
   beneficiary_name: string;
   customer_mobile: string;
-  partner_reference: string;
+  client_ref_id?: string;
+  partner_reference?: string;
 }
 
 export interface IndiaTekHeaders {
@@ -118,14 +119,25 @@ export async function initiateIndiaTekPayout(payload: IndiaTekPayoutPayload, use
   const url = `${BASE_URL}/payout`;
   const headers = generateIndiaTekHeaders(username, apiSecret);
 
+  const refId = (payload.client_ref_id || payload.partner_reference || `PAYOUT_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`).trim();
+  const requestBody = {
+    account_number: String(payload.account_number).trim(),
+    ifsc_code: String(payload.ifsc_code).trim().toUpperCase(),
+    amount: Number(payload.amount),
+    beneficiary_name: String(payload.beneficiary_name).trim(),
+    customer_mobile: String(payload.customer_mobile).trim(),
+    client_ref_id: refId,
+    partner_reference: refId
+  };
+
   console.log('[IndiaTek Payout] Initiating Payout to:', url);
-  console.log('[IndiaTek Payout] Payload:', JSON.stringify(payload));
+  console.log('[IndiaTek Payout] Payload:', JSON.stringify(requestBody));
 
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: headers as any,
-      body: JSON.stringify(payload)
+      body: JSON.stringify(requestBody)
     });
     const data = await response.json();
     console.log('[IndiaTek Payout] Payout Response:', data);
