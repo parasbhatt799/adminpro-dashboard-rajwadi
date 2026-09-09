@@ -312,6 +312,14 @@ export default function B2BWhatsAppManager() {
                   <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
                     Session saved in local auth. Automatic notifications will be sent for B2B Fund Requests.
                   </p>
+                  <button
+                    onClick={() => handleToggleBot(false)}
+                    disabled={toggling}
+                    className="mt-3 w-full py-2.5 px-3 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-bold rounded-xl transition-all inline-flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <PowerOff className="w-3.5 h-3.5 text-rose-400" />
+                    {toggling ? 'Stopping...' : 'Stop Bot & Free ~1GB RAM'}
+                  </button>
                 </div>
               </div>
             ) : status.qrCodeDataUrl ? (
