@@ -23,6 +23,7 @@ import * as whatsappService from "./services/whatsapp_service.js";
 // Initialize CRON Jobs
 import "./jobs/billavenue-cron.js";
 import { processPendingPayoutsCron } from "./jobs/payout-cron.js";
+import { processPendingIndiaTekPayouts } from "./jobs/indiatek-payout-cron.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");
@@ -5777,30 +5778,108 @@ async function startServer() {
   });
 
 
-  // 7. Webhook Handler for IndiaTek Callbacks
+  // 7. Webhook Handler for IndiaTek (KingWallet) Callbacks
   app.post("/api/indiatek-payout/webhook", async (req: any, res: any) => {
     try {
-      console.log("[IndiaTek Webhook Payload]:", JSON.stringify(req.body));
-      const { event, data } = req.body || {};
+      console.log("[IndiaTek Webhook Callback Received]:", JSON.stringify(req.body));
+      const payload = req.body || {};
+      const data = payload.data || {};
 
-      if (data && data.api_ref) {
-        const partnerRef = data.api_ref;
-        const newStatus = (data.status || "PENDING").toUpperCase();
+      // Resolve partner reference / client_ref_id from all possible keys
+      const partnerRef = (
+        payload.client_ref_id || 
+        payload.partner_reference || 
+        payload.api_ref ||
+        data.client_ref_id || 
+        data.partner_reference || 
+        data.api_ref ||
+        payload.ref_id ||
+        data.ref_id ||
+        ""
+      ).toString().trim();
 
+      const newStatus = (
+        payload.status || 
+        data.status || 
+        payload.transaction_status || 
+        data.transaction_status || 
+        "PENDING"
+      ).toString().toUpperCase();
+
+      const txnId = payload.txn_id || data.txn_id || payload.utr || data.utr || null;
+
+      if (!partnerRef) {
+        console.warn("[IndiaTek Webhook] Warning: Received webhook without recognizable partner_reference/client_ref_id");
+        return res.json({ success: true, message: "Webhook received but reference not found" });
+      }
+
+      console.log(`[IndiaTek Webhook] Processing update for Ref: ${partnerRef} -> Status: ${newStatus}, Txn ID: ${txnId}`);
+
+      // Fetch existing submission
+      const { data: existingSub } = await supabaseAdmin
+        .from("indiatek_payout_submissions")
+        .select("*")
+        .eq("partner_reference", partnerRef)
+        .maybeSingle();
+
+      if (existingSub) {
+        const prevStatus = (existingSub.status || "").toUpperCase();
+
+        // Update database record
         await supabaseAdmin
           .from("indiatek_payout_submissions")
           .update({
             status: newStatus,
-            transaction_id: data.txn_id || null,
-            response_payload: req.body,
+            transaction_id: txnId || existingSub.transaction_id,
+            response_payload: payload,
             updated_at: new Date().toISOString()
           })
-          .eq("partner_reference", partnerRef);
+          .eq("id", existingSub.id);
+
+        // Auto Refund if status failed and not previously failed/refunded
+        const isFailed = newStatus === "FAILED" || newStatus === "FAILURE" || newStatus === "REJECTED";
+        const wasPending = prevStatus === "PENDING" || prevStatus === "PROCESSING";
+
+        if (isFailed && wasPending) {
+          const refundAmount = Number(existingSub.amount || 0) + Number(existingSub.charges || 0);
+          if (refundAmount > 0 && existingSub.user_id && existingSub.user_id !== "admin") {
+            try {
+              const { data: userProfile } = await supabaseAdmin
+                .from("users_profiles")
+                .select("wallet_balance")
+                .eq("id", existingSub.user_id)
+                .single();
+
+              if (userProfile) {
+                const currentBal = Number(userProfile.wallet_balance || 0);
+                const newBal = currentBal + refundAmount;
+                await supabaseAdmin
+                  .from("users_profiles")
+                  .update({ wallet_balance: newBal })
+                  .eq("id", existingSub.user_id);
+
+                console.log(`[IndiaTek Webhook] Auto-refunded ₹${refundAmount.toFixed(2)} to user ${existingSub.user_id} for failed payout ${partnerRef}`);
+              }
+            } catch (refundErr) {
+              console.error("[IndiaTek Webhook] Failed to auto-refund user:", refundErr);
+            }
+          }
+        }
       }
 
-      return res.json({ success: true, message: "Webhook processed successfully" });
+      return res.status(200).json({ success: true, message: "Webhook processed successfully" });
     } catch (err: any) {
       console.error("[IndiaTek Webhook Error]", err);
+      return res.status(200).json({ success: false, message: err.message });
+    }
+  });
+
+  // 8. Manual / On-Demand Cron Trigger for IndiaTek Status Polling
+  app.get("/api/indiatek-payout/cron-run", async (req: any, res: any) => {
+    try {
+      const results = await processPendingIndiaTekPayouts();
+      return res.json({ success: true, results });
+    } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });
     }
   });
