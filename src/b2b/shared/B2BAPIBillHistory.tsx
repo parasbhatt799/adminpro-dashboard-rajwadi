@@ -58,7 +58,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   }, [dateFilter, customRange, statusFilter, amountFilter, chargeFilter, txnIdFilter, searchTerm, b2bLoginFilter, billAvenueAgentIdFilter, cardMobileFilter]);
 
   useEffect(() => {
-    fetchLogs(true);
+    fetchLogs();
 
     // Enable Supabase Realtime with debounce/filter check
     const channel = supabase
@@ -68,7 +68,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         { event: '*', schema: 'public', table: 'b2b_api_logs' },
         (payload) => {
           console.log('Realtime change received:', payload);
-          fetchLogs(false); // Auto refresh in background without freezing UI
+          fetchLogs(); // Auto refresh when data changes
         }
       )
       .subscribe();
@@ -78,9 +78,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     };
   }, [isAdmin, agentId, dateFilter, customRange]);
 
-  const fetchLogs = async (isInitial = false) => {
+  const fetchLogs = async () => {
     try {
-      if (isInitial) setLoading(true);
+      setLoading(true);
       
       let allLogs: LogEntry[] = [];
       let from = 0;

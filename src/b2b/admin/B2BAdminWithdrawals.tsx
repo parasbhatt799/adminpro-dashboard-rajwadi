@@ -27,7 +27,7 @@ export default function B2BAdminWithdrawals() {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   useEffect(() => {
-    fetchData(true);
+    fetchData();
 
     // Realtime listeners
     const logsChannel = supabase
@@ -35,7 +35,7 @@ export default function B2BAdminWithdrawals() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'b2b_api_logs' },
-        () => fetchData(false)
+        () => fetchData()
       )
       .subscribe();
 
@@ -44,7 +44,7 @@ export default function B2BAdminWithdrawals() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'b2b_revenue_withdrawals' },
-        () => fetchData(false)
+        () => fetchData()
       )
       .subscribe();
 
@@ -54,20 +54,97 @@ export default function B2BAdminWithdrawals() {
     };
   }, []);
 
-  const fetchData = async (isInitial = false) => {
-    if (isInitial) setLoading(true);
+  const fetchData = async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/v1/b2b/admin/dashboard-stats');
-      const data = await res.json();
+      // 1. Fetch all successful pay-bill logs to calculate gross earnings
+      let allLogs: any[] = [];
+      let from = 0;
+      let step = 1000;
+      let hasMore = true;
 
-      if (data.success) {
-        setGrossTotalRevenue(Number(data.totalGrossEarnings || 0));
-        setGrossDeveloperEarnings(Number(data.devGrossEarnings || 0));
-        setGrossOwnerEarnings(Number(data.ownerGrossEarnings || 0));
-        setWithdrawals(data.withdrawals || []);
-      } else {
-        throw new Error(data.error || 'Failed to fetch withdrawal stats');
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('b2b_api_logs')
+          .select('charge_deducted, developer_charge, owner_charge, request_payload, response_payload, status_code, endpoint')
+          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
+          .range(from, from + step - 1);
+
+        if (error) {
+          console.error('Error fetching logs batch:', error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allLogs = allLogs.concat(data);
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
       }
+
+      let totalSum = 0;
+      let devSum = 0;
+      let ownerSum = 0;
+
+      allLogs.forEach((log) => {
+        const req = log.request_payload || {};
+        const res = log.response_payload || {};
+        const bpr = res?.ExtBillPayResponse || res?.billPayResponse || res;
+        const txnRefId = bpr?.txnRefId || res?.txnRefId;
+        const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
+        const responseCode = bpr?.responseCode || res?.responseCode;
+        const responseReason = (bpr?.responseReason || res?.responseReason || '').toLowerCase();
+
+        const isSuccess =
+          res?.payment_status === 'success' ||
+          res?.finalStatus === 'success' ||
+          res?.status === 'success' ||
+          responseCode === '000' ||
+          responseCode === '0000' ||
+          responseReason === 'successful' ||
+          (hasCC01 && log.status_code === 200 && res?.payment_status !== 'failed');
+
+        if (!isSuccess) return;
+
+        const chargeVal = Number(
+          log.charge_deducted ??
+          req?.chargeDeducted ??
+          req?.chargePerBill ??
+          req?.charge ??
+          (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ??
+          0
+        );
+
+        let dVal = Number(log.developer_charge ?? req?.developerCharge ?? req?.developer_charge ?? 0);
+        let oVal = Number(log.owner_charge ?? req?.ownerCharge ?? req?.owner_charge ?? (chargeVal - dVal));
+
+        totalSum += chargeVal;
+        devSum += dVal;
+        ownerSum += oVal;
+      });
+
+      setGrossTotalRevenue(totalSum);
+      setGrossDeveloperEarnings(devSum);
+      setGrossOwnerEarnings(ownerSum);
+
+      // 2. Fetch withdrawal records from b2b_revenue_withdrawals
+      const { data: wData, error: wErr } = await supabase
+        .from('b2b_revenue_withdrawals')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (wErr) {
+        console.warn('b2b_revenue_withdrawals table error:', wErr.message);
+        setWithdrawals([]);
+      } else {
+        setWithdrawals(wData || []);
+      }
+
     } catch (err) {
       console.error('Error fetching withdrawal data:', err);
     } finally {

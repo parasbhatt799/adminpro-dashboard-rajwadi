@@ -16,16 +16,16 @@ export default function B2BAdminDashboard() {
   const [globalChargeId, setGlobalChargeId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchStats(true);
+    fetchStats();
 
-    // Auto-update dashboard numbers in the background without blocking screen
+    // Enable Supabase Realtime for auto updating earnings on dashboard
     const channel = supabase
       .channel('b2b_admin_dashboard_changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'b2b_api_logs' },
         () => {
-          fetchStats(false);
+          fetchStats();
         }
       )
       .subscribe();
@@ -35,28 +35,136 @@ export default function B2BAdminDashboard() {
     };
   }, []);
 
-  const fetchStats = async (isInitial = false) => {
-    if (isInitial) setLoading(true);
-
+  const fetchStats = async () => {
+    setLoading(true);
+    
+    // Fetch total earnings across all pay-bill logs with pagination
     try {
-      const res = await fetch('/api/v1/b2b/admin/dashboard-stats');
-      const data = await res.json();
+      let allLogs: any[] = [];
+      let from = 0;
+      let step = 1000;
+      let hasMore = true;
 
-      if (data.success) {
-        setTotalEarnings(Number(data.totalEarnings || 0));
-        setDeveloperEarnings(Number(data.developerEarnings || 0));
-        setOwnerEarnings(Number(data.ownerEarnings || 0));
-        setActiveAgentsCount(Number(data.activeAgentsCount || 0));
-        setTotalAgentsBalance(Number(data.totalAgentsBalance || 0));
-        if (data.globalCharge !== undefined) setGlobalCharge(String(data.globalCharge));
-        if (data.globalMaxLimit !== undefined) setGlobalMaxLimit(String(data.globalMaxLimit));
-        if (data.globalChargeId) setGlobalChargeId(data.globalChargeId);
+      while (hasMore) {
+        const { data, error } = await supabase
+          .from('b2b_api_logs')
+          .select('charge_deducted, developer_charge, owner_charge, request_payload, response_payload, status_code, endpoint')
+          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
+          .range(from, from + step - 1);
+
+        if (error) {
+          console.error('Error fetching logs batch:', error);
+          break;
+        }
+
+        if (data && data.length > 0) {
+          allLogs = allLogs.concat(data);
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
       }
+      
+      let totalSum = 0;
+      let devSum = 0;
+      let ownerSum = 0;
+
+      allLogs.forEach((log) => {
+        const req = log.request_payload || {};
+        const res = log.response_payload || {};
+        const bpr = res?.ExtBillPayResponse || res?.billPayResponse || res;
+        const txnRefId = bpr?.txnRefId || res?.txnRefId;
+        const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
+        const responseCode = bpr?.responseCode || res?.responseCode;
+        const responseReason = (bpr?.responseReason || res?.responseReason || '').toLowerCase();
+
+        const isSuccess = 
+          res?.payment_status === 'success' || 
+          res?.finalStatus === 'success' || 
+          res?.status === 'success' ||
+          responseCode === '000' || 
+          responseCode === '0000' ||
+          responseReason === 'successful' ||
+          (hasCC01 && log.status_code === 200 && res?.payment_status !== 'failed');
+        
+        if (!isSuccess) return;
+        
+        const chargeVal = Number(
+          log.charge_deducted ?? 
+          req?.chargeDeducted ?? 
+          req?.chargePerBill ?? 
+          req?.charge ?? 
+          (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
+          0
+        );
+
+        let dVal = Number(log.developer_charge ?? req?.developerCharge ?? req?.developer_charge ?? 0);
+        let oVal = Number(log.owner_charge ?? req?.ownerCharge ?? req?.owner_charge ?? (chargeVal - dVal));
+
+        totalSum += chargeVal;
+        devSum += dVal;
+        ownerSum += oVal;
+      });
+      
+      // Fetch total withdrawals to compute net earnings
+      const { data: wData } = await supabase
+        .from('b2b_revenue_withdrawals')
+        .select('role, amount');
+
+      let devW = 0;
+      let ownerW = 0;
+      let genW = 0;
+      if (wData) {
+        wData.forEach((w: any) => {
+          const amt = Number(w.amount || 0);
+          if (w.role === 'developer') devW += amt;
+          else if (w.role === 'owner') ownerW += amt;
+          else genW += amt;
+        });
+      }
+      
+      setTotalEarnings(totalSum - (devW + ownerW + genW));
+      setDeveloperEarnings(devSum - devW);
+      setOwnerEarnings(ownerSum - ownerW);
+
+      // Fetch active agents count & sum of all agent wallet balances
+      const { data: agentsData } = await supabase
+        .from('b2b_api_credentials')
+        .select('wallet_balance, is_active');
+        
+      if (agentsData) {
+        let activeCount = 0;
+        let totalBal = 0;
+        agentsData.forEach((ag: any) => {
+          if (ag.is_active) activeCount++;
+          totalBal += parseFloat(ag.wallet_balance?.toString() || '0');
+        });
+        setActiveAgentsCount(activeCount);
+        setTotalAgentsBalance(totalBal);
+      }
+
+      // Fetch global charge and max limit
+      const { data: settingsData } = await supabase
+        .from('b2b_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+
+      if (settingsData) {
+        setGlobalCharge(settingsData.global_charge_per_bill?.toString() || '0');
+        setGlobalMaxLimit(settingsData.max_bill_payment_limit?.toString() || '100000');
+        setGlobalChargeId(settingsData.id);
+      }
+
     } catch (e) {
       console.error('Failed to fetch stats', e);
-    } finally {
-      setLoading(false);
     }
+
+    setLoading(false);
   };
 
   const handleSaveGlobalCharge = async () => {
