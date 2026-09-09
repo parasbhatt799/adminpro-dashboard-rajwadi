@@ -69,6 +69,9 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
   const [success, setSuccess] = useState<string | null>(null);
   const [isActive, setIsActive] = useState<boolean | null>(null);
   const [chargeAmount, setChargeAmount] = useState<number>(0);
+  const [verificationCharge, setVerificationCharge] = useState<number>(5);
+  const [minPayout, setMinPayout] = useState<number>(10);
+  const [maxPayout, setMaxPayout] = useState<number>(50000);
   const [transactions, setTransactions] = useState<PayoutSubmission[]>([]);
   const [refreshingHistory, setRefreshingHistory] = useState(false);
   const [checkingStatusRef, setCheckingStatusRef] = useState<string | null>(null);
@@ -108,7 +111,7 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
 
   // Resolve current user ID on mount
   useEffect(() => {
-    const initUser = async () => {
+    const resolveUser = async () => {
       if (propUserId) {
         setCurrentUserId(propUserId);
       } else {
@@ -118,23 +121,25 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
         }
       }
     };
-    initUser();
-    fetchCamlenioBanks();
+    resolveUser();
+    fetchBankList();
   }, [propUserId]);
 
-  const fetchCamlenioBanks = async () => {
+  // Fetch bank dropdown options dynamically from camlenio_banks table
+  const fetchBankList = async () => {
     try {
       const { data, error } = await supabase
         .from('camlenio_banks')
         .select('bank_name')
         .limit(2000);
+
       if (!error && data && data.length > 0) {
-        const bankNames = data
+        const list = data
           .map((b: any) => b.bank_name)
           .filter(Boolean)
           .sort();
-        setAllBanksList(bankNames);
-        setFilteredBanks(bankNames);
+        setAllBanksList(list);
+        setFilteredBanks(list);
       }
     } catch (err) {
       console.error('Error fetching camlenio banks:', err);
@@ -156,7 +161,10 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
       const data = await res.json();
       if (data?.success && data?.data) {
         setIsActive(data.data.is_active !== false);
-        setChargeAmount(Number(data.data.charge_amount || 0));
+        setChargeAmount(Number(data.data.charge_amount !== undefined ? data.data.charge_amount : 0));
+        setVerificationCharge(Number(data.data.verification_charge !== undefined ? data.data.verification_charge : 5));
+        setMinPayout(Number(data.data.min_payout !== undefined ? data.data.min_payout : 10));
+        setMaxPayout(Number(data.data.max_payout !== undefined ? data.data.max_payout : 50000));
       } else {
         setIsActive(true);
       }
@@ -239,6 +247,11 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
       return;
     }
 
+    if (walletBalance < verificationCharge) {
+      setError(`Insufficient main wallet balance for verification charge. (Required: ₹${verificationCharge.toFixed(2)}, Available: ₹${walletBalance.toFixed(2)})`);
+      return;
+    }
+
     setVerifyingBank(true);
     setError(null);
     setSuccess(null);
@@ -274,7 +287,8 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
           ...prev,
           holderName: data.verified_name
         }));
-        setSuccess(`Bank Account Verified Successfully! Account Holder: ${data.verified_name}`);
+        setSuccess(`Bank Account Verified Successfully! Account Holder: ${data.verified_name} (₹${verificationCharge} deducted from wallet)`);
+        fetchUserData(); // Instantly refresh wallet balance in UI
       } else {
         const errorMsg = data?.message || data?.error || (res.status === 404 ? 'Server route not found. Please restart server/PM2 on live host.' : 'Bank account verification failed. Please check details or API credentials.');
         setError(errorMsg);
@@ -371,6 +385,16 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
       return;
     }
 
+    if (numAmount < minPayout) {
+      setError(`Minimum payout allowed is ₹${minPayout}.`);
+      return;
+    }
+
+    if (numAmount > maxPayout) {
+      setError(`Maximum payout allowed is ₹${maxPayout}.`);
+      return;
+    }
+
     const totalRequired = numAmount + chargeAmount;
     if (walletBalance < totalRequired) {
       setError(`Insufficient wallet balance. Required: ₹${totalRequired.toFixed(2)} (Amount: ₹${numAmount} + Charge: ₹${chargeAmount})`);
@@ -393,6 +417,7 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
           accountNumber: selectedBeneficiary.account_number,
           ifsc: selectedBeneficiary.ifsc_code,
           ifsc_code: selectedBeneficiary.ifsc_code,
+          bank_name: selectedBeneficiary.bank_name,
           amount: numAmount,
           beneficiary_name: selectedBeneficiary.holder_name,
           customer_mobile: payoutMobile || selectedBeneficiary.phone || userProfile?.phone || '9999999999',
@@ -413,10 +438,12 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
         fetchUserHistory();
       } else {
         setError(data?.message || 'Payout failed. Please check details or try again later.');
+        fetchUserData();
       }
     } catch (err: any) {
       console.error('Error initiating payout:', err);
       setError(err?.message || 'Failed to initiate payout');
+      fetchUserData();
     } finally {
       setSubmitting(false);
     }
@@ -431,6 +458,7 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
       const newStatus = (data?.status || data?.data?.status || 'PENDING').toString().toUpperCase();
       setSuccess(`Status for ${partnerRef}: ${newStatus}`);
       fetchUserHistory();
+      fetchUserData(); // Refresh balance if refunded
     } catch (err) {
       console.error('Error checking status:', err);
       setError('Failed to check live status from IndiaTek API');
@@ -1022,6 +1050,14 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                 </div>
               </div>
 
+              {/* Verification Charge Note */}
+              <div className="p-3 bg-amber-50/90 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>
+                  <span className="font-bold text-slate-800">Verification Note:</span> A verification charge of ₹{verificationCharge} will be deducted from your wallet when you click the Verify button for an unverified account.
+                </span>
+              </div>
+
               {/* BANK VERIFICATION BUTTON & RESULT */}
               <div className="pt-2">
                 {!verifiedDetails ? (
@@ -1169,9 +1205,14 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
 
               {/* Amount Input */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Transfer Amount (₹) *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    Transfer Amount (₹) *
+                  </label>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    Min: ₹{minPayout} • Max: ₹{maxPayout.toLocaleString('en-IN')}
+                  </span>
+                </div>
                 <div className="relative">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xl">
                     ₹
@@ -1179,7 +1220,8 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                   <input
                     type="number"
                     required
-                    min={1}
+                    min={minPayout}
+                    max={maxPayout}
                     value={payoutAmount}
                     onChange={(e) => setPayoutAmount(e.target.value)}
                     placeholder="0.00"

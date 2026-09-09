@@ -67,7 +67,10 @@ export default function AdminIndiaTekPayout() {
     username: '',
     api_secret: '$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC',
     is_active: true,
-    charge_amount: 0
+    charge_amount: 0,
+    verification_charge: 5,
+    min_payout: 10,
+    max_payout: 50000
   });
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -100,7 +103,10 @@ export default function AdminIndiaTekPayout() {
           username: data.data.username || '',
           api_secret: data.data.api_secret || '$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC',
           is_active: data.data.is_active !== false,
-          charge_amount: Number(data.data.charge_amount || 0)
+          charge_amount: Number(data.data.charge_amount !== undefined ? data.data.charge_amount : 0),
+          verification_charge: Number(data.data.verification_charge !== undefined ? data.data.verification_charge : 5),
+          min_payout: Number(data.data.min_payout !== undefined ? data.data.min_payout : 10),
+          max_payout: Number(data.data.max_payout !== undefined ? data.data.max_payout : 50000)
         });
       }
     } catch (err) {
@@ -156,6 +162,9 @@ export default function AdminIndiaTekPayout() {
           api_secret: settings.api_secret.trim(),
           is_active: settings.is_active,
           charge_amount: Number(settings.charge_amount || 0),
+          verification_charge: Number(settings.verification_charge !== undefined ? settings.verification_charge : 5),
+          min_payout: Number(settings.min_payout !== undefined ? settings.min_payout : 10),
+          max_payout: Number(settings.max_payout !== undefined ? settings.max_payout : 50000),
           updated_at: new Date().toISOString()
         });
 
@@ -534,6 +543,71 @@ export default function AdminIndiaTekPayout() {
                   onChange={e => setSettings({ ...settings, api_secret: e.target.value.trim() })}
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 focus:bg-white focus:ring-2 focus:ring-indigo-500 font-mono font-semibold"
                 />
+              </div>
+            </div>
+
+            {/* Dynamic Charges & Limits Settings */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-slate-50/80 rounded-2xl border border-slate-200">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <IndianRupee className="w-3.5 h-3.5 text-indigo-600" /> Payout Service Charge (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={settings.charge_amount}
+                  onChange={e => setSettings({ ...settings, charge_amount: parseFloat(e.target.value) || 0 })}
+                  placeholder="0.00"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <p className="text-[11px] text-slate-400">Dynamic fee deducted from user wallet per payout</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <IndianRupee className="w-3.5 h-3.5 text-indigo-600" /> A/C Verification Charge (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={settings.verification_charge}
+                  onChange={e => setSettings({ ...settings, verification_charge: parseFloat(e.target.value) || 0 })}
+                  placeholder="5.00"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <p className="text-[11px] text-slate-400">Fee deducted when user verifies a new bank account</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <IndianRupee className="w-3.5 h-3.5 text-slate-500" /> Min Payout Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={settings.min_payout}
+                  onChange={e => setSettings({ ...settings, min_payout: parseFloat(e.target.value) || 0 })}
+                  placeholder="10"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <p className="text-[11px] text-slate-400">Minimum allowed amount per transaction</p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1">
+                  <IndianRupee className="w-3.5 h-3.5 text-slate-500" /> Max Payout Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={settings.max_payout}
+                  onChange={e => setSettings({ ...settings, max_payout: parseFloat(e.target.value) || 0 })}
+                  placeholder="50000"
+                  className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+                <p className="text-[11px] text-slate-400">Maximum allowed amount per transaction</p>
               </div>
             </div>
 

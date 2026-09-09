@@ -101,6 +101,18 @@ export async function processPendingIndiaTekPayouts() {
             })
             .eq('id', payout.id);
 
+          // Update master payout_submissions for statements
+          await supabaseAdmin
+            .from('payout_submissions')
+            .update({
+              status: 'approved',
+              transaction_id: txnId || payout.transaction_id,
+              txn_id: txnId || payout.transaction_id,
+              utr_number: txnId || payout.transaction_id,
+              remark: 'IndiaTek Payout Success'
+            })
+            .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
+
           results.success++;
           results.details.push(`${partnerRef} -> SUCCESS (Txn: ${txnId})`);
           console.log(`[IndiaTek CRON] Payout ${partnerRef} marked SUCCESS.`);
@@ -116,6 +128,19 @@ export async function processPendingIndiaTekPayouts() {
               updated_at: new Date().toISOString()
             })
             .eq('id', payout.id);
+
+          // Update master payout_submissions for statements
+          await supabaseAdmin
+            .from('payout_submissions')
+            .update({
+              status: 'rejected',
+              transaction_id: txnId || payout.transaction_id,
+              txn_id: txnId || payout.transaction_id,
+              utr_number: txnId || payout.transaction_id,
+              remark: 'IndiaTek Payout Failed',
+              rejection_reason: 'IndiaTek Payout Failed'
+            })
+            .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
 
           // Refund user balance
           const refundAmount = Number(payout.amount || 0) + Number(payout.charges || 0);

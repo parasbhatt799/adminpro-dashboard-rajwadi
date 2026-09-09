@@ -9,13 +9,23 @@ CREATE TABLE IF NOT EXISTS public.indiatek_payout_settings (
     api_secret TEXT DEFAULT '$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC',
     is_active BOOLEAN DEFAULT TRUE,
     charge_amount NUMERIC DEFAULT 0,
+    verification_charge NUMERIC DEFAULT 5,
+    min_payout NUMERIC DEFAULT 10,
+    max_payout NUMERIC DEFAULT 50000,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ensure columns exist in case table was created earlier
+ALTER TABLE public.indiatek_payout_settings 
+ADD COLUMN IF NOT EXISTS charge_amount NUMERIC DEFAULT 0,
+ADD COLUMN IF NOT EXISTS verification_charge NUMERIC DEFAULT 5,
+ADD COLUMN IF NOT EXISTS min_payout NUMERIC DEFAULT 10,
+ADD COLUMN IF NOT EXISTS max_payout NUMERIC DEFAULT 50000;
+
 -- Insert initial default row if missing
-INSERT INTO public.indiatek_payout_settings (id, username, api_secret, is_active)
-VALUES (1, '', '$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC', true)
+INSERT INTO public.indiatek_payout_settings (id, username, api_secret, is_active, charge_amount, verification_charge, min_payout, max_payout)
+VALUES (1, '', '$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC', true, 0, 5, 10, 50000)
 ON CONFLICT (id) DO NOTHING;
 
 -- 2. Create indiatek_payout_submissions table

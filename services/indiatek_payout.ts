@@ -20,6 +20,9 @@ export interface IndiaTekSettings {
   api_secret: string;
   is_active: boolean;
   charge_amount: number;
+  verification_charge: number;
+  min_payout: number;
+  max_payout: number;
 }
 
 export function getLocalSettings(): IndiaTekSettings {
@@ -32,7 +35,10 @@ export function getLocalSettings(): IndiaTekSettings {
           username: parsed.username !== undefined ? parsed.username : USERNAME,
           api_secret: parsed.api_secret || API_SECRET,
           is_active: parsed.is_active !== false,
-          charge_amount: Number(parsed.charge_amount || 0)
+          charge_amount: Number(parsed.charge_amount !== undefined ? parsed.charge_amount : 0),
+          verification_charge: Number(parsed.verification_charge !== undefined ? parsed.verification_charge : 5),
+          min_payout: Number(parsed.min_payout !== undefined ? parsed.min_payout : 10),
+          max_payout: Number(parsed.max_payout !== undefined ? parsed.max_payout : 50000)
         };
       }
     }
@@ -43,7 +49,10 @@ export function getLocalSettings(): IndiaTekSettings {
     username: USERNAME,
     api_secret: API_SECRET,
     is_active: true,
-    charge_amount: 0
+    charge_amount: 0,
+    verification_charge: 5,
+    min_payout: 10,
+    max_payout: 50000
   };
 }
 
