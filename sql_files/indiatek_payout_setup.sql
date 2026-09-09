@@ -36,9 +36,24 @@ CREATE TABLE IF NOT EXISTS public.indiatek_payout_submissions (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 3. Create indiatek_beneficiaries table
+CREATE TABLE IF NOT EXISTS public.indiatek_beneficiaries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id TEXT NOT NULL,
+    bank_name TEXT,
+    account_number TEXT NOT NULL,
+    ifsc_code TEXT NOT NULL,
+    holder_name TEXT NOT NULL,
+    phone TEXT,
+    is_verified BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable RLS and add basic policies
 ALTER TABLE public.indiatek_payout_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.indiatek_payout_submissions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.indiatek_beneficiaries ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Enable read for all authenticated users" ON public.indiatek_payout_settings;
 CREATE POLICY "Enable read for all authenticated users" ON public.indiatek_payout_settings FOR SELECT USING (true);
@@ -49,4 +64,8 @@ CREATE POLICY "Enable all access for service role and admin" ON public.indiatek_
 DROP POLICY IF EXISTS "Enable all access for indiatek submissions" ON public.indiatek_payout_submissions;
 CREATE POLICY "Enable all access for indiatek submissions" ON public.indiatek_payout_submissions FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Enable all access for indiatek beneficiaries" ON public.indiatek_beneficiaries;
+CREATE POLICY "Enable all access for indiatek beneficiaries" ON public.indiatek_beneficiaries FOR ALL USING (true);
+
 NOTIFY pgrst, 'reload schema';
+

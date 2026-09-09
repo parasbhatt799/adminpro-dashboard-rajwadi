@@ -5438,6 +5438,153 @@ async function startServer() {
     }
   });
 
+  // 3.5 Verify Bank Account via IndiaTek KingWallet API
+  app.post("/api/indiatek-payout/verify-bank", async (req: any, res: any) => {
+    try {
+      const { userId, accountNumber, ifsc, bankName } = req.body;
+
+      if (!accountNumber || !ifsc) {
+        return res.status(400).json({ success: false, message: "Account number and IFSC code are required" });
+      }
+
+      const { data: dbSettings } = await supabaseAdmin
+        .from("indiatek_payout_settings")
+        .select("*")
+        .eq("id", 1)
+        .maybeSingle();
+
+      const local = indiatekPayout.getLocalSettings();
+      const isActive = dbSettings ? dbSettings.is_active !== false : local.is_active !== false;
+
+      if (!isActive) {
+        return res.status(400).json({ success: false, message: "IndiaTek Payout service is currently disabled by administrator." });
+      }
+
+      const username = dbSettings?.username || local.username;
+      const apiSecret = dbSettings?.api_secret || local.api_secret;
+
+      const clientRefId = `VER_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+
+      console.log(`[IndiaTek Verify] Calling bank-verify for Account: ${accountNumber}, IFSC: ${ifsc}`);
+      const verifyResult = await indiatekPayout.verifyIndiaTekBankAccount({
+        account_number: String(accountNumber).trim(),
+        ifsc_code: String(ifsc).trim().toUpperCase(),
+        client_ref_id: clientRefId
+      }, username, apiSecret);
+
+      const status = (verifyResult?.status || verifyResult?.transaction_status || "").toString().toUpperCase();
+      const verifiedName = verifyResult?.verified_name || verifyResult?.data?.verified_name || "";
+
+      if (status === "SUCCESS" && verifiedName) {
+        return res.json({
+          success: true,
+          status: "SUCCESS",
+          verified_name: verifiedName,
+          txn_id: verifyResult?.txn_id || verifyResult?.data?.txn_id,
+          amount_deducted: verifyResult?.amount_deducted || 0,
+          message: verifyResult?.message || "Bank account verified successfully"
+        });
+      } else {
+        return res.status(400).json({
+          success: false,
+          status: status || "FAILED",
+          message: verifyResult?.message || verifyResult?.error || "Bank account verification failed. Please check account details."
+        });
+      }
+    } catch (err: any) {
+      console.error("[IndiaTek Bank Verify Error]", err);
+      return res.status(500).json({ success: false, message: err.message || "Failed to verify bank account" });
+    }
+  });
+
+  // 3.6 Beneficiaries Management Endpoints
+  app.get("/api/indiatek-payout/beneficiaries/:userId", async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const { data, error } = await supabaseAdmin
+        .from("payout_beneficiaries")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return res.json({ success: true, data: data || [] });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  app.post("/api/indiatek-payout/beneficiaries", async (req: any, res: any) => {
+    try {
+      const { userId, bankName, accountNumber, ifscCode, holderName, phone } = req.body;
+      if (!userId || !accountNumber || !ifscCode || !holderName) {
+        return res.status(400).json({ success: false, message: "Required fields missing" });
+      }
+
+      // Check if already exists
+      const { data: existing } = await supabaseAdmin
+        .from("payout_beneficiaries")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("account_number", String(accountNumber).trim())
+        .eq("ifsc_code", String(ifscCode).trim().toUpperCase())
+        .maybeSingle();
+
+      if (existing) {
+        // Update existing to verified with new name
+        const { data: updated, error: updErr } = await supabaseAdmin
+          .from("payout_beneficiaries")
+          .update({
+            holder_name: String(holderName).trim(),
+            bank_name: String(bankName || "").trim(),
+            is_verified: true,
+            phone: phone || "",
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", existing.id)
+          .select()
+          .single();
+
+        if (updErr) throw updErr;
+        return res.json({ success: true, data: updated, updated: true });
+      }
+
+      const { data: inserted, error: insErr } = await supabaseAdmin
+        .from("payout_beneficiaries")
+        .insert({
+          user_id: userId,
+          bank_name: String(bankName || "").trim(),
+          account_number: String(accountNumber).trim(),
+          ifsc_code: String(ifscCode).trim().toUpperCase(),
+          holder_name: String(holderName).trim(),
+          phone: phone || "",
+          is_verified: true
+        })
+        .select()
+        .single();
+
+      if (insErr) throw insErr;
+      return res.json({ success: true, data: inserted });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  app.delete("/api/indiatek-payout/beneficiaries/:id", async (req: any, res: any) => {
+    try {
+      const { id } = req.params;
+      const { error } = await supabaseAdmin
+        .from("payout_beneficiaries")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+      return res.json({ success: true });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
   // 4. Initiate IndiaTek Payout
   app.post("/api/indiatek-payout/send", async (req: any, res: any) => {
     try {
@@ -5465,6 +5612,25 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "IndiaTek Payout service is currently disabled by administrator." });
       }
 
+      const chargeAmount = Number(dbSettings?.charge_amount || 0);
+      const totalRequired = numAmount + chargeAmount;
+
+      // Check User Wallet Balance
+      if (user_id && user_id !== "admin") {
+        const { data: userProfile, error: userErr } = await supabaseAdmin
+          .from("users_profiles")
+          .select("wallet_balance")
+          .eq("id", user_id)
+          .single();
+
+        if (userErr || !userProfile || (Number(userProfile.wallet_balance) || 0) < totalRequired) {
+          return res.status(400).json({
+            success: false,
+            message: `Insufficient wallet balance. Total required: ₹${totalRequired.toFixed(2)} (Amount: ₹${numAmount} + Charge: ₹${chargeAmount})`
+          });
+        }
+      }
+
       const username = dbSettings?.username || local.username;
       const apiSecret = dbSettings?.api_secret || local.api_secret;
 
@@ -5482,6 +5648,29 @@ async function startServer() {
 
       const statusStr = (payoutResult?.data?.status || payoutResult?.status || "PENDING").toString().toUpperCase();
       const transactionId = payoutResult?.data?.transaction_id || payoutResult?.txn_id || null;
+      const isSuccessOrPending = statusStr === "SUCCESS" || statusStr === "PENDING";
+
+      // Deduct User Wallet Balance on Success/Pending
+      if (isSuccessOrPending && user_id && user_id !== "admin") {
+        try {
+          const { data: profile } = await supabaseAdmin
+            .from("users_profiles")
+            .select("wallet_balance")
+            .eq("id", user_id)
+            .single();
+
+          if (profile) {
+            const currentBal = Number(profile.wallet_balance || 0);
+            const newBal = Math.max(0, currentBal - totalRequired);
+            await supabaseAdmin
+              .from("users_profiles")
+              .update({ wallet_balance: newBal })
+              .eq("id", user_id);
+          }
+        } catch (deductErr) {
+          console.warn("[IndiaTek Payout] Warning: Failed to deduct wallet:", deductErr);
+        }
+      }
 
       // Log submission into Supabase table
       try {
@@ -5497,7 +5686,7 @@ async function startServer() {
             partner_reference: finalPartnerRef,
             transaction_id: transactionId,
             status: statusStr,
-            charges: Number(dbSettings?.charge_amount || 0),
+            charges: chargeAmount,
             response_payload: payoutResult
           });
       } catch (logErr) {
@@ -5505,11 +5694,11 @@ async function startServer() {
       }
 
       return res.json({
-        success: statusStr === "SUCCESS" || statusStr === "PENDING",
+        success: isSuccessOrPending,
         partner_reference: finalPartnerRef,
         transaction_id: transactionId,
         status: statusStr,
-        message: payoutResult?.message || "Payout processed",
+        message: payoutResult?.message || (isSuccessOrPending ? "Payout processed successfully" : "Payout failed"),
         response: payoutResult
       });
     } catch (err: any) {
@@ -5517,6 +5706,7 @@ async function startServer() {
       return res.status(500).json({ success: false, message: err.message });
     }
   });
+
 
   // 5. Check IndiaTek Payout Status
   app.get("/api/indiatek-payout/status/:partnerRef", async (req: any, res: any) => {
@@ -5557,7 +5747,7 @@ async function startServer() {
     }
   });
 
-  // 6. Get IndiaTek Payout Submissions History
+  // 6. Get IndiaTek Payout Submissions History (All for Admin)
   app.get("/api/indiatek-payout/history", async (req: any, res: any) => {
     try {
       const { data, error } = await supabaseAdmin
@@ -5576,6 +5766,29 @@ async function startServer() {
       return res.status(500).json({ success: false, message: err.message });
     }
   });
+
+  // 6.1 Get IndiaTek Payout Submissions History for specific User
+  app.get("/api/indiatek-payout/user-history/:userId", async (req: any, res: any) => {
+    try {
+      const { userId } = req.params;
+      const { data, error } = await supabaseAdmin
+        .from("indiatek_payout_submissions")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error("[IndiaTek User History Error]", error);
+        return res.status(500).json({ success: false, message: error.message });
+      }
+
+      return res.json({ success: true, data: data || [] });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
 
   // 7. Webhook Handler for IndiaTek Callbacks
   app.post("/api/indiatek-payout/webhook", async (req: any, res: any) => {

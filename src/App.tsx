@@ -1326,7 +1326,7 @@ export default function App() {
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="fund-transfer" element={<UserFundTransfer userId={userId} />} />
           <Route path="camlenio-payout" element={<UserCamlenioPayout userId={userId} />} />
-          <Route path="indiatek-payout" element={<UserIndiaTekPayout />} />
+          <Route path="indiatek-payout" element={<UserIndiaTekPayout userId={userId} />} />
           <Route path="payout-history" element={<UserPayoutHistory userId={userId} />} />
           <Route path="partner-fund-transfer" element={<PartnerFundTransfer userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />

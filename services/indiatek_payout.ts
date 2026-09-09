@@ -158,3 +158,36 @@ export async function checkIndiaTekStatus(partnerReference: string, username?: s
     throw error;
   }
 }
+
+export interface IndiaTekBankVerifyPayload {
+  account_number: string;
+  ifsc_code: string;
+  client_ref_id: string;
+}
+
+/**
+ * Verify Bank Account via IndiaTek (KingWallet)
+ * POST https://api.kingwallet.in/api/v1/b2b/bank-verify
+ */
+export async function verifyIndiaTekBankAccount(payload: IndiaTekBankVerifyPayload, username?: string, apiSecret?: string) {
+  const url = `${BASE_URL}/bank-verify`;
+  const headers = generateIndiaTekHeaders(username, apiSecret);
+
+  console.log('[IndiaTek Payout] Verifying Bank Account at:', url);
+  console.log('[IndiaTek Payout] Bank Verify Payload:', JSON.stringify(payload));
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: headers as any,
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    console.log('[IndiaTek Payout] Bank Verify Response:', data);
+    return { statusCode: response.status, ...data };
+  } catch (error: any) {
+    console.error('[IndiaTek Payout] Bank verify error:', error);
+    throw error;
+  }
+}
+
