@@ -24,6 +24,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { supabase } from '../lib/supabase';
 
 interface IndiaTekSubmission {
   id: string;
@@ -146,17 +147,34 @@ export default function AdminIndiaTekPayout() {
     setSavingSettings(true);
     setMessage(null);
     try {
-      const res = await fetch('/api/indiatek-payout/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings)
-      });
-      const data = await res.json();
-      if (data?.success) {
+      // 1. Save directly to Supabase table
+      const { error: dbErr } = await supabase
+        .from('indiatek_payout_settings')
+        .upsert({
+          id: 1,
+          username: settings.username.trim(),
+          api_secret: settings.api_secret.trim(),
+          is_active: settings.is_active,
+          charge_amount: Number(settings.charge_amount || 0),
+          updated_at: new Date().toISOString()
+        });
+
+      // 2. Call backend route
+      try {
+        await fetch('/api/indiatek-payout/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings)
+        });
+      } catch (backendErr) {
+        console.warn('Backend sync warning:', backendErr);
+      }
+
+      if (!dbErr) {
         setMessage({ type: 'success', text: 'IndiaTek Payout credentials saved successfully!' });
         fetchBalance();
       } else {
-        setMessage({ type: 'error', text: data?.message || 'Failed to save settings' });
+        setMessage({ type: 'error', text: dbErr.message || 'Failed to save settings' });
       }
     } catch (err: any) {
       setMessage({ type: 'error', text: err?.message || 'Error saving settings' });
@@ -465,6 +483,23 @@ export default function AdminIndiaTekPayout() {
             <p className="text-xs text-slate-500 mt-1">
               Configure your registered mobile username and API secret headers for IndiaTek Payout API.
             </p>
+          </div>
+
+          {/* IP Whitelist Info Banner */}
+          <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-2xl flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="text-xs text-slate-700 space-y-1">
+              <div className="font-bold text-slate-900">KingWallet Server IP Whitelist Required</div>
+              <p>
+                KingWallet strictly allows API calls from whitelisted server IPs. Your live server IP is:{' '}
+                <code className="px-2 py-0.5 bg-white border border-indigo-200 rounded font-mono font-bold text-indigo-700">
+                  143.244.140.126
+                </code>
+              </p>
+              <p className="text-slate-500">
+                Please log in to <strong className="text-slate-700">app.kingwallet.in &rarr; API Keys</strong> and add this IP to your whitelist.
+              </p>
+            </div>
           </div>
 
           <form onSubmit={handleSaveSettings} className="space-y-5">
