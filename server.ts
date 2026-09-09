@@ -5528,7 +5528,7 @@ async function startServer() {
                 transaction_id: verifyResult?.txn_id || clientRefId,
                 txn_id: verifyResult?.txn_id || clientRefId,
                 utr_number: "VERIFICATION",
-                remark: `IndiaTek Bank Verification: ${verifiedName}`
+                remark: `UsePayout Bank Verification: ${verifiedName}`
               });
             } catch (fallbackErr) {
               console.error("[IndiaTek Verify] Fallback insert to payout_submissions failed:", fallbackErr);
@@ -5735,7 +5735,7 @@ async function startServer() {
               bank_ref: finalPartnerRef,
               transaction_id: finalPartnerRef,
               txn_id: finalPartnerRef,
-              remark: "IndiaTek Payout"
+              remark: "UsePayout"
             }).eq("id", payoutSubmissionId);
           }
         } catch (rpcErr) {
@@ -5761,7 +5761,7 @@ async function startServer() {
               transaction_id: finalPartnerRef,
               txn_id: finalPartnerRef,
               utr_number: finalPartnerRef,
-              remark: "IndiaTek Payout"
+              remark: "UsePayout"
             }).select().single();
             payoutSubmissionId = insRecord?.id;
           } catch (fallbackErr) {
@@ -5951,7 +5951,7 @@ async function startServer() {
                 transaction_id: txnId || existingSub.transaction_id,
                 txn_id: txnId || existingSub.transaction_id,
                 utr_number: txnId || existingSub.transaction_id,
-                remark: "IndiaTek Payout Success"
+                remark: "UsePayout Success"
               })
               .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
           }
@@ -5964,8 +5964,8 @@ async function startServer() {
                 transaction_id: txnId || existingSub.transaction_id,
                 txn_id: txnId || existingSub.transaction_id,
                 utr_number: txnId || existingSub.transaction_id,
-                remark: "IndiaTek Payout Failed",
-                rejection_reason: "IndiaTek Payout Failed"
+                remark: "UsePayout Failed",
+                rejection_reason: "UsePayout Failed"
               })
               .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
 
@@ -6108,7 +6108,7 @@ async function startServer() {
               transaction_id: txnId || existingSub.transaction_id,
               txn_id: txnId || existingSub.transaction_id,
               utr_number: txnId || existingSub.transaction_id,
-              remark: "IndiaTek Webhook Success"
+              remark: "UsePayout Webhook Success"
             })
             .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
         } else if (newStatus === "FAILED" || newStatus === "FAILURE" || newStatus === "REJECTED") {
@@ -6119,8 +6119,8 @@ async function startServer() {
               transaction_id: txnId || existingSub.transaction_id,
               txn_id: txnId || existingSub.transaction_id,
               utr_number: txnId || existingSub.transaction_id,
-              remark: "IndiaTek Webhook Failed",
-              rejection_reason: "IndiaTek Webhook Failed"
+              remark: "UsePayout Webhook Failed",
+              rejection_reason: "UsePayout Webhook Failed"
             })
             .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
         }

@@ -96,6 +96,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
     const utr = (item.utr_number || '');
 
     if (
+      remark.includes('usepayout') ||
       remark.includes('indiatek') ||
       bankRef.startsWith('ITP_') ||
       txnId.startsWith('ITP_') ||
@@ -172,7 +173,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
       const utr = (item.utr_number || item.transaction_id || item.bank_ref || '').toLowerCase();
       const amountStr = (item.amount || '').toString();
       const gateway = getPayoutGateway(item);
-      const gatewayName = gateway === 'indiatek' ? 'indiatek' : 'cspl camlenio';
+      const gatewayName = gateway === 'indiatek' ? 'usepayout' : 'cspl camlenio usepay';
 
       return (
         beneficiaryName.includes(query) ||
@@ -447,7 +448,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
               >
                 <option value="all">All Gateways (બધા)</option>
                 <option value="cspl">CSPL (Camlenio)</option>
-                <option value="indiatek">IndiaTek</option>
+                <option value="indiatek">UsePayout</option>
               </select>
             </div>
           </div>
@@ -531,7 +532,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                           {getPayoutGateway(txn) === 'indiatek' ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-orange-50 text-orange-700 border border-orange-200 shadow-2xs">
                               <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
-                              IndiaTek
+                              UsePayout
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
@@ -684,7 +685,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                 <span className="text-slate-400 font-bold uppercase text-[10px]">Payment Gateway</span>
                 <span className="font-extrabold text-slate-800 text-right">
                   {getPayoutGateway(selectedReceipt) === 'indiatek' ? (
-                    <span className="text-orange-600 font-bold">IndiaTek (KingWallet)</span>
+                    <span className="text-orange-600 font-bold">UsePayout</span>
                   ) : (
                     <span className="text-indigo-600 font-bold">CSPL (Camlenio)</span>
                   )}

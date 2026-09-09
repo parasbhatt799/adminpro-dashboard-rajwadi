@@ -53,7 +53,7 @@ const menuItems = [
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: FileText, path: '/bill-payment-requests' },
   { id: 'camlenio-payouts', label: 'AEPS Payout', icon: Send, path: '/camlenio-payouts' },
-  { id: 'indiatek-payout', label: 'IndiaTek Payout', icon: Send, path: '/indiatek-payout' },
+  { id: 'indiatek-payout', label: 'UsePayout', icon: Send, path: '/usepayout' },
   { id: 'bbps-history', label: 'BBPS Bill History', icon: History, path: '/bbps-history' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },
   { id: 'qr-upload', label: 'QR upload', icon: QrCode, path: '/qr-upload', role: 'full' },

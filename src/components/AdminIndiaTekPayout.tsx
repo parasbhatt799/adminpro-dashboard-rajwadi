@@ -180,7 +180,7 @@ export default function AdminIndiaTekPayout() {
       }
 
       if (!dbErr) {
-        setMessage({ type: 'success', text: 'IndiaTek Payout credentials saved successfully!' });
+        setMessage({ type: 'success', text: 'UsePayout credentials saved successfully!' });
         fetchBalance();
       } else {
         setMessage({ type: 'error', text: dbErr.message || 'Failed to save settings' });
@@ -239,14 +239,14 @@ export default function AdminIndiaTekPayout() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white">
-                IndiaTek Payout
+                UsePayout
               </h1>
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/30 border border-indigo-400/40 text-indigo-200">
-                KingWallet Provider
+                Instant Payout Provider
               </span>
             </div>
             <p className="text-sm text-slate-300 mt-1 font-medium">
-              Manage KingWallet by IndiaTek Payout Gateway, API Credentials & Live Transactions
+              Manage UsePayout Gateway, API Credentials & Live Transactions
             </p>
           </div>
         </div>
@@ -258,7 +258,7 @@ export default function AdminIndiaTekPayout() {
               <Wallet className="w-6 h-6" />
             </div>
             <div>
-              <div className="text-xs text-indigo-200 font-semibold tracking-wide uppercase">IndiaTek API Balance</div>
+              <div className="text-xs text-indigo-200 font-semibold tracking-wide uppercase">UsePayout API Balance</div>
               <div className="text-xl font-black text-emerald-300 flex items-center gap-2">
                 {fetchingBalance ? (
                   <RefreshCw className="w-4 h-4 animate-spin text-slate-300" />
@@ -352,9 +352,9 @@ export default function AdminIndiaTekPayout() {
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                <Clock className="w-5 h-5 text-indigo-600" /> IndiaTek Payout History
+                <Clock className="w-5 h-5 text-indigo-600" /> UsePayout History
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">Real-time status tracking for all KingWallet payouts</p>
+              <p className="text-xs text-slate-500 mt-0.5">Real-time status tracking for all UsePayout transactions</p>
             </div>
 
             <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -405,7 +405,7 @@ export default function AdminIndiaTekPayout() {
                 ) : paginatedHistory.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="py-12 text-center text-slate-400 font-medium">
-                      No IndiaTek payout transactions found.
+                      No UsePayout transactions found.
                     </td>
                   </tr>
                 ) : (
@@ -487,10 +487,10 @@ export default function AdminIndiaTekPayout() {
         <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 max-w-2xl">
           <div>
             <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <Settings2 className="w-6 h-6 text-indigo-600" /> KingWallet by IndiaTek Credentials
+              <Settings2 className="w-6 h-6 text-indigo-600" /> UsePayout Credentials
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              Configure your registered mobile username and API secret headers for IndiaTek Payout API.
+              Configure your registered mobile username and API secret headers for UsePayout API.
             </p>
           </div>
 
@@ -623,8 +623,8 @@ export default function AdminIndiaTekPayout() {
                   className="w-5 h-5 rounded bg-white border-slate-300 text-indigo-600 focus:ring-indigo-500"
                 />
                 <div>
-                  <div className="text-sm font-bold text-slate-900">Enable IndiaTek Payout API Service</div>
-                  <div className="text-xs text-slate-500">Allow merchants/users to execute instant payouts via KingWallet API</div>
+                  <div className="text-sm font-bold text-slate-900">Enable UsePayout API Service</div>
+                  <div className="text-xs text-slate-500">Allow merchants/users to execute instant payouts via UsePayout API</div>
                 </div>
               </label>
             </div>
@@ -635,7 +635,7 @@ export default function AdminIndiaTekPayout() {
               className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-lg shadow-indigo-600/20 transition-all flex items-center justify-center gap-2 text-sm disabled:opacity-50"
             >
               {savingSettings ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Settings2 className="w-5 h-5" />}
-              Save IndiaTek Credentials
+              Save UsePayout Credentials
             </button>
           </form>
         </div>
@@ -648,7 +648,7 @@ export default function AdminIndiaTekPayout() {
             <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
               <HelpCircle className="w-5 h-5 text-indigo-600" /> Standard API Error Codes Reference
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">IndiaTek KingWallet API HTTP response error codes documentation</p>
+            <p className="text-xs text-slate-500 mt-0.5">UsePayout API HTTP response error codes documentation</p>
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-200">

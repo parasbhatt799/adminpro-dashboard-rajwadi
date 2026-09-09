@@ -1280,6 +1280,7 @@ export default function App() {
           <Route path="payout-requests" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <PayoutManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="camlenio-payouts" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <AdminCamlenioPayoutHistory /> : <Navigate to="/dashboard" replace />} />
           <Route path="indiatek-payout" element={<AdminIndiaTekPayout />} />
+          <Route path="usepayout" element={<AdminIndiaTekPayout />} />
           <Route path="reason-entry" element={(adminRole === 'full' || adminPermissions.includes('reason-entry')) ? <ReasonManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="complaints-management" element={(adminRole === 'full' || adminPermissions.includes('complaints-management')) ? <ComplaintsManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="headlines" element={(adminRole === 'full' || adminPermissions.includes('headlines')) ? <HeadlineManagement /> : <Navigate to="/dashboard" replace />} />
@@ -1327,6 +1328,7 @@ export default function App() {
           <Route path="fund-transfer" element={<UserFundTransfer userId={userId} />} />
           <Route path="camlenio-payout" element={<UserCamlenioPayout userId={userId} />} />
           <Route path="indiatek-payout" element={<UserIndiaTekPayout userId={userId} />} />
+          <Route path="usepayout" element={<UserIndiaTekPayout userId={userId} />} />
           <Route path="payout-history" element={<UserPayoutHistory userId={userId} />} />
           <Route path="partner-fund-transfer" element={<PartnerFundTransfer userId={userId} />} />
           <Route path="bill-payment" element={<UserBillPayment userId={userId} />} />

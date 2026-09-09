@@ -40,6 +40,7 @@ export default function AdminCamlenioPayoutHistory() {
     const utr = (tx.utr_number || '');
 
     if (
+      remark.includes('usepayout') ||
       remark.includes('indiatek') ||
       bankRef.startsWith('ITP_') ||
       txnId.startsWith('ITP_') ||
@@ -719,7 +720,7 @@ export default function AdminCamlenioPayoutHistory() {
           >
             <option value="all">All Gateways (બધા)</option>
             <option value="cspl">CSPL (Camlenio)</option>
-            <option value="indiatek">IndiaTek</option>
+            <option value="indiatek">UsePayout</option>
           </select>
 
           {/* Date Filter Dropdown Box */}
@@ -830,7 +831,7 @@ export default function AdminCamlenioPayoutHistory() {
                         </span>
                         {getPayoutGateway(tx) === 'indiatek' ? (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-orange-50 text-orange-700 border border-orange-200">
-                            IndiaTek
+                            UsePayout
                           </span>
                         ) : (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
