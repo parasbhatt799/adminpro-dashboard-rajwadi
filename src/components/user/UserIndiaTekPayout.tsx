@@ -1012,19 +1012,38 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                     )}
                   </button>
                 ) : (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1">
-                    <div className="flex items-center gap-2 text-emerald-800 font-black text-xs uppercase tracking-wider">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      Bank Account Verified!
+                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-emerald-800 font-black text-xs uppercase tracking-wider">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        Bank Account Verified!
+                      </div>
+                      <span className="text-[10px] bg-emerald-200/60 text-emerald-900 font-bold px-2 py-0.5 rounded">
+                        Penny Drop OK
+                      </span>
                     </div>
-                    <div className="text-xs text-slate-700">
-                      Verified Account Holder:{' '}
-                      <strong className="text-slate-900 font-extrabold text-sm block">
-                        {verifiedDetails.verifiedName}
-                      </strong>
+
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                        Beneficiary Name (ખાતાધારકનું નામ) *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={addForm.holderName}
+                        onChange={(e) => setAddForm({ ...addForm, holderName: e.target.value })}
+                        placeholder="Account Holder Name"
+                        className="w-full px-3.5 py-2 bg-white border border-emerald-300 rounded-xl text-sm font-bold text-slate-900 focus:ring-2 focus:ring-emerald-500 outline-none shadow-xs"
+                      />
+                      <p className="text-[11px] text-slate-500">
+                        API Response: <span className="font-semibold text-slate-800">{verifiedDetails.verifiedName}</span>
+                      </p>
                     </div>
+
                     {verifiedDetails.txnId && (
-                      <div className="text-[10px] font-mono text-slate-500">Ref: {verifiedDetails.txnId}</div>
+                      <div className="text-[10px] font-mono text-slate-500 pt-1 border-t border-emerald-200/60">
+                        Txn ID: {verifiedDetails.txnId}
+                      </div>
                     )}
                   </div>
                 )}
