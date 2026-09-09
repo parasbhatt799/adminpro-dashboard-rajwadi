@@ -120,8 +120,18 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .limit(10);
-      setTransactions(data || []);
+        .limit(30);
+
+      // Filter only Camlenio (CSPL) payouts
+      const camlenioOnly = (data || []).filter(item => {
+        const remark = (item.remark || item.rejection_reason || '').toLowerCase();
+        const bankRef = (item.bank_ref || '');
+        const txnId = (item.transaction_id || item.txn_id || '');
+        const utr = (item.utr_number || '');
+        return !remark.includes('indiatek') && !bankRef.startsWith('ITP_') && !txnId.startsWith('ITP_') && !utr.startsWith('ITP_');
+      });
+
+      setTransactions(camlenioOnly.slice(0, 10));
     } catch (err) {
       console.error('Error fetching transactions:', err);
     }

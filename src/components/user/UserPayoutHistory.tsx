@@ -14,7 +14,8 @@ import {
   RefreshCw,
   ArrowUpRight,
   Building2,
-  CreditCard
+  CreditCard,
+  Layers
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { format, parseISO } from 'date-fns';
@@ -32,6 +33,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all'>('today');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [gatewayFilter, setGatewayFilter] = useState<'all' | 'cspl' | 'indiatek'>('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedReceipt, setSelectedReceipt] = useState<any | null>(null);
   const itemsPerPage = 10;
@@ -85,7 +87,24 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFilter, statusFilter, search]);
+  }, [dateFilter, statusFilter, gatewayFilter, search]);
+
+  const getPayoutGateway = (item: any): 'indiatek' | 'cspl' => {
+    const remark = (item.remark || item.rejection_reason || '').toLowerCase();
+    const bankRef = (item.bank_ref || '');
+    const txnId = (item.transaction_id || item.txn_id || '');
+    const utr = (item.utr_number || '');
+
+    if (
+      remark.includes('indiatek') ||
+      bankRef.startsWith('ITP_') ||
+      txnId.startsWith('ITP_') ||
+      utr.startsWith('ITP_')
+    ) {
+      return 'indiatek';
+    }
+    return 'cspl';
+  };
 
   const checkDateFilter = (createdAtStr: string, filter: string) => {
     if (filter === 'all') return true;
@@ -137,7 +156,13 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
       if (statusFilter === 'rejected' && itemStatus !== 'rejected' && itemStatus !== 'failed') return false;
     }
 
-    // 3. Search query
+    // 3. Gateway filter
+    if (gatewayFilter !== 'all') {
+      const gateway = getPayoutGateway(item);
+      if (gatewayFilter !== gateway) return false;
+    }
+
+    // 4. Search query
     if (search.trim() !== '') {
       const query = search.toLowerCase().trim();
       const beneficiaryName = (item.account_holder_name || item.beneficiary_name || '').toLowerCase();
@@ -146,6 +171,8 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
       const ifsc = (item.ifsc_code || '').toLowerCase();
       const utr = (item.utr_number || item.transaction_id || item.bank_ref || '').toLowerCase();
       const amountStr = (item.amount || '').toString();
+      const gateway = getPayoutGateway(item);
+      const gatewayName = gateway === 'indiatek' ? 'indiatek' : 'cspl camlenio';
 
       return (
         beneficiaryName.includes(query) ||
@@ -153,7 +180,8 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
         accountNumber.includes(query) ||
         ifsc.includes(query) ||
         utr.includes(query) ||
-        amountStr.includes(query)
+        amountStr.includes(query) ||
+        gatewayName.includes(query)
       );
     }
 
@@ -408,6 +436,20 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                 <option value="rejected">Rejected / Failed</option>
               </select>
             </div>
+
+            {/* Gateway Filter Dropdown */}
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+              <Layers size={14} className="text-slate-500 shrink-0" />
+              <select
+                value={gatewayFilter}
+                onChange={(e) => setGatewayFilter(e.target.value as any)}
+                className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer pr-1"
+              >
+                <option value="all">All Gateways (બધા)</option>
+                <option value="cspl">CSPL (Camlenio)</option>
+                <option value="indiatek">IndiaTek</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -437,6 +479,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                   <tr className="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-black text-slate-400 uppercase tracking-wider">
                     <th className="py-4 px-6">Date & Time</th>
                     <th className="py-4 px-6">Beneficiary Details</th>
+                    <th className="py-4 px-6 text-center">Gateway</th>
                     <th className="py-4 px-6 text-right">Amount (₹)</th>
                     <th className="py-4 px-6">UTR / Bank Ref</th>
                     <th className="py-4 px-6 text-center">Status</th>
@@ -481,6 +524,21 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                               {ifsc && <div className="text-[10px] font-mono text-slate-400">IFSC: {ifsc}</div>}
                             </div>
                           </div>
+                        </td>
+
+                        {/* Gateway Badge */}
+                        <td className="py-4 px-6 text-center whitespace-nowrap">
+                          {getPayoutGateway(txn) === 'indiatek' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-orange-50 text-orange-700 border border-orange-200 shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+                              IndiaTek
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-black bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                              CSPL (Camlenio)
+                            </span>
+                          )}
                         </td>
 
                         {/* Amount */}
@@ -620,6 +678,17 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
               <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
                 <span className="text-slate-400 font-bold uppercase text-[10px]">UTR / Bank Ref</span>
                 <span className="font-mono font-extrabold text-indigo-600 text-right">{getUtrDisplay(selectedReceipt)}</span>
+              </div>
+
+              <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                <span className="text-slate-400 font-bold uppercase text-[10px]">Payment Gateway</span>
+                <span className="font-extrabold text-slate-800 text-right">
+                  {getPayoutGateway(selectedReceipt) === 'indiatek' ? (
+                    <span className="text-orange-600 font-bold">IndiaTek (KingWallet)</span>
+                  ) : (
+                    <span className="text-indigo-600 font-bold">CSPL (Camlenio)</span>
+                  )}
+                </span>
               </div>
 
               <div className="flex justify-between items-center py-1.5 border-b border-slate-100">

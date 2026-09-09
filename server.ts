@@ -5734,7 +5734,8 @@ async function startServer() {
             await supabaseAdmin.from("payout_submissions").update({
               bank_ref: finalPartnerRef,
               transaction_id: finalPartnerRef,
-              txn_id: finalPartnerRef
+              txn_id: finalPartnerRef,
+              remark: "IndiaTek Payout"
             }).eq("id", payoutSubmissionId);
           }
         } catch (rpcErr) {

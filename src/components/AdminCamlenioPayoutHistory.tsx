@@ -30,7 +30,25 @@ export default function AdminCamlenioPayoutHistory() {
   const [startDate, setStartDate] = useState(getTodayStr());
   const [endDate, setEndDate] = useState(getTodayStr());
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [gatewayFilter, setGatewayFilter] = useState<'all' | 'cspl' | 'indiatek'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const getPayoutGateway = (tx: any): 'indiatek' | 'cspl' => {
+    const remark = (tx.remark || tx.rejection_reason || '').toLowerCase();
+    const bankRef = (tx.bank_ref || '');
+    const txnId = (tx.txn_id || tx.transaction_id || '');
+    const utr = (tx.utr_number || '');
+
+    if (
+      remark.includes('indiatek') ||
+      bankRef.startsWith('ITP_') ||
+      txnId.startsWith('ITP_') ||
+      utr.startsWith('ITP_')
+    ) {
+      return 'indiatek';
+    }
+    return 'cspl';
+  };
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -97,7 +115,7 @@ export default function AdminCamlenioPayoutHistory() {
   // Auto reset to Page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [timeRange, startDate, endDate, statusFilter, searchQuery, itemsPerPage]);
+  }, [timeRange, startDate, endDate, statusFilter, gatewayFilter, searchQuery, itemsPerPage]);
 
   const filteredTransactions = useMemo(() => {
     const now = new Date();
@@ -147,7 +165,13 @@ export default function AdminCamlenioPayoutHistory() {
         return false;
       }
 
-      // 3. Search query filter
+      // 3. Gateway filter
+      if (gatewayFilter !== 'all') {
+        const g = getPayoutGateway(tx);
+        if (gatewayFilter !== g) return false;
+      }
+
+      // 4. Search query filter
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const firmName = (tx.users_profiles?.firm_name || '').toLowerCase();
@@ -170,7 +194,7 @@ export default function AdminCamlenioPayoutHistory() {
 
       return true;
     });
-  }, [transactions, timeRange, startDate, endDate, statusFilter, searchQuery]);
+  }, [transactions, timeRange, startDate, endDate, statusFilter, gatewayFilter, searchQuery]);
 
   // Metric Stats Calculation for active date & search scope
   const stats = useMemo(() => {
@@ -217,6 +241,10 @@ export default function AdminCamlenioPayoutHistory() {
         if (start && txDate < start) return false;
         if (end && txDate > end) return false;
       }
+      if (gatewayFilter !== 'all') {
+        const g = getPayoutGateway(tx);
+        if (gatewayFilter !== g) return false;
+      }
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
         const firmName = (tx.users_profiles?.firm_name || '').toLowerCase();
@@ -260,7 +288,7 @@ export default function AdminCamlenioPayoutHistory() {
       failed: { count: failedCount, amount: failedAmount },
       totalCount: scopeList.length
     };
-  }, [transactions, timeRange, startDate, endDate, searchQuery]);
+  }, [transactions, timeRange, startDate, endDate, gatewayFilter, searchQuery]);
 
   // Pagination Calculations
   const totalPages = useMemo(() => {
@@ -279,6 +307,7 @@ export default function AdminCamlenioPayoutHistory() {
     setStartDate(getTodayStr());
     setEndDate(getTodayStr());
     setStatusFilter('all');
+    setGatewayFilter('all');
     setSearchQuery('');
     setCurrentPage(1);
   };
@@ -682,6 +711,17 @@ export default function AdminCamlenioPayoutHistory() {
             <option value="refunded">Refunded</option>
           </select>
 
+          {/* Gateway Dropdown */}
+          <select
+            value={gatewayFilter}
+            onChange={(e) => setGatewayFilter(e.target.value as any)}
+            className="px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
+          >
+            <option value="all">All Gateways (બધા)</option>
+            <option value="cspl">CSPL (Camlenio)</option>
+            <option value="indiatek">IndiaTek</option>
+          </select>
+
           {/* Date Filter Dropdown Box */}
           <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-xl px-2.5 py-1">
             <Calendar className="w-4 h-4 text-indigo-500" />
@@ -726,7 +766,7 @@ export default function AdminCamlenioPayoutHistory() {
           )}
 
           {/* Reset Button */}
-          {(timeRange !== 'all' || statusFilter !== 'all' || searchQuery !== '') && (
+          {(timeRange !== 'all' || statusFilter !== 'all' || gatewayFilter !== 'all' || searchQuery !== '') && (
             <button
               onClick={clearFilters}
               className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-colors inline-flex items-center gap-1.5"
@@ -784,8 +824,19 @@ export default function AdminCamlenioPayoutHistory() {
                       <div className="text-xs text-slate-400 font-mono mt-0.5">{tx.users_profiles?.mobile_number}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-medium text-slate-900">
-                        {tx.bank_ref === 'VERIFICATION_CHARGE' ? 'A/C Verification' : 'Payout Transfer'}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium text-slate-900">
+                          {tx.bank_ref === 'VERIFICATION_CHARGE' ? 'A/C Verification' : 'Payout Transfer'}
+                        </span>
+                        {getPayoutGateway(tx) === 'indiatek' ? (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-orange-50 text-orange-700 border border-orange-200">
+                            IndiaTek
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">
+                            CSPL
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-slate-500 font-mono">
                         {tx.bank_ref !== 'VERIFICATION_CHARGE' ? (tx.bank_ref || tx.txn_id) : tx.txn_id}
