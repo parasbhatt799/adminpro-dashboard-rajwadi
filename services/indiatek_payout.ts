@@ -89,13 +89,12 @@ export interface IndiaTekHeaders {
   'Content-Type': string;
 }
 
-export function generateIndiaTekHeaders(username?: string, apiSecret?: string): any {
+export function generateIndiaTekHeaders(username?: string, apiSecret?: string): IndiaTekHeaders {
   const local = getLocalSettings();
   const sec = (apiSecret || local.api_secret || API_SECRET).trim();
   return {
     'Username': (username || local.username || USERNAME).trim(),
     'X-API-SECRET': sec,
-    'X-API-Secret': sec,
     'Content-Type': 'application/json'
   };
 }
