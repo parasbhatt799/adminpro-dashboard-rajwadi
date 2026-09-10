@@ -249,7 +249,7 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
     let { data: log, error: logError } = await supabaseAdmin
       .from('b2b_api_logs')
       .select('*')
-      .eq('endpoint', '/api/b2b/pay-bill')
+      .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill')
       .contains('request_payload', { transaction_id })
       .maybeSingle();
 
@@ -258,10 +258,30 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
       const { data: altLog } = await supabaseAdmin
         .from('b2b_api_logs')
         .select('*')
-        .eq('endpoint', '/api/b2b/pay-bill')
-        .or(`${isUuid ? `id.eq.${transaction_id},` : ''}request_payload->>client_transaction_id.eq.${transaction_id},request_payload->>fetchRequestId.eq.${transaction_id},request_payload->>billavenue_request_id.eq.${transaction_id}`)
+        .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill')
+        .or(`${isUuid ? `id.eq.${transaction_id},` : ''}request_payload->>transaction_id.eq.${transaction_id},request_payload->>client_transaction_id.eq.${transaction_id},request_payload->>fetchRequestId.eq.${transaction_id},request_payload->>billavenue_request_id.eq.${transaction_id},response_payload->>transaction_id.eq.${transaction_id},response_payload->>api_txn_id.eq.${transaction_id}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
       if (altLog) log = altLog;
+    }
+
+    if (!log) {
+      // Fallback search across recent 200 logs for CC01 or substring match
+      const { data: recentLogs } = await supabaseAdmin
+        .from('b2b_api_logs')
+        .select('*')
+        .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (recentLogs) {
+        log = recentLogs.find(l => {
+          const reqStr = JSON.stringify(l.request_payload || {});
+          const resStr = JSON.stringify(l.response_payload || {});
+          return reqStr.includes(transaction_id) || resStr.includes(transaction_id) || l.id === transaction_id;
+        }) || null;
+      }
     }
 
     if (!log) {
@@ -361,56 +381,21 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
     
     let localStatus = log.payment_status || 'pending';
     
-    // If BBPS Status is terminal but our local status is still pending, update it!
-    if (localStatus === 'pending' && (bbpsStatus === 'SUCCESS' || bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE')) {
-      let newStatus = bbpsStatus === 'SUCCESS' ? 'success' : 'failed';
-      let newStatusCode = newStatus === 'success' ? 200 : 500;
-      let chargeDeducted = log.request_payload?.chargeDeducted || 0;
-      let updatedPayload = log.response_payload || {};
-      const root = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusRes || statusResult?.json?.transactionStatusResponse || {};
-
-      updatedPayload = { 
-        ...updatedPayload, 
-        finalStatus: newStatus, 
-        payment_status: newStatus,
-        billPayResponse: {
-          ...(updatedPayload.billPayResponse || {}),
-          ...(billAvenueTxnData || {}),
-          responseCode: root.responseCode,
-          responseReason: root.responseReason
-        },
-        statusCheckDetails: {
-          checked_at: new Date().toISOString(),
-          trackType,
-          trackValue,
-          bbpsStatus
-        },
-        updated_via: `ADMIN_${trackType}_STATUS_CHECK`
-      };
-
-      await supabaseAdmin
-        .from('b2b_api_logs')
-        .update({ 
-          payment_status: newStatus,
-          status_code: newStatusCode,
-          charge_deducted: newStatus === 'success' ? chargeDeducted : 0,
-          response_payload: updatedPayload
-        })
-        .eq('id', log.id);
-
-      if (newStatus === 'failed') {
-        const refundAmount = log.request_payload?.totalDeduction || 0;
-        if (refundAmount > 0) {
-          await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: log.agent_id, p_amount: refundAmount });
-        }
-      } else if (newStatus === 'success') {
-        // Credit admin profit if applicable
-        if (chargeDeducted > 0) {
-          await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargeDeducted });
-        }
-      }
-      
-      localStatus = newStatus;
+    // If BBPS Status is terminal and differs from local status, update atomically
+    if ((bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') && localStatus !== 'success') {
+      console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is SUCCESS on BillAvenue. Updating status from ${localStatus} to success via RPC...`);
+      await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
+        p_log_id: log.id,
+        p_status: 'success'
+      });
+      localStatus = 'success';
+    } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
+      console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
+      await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
+        p_log_id: log.id,
+        p_status: 'failed'
+      });
+      localStatus = 'failed';
     }
 
     return res.json({
@@ -609,64 +594,21 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
        }
     }
 
-    // If BBPS Status is terminal but local status is pending, update DB & Refund/Profit
-    if (localStatus === 'pending' && (bbpsStatus === 'SUCCESS' || bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE')) {
-      let newStatus = bbpsStatus === 'SUCCESS' ? 'success' : 'failed';
-      let newStatusCode = newStatus === 'success' ? 200 : 500;
-      let chargeDeducted = reqPayload?.chargeDeducted || 0;
-      let updatedPayload = resPayload;
-      const root = statusResult?.json?.transactionStatusResp || statusResult?.json?.transactionStatusRes || statusResult?.json?.transactionStatusResponse || {};
-
-      updatedPayload = { 
-        ...updatedPayload, 
-        finalStatus: newStatus, 
-        payment_status: newStatus,
-        transaction_id: apiTxnId,
-        api_txn_id: apiTxnId,
-        client_transaction_id: clientTxnId,
-        bbps_txn_ref_id: apiTxnId,
-        billPayResponse: {
-          ...(updatedPayload.billPayResponse || {}),
-          ...(billAvenueTxnData || {}),
-          responseCode: root.responseCode,
-          responseReason: root.responseReason
-        },
-        statusCheckDetails: {
-          checked_at: new Date().toISOString(),
-          trackType,
-          trackValue,
-          bbpsStatus
-        },
-        updated_via: `AGENT_${trackType}_STATUS_CHECK`
-      };
-
-      // Update the b2b_api_logs record
-      await supabaseAdmin
-        .from('b2b_api_logs')
-        .update({ 
-          payment_status: newStatus,
-          status_code: newStatusCode,
-          charge_deducted: newStatus === 'success' ? chargeDeducted : 0,
-          response_payload: updatedPayload
-        })
-        .eq('id', log.id);
-
-      // Handle Wallets & Profits
-      if (newStatus === 'failed') {
-        const refundAmount = reqPayload?.totalDeduction || 0;
-        if (refundAmount > 0) {
-          await supabaseAdmin.rpc('add_b2b_wallet_balance', {
-            p_agent_id: log.agent_id,
-            p_amount: refundAmount
-          });
-        }
-      } else if (newStatus === 'success') {
-        if (chargeDeducted > 0) {
-          await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargeDeducted });
-        }
-      }
-      
-      localStatus = newStatus;
+    // If BBPS Status is terminal and differs from local status, update atomically
+    if ((bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') && localStatus !== 'success') {
+      console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is SUCCESS on BillAvenue. Updating status from ${localStatus} to success via RPC...`);
+      await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
+        p_log_id: log.id,
+        p_status: 'success'
+      });
+      localStatus = 'success';
+    } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
+      console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
+      await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
+        p_log_id: log.id,
+        p_status: 'failed'
+      });
+      localStatus = 'failed';
     }
 
     return res.json({
@@ -928,22 +870,58 @@ export const payBill = async (req: Request, res: Response) => {
 
     // 3. Process the response
     const payJson = apiResponse.json;
-    const bpr = payJson?.billPayResponse || payJson?.ExtBillPayResponse || payJson;
-    const responseCode = bpr?.responseCode || payJson?.responseCode;
-    const txnStatus = (bpr?.txnStatus || payJson?.txnStatus || '').toUpperCase();
+    const bpr = payJson?.billPayResponse || payJson?.ExtBillPayResponse || payJson?.extBillPayResponse || payJson;
+    const rawResponseCode = String(bpr?.responseCode || payJson?.responseCode || '').trim();
+    const rawResponseReason = String(bpr?.responseReason || payJson?.responseReason || '').trim().toLowerCase();
+    const txnStatus = String(bpr?.txnStatus || payJson?.txnStatus || '').trim().toUpperCase();
     const txnRefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || payJson?.txnRefId;
     const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
-    const hasErrorInfo = !!(bpr?.errorInfo || payJson?.errorInfo || bpr?.reason || payJson?.reason);
+
+    const errorObj = bpr?.errorInfo?.error || payJson?.errorInfo?.error || bpr?.errorInfo || payJson?.errorInfo;
+    const errorCode = String(errorObj?.errorCode || bpr?.errorCode || payJson?.errorCode || '').trim().toUpperCase();
+    const errorMessage = String(errorObj?.errorMessage || bpr?.errorMessage || payJson?.errorMessage || bpr?.reason || payJson?.reason || '').trim();
+
+    // Pending / In-progress detection (matches BillAvenue specs & B2C logic):
+    // 1. responseCode 999, 001, or 'pending'
+    // 2. responseReason 'awaited' or 'pending'
+    // 3. errorCode PWB001 (Currently request in progress), PNR001, TIMEOUT
+    // 4. In-progress message description
+    // 5. Any request where CC01 reference was generated and BillAvenue has not explicitly returned txnStatus === 'FAILED' / 'FAILURE' / 'REJECTED'
+    const isPending = 
+      rawResponseCode === '999' || 
+      rawResponseCode === '001' ||
+      rawResponseCode.toLowerCase() === 'pending' ||
+      rawResponseReason === 'awaited' || 
+      rawResponseReason === 'pending' ||
+      txnStatus === 'PENDING' ||
+      txnStatus === 'AWAITED' ||
+      errorCode === 'PNR001' || 
+      errorCode === 'PWB001' || 
+      errorCode === 'TIMEOUT' ||
+      errorMessage.toLowerCase().includes('in progress') ||
+      errorMessage.toLowerCase().includes('check the status after some time') ||
+      (hasCC01 && txnStatus !== 'FAILED' && txnStatus !== 'FAILURE' && txnStatus !== 'REJECTED');
+
+    const isSuccess = 
+      !isPending && (
+        txnStatus === 'SUCCESS' || 
+        txnStatus === 'APPROVED' || 
+        rawResponseCode === '000' || 
+        rawResponseCode === '0000' || 
+        rawResponseReason === 'successful' || 
+        rawResponseReason === 'success'
+      );
 
     let finalStatus = 'pending';
-    if (txnStatus === 'SUCCESS' || responseCode === '000') {
+    if (isSuccess) {
       finalStatus = 'success';
-    } else if (hasCC01 && txnStatus !== 'FAILED' && !hasErrorInfo) {
-      // CC01 Reference ID generated: BillAvenue accepted the request and is processing at biller
+    } else if (isPending) {
       finalStatus = 'pending';
-    } else if (txnStatus === 'FAILED' || (responseCode && responseCode !== '000') || hasErrorInfo) {
+      // DO NOT refund wallet! Money remains deducted because the bill is actively being processed by BillAvenue & biller.
+      console.log(`[B2B PayBill - PENDING] Transaction ${customTxnId} is PENDING / AWAITED at BillAvenue (Ref: ${txnRefId || 'N/A'}).`);
+    } else {
       finalStatus = 'failed';
-      // Initiate refund (Refund total including charge)
+      // Initiate refund ONLY when truly FAILED (Refund total including charge)
       await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
       console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to FAILED status from BillAvenue.`);
     }
@@ -979,8 +957,10 @@ export const payBill = async (req: Request, res: Response) => {
     }
 
     res.json({
-      status: finalStatus === 'success' ? 'success' : 'error',
-      message: finalStatus === 'success' ? 'Bill Paid successfully' : 'Payment failed',
+      status: finalStatus === 'success' || finalStatus === 'pending' ? 'success' : 'error',
+      message: finalStatus === 'success' 
+        ? 'Bill Paid successfully' 
+        : (finalStatus === 'pending' ? 'Transaction initiated, currently pending at biller' : (errorMessage || 'Payment failed')),
       data: {
         ...payJson,
         transaction_id: bbpsuTxnId,
