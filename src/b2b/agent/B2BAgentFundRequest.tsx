@@ -391,13 +391,29 @@ export default function B2BAgentFundRequest() {
     }
 
     const selectedBank = adminBankAccounts.find(b => b.id === selectedBankId);
+    const trimmedUtr = formData.utrNumber.trim();
 
     setLoading(true);
     try {
+      // Check if a fund request with this UTR already exists in pending or approved status
+      const { data: existingUtr } = await supabase
+        .from('b2b_fund_requests')
+        .select('id, status, utr_number')
+        .ilike('utr_number', trimmedUtr)
+        .in('status', ['pending', 'approved'])
+        .limit(1)
+        .maybeSingle();
+
+      if (existingUtr) {
+        toast.error(`Duplicate UTR! A fund request with UTR "${trimmedUtr}" already exists (${existingUtr.status.toUpperCase()}).`);
+        setLoading(false);
+        return;
+      }
+
       const insertPayload: any = {
         agent_id: agentId,
         amount: parseFloat(formData.amount),
-        utr_number: formData.utrNumber,
+        utr_number: trimmedUtr,
         proof_url: formData.proofUrl,
         status: 'pending'
       };

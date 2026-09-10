@@ -548,7 +548,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const resBody = log.response_payload || log.response_body || {};
 
     const amount = reqBody?.amount !== undefined && reqBody?.amount !== null ? String(reqBody.amount) : '';
-    const txnId = resBody?.transaction_id || reqBody?.transaction_id || reqBody?.requestId || '';
+    const txnId = resBody?.transaction_id || reqBody?.transaction_id || reqBody?.client_transaction_id || reqBody?.fetchRequestId || reqBody?.requestId || '';
     const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || '';
     const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
 
@@ -1438,7 +1438,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             <div className="relative">
               <input
                 type="text"
-                placeholder="Txn ID / BBPS ID..."
+                placeholder="Txn ID / Client ID / BBPS ID..."
                 value={txnIdFilter}
                 onChange={(e) => setTxnIdFilter(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500 outline-none font-mono"
@@ -1600,7 +1600,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   const reqBody = log.request_payload || {};
                   const resBody = log.response_payload || {};
                   const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
-                  const txnId = resBody?.transaction_id || 'N/A';
+                  const apiTxnId = resBody?.api_txn_id || (typeof resBody?.transaction_id === 'string' && resBody.transaction_id.startsWith('BBPSU') ? resBody.transaction_id : null) || reqBody?.api_txn_id || (typeof reqBody?.transaction_id === 'string' && reqBody.transaction_id.startsWith('BBPSU') ? reqBody.transaction_id : null) || resBody?.transaction_id || reqBody?.transaction_id || 'N/A';
+                  const clientTxnId = reqBody?.client_transaction_id || (resBody?.client_transaction_id && resBody.client_transaction_id !== apiTxnId ? resBody.client_transaction_id : null);
                   const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId;
                   
                   // Extract the primary customer parameter (like Credit Card number, Consumer Number)
@@ -1669,14 +1670,19 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       </td>
                       
                       <td className="px-3 py-3">
-                        {primaryParam && (
-                          <div className="text-white text-xs font-mono mb-0.5">{primaryParam}</div>
+                        <div className="font-mono text-xs text-white">
+                          {primaryParam || reqBody.mobile || 'N/A'}
+                        </div>
+                        {primaryParam && reqBody.mobile && (
+                          <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5">
+                            <Smartphone className="w-3 h-3 text-slate-500 inline" />
+                            {reqBody.mobile}
+                          </div>
                         )}
-                        <div className="text-slate-400 text-[11px] font-mono">{reqBody.mobile || 'N/A'}</div>
                       </td>
                       
-                      <td className="px-3 py-3">
-                        <div className="font-bold text-white text-xs">₹ {Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</div>
+                      <td className="px-3 py-3 font-semibold text-white font-mono text-xs">
+                        ₹ {Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
 
                       <td className="px-3 py-3">
@@ -1702,8 +1708,17 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       )}
 
                       <td className="px-3 py-3 font-mono text-xs text-slate-300">
-                        {txnId !== 'N/A' ? (
-                          <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700/50 text-[11px] block truncate max-w-[130px]" title={txnId}>{txnId}</span>
+                        {apiTxnId !== 'N/A' ? (
+                          <div>
+                            <span className="bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700/50 text-[11px] font-semibold text-slate-200 block truncate max-w-[140px]" title={apiTxnId}>
+                              {apiTxnId}
+                            </span>
+                            {clientTxnId && clientTxnId !== apiTxnId && (
+                              <span className="text-[10px] text-slate-400 block truncate max-w-[140px] mt-0.5" title={`Client TX: ${clientTxnId}`}>
+                                TX: {clientTxnId}
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-slate-500 font-sans">-</span>
                         )}

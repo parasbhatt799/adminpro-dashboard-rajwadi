@@ -17,6 +17,7 @@ export default function B2BAdminFundRequests() {
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [selectedProofReq, setSelectedProofReq] = useState<any | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [processingIds, setProcessingIds] = useState<string[]>([]);
 
   // OCR state variables for proof verification
   const [ocrState, setOcrState] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
@@ -183,6 +184,12 @@ export default function B2BAdminFundRequests() {
     action: 'approve' | 'reject' | 'revert_approved',
     currentBalance?: number
   ) => {
+    // 1. Guard against double-clicks and concurrent actions on the same request
+    if (processingIds.includes(requestId)) {
+      console.warn(`[Double-Click Blocked] Request ${requestId} is already being processed.`);
+      return;
+    }
+
     if (action === 'revert_approved') {
       let warning = '';
       if (typeof currentBalance === 'number' && currentBalance < amount) {
@@ -194,19 +201,54 @@ export default function B2BAdminFundRequests() {
       }
 
       try {
+        setProcessingIds(prev => [...prev, requestId]);
         setActionLoading(true);
-        // Deduct/revert balance atomically (-amount)
-        const { data: success, error: rpcError } = await supabase.rpc('add_b2b_wallet_balance', {
-          p_agent_id: agentId,
-          p_amount: -amount
+
+        // Try atomic RPC procedure first
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc('process_b2b_fund_request_atomic', {
+          p_request_id: requestId,
+          p_action: 'revert_approved'
         });
 
-        if (rpcError || !success) throw rpcError || new Error('Failed to revert balance');
+        if (!rpcErr && rpcRes) {
+          if (!rpcRes.success) {
+            toast.error(rpcRes.message || 'Failed to revert request');
+            fetchRequests();
+            return;
+          }
+        } else {
+          // Fallback: Conditional update ONLY if status is still 'approved'
+          const { data: updatedReq, error: updateErr } = await supabase
+            .from('b2b_fund_requests')
+            .update({ status: 'rejected', updated_at: new Date().toISOString() })
+            .eq('id', requestId)
+            .eq('status', 'approved')
+            .select('id, status')
+            .maybeSingle();
 
-        await supabase
-          .from('b2b_fund_requests')
-          .update({ status: 'rejected', updated_at: new Date().toISOString() })
-          .eq('id', requestId);
+          if (updateErr) throw updateErr;
+
+          if (!updatedReq) {
+            toast.error('This request is not in approved state or has already been reverted.');
+            fetchRequests();
+            return;
+          }
+
+          // Deduct/revert balance atomically (-amount)
+          const { data: success, error: balErr } = await supabase.rpc('add_b2b_wallet_balance', {
+            p_agent_id: agentId,
+            p_amount: -amount
+          });
+
+          if (balErr || !success) {
+            // Rollback status to approved if balance deduct failed
+            await supabase
+              .from('b2b_fund_requests')
+              .update({ status: 'approved', updated_at: new Date().toISOString() })
+              .eq('id', requestId);
+            throw balErr || new Error('Failed to revert balance');
+          }
+        }
 
         // 💬 Trigger WhatsApp Rejection Notification to Agent
         try {
@@ -227,11 +269,12 @@ export default function B2BAdminFundRequests() {
 
         toast.success(`Fund request rejected & ₹${amount.toLocaleString('en-IN')} balance reverted successfully!`);
         fetchRequests();
-      } catch (err) {
+      } catch (err: any) {
         console.error('Error reverting request:', err);
-        toast.error('Failed to revert fund request and balance');
+        toast.error(err?.message || 'Failed to revert fund request and balance');
       } finally {
         setActionLoading(false);
+        setProcessingIds(prev => prev.filter(id => id !== requestId));
       }
       return;
     }
@@ -239,20 +282,55 @@ export default function B2BAdminFundRequests() {
     if (!window.confirm(`Are you sure you want to ${action} this fund request of ₹${amount.toLocaleString('en-IN')}?`)) return;
 
     try {
+      setProcessingIds(prev => [...prev, requestId]);
       setActionLoading(true);
+
       if (action === 'approve') {
-        // Atomic balance update (+amount)
-        const { data: success, error: rpcError } = await supabase.rpc('add_b2b_wallet_balance', {
-          p_agent_id: agentId,
-          p_amount: amount
+        // ATOMIC GUARD: Try atomic RPC first
+        const { data: rpcRes, error: rpcErr } = await supabase.rpc('process_b2b_fund_request_atomic', {
+          p_request_id: requestId,
+          p_action: 'approve'
         });
 
-        if (rpcError || !success) throw rpcError || new Error('Failed to update balance');
+        if (!rpcErr && rpcRes) {
+          if (!rpcRes.success) {
+            toast.error(rpcRes.message || 'Failed to approve request. Double credit prevented!');
+            fetchRequests();
+            return;
+          }
+        } else {
+          // Fallback: Conditional update ONLY if status is still 'pending'
+          const { data: updatedReq, error: updateErr } = await supabase
+            .from('b2b_fund_requests')
+            .update({ status: 'approved', updated_at: new Date().toISOString() })
+            .eq('id', requestId)
+            .eq('status', 'pending')
+            .select('id, status')
+            .maybeSingle();
 
-        await supabase
-          .from('b2b_fund_requests')
-          .update({ status: 'approved', updated_at: new Date().toISOString() })
-          .eq('id', requestId);
+          if (updateErr) throw updateErr;
+
+          if (!updatedReq) {
+            toast.error('This fund request has already been processed or is not pending. Double credit prevented!');
+            fetchRequests();
+            return;
+          }
+
+          // Credit balance atomically (+amount) only after status was successfully updated
+          const { data: success, error: balErr } = await supabase.rpc('add_b2b_wallet_balance', {
+            p_agent_id: agentId,
+            p_amount: amount
+          });
+
+          if (balErr || !success) {
+            // Rollback status to pending if balance credit failed
+            await supabase
+              .from('b2b_fund_requests')
+              .update({ status: 'pending', updated_at: new Date().toISOString() })
+              .eq('id', requestId);
+            throw balErr || new Error('Failed to update balance');
+          }
+        }
 
         // 💬 Trigger WhatsApp Notification to Agent
         try {
@@ -272,10 +350,22 @@ export default function B2BAdminFundRequests() {
 
         toast.success(`Fund request of ₹${amount.toLocaleString('en-IN')} approved successfully!`);
       } else {
-        await supabase
+        // Handle REJECT: Conditional update only if status is still 'pending'
+        const { data: updatedReq, error: updateErr } = await supabase
           .from('b2b_fund_requests')
           .update({ status: 'rejected', updated_at: new Date().toISOString() })
-          .eq('id', requestId);
+          .eq('id', requestId)
+          .eq('status', 'pending')
+          .select('id, status')
+          .maybeSingle();
+
+        if (updateErr) throw updateErr;
+
+        if (!updatedReq) {
+          toast.error('This fund request has already been processed.');
+          fetchRequests();
+          return;
+        }
 
         // 💬 Trigger WhatsApp Rejection Notification to Agent
         try {
@@ -294,15 +384,16 @@ export default function B2BAdminFundRequests() {
           console.error('[WhatsApp Call Error]', wsErr);
         }
 
-        toast.success(`Fund request rejected.`);
+        toast.success('Fund request rejected.');
       }
 
       fetchRequests();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error processing request:', err);
-      toast.error('Failed to process request');
+      toast.error(err?.message || 'Failed to process request');
     } finally {
       setActionLoading(false);
+      setProcessingIds(prev => prev.filter(id => id !== requestId));
     }
   };
 
@@ -803,29 +894,35 @@ export default function B2BAdminFundRequests() {
                       {req.status === 'pending' && (
                         <>
                           <button
-                            disabled={actionLoading}
+                            disabled={actionLoading || processingIds.includes(req.id)}
                             onClick={() => handleAction(req.id, req.agent_id, req.amount, 'approve')}
-                            className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                            className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                           >
+                            {processingIds.includes(req.id) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                             Approve
                           </button>
                           <button
-                            disabled={actionLoading}
+                            disabled={actionLoading || processingIds.includes(req.id)}
                             onClick={() => handleAction(req.id, req.agent_id, req.amount, 'reject')}
-                            className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                            className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                           >
+                            {processingIds.includes(req.id) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                             Reject
                           </button>
                         </>
                       )}
                       {req.status === 'approved' && (
                         <button
-                          disabled={actionLoading}
+                          disabled={actionLoading || processingIds.includes(req.id)}
                           onClick={() => handleAction(req.id, req.agent_id, req.amount, 'revert_approved', req.b2b_api_credentials?.wallet_balance)}
                           className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center justify-center"
                           title="Reject & Revert Balance"
                         >
-                          <RotateCw className="w-4 h-4" />
+                          {processingIds.includes(req.id) ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <RotateCw className="w-4 h-4" />
+                          )}
                         </button>
                       )}
                     </td>
@@ -1082,21 +1179,22 @@ export default function B2BAdminFundRequests() {
                 {selectedProofReq.status === 'pending' ? (
                   <>
                     <button
-                      disabled={actionLoading}
+                      disabled={actionLoading || processingIds.includes(selectedProofReq.id)}
                       onClick={async () => {
                         await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'reject');
                         setSelectedProofReq(null);
                       }}
                       className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
                     >
-                      <X className="w-4 h-4" /> Reject Request
+                      {processingIds.includes(selectedProofReq.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Reject Request
                     </button>
 
                     {(() => {
                       const isOcrPassed = (ocrUtrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched') || bypassOcr;
+                      const isProcessing = processingIds.includes(selectedProofReq.id);
                       return (
                         <button
-                          disabled={actionLoading || ocrState === 'loading' || !isOcrPassed}
+                          disabled={actionLoading || isProcessing || ocrState === 'loading' || !isOcrPassed}
                           onClick={async () => {
                             await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
                             setSelectedProofReq(null);
@@ -1104,7 +1202,7 @@ export default function B2BAdminFundRequests() {
                           title={!isOcrPassed ? 'OCR Verification failed or pending. Check Bypass OCR box to enable.' : ''}
                           className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 active:scale-95"
                         >
-                          <Check className="w-4 h-4" /> Approve & Credit Balance
+                          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve & Credit Balance
                         </button>
                       );
                     })()}
@@ -1112,7 +1210,7 @@ export default function B2BAdminFundRequests() {
                 ) : selectedProofReq.status === 'approved' ? (
                   <>
                     <button
-                      disabled={actionLoading}
+                      disabled={actionLoading || processingIds.includes(selectedProofReq.id)}
                       onClick={async () => {
                         await handleAction(
                           selectedProofReq.id,
@@ -1125,9 +1223,10 @@ export default function B2BAdminFundRequests() {
                       }}
                       className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
                     >
-                      <RotateCw className="w-4 h-4" /> Reject & Revert Balance
+                      {processingIds.includes(selectedProofReq.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />} Reject & Revert Balance
                     </button>
                     <button
+                      disabled={processingIds.includes(selectedProofReq.id)}
                       onClick={() => setSelectedProofReq(null)}
                       className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
                     >

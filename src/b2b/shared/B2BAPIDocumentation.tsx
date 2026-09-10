@@ -212,7 +212,7 @@ export default function B2BAPIDocumentation() {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
       doc.setTextColor(71, 85, 105);
-      doc.text('Pass BBPSU1283118228, TXN_ORD..., or CC01... ID. Pending transactions without CC01 ID auto-fail and auto-refund.', 14, y);
+      doc.text('Supports: BBPSU..., client_transaction_id, fetchRequestId (from /fetch-bill), or CC01... ID. Queries BillAvenue live via TRANS_REF_ID or REQUEST_ID.', 14, y);
       y += 5;
 
       y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "CC016226CBAF13851712",\n    "current_status": "success",\n    "bbps_status": "SUCCESS",\n    "polled_at": "2026-08-14T03:15:00.000Z"\n  }\n}`, y);
@@ -728,16 +728,35 @@ export default function B2BAPIDocumentation() {
           </div>
 
           <p className="text-xs text-slate-300 leading-relaxed relative z-10">
-            Check live transaction status by passing your API Transaction ID (e.g. <code>BBPSU1283118228</code>), your Custom Client Transaction ID (e.g. <code>TXN_ORD_20260814_001</code>), or BillAvenue Ref ID (e.g. <code>CC01...</code>).
+            Check real-time live transaction status. You can query using any of the following 4 identifiers in the URL parameter:
           </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300 relative z-10">
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+              <span className="text-indigo-400 font-semibold block text-[11px]">1. API Transaction ID</span>
+              <code className="text-emerald-400 text-[11px]">BBPSU1283118228</code>
+            </div>
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+              <span className="text-indigo-400 font-semibold block text-[11px]">2. Custom Client Order ID (Recommended)</span>
+              <code className="text-amber-400 text-[11px]">TXN_ORD_20260814_001</code>
+            </div>
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+              <span className="text-indigo-400 font-semibold block text-[11px]">3. Fetch Request ID (From /fetch-bill)</span>
+              <code className="text-cyan-400 text-[11px]">8ngUMf5Jrb83C8KY0RhjOQjlaNK62510835</code>
+            </div>
+            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
+              <span className="text-indigo-400 font-semibold block text-[11px]">4. BillAvenue Reference ID</span>
+              <code className="text-purple-400 text-[11px]">CC016226CBAF13851712</code>
+            </div>
+          </div>
 
           <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-4 space-y-2 relative z-10">
             <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs">
               <ShieldAlert className="h-4 w-4 text-indigo-400" />
-              <span>Automatic Gateway Failure & Auto-Refund Policy</span>
+              <span>Smart Status Tracking & Timeout Protection</span>
             </div>
             <p className="text-[11px] text-slate-300 leading-normal">
-              If a transaction status is <code>pending</code> and no <code>CC01</code> Reference ID was generated (e.g. gateway socket error or network drop before hitting biller gateway), calling <code>/status/:transaction_id</code> automatically updates local database status to <code>failed</code> and performs an <strong>Immediate Automatic Refund</strong> back to your B2B Agent Wallet balance.
+              Even if a network timeout occurred during payment and no <code>CC01</code> Reference ID was initially received by your client application, calling <code>/status/:transaction_id</code> with your <code>client_transaction_id</code> or <code>fetchRequestId</code> queries BillAvenue live via <code>REQUEST_ID</code>. If the payment succeeded upstream, it updates to <code>success</code> and returns the new <code>CC01</code> reference number. If the transaction was never processed by the gateway, it safely marks as <code>failed</code> and performs an <strong>Immediate Automatic Refund</strong> back to your B2B Agent Wallet.
             </p>
           </div>
 
