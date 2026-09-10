@@ -406,7 +406,7 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
     setSuccess(null);
     setPayoutResult(null);
 
-    const partnerRef = `ITP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+    const partnerRef = `PAYOUT_${Date.now()}`;
 
     try {
       const res = await fetch('/api/indiatek-payout/send', {

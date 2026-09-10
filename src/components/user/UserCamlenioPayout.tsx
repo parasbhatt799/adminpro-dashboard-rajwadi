@@ -128,7 +128,7 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
         const bankRef = (item.bank_ref || '');
         const txnId = (item.transaction_id || item.txn_id || '');
         const utr = (item.utr_number || '');
-        return !remark.includes('indiatek') && !bankRef.startsWith('ITP_') && !txnId.startsWith('ITP_') && !utr.startsWith('ITP_');
+        return !remark.includes('indiatek') && !remark.includes('usepayout') && !bankRef.startsWith('ITP_') && !bankRef.startsWith('PAYOUT_') && !txnId.startsWith('ITP_') && !txnId.startsWith('PAYOUT_') && !utr.startsWith('ITP_') && !utr.startsWith('PAYOUT_');
       });
 
       setTransactions(camlenioOnly.slice(0, 10));

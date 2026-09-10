@@ -130,7 +130,7 @@ export async function initiateIndiaTekPayout(payload: IndiaTekPayoutPayload, use
   const url = `${BASE_URL}/payout`;
   const headers = generateIndiaTekHeaders(username, apiSecret);
 
-  const refId = (payload.client_ref_id || payload.partner_reference || `PAYOUT_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`).trim();
+  const refId = (payload.client_ref_id || payload.partner_reference || `PAYOUT_${Date.now()}`).trim();
   const accNo = String(payload.account_number).trim();
   const ifscCode = String(payload.ifsc || payload.ifsc_code || '').trim().toUpperCase();
 

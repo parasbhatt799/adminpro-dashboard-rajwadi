@@ -5741,7 +5741,7 @@ async function startServer() {
         }
       }
 
-      const finalPartnerRef = partner_reference || `ITP_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+      const finalPartnerRef = partner_reference || `PAYOUT_${Date.now()}`;
 
       // Deduct User Wallet Balance & Create Entry in payout_submissions (same as CSPL/Camlenio)
       let payoutSubmissionId: string | null = null;

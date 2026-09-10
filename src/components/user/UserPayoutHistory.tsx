@@ -99,8 +99,11 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
       remark.includes('usepayout') ||
       remark.includes('indiatek') ||
       bankRef.startsWith('ITP_') ||
+      bankRef.startsWith('PAYOUT_') ||
       txnId.startsWith('ITP_') ||
-      utr.startsWith('ITP_')
+      txnId.startsWith('PAYOUT_') ||
+      utr.startsWith('ITP_') ||
+      utr.startsWith('PAYOUT_')
     ) {
       return 'indiatek';
     }
