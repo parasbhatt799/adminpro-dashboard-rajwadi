@@ -5819,12 +5819,16 @@ async function startServer() {
       const transactionId = payoutResult?.data?.transaction_id || payoutResult?.txn_id || null;
       const isSuccessOrPending = statusStr === "SUCCESS" || statusStr === "PENDING";
 
-      const responseMessage = 
-        payoutResult?.message || 
+      let responseMessage = 
         payoutResult?.error || 
         (payoutResult?.errors ? Object.values(payoutResult.errors).flat().join(', ') : null) || 
         payoutResult?.data?.message || 
+        payoutResult?.message || 
         (isSuccessOrPending ? "Payout processed successfully" : `Payout failed: ${statusStr}`);
+
+      if (!isSuccessOrPending && responseMessage && responseMessage.toLowerCase().includes("successfully")) {
+        responseMessage = `Payout failed at IndiaTek gateway (Status: ${statusStr}). Amount has been refunded to your wallet.`;
+      }
 
       // Handle SUCCESS or PENDING
       if (isSuccessOrPending) {
