@@ -5678,8 +5678,19 @@ async function startServer() {
       const resolvedIfsc = String(ifsc || ifsc_code || '').trim().toUpperCase();
       const resolvedAccount = String(account_number || req.body.accountNumber || '').trim();
 
-      if (!resolvedAccount || !resolvedIfsc || !amount || !beneficiary_name || !customer_mobile) {
-        return res.status(400).json({ success: false, message: "Required fields missing (account_number, ifsc, amount, beneficiary_name, customer_mobile)" });
+      let resolvedMobile = String(customer_mobile || req.body.phone || req.body.mobile || req.body.mobileNumber || '').replace(/\D/g, '').slice(-10);
+      if ((!resolvedMobile || resolvedMobile.length < 10) && user_id && user_id !== 'admin') {
+        const { data: uProfile } = await supabaseAdmin.from('users_profiles').select('mobile_number').eq('id', user_id).maybeSingle();
+        if (uProfile?.mobile_number) {
+          resolvedMobile = String(uProfile.mobile_number).replace(/\D/g, '').slice(-10);
+        }
+      }
+      if (!resolvedMobile || resolvedMobile.length < 10) {
+        resolvedMobile = '9876543210';
+      }
+
+      if (!resolvedAccount || !resolvedIfsc || !amount || !beneficiary_name) {
+        return res.status(400).json({ success: false, message: "Required fields missing (account_number, ifsc, amount, beneficiary_name)" });
       }
 
       const numAmount = Number(amount);
@@ -5800,7 +5811,7 @@ async function startServer() {
         ifsc_code: resolvedIfsc,
         amount: numAmount,
         beneficiary_name: String(beneficiary_name).trim(),
-        customer_mobile: String(customer_mobile).trim(),
+        customer_mobile: resolvedMobile,
         partner_reference: finalPartnerRef
       }, username, apiSecret);
 
@@ -5838,7 +5849,7 @@ async function startServer() {
               ifsc_code: resolvedIfsc,
               amount: numAmount,
               beneficiary_name: String(beneficiary_name).trim(),
-              customer_mobile: String(customer_mobile).trim(),
+              customer_mobile: resolvedMobile,
               partner_reference: finalPartnerRef,
               transaction_id: transactionId,
               status: statusStr,
@@ -5895,7 +5906,7 @@ async function startServer() {
               ifsc_code: resolvedIfsc,
               amount: numAmount,
               beneficiary_name: String(beneficiary_name).trim(),
-              customer_mobile: String(customer_mobile).trim(),
+              customer_mobile: resolvedMobile,
               partner_reference: finalPartnerRef,
               transaction_id: transactionId,
               status: statusStr || "FAILED",

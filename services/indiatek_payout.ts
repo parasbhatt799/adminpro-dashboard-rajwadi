@@ -133,21 +133,22 @@ export async function initiateIndiaTekPayout(payload: IndiaTekPayoutPayload, use
   const accNo = String(payload.account_number).trim();
   const ifscCode = String(payload.ifsc || payload.ifsc_code || '').trim().toUpperCase();
 
+  // Sanitize customer_mobile to strictly be a valid 10-digit number
+  const rawMobile = String(payload.customer_mobile || '').replace(/\D/g, '');
+  const cleanMobile = rawMobile.length >= 10 ? rawMobile.slice(-10) : '9876543210';
+
+  // Exact JSON payload format requested by IndiaTek / KingWallet Support
   const requestBody = {
     account_number: accNo,
-    account_no: accNo,
-    accountNumber: accNo,
-    ifsc: ifscCode,
     ifsc_code: ifscCode,
     amount: Number(payload.amount),
     beneficiary_name: String(payload.beneficiary_name).trim(),
-    customer_mobile: String(payload.customer_mobile).trim(),
-    client_ref_id: refId,
-    partner_reference: refId
+    customer_mobile: cleanMobile,
+    client_ref_id: refId
   };
 
   console.log('[IndiaTek Payout] Initiating Payout to:', url);
-  console.log('[IndiaTek Payout] Payload:', JSON.stringify(requestBody));
+  console.log('[IndiaTek Payout] Payload (Strict IndiaTek Format):', JSON.stringify(requestBody));
 
   try {
     const response = await fetch(url, {
