@@ -473,6 +473,12 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
       txnRespType: billAvenueTxnData?.txnRespType || existingPayload?.ExtBillPayResponse?.txnRespType || 'FORWARD TYPE RESPONSE'
     };
 
+    if (isGatewaySuccess) {
+      delete extBillPayResponse.errorInfo;
+      delete extBillPayResponse.errorCode;
+      delete extBillPayResponse.errorMessage;
+    }
+
     if (billAvenueTxnData?.inputList && !extBillPayResponse.inputParams) {
       extBillPayResponse.inputParams = { input: billAvenueTxnData.inputList };
     }
@@ -786,6 +792,12 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
       RespCustomerName: billAvenueTxnData?.respCustomerName || reqPayload?.billerResponseInfo?.customerName || existingPayload?.ExtBillPayResponse?.RespCustomerName || undefined,
       txnRespType: billAvenueTxnData?.txnRespType || existingPayload?.ExtBillPayResponse?.txnRespType || 'FORWARD TYPE RESPONSE'
     };
+
+    if (isGatewaySuccess) {
+      delete extBillPayResponse.errorInfo;
+      delete extBillPayResponse.errorCode;
+      delete extBillPayResponse.errorMessage;
+    }
 
     if (billAvenueTxnData?.inputList && !extBillPayResponse.inputParams) {
       extBillPayResponse.inputParams = { input: billAvenueTxnData.inputList };

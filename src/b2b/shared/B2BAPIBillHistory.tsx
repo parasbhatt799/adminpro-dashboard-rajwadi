@@ -273,9 +273,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const data = await resData.json();
 
       if (data.status === 'success') {
+        await fetchLogs();
         const messageDetails = data.data?.message ? `\nNote: ${data.data.message}` : '';
         alert(`Current BBPS Status: ${data.data?.bbps_status || 'CHECKED'}${messageDetails}\nOur DB was updated automatically!`);
-        fetchLogs();
       } else {
         const errorText = data?.message || data?.error || data?.details || 'Unable to fetch transaction status.';
         alert(`Status Check Message: ${errorText}`);
@@ -430,54 +430,32 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const txnRefId = bpr?.txnRefId || responseBody?.txnRefId || bpr?.txnReferenceId || responseBody?.txnReferenceId;
     const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
 
-    // 1. Explicit Pending / Awaited check MUST take priority over generic responseCode "000"
-    const isExplicitPending =
-      rawStatus === 'pending' ||
-      txnStatus === 'AWAITED' ||
-      txnStatus === 'PENDING' ||
-      responseReason === 'awaited' ||
-      responseReason === 'pending' ||
-      errorCode === 'PNR001' ||
-      errorCode === 'PWB001' ||
-      errorMsg.includes('in progress') ||
-      errorMsg.includes('check the status after some time');
+    // 1. Definite Success
+    const isExplicitSuccess =
+      txnStatus === 'SUCCESS' ||
+      txnStatus === 'APPROVED' ||
+      (rawStatus === 'success' && txnStatus !== 'AWAITED' && txnStatus !== 'PENDING') ||
+      (!['AWAITED', 'PENDING', 'FAILED', 'FAILURE', 'REJECTED'].includes(txnStatus) && 
+       (responseCode === '000' || responseCode === '0000') && 
+       (responseReason === 'successful' || responseReason === 'success') &&
+       errorCode !== 'PNR001' && errorCode !== 'PWB001');
 
-    if (isExplicitPending) {
-      return {
-        text: 'Pending',
-        color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
-        icon: <Clock className="w-4 h-4 text-amber-400" />
-      };
-    }
-
-    // 2. Explicit Failed check
-    const hasErrorInfo = !!(bpr?.errorInfo || responseBody?.errorInfo || responseBody?.reason);
-    const isExplicitFailed =
-      rawStatus === 'failed' ||
-      statusCode === 500 ||
-      txnStatus === 'FAILED' ||
-      txnStatus === 'FAILURE' ||
-      txnStatus === 'REJECTED' ||
-      (hasErrorInfo && !hasCC01);
-
-    // 3. True Success check
-    const isSuccess =
-      !isExplicitPending &&
-      !isExplicitFailed &&
-      (
-        rawStatus === 'success' ||
-        txnStatus === 'SUCCESS' ||
-        txnStatus === 'APPROVED' ||
-        ((responseCode === '000' || responseCode === '0000') && (responseReason === 'successful' || responseReason === 'success'))
-      );
-
-    if (isSuccess) {
+    if (isExplicitSuccess) {
       return {
         text: 'Success',
         color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
         icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />
       };
     }
+
+    // 2. Definite Failed
+    const hasErrorInfo = !!(bpr?.errorInfo || responseBody?.errorInfo || responseBody?.reason);
+    const isExplicitFailed =
+      txnStatus === 'FAILED' ||
+      txnStatus === 'FAILURE' ||
+      txnStatus === 'REJECTED' ||
+      (rawStatus === 'failed' && txnStatus !== 'AWAITED' && txnStatus !== 'PENDING') ||
+      (hasErrorInfo && !hasCC01 && txnStatus !== 'AWAITED' && txnStatus !== 'PENDING' && rawStatus !== 'pending');
 
     if (isExplicitFailed) {
       return {
@@ -487,6 +465,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       };
     }
 
+    // 3. Fallback to Pending
     return {
       text: 'Pending',
       color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
