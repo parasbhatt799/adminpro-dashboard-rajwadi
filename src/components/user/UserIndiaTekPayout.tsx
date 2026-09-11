@@ -45,12 +45,12 @@ interface Beneficiary {
 
 interface PayoutSubmission {
   id: string;
-  user_id: string;
+  user_id?: string;
   account_number: string;
   ifsc_code: string;
   amount: number;
   beneficiary_name: string;
-  customer_mobile: string;
+  customer_mobile?: string;
   partner_reference: string;
   transaction_id?: string;
   status: string;
@@ -445,11 +445,13 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
 
         const receipt: PayoutSubmission = {
           id: txnId,
+          user_id: currentUserId,
           created_at: new Date().toISOString(),
           amount: numAmount,
           charges: chargeAmount,
           status: finalStatus,
           beneficiary_name: currentBeneficiary.holder_name,
+          customer_mobile: payoutMobile || currentBeneficiary.phone || userProfile?.phone || '',
           account_number: currentBeneficiary.account_number,
           ifsc_code: currentBeneficiary.ifsc_code,
           partner_reference: finalPartnerRef,
