@@ -438,8 +438,29 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
       setPayoutResult(data);
 
       if (data?.success) {
-        setSuccess(`Payout of ₹${numAmount.toLocaleString('en-IN')} initiated successfully! Partner Ref: ${partnerRef}`);
+        const currentBeneficiary = selectedBeneficiary;
+        const finalStatus = (data?.status || 'PENDING').toString().toUpperCase();
+        const finalPartnerRef = data?.partner_reference || partnerRef;
+        const txnId = data?.transaction_id || finalPartnerRef;
+
+        const receipt: PayoutSubmission = {
+          id: txnId,
+          created_at: new Date().toISOString(),
+          amount: numAmount,
+          charges: chargeAmount,
+          status: finalStatus,
+          beneficiary_name: currentBeneficiary.holder_name,
+          account_number: currentBeneficiary.account_number,
+          ifsc_code: currentBeneficiary.ifsc_code,
+          partner_reference: finalPartnerRef,
+          transaction_id: txnId
+        };
+
+        // Close Transfer Funds modal & immediately open Receipt Modal popup
         setSelectedBeneficiary(null);
+        setReceiptTxn(receipt);
+
+        setSuccess(`Payout of ₹${numAmount.toLocaleString('en-IN')} initiated successfully! Partner Ref: ${finalPartnerRef}`);
         setPayoutAmount('');
         setPayoutMobile('');
         fetchUserData();
@@ -1481,17 +1502,31 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
             </div>
 
             <div className="p-6 space-y-4 text-sm">
-              <div className="text-center p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">
-                  Transaction Status
-                </div>
-                <div className="text-2xl font-black text-emerald-700 uppercase">
-                  {receiptTxn.status}
-                </div>
-                <div className="text-3xl font-black text-slate-900 font-mono mt-2">
-                  ₹ {Number(receiptTxn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                </div>
-              </div>
+              {(() => {
+                const statusUpper = (receiptTxn.status || 'SUCCESS').toUpperCase();
+                const isSuccess = statusUpper === 'SUCCESS' || statusUpper === 'APPROVED';
+                const isPending = statusUpper === 'PENDING' || statusUpper === 'PROCESSING';
+
+                return (
+                  <div className={`text-center p-4 rounded-2xl border ${
+                    isSuccess
+                      ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                      : isPending
+                      ? 'bg-amber-50 border-amber-200 text-amber-700'
+                      : 'bg-rose-50 border-rose-200 text-rose-700'
+                  }`}>
+                    <div className="text-xs font-bold uppercase tracking-wider mb-1">
+                      Transaction Status
+                    </div>
+                    <div className="text-2xl font-black uppercase">
+                      {receiptTxn.status}
+                    </div>
+                    <div className="text-3xl font-black text-slate-900 font-mono mt-2">
+                      ₹ {Number(receiptTxn.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="divide-y divide-slate-100 text-xs">
                 <div className="py-2.5 flex justify-between">
@@ -1524,12 +1559,18 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                 </div>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 flex items-center gap-2">
                 <button
                   onClick={() => window.print()}
-                  className="w-full py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md"
+                  className="flex-1 py-3 bg-slate-900 hover:bg-black text-white font-bold rounded-xl text-xs flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
                 >
                   <Printer className="w-4 h-4" /> Print Receipt
+                </button>
+                <button
+                  onClick={() => setReceiptTxn(null)}
+                  className="px-5 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>
