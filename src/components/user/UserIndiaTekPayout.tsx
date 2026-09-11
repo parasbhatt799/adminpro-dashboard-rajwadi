@@ -468,12 +468,14 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
         fetchUserData();
         fetchUserHistory();
       } else {
-        setError(data?.message || 'Payout failed. Please check details or try again later.');
+        const rawMsg = data?.message || 'Payout failed. Please check details or try again later.';
+        setError(rawMsg.replace(/indiatek/gi, 'UsePayout'));
         fetchUserData();
       }
     } catch (err: any) {
       console.error('Error initiating payout:', err);
-      setError(err?.message || 'Failed to initiate payout');
+      const rawMsg = err?.message || 'Failed to initiate payout';
+      setError(rawMsg.replace(/indiatek/gi, 'UsePayout'));
       fetchUserData();
     } finally {
       setSubmitting(false);
@@ -492,7 +494,7 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
       fetchUserData(); // Refresh balance if refunded
     } catch (err) {
       console.error('Error checking status:', err);
-      setError('Failed to check live status from IndiaTek API');
+      setError('Failed to check live status from UsePayout API');
     } finally {
       setCheckingStatusRef(null);
     }

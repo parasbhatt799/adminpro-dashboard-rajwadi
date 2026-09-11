@@ -261,44 +261,64 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
 
   const cleanValue = (val: any): string => {
     if (!val || typeof val !== 'string') return '';
-    const trimmed = val.trim();
+    let trimmed = val.trim();
     if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('"success"') || trimmed.includes('"data"') || trimmed.includes('{"')) {
       try {
         const parsed = JSON.parse(trimmed);
-        if (parsed.data?.rrn) return String(parsed.data.rrn);
-        if (parsed.data?.utr) return String(parsed.data.utr);
-        if (parsed.data?.txnid) return String(parsed.data.txnid);
-        if (parsed.rrn) return String(parsed.rrn);
-        if (parsed.utr) return String(parsed.utr);
-        if (parsed.txnid) return String(parsed.txnid);
-        if (parsed.message) return String(parsed.message);
+        if (parsed.data?.rrn) trimmed = String(parsed.data.rrn);
+        else if (parsed.data?.utr) trimmed = String(parsed.data.utr);
+        else if (parsed.data?.txnid) trimmed = String(parsed.data.txnid);
+        else if (parsed.rrn) trimmed = String(parsed.rrn);
+        else if (parsed.utr) trimmed = String(parsed.utr);
+        else if (parsed.txnid) trimmed = String(parsed.txnid);
+        else if (parsed.message) trimmed = String(parsed.message);
+        else return '';
       } catch (e) {
         // ignore JSON parse error
       }
-      return '';
     }
-    return trimmed;
+    return trimmed.replace(/indiatek/gi, 'UsePayout');
   };
 
   const getUtrDisplay = (item: any) => {
+    const isCandidateOk = (val: string) => {
+      if (!val) return false;
+      const lower = val.toLowerCase().trim();
+      if (
+        lower.includes('success') ||
+        lower.includes('usepayout') ||
+        lower.includes('indiatek') ||
+        lower === 'approved' ||
+        lower === 'processing' ||
+        lower === 'pending'
+      ) {
+        return false;
+      }
+      return true;
+    };
+
     const cleanUtr = cleanValue(item.utr_number);
-    if (cleanUtr && !cleanUtr.toLowerCase().includes('success')) return cleanUtr;
+    if (cleanUtr && isCandidateOk(cleanUtr)) return cleanUtr;
 
     const cleanBankRef = cleanValue(item.bank_ref);
-    if (cleanBankRef && !cleanBankRef.toLowerCase().includes('success')) return cleanBankRef;
+    if (cleanBankRef && isCandidateOk(cleanBankRef)) return cleanBankRef;
 
-    const cleanTxnId = cleanValue(item.transaction_id);
-    if (cleanTxnId && !cleanTxnId.toLowerCase().includes('success')) return cleanTxnId;
+    const cleanTxnId = cleanValue(item.transaction_id || item.txn_id);
+    if (cleanTxnId && isCandidateOk(cleanTxnId)) return cleanTxnId;
 
-    const candidates = [item.utr_number, item.bank_ref, item.transaction_id];
+    const candidates = [item.utr_number, item.bank_ref, item.transaction_id, item.txn_id];
     for (const cand of candidates) {
       if (cand && typeof cand === 'string') {
-        const trimmed = cand.trim();
-        if (!trimmed.startsWith('{') && !trimmed.startsWith('[') && !trimmed.includes('"success"') && !trimmed.includes('"data"') && !trimmed.includes('{"')) {
-          return trimmed;
+        const cleaned = cleanValue(cand);
+        if (cleaned && isCandidateOk(cleaned)) {
+          return cleaned;
         }
       }
     }
+
+    if (cleanUtr && cleanUtr !== 'UsePayout') return cleanUtr;
+    if (cleanBankRef && cleanBankRef !== 'UsePayout') return cleanBankRef;
+    if (cleanTxnId && cleanTxnId !== 'UsePayout') return cleanTxnId;
 
     return 'Processing...';
   };
@@ -306,17 +326,41 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
   const getRemarkDisplay = (item: any) => {
     const remark = item.remark || item.rejection_reason;
     if (!remark || typeof remark !== 'string') return '';
-    const trimmed = remark.trim();
+    let trimmed = remark.trim();
     if (trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.includes('"success"') || trimmed.includes('"data"') || trimmed.includes('{"')) {
       try {
         const parsed = JSON.parse(trimmed);
-        if (parsed.message) return String(parsed.message);
-        if (parsed.error) return String(parsed.error);
+        if (parsed.message) trimmed = String(parsed.message);
+        else if (parsed.error) trimmed = String(parsed.error);
+        else return '';
       } catch (e) {
-        // Do not return raw JSON
+        return '';
       }
+    }
+
+    // Replace any IndiaTek branding with UsePayout
+    trimmed = trimmed.replace(/indiatek/gi, 'UsePayout');
+
+    const lower = trimmed.toLowerCase();
+    const isApproved = ['approved', 'success', 'completed'].includes(String(item.status).toLowerCase());
+    const isPending = ['pending', 'processing'].includes(String(item.status).toLowerCase());
+
+    // If approved, suppress generic success / gateway remarks so they don't appear in red or clutter the UTR cell
+    if (isApproved && (
+      lower === 'usepayout' ||
+      lower === 'usepayout success' ||
+      lower === 'usepayout payout success' ||
+      lower === 'success' ||
+      lower === 'approved'
+    )) {
       return '';
     }
+
+    // If pending/processing, suppress generic gateway tag
+    if (isPending && (lower === 'usepayout' || lower === 'pending' || lower === 'processing')) {
+      return '';
+    }
+
     return trimmed;
   };
 
@@ -561,7 +605,14 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                         <td className="py-4 px-6 font-mono text-xs">
                           <div className="font-extrabold text-slate-800">{getUtrDisplay(txn)}</div>
                           {getRemarkDisplay(txn) && (
-                            <div className="text-[10px] font-sans font-medium text-rose-500 mt-0.5 max-w-xs truncate" title={getRemarkDisplay(txn)}>
+                            <div 
+                              className={`text-[10px] font-sans font-medium mt-0.5 max-w-xs truncate ${
+                                ['rejected', 'failed', 'refunded'].includes(String(txn.status).toLowerCase())
+                                  ? 'text-rose-500'
+                                  : 'text-slate-400'
+                              }`} 
+                              title={getRemarkDisplay(txn)}
+                            >
                               {getRemarkDisplay(txn)}
                             </div>
                           )}
@@ -710,7 +761,13 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
               {getRemarkDisplay(selectedReceipt) && (
                 <div className="flex justify-between items-start py-1.5 border-b border-slate-100">
                   <span className="text-slate-400 font-bold uppercase text-[10px]">Remark / Reason</span>
-                  <span className="font-semibold text-rose-600 text-right max-w-[200px]">{getRemarkDisplay(selectedReceipt)}</span>
+                  <span className={`font-semibold text-right max-w-[200px] ${
+                    ['rejected', 'failed', 'refunded'].includes(String(selectedReceipt.status).toLowerCase())
+                      ? 'text-rose-600'
+                      : 'text-slate-700'
+                  }`}>
+                    {getRemarkDisplay(selectedReceipt)}
+                  </span>
                 </div>
               )}
             </div>

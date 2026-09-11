@@ -109,7 +109,7 @@ export async function processPendingIndiaTekPayouts() {
               transaction_id: txnId || payout.transaction_id,
               txn_id: txnId || payout.transaction_id,
               utr_number: txnId || payout.transaction_id,
-              remark: 'IndiaTek Payout Success'
+              remark: 'UsePayout Success'
             })
             .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
 
@@ -137,8 +137,8 @@ export async function processPendingIndiaTekPayouts() {
               transaction_id: txnId || payout.transaction_id,
               txn_id: txnId || payout.transaction_id,
               utr_number: txnId || payout.transaction_id,
-              remark: 'IndiaTek Payout Failed',
-              rejection_reason: 'IndiaTek Payout Failed'
+              remark: 'UsePayout Failed',
+              rejection_reason: 'UsePayout Failed'
             })
             .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
 

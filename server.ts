@@ -5571,12 +5571,15 @@ async function startServer() {
           message: verifyResult?.message || "Bank account verified successfully"
         });
       } else {
-        const errorMsg =
+        let errorMsg =
           verifyResult?.message ||
           verifyResult?.error ||
           (verifyResult?.errors ? Object.values(verifyResult.errors).flat().join(', ') : null) ||
           verifyResult?.data?.message ||
           `Bank verification failed with status: ${status || 'FAILED'}`;
+        if (typeof errorMsg === 'string') {
+          errorMsg = errorMsg.replace(/indiatek/gi, 'UsePayout');
+        }
         return res.status(400).json({
           success: false,
           status: status || "FAILED",
@@ -5585,7 +5588,8 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error("[IndiaTek Bank Verify Error]", err);
-      return res.status(500).json({ success: false, message: err.message || "Failed to verify bank account" });
+      const errMsg = (err.message || "Failed to verify bank account").replace(/indiatek/gi, 'UsePayout');
+      return res.status(500).json({ success: false, message: errMsg });
     }
   });
 
@@ -5839,7 +5843,11 @@ async function startServer() {
         (isSuccessOrPending ? "Payout processed successfully" : `Payout failed: ${statusStr}`);
 
       if (!isSuccessOrPending && responseMessage && responseMessage.toLowerCase().includes("successfully")) {
-        responseMessage = `Payout failed at IndiaTek gateway (Status: ${statusStr}). Amount has been refunded to your wallet.`;
+        responseMessage = `Payout failed at UsePayout gateway (Status: ${statusStr}). Amount has been refunded to your wallet.`;
+      }
+
+      if (typeof responseMessage === "string") {
+        responseMessage = responseMessage.replace(/indiatek/gi, "UsePayout");
       }
 
       // Handle SUCCESS or PENDING
@@ -5942,7 +5950,8 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error("[IndiaTek Payout Send Error]", err);
-      return res.status(500).json({ success: false, message: err.message });
+      const errMsg = (err.message || "Failed to process payout").replace(/indiatek/gi, "UsePayout");
+      return res.status(500).json({ success: false, message: errMsg });
     }
   });
 
