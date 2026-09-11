@@ -21,7 +21,9 @@ import {
   ArrowLeft,
   FileText,
   Printer,
-  ExternalLink
+  ExternalLink,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Link } from 'react-router-dom';
@@ -103,6 +105,12 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
   const [filterHolderName, setFilterHolderName] = useState('');
   const [filterBankName, setFilterBankName] = useState('');
   const [filterIfscCode, setFilterIfscCode] = useState('');
+
+  // Beneficiary & History Pagination State (6 items per page)
+  const [beneficiaryPage, setBeneficiaryPage] = useState(1);
+  const BENEFICIARIES_PER_PAGE = 6;
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PER_PAGE = 6;
 
   // Dynamic Bank List fetched from camlenio_banks table in Supabase
   const [showBankDropdown, setShowBankDropdown] = useState(false);
@@ -485,7 +493,20 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
     setFilterHolderName('');
     setFilterBankName('');
     setFilterIfscCode('');
+    setBeneficiaryPage(1);
   };
+
+  // Beneficiary Pagination Calculation (6 per page)
+  const totalBeneficiaryPages = Math.max(1, Math.ceil(filteredBeneficiaries.length / BENEFICIARIES_PER_PAGE));
+  const validBeneficiaryPage = Math.min(Math.max(beneficiaryPage, 1), totalBeneficiaryPages);
+  const startBeneficiaryIndex = (validBeneficiaryPage - 1) * BENEFICIARIES_PER_PAGE;
+  const paginatedBeneficiaries = filteredBeneficiaries.slice(startBeneficiaryIndex, startBeneficiaryIndex + BENEFICIARIES_PER_PAGE);
+
+  // History Pagination Calculation (6 per page)
+  const totalHistoryPages = Math.max(1, Math.ceil(transactions.length / HISTORY_PER_PAGE));
+  const validHistoryPage = Math.min(Math.max(historyPage, 1), totalHistoryPages);
+  const startHistoryIndex = (validHistoryPage - 1) * HISTORY_PER_PAGE;
+  const paginatedHistory = transactions.slice(startHistoryIndex, startHistoryIndex + HISTORY_PER_PAGE);
 
   if (loading) {
     return (
@@ -636,13 +657,19 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                   type="text"
                   placeholder="Filter by Person Name..."
                   value={filterHolderName}
-                  onChange={(e) => setFilterHolderName(e.target.value)}
+                  onChange={(e) => {
+                    setFilterHolderName(e.target.value);
+                    setBeneficiaryPage(1);
+                  }}
                   className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all font-medium"
                 />
                 {filterHolderName && (
                   <button
-                    onClick={() => setFilterHolderName('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    onClick={() => {
+                      setFilterHolderName('');
+                      setBeneficiaryPage(1);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -656,7 +683,10 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                 </div>
                 <select
                   value={filterBankName}
-                  onChange={(e) => setFilterBankName(e.target.value)}
+                  onChange={(e) => {
+                    setFilterBankName(e.target.value);
+                    setBeneficiaryPage(1);
+                  }}
                   className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 transition-all cursor-pointer font-medium"
                 >
                   <option value="">All Banks ({uniqueSavedBanks.length})</option>
@@ -668,8 +698,11 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                 </select>
                 {filterBankName && (
                   <button
-                    onClick={() => setFilterBankName('')}
-                    className="absolute inset-y-0 right-0 pr-6 flex items-center text-slate-400 hover:text-slate-600"
+                    onClick={() => {
+                      setFilterBankName('');
+                      setBeneficiaryPage(1);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-6 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -685,13 +718,19 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                   type="text"
                   placeholder="Filter by IFSC Code..."
                   value={filterIfscCode}
-                  onChange={(e) => setFilterIfscCode(e.target.value)}
+                  onChange={(e) => {
+                    setFilterIfscCode(e.target.value);
+                    setBeneficiaryPage(1);
+                  }}
                   className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all uppercase font-medium font-mono"
                 />
                 {filterIfscCode && (
                   <button
-                    onClick={() => setFilterIfscCode('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    onClick={() => {
+                      setFilterIfscCode('');
+                      setBeneficiaryPage(1);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -727,72 +766,135 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredBeneficiaries.map((b) => (
-                <div
-                  key={b.id}
-                  className="relative p-5 border border-emerald-200 bg-emerald-50/40 rounded-2xl transition-all group overflow-hidden hover:shadow-md flex flex-col justify-between"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex flex-col">
-                        <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-1.5">
-                          {b.holder_name}
-                        </h3>
-                        <span className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
-                          <Building2 className="w-3.5 h-3.5 text-slate-400" />
-                          {b.bank_name || 'Bank Account'}
-                        </span>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedBeneficiaries.map((b) => (
+                  <div
+                    key={b.id}
+                    className="relative p-5 border border-emerald-200 bg-emerald-50/40 rounded-2xl transition-all group overflow-hidden hover:shadow-md flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex justify-between items-start mb-3">
+                        <div className="flex flex-col">
+                          <h3 className="font-extrabold text-slate-900 text-base flex items-center gap-1.5">
+                            {b.holder_name}
+                          </h3>
+                          <span className="text-xs font-bold text-slate-500 mt-0.5 flex items-center gap-1">
+                            <Building2 className="w-3.5 h-3.5 text-slate-400" />
+                            {b.bank_name || 'Bank Account'}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteBeneficiary(b.id, b.holder_name)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors bg-white/60 shadow-2xs"
+                          title="Remove Beneficiary"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="space-y-1.5 mb-5 bg-white/70 p-3 rounded-xl border border-emerald-100/60 font-mono text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">A/C Number:</span>
+                          <span className="font-bold text-slate-900">{b.account_number}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500">IFSC Code:</span>
+                          <span className="font-bold text-slate-900">{b.ifsc_code}</span>
+                        </div>
+                        {b.phone && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-slate-500 font-sans">Mobile:</span>
+                            <span className="font-bold text-slate-900">{b.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t border-emerald-100 flex items-center justify-between">
+                      <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs uppercase tracking-wider bg-emerald-100/80 px-2.5 py-1 rounded-lg">
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                        Verified
                       </div>
                       <button
-                        onClick={() => handleDeleteBeneficiary(b.id, b.holder_name)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-white rounded-lg transition-colors bg-white/60 shadow-2xs"
-                        title="Remove Beneficiary"
+                        onClick={() => {
+                          setSelectedBeneficiary(b);
+                          setPayoutMobile(b.phone || userProfile?.phone || '');
+                          setPayoutAmount('');
+                          setError(null);
+                          setSuccess(null);
+                        }}
+                        className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Send className="w-3.5 h-3.5" />
+                        Pay
                       </button>
                     </div>
+                  </div>
+                ))}
+              </div>
 
-                    <div className="space-y-1.5 mb-5 bg-white/70 p-3 rounded-xl border border-emerald-100/60 font-mono text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">A/C Number:</span>
-                        <span className="font-bold text-slate-900">{b.account_number}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-slate-500">IFSC Code:</span>
-                        <span className="font-bold text-slate-900">{b.ifsc_code}</span>
-                      </div>
-                      {b.phone && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-slate-500 font-sans">Mobile:</span>
-                          <span className="font-bold text-slate-900">{b.phone}</span>
-                        </div>
-                      )}
-                    </div>
+              {/* Beneficiary Pagination Controls (6 per page) */}
+              {totalBeneficiaryPages > 1 && (
+                <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="text-slate-500 font-medium">
+                    Showing <span className="font-bold text-slate-800">{startBeneficiaryIndex + 1}</span> to{' '}
+                    <span className="font-bold text-slate-800">{Math.min(startBeneficiaryIndex + BENEFICIARIES_PER_PAGE, filteredBeneficiaries.length)}</span> of{' '}
+                    <span className="font-bold text-slate-800">{filteredBeneficiaries.length}</span> accounts
                   </div>
 
-                  <div className="pt-3 border-t border-emerald-100 flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-xs uppercase tracking-wider bg-emerald-100/80 px-2.5 py-1 rounded-lg">
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                      Verified
-                    </div>
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => {
-                        setSelectedBeneficiary(b);
-                        setPayoutMobile(b.phone || userProfile?.phone || '');
-                        setPayoutAmount('');
-                        setError(null);
-                        setSuccess(null);
-                      }}
-                      className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => setBeneficiaryPage(prev => Math.max(prev - 1, 1))}
+                      disabled={validBeneficiaryPage === 1}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
                     >
-                      <Send className="w-3.5 h-3.5" />
-                      Pay
+                      <ChevronLeft className="w-4 h-4" /> Prev
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalBeneficiaryPages }, (_, i) => i + 1).map((pageNum) => {
+                        const isCurrent = pageNum === validBeneficiaryPage;
+                        if (
+                          totalBeneficiaryPages <= 7 ||
+                          pageNum === 1 ||
+                          pageNum === totalBeneficiaryPages ||
+                          Math.abs(pageNum - validBeneficiaryPage) <= 1
+                        ) {
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setBeneficiaryPage(pageNum)}
+                              className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                                isCurrent
+                                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        } else if (
+                          (pageNum === 2 && validBeneficiaryPage > 3) ||
+                          (pageNum === totalBeneficiaryPages - 1 && validBeneficiaryPage < totalBeneficiaryPages - 2)
+                        ) {
+                          return <span key={pageNum} className="px-1 text-slate-400 font-bold">...</span>;
+                        }
+                        return null;
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => setBeneficiaryPage(prev => Math.min(prev + 1, totalBeneficiaryPages))}
+                      disabled={validBeneficiaryPage >= totalBeneficiaryPages}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                    >
+                      Next <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -837,7 +939,7 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {transactions.map((txn) => {
+                {paginatedHistory.map((txn) => {
                   const statusUpper = (txn.status || 'PENDING').toUpperCase();
                   const isSuccess = statusUpper === 'SUCCESS';
                   const isPending = statusUpper === 'PENDING' || statusUpper === 'PROCESSING';
@@ -933,6 +1035,67 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                 })}
               </tbody>
             </table>
+          )}
+
+          {/* History Pagination Controls (6 per page) */}
+          {totalHistoryPages > 1 && (
+            <div className="p-4 border-t border-slate-200 bg-slate-50/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+              <div className="text-slate-500 font-medium">
+                Showing <span className="font-bold text-slate-800">{startHistoryIndex + 1}</span> to{' '}
+                <span className="font-bold text-slate-800">{Math.min(startHistoryIndex + HISTORY_PER_PAGE, transactions.length)}</span> of{' '}
+                <span className="font-bold text-slate-800">{transactions.length}</span> records
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setHistoryPage(prev => Math.max(prev - 1, 1))}
+                  disabled={validHistoryPage === 1}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" /> Prev
+                </button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalHistoryPages }, (_, i) => i + 1).map((pageNum) => {
+                    const isCurrent = pageNum === validHistoryPage;
+                    if (
+                      totalHistoryPages <= 7 ||
+                      pageNum === 1 ||
+                      pageNum === totalHistoryPages ||
+                      Math.abs(pageNum - validHistoryPage) <= 1
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setHistoryPage(pageNum)}
+                          className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                            isCurrent
+                              ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (
+                      (pageNum === 2 && validHistoryPage > 3) ||
+                      (pageNum === totalHistoryPages - 1 && validHistoryPage < totalHistoryPages - 2)
+                    ) {
+                      return <span key={pageNum} className="px-1 text-slate-400 font-bold">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+
+                <button
+                  onClick={() => setHistoryPage(prev => Math.min(prev + 1, totalHistoryPages))}
+                  disabled={validHistoryPage >= totalHistoryPages}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                >
+                  Next <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
           )}
         </div>
       </div>

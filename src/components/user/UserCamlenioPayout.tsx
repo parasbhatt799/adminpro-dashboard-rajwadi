@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ShieldCheck, Loader2, Send, AlertCircle, CheckCircle2, IndianRupee, Users, Trash2, Plus, Eye, EyeOff, AlertTriangle, X, Search, Filter, RotateCcw, Building2, User, Phone } from 'lucide-react';
+import { ShieldCheck, Loader2, Send, AlertCircle, CheckCircle2, IndianRupee, Users, Trash2, Plus, Eye, EyeOff, AlertTriangle, X, Search, Filter, RotateCcw, Building2, User, Phone, ChevronLeft, ChevronRight } from 'lucide-react';
 import { sendAdminPushNotification } from '../../lib/notifications';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -62,6 +62,10 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
   const [filterBankName, setFilterBankName] = useState('');
   const [filterIfscCode, setFilterIfscCode] = useState('');
 
+  // Beneficiary Pagination State (6 accounts per page)
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 6;
+
   // Extract unique bank names from saved beneficiaries list
   const uniqueSavedBanks = Array.from(
     new Set(beneficiaries.map((b) => b.bank_name).filter(Boolean))
@@ -81,7 +85,14 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
     setFilterHolderName('');
     setFilterBankName('');
     setFilterIfscCode('');
+    setCurrentPage(1);
   };
+
+  // Beneficiary Pagination Calculation (6 per page)
+  const totalPages = Math.max(1, Math.ceil(filteredBeneficiaries.length / ITEMS_PER_PAGE));
+  const validCurrentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const startIndex = (validCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedBeneficiaries = filteredBeneficiaries.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   useEffect(() => {
     fetchSettings();
@@ -514,13 +525,19 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                   type="text"
                   placeholder="Filter by Person Name..."
                   value={filterHolderName}
-                  onChange={(e) => setFilterHolderName(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all"
+                  onChange={(e) => {
+                    setFilterHolderName(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all font-medium"
                 />
                 {filterHolderName && (
                   <button
-                    onClick={() => setFilterHolderName('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    onClick={() => {
+                      setFilterHolderName('');
+                      setCurrentPage(1);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -534,8 +551,11 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                 </div>
                 <select
                   value={filterBankName}
-                  onChange={(e) => setFilterBankName(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 transition-all cursor-pointer"
+                  onChange={(e) => {
+                    setFilterBankName(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 transition-all cursor-pointer font-medium"
                 >
                   <option value="">All Banks ({uniqueSavedBanks.length})</option>
                   {uniqueSavedBanks.map((bank) => (
@@ -546,8 +566,11 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                 </select>
                 {filterBankName && (
                   <button
-                    onClick={() => setFilterBankName('')}
-                    className="absolute inset-y-0 right-0 pr-6 flex items-center text-slate-400 hover:text-slate-600"
+                    onClick={() => {
+                      setFilterBankName('');
+                      setCurrentPage(1);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-6 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -563,13 +586,19 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
                   type="text"
                   placeholder="Filter by IFSC Code..."
                   value={filterIfscCode}
-                  onChange={(e) => setFilterIfscCode(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all uppercase"
+                  onChange={(e) => {
+                    setFilterIfscCode(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  className="w-full pl-9 pr-8 py-2 text-sm bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800 placeholder-slate-400 transition-all uppercase font-medium font-mono"
                 />
                 {filterIfscCode && (
                   <button
-                    onClick={() => setFilterIfscCode('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600"
+                    onClick={() => {
+                      setFilterIfscCode('');
+                      setCurrentPage(1);
+                    }}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
                   >
                     <X className="w-3.5 h-3.5" />
                   </button>
@@ -599,83 +628,146 @@ export default function UserCamlenioPayout({ userId }: UserCamlenioPayoutProps) 
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredBeneficiaries.map((b) => (
-                <div
-                  key={b.id}
-                  className={`relative p-5 border rounded-2xl transition-all group overflow-hidden ${b.is_verified
-                      ? 'border-emerald-200 bg-emerald-50 hover:shadow-md'
-                      : 'border-yellow-200 bg-yellow-50 hover:shadow-md'
-                    }`}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex flex-col">
-                      <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-                        {b.holder_name}
-                      </h3>
-                      <span className="text-xs font-medium text-slate-500 mt-0.5">{b.bank_name}</span>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {paginatedBeneficiaries.map((b) => (
+                  <div
+                    key={b.id}
+                    className={`relative p-5 border rounded-2xl transition-all group overflow-hidden ${b.is_verified
+                        ? 'border-emerald-200 bg-emerald-50 hover:shadow-md'
+                        : 'border-yellow-200 bg-yellow-50 hover:shadow-md'
+                      }`}
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex flex-col">
+                        <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                          {b.holder_name}
+                        </h3>
+                        <span className="text-xs font-medium text-slate-500 mt-0.5">{b.bank_name}</span>
+                      </div>
+                      <button
+                        onClick={() => handleDeleteBeneficiary(b.id)}
+                        className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors bg-white/50"
+                        title="Remove Beneficiary"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
+
+                    <div className="space-y-1 mb-5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-500">A/C Number:</span>
+                        <span className="font-bold text-slate-800">{b.account_number}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-500">IFSC Code:</span>
+                        <span className="font-bold text-slate-800">{b.ifsc_code}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-auto pt-4 border-t border-black/5 flex items-center justify-between">
+                      {b.is_verified ? (
+                        <>
+                          <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs uppercase tracking-wider bg-emerald-100/50 px-2.5 py-1 rounded-md">
+                            <ShieldCheck className="w-4 h-4" />
+                            Verified
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedBeneficiary(b);
+                              setPayoutMobile(b.phone || '');
+                            }}
+                            className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
+                          >
+                            Pay
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5 text-yellow-600 font-bold text-xs uppercase tracking-wider bg-yellow-100/50 px-2.5 py-1 rounded-md">
+                            <AlertCircle className="w-4 h-4" />
+                            Unverified
+                          </div>
+                          <button
+                            onClick={() => handleVerifyBeneficiary(b)}
+                            disabled={verifyingBank && verifyingId === b.id}
+                            className="px-4 py-2 bg-white border-2 border-yellow-300 text-yellow-700 text-sm font-bold rounded-xl hover:bg-yellow-100 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
+                          >
+                            {verifyingBank && verifyingId === b.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="w-4 h-4" />
+                            )}
+                            Verify
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Beneficiary Pagination Controls (6 per page) */}
+              {totalPages > 1 && (
+                <div className="mt-6 pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                  <div className="text-slate-500 font-medium">
+                    Showing <span className="font-bold text-slate-800">{startIndex + 1}</span> to{' '}
+                    <span className="font-bold text-slate-800">{Math.min(startIndex + ITEMS_PER_PAGE, filteredBeneficiaries.length)}</span> of{' '}
+                    <span className="font-bold text-slate-800">{filteredBeneficiaries.length}</span> accounts
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={() => handleDeleteBeneficiary(b.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-white rounded-lg transition-colors bg-white/50"
-                      title="Remove Beneficiary"
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={validCurrentPage === 1}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <ChevronLeft className="w-4 h-4" /> Prev
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                        const isCurrent = pageNum === validCurrentPage;
+                        if (
+                          totalPages <= 7 ||
+                          pageNum === 1 ||
+                          pageNum === totalPages ||
+                          Math.abs(pageNum - validCurrentPage) <= 1
+                        ) {
+                          return (
+                            <button
+                              key={pageNum}
+                              onClick={() => setCurrentPage(pageNum)}
+                              className={`w-8 h-8 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                                isCurrent
+                                  ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                              }`}
+                            >
+                              {pageNum}
+                            </button>
+                          );
+                        } else if (
+                          (pageNum === 2 && validCurrentPage > 3) ||
+                          (pageNum === totalPages - 1 && validCurrentPage < totalPages - 2)
+                        ) {
+                          return <span key={pageNum} className="px-1 text-slate-400 font-bold">...</span>;
+                        }
+                        return null;
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={validCurrentPage >= totalPages}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1 shadow-2xs cursor-pointer"
+                    >
+                      Next <ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
-
-                  <div className="space-y-1 mb-5">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">A/C Number:</span>
-                      <span className="font-bold text-slate-800">{b.account_number}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-slate-500">IFSC Code:</span>
-                      <span className="font-bold text-slate-800">{b.ifsc_code}</span>
-                    </div>
-                  </div>
-
-                  <div className="mt-auto pt-4 border-t border-black/5 flex items-center justify-between">
-                    {b.is_verified ? (
-                      <>
-                        <div className="flex items-center gap-1.5 text-emerald-600 font-bold text-xs uppercase tracking-wider bg-emerald-100/50 px-2.5 py-1 rounded-md">
-                          <ShieldCheck className="w-4 h-4" />
-                          Verified
-                        </div>
-                        <button
-                          onClick={() => {
-                            setSelectedBeneficiary(b);
-                            setPayoutMobile(b.phone || '');
-                          }}
-                          className="px-5 py-2 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm cursor-pointer"
-                        >
-                          Pay
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-1.5 text-yellow-600 font-bold text-xs uppercase tracking-wider bg-yellow-100/50 px-2.5 py-1 rounded-md">
-                          <AlertCircle className="w-4 h-4" />
-                          Unverified
-                        </div>
-                        <button
-                          onClick={() => handleVerifyBeneficiary(b)}
-                          disabled={verifyingBank && verifyingId === b.id}
-                          className="px-4 py-2 bg-white border-2 border-yellow-300 text-yellow-700 text-sm font-bold rounded-xl hover:bg-yellow-100 transition-colors shadow-sm flex items-center gap-2 disabled:opacity-50"
-                        >
-                          {verifyingBank && verifyingId === b.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <ShieldCheck className="w-4 h-4" />
-                          )}
-                          Verify
-                        </button>
-                      </>
-                    )}
-                  </div>
                 </div>
-              ))}
-            </div>
+              )}
+            </>
           )}
           <p className="text-xs text-slate-500 mt-6 bg-slate-50 p-3 rounded-xl border border-slate-100 flex gap-2">
             <AlertCircle className="w-4 h-4 text-slate-400 shrink-0" />
