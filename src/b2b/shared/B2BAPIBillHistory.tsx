@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight, User, Building2, Smartphone, BarChart3, Receipt, Users } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight, User, Building2, Smartphone, BarChart3, Receipt, Users, Copy } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
@@ -554,6 +554,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const amount = reqBody?.amount !== undefined && reqBody?.amount !== null ? String(reqBody.amount) : '';
     const txnId = resBody?.transaction_id || reqBody?.transaction_id || reqBody?.client_transaction_id || reqBody?.fetchRequestId || reqBody?.requestId || '';
     const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || '';
+    const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId || '';
     const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
 
     // Date Filter
@@ -632,7 +633,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const txnTrimmed = txnIdFilter.trim().toLowerCase();
     let matchesTxnId = true;
     if (txnTrimmed) {
-      matchesTxnId = txnId.toLowerCase().includes(txnTrimmed) || bbpsTxnId.toLowerCase().includes(txnTrimmed);
+      matchesTxnId = txnId.toLowerCase().includes(txnTrimmed) || bbpsTxnId.toLowerCase().includes(txnTrimmed) || reqId.toLowerCase().includes(txnTrimmed);
     }
 
     // General Search
@@ -653,6 +654,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         ${paramsVal}
         ${txnId}
         ${bbpsTxnId}
+        ${reqId}
       `.toLowerCase();
       matchesSearch = searchString.includes(searchTrimmed);
     }
@@ -844,6 +846,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
         const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
+        const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId || 'N/A';
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
           ? reqBody.customerParams[0].value
           : null;
@@ -891,6 +894,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         }
         row['API Txn ID'] = txnId;
         row['BBPS Ref ID'] = bbpsTxnId;
+        row['Request ID'] = reqId;
         row['Status'] = statusInfo.text;
 
         return row;
@@ -924,6 +928,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       }
       summaryRow['API Txn ID'] = '';
       summaryRow['BBPS Ref ID'] = '';
+      summaryRow['Request ID'] = '';
       summaryRow['Status'] = '';
 
       exportData.push(summaryRow);
@@ -961,6 +966,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
         const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
+        const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId || 'N/A';
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
           ? reqBody.customerParams[0].value
           : null;
@@ -1014,6 +1020,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         row.push(
           txnId,
           bbpsTxnId,
+          reqId,
           statusInfo.text
         );
 
@@ -1024,7 +1031,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       if (isAdmin) headers.push('Agent ID');
       headers.push('Biller ID', 'Param / Mobile', 'Amount', 'Charge');
       if (isAdmin) headers.push('Dev Chg', 'Owner Chg');
-      headers.push('API Txn ID', 'BBPS Txn ID', 'Status');
+      headers.push('API Txn ID', 'BBPS Txn ID', 'Request ID', 'Status');
 
       const footerRow = [
         'TOTAL',
@@ -1043,7 +1050,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           `₹ ${stats.totalOwnerCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
         );
       }
-      footerRow.push('', '', '');
+      footerRow.push('', '', '', '');
 
       doc.setFontSize(14);
       doc.text('B2B API Bill Payments History Report', 14, 15);
@@ -1440,7 +1447,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             <div className="relative">
               <input
                 type="text"
-                placeholder="Txn ID / Client ID / BBPS ID..."
+                placeholder="Txn ID / BBPS ID / Request ID..."
                 value={txnIdFilter}
                 onChange={(e) => setTxnIdFilter(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500 outline-none font-mono"
@@ -1593,6 +1600,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   {isAdmin && <th className="px-3 py-3 text-purple-400">Owner Charge</th>}
                   <th className="px-3 py-3 text-slate-300">API TXN ID</th>
                   <th className="px-3 py-3 text-indigo-400">BBPS TXN ID</th>
+                  <th className="px-3 py-3 text-cyan-400">Request ID</th>
                   <th className="px-3 py-3">Status</th>
                   <th className="px-3 py-3 text-right">Actions</th>
                 </tr>
@@ -1605,6 +1613,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   const apiTxnId = resBody?.api_txn_id || (typeof resBody?.transaction_id === 'string' && resBody.transaction_id.startsWith('BBPSU') ? resBody.transaction_id : null) || reqBody?.api_txn_id || (typeof reqBody?.transaction_id === 'string' && reqBody.transaction_id.startsWith('BBPSU') ? reqBody.transaction_id : null) || resBody?.transaction_id || reqBody?.transaction_id || 'N/A';
                   const clientTxnId = reqBody?.client_transaction_id || (resBody?.client_transaction_id && resBody.client_transaction_id !== apiTxnId ? resBody.client_transaction_id : null);
                   const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId;
+                  const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId;
 
                   // Extract the primary customer parameter (like Credit Card number, Consumer Number)
                   const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
@@ -1729,6 +1738,29 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       <td className="px-3 py-3 font-mono text-xs text-indigo-300">
                         {bbpsTxnId ? (
                           <span className="bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 text-[11px] block truncate max-w-[140px]" title={bbpsTxnId}>{bbpsTxnId}</span>
+                        ) : (
+                          <span className="text-slate-500 font-sans">-</span>
+                        )}
+                      </td>
+
+                      <td className="px-3 py-3 font-mono text-xs text-cyan-300">
+                        {reqId ? (
+                          <div className="flex items-center gap-1">
+                            <span className="bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/20 text-[11px] block truncate max-w-[140px]" title={reqId}>
+                              {reqId}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                navigator.clipboard.writeText(reqId);
+                                alert('Request ID copied to clipboard!');
+                              }}
+                              className="p-1 hover:bg-slate-700/80 rounded text-slate-400 hover:text-cyan-300 transition-colors"
+                              title="Copy Request ID"
+                            >
+                              <Copy className="w-3 h-3" />
+                            </button>
+                          </div>
                         ) : (
                           <span className="text-slate-500 font-sans">-</span>
                         )}
@@ -1927,6 +1959,25 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     {bbpsTxnId && (
                       <div className="text-xs font-mono text-indigo-400 mt-1" title="BillAvenue Ref ID">BBPS: {bbpsTxnId}</div>
                     )}
+                    {(() => {
+                      const reqId = req?.fetchRequestId || req?.billavenue_request_id || req?.requestId || res?.requestId || res?.payRequestId || req?.payRequestId;
+                      return reqId ? (
+                        <div className="text-xs font-mono text-cyan-400 mt-1 break-all flex items-center gap-1" title="Gateway Request ID">
+                          <span>Req: {reqId}</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(reqId);
+                              alert('Request ID copied to clipboard!');
+                            }}
+                            className="p-0.5 hover:bg-slate-800 rounded text-slate-400 hover:text-cyan-300 transition-colors"
+                            title="Copy Request ID"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Date</div>
