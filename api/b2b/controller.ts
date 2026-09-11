@@ -375,7 +375,21 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
          } else {
            const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
            billAvenueTxnData = txnList;
-           bbpsStatus = txnList?.txnStatus?.toUpperCase() || 'UNKNOWN';
+           const rawTxnStatus = txnList?.txnStatus?.toUpperCase() || '';
+           const errCode = txnList?.errorInfo?.error?.errorCode || txnList?.errorCode || '';
+           const errMsg = (txnList?.errorInfo?.error?.errorMessage || txnList?.errorMessage || '').toLowerCase();
+
+           if (rawTxnStatus === 'SUCCESS' || rawTxnStatus === 'APPROVED') {
+             bbpsStatus = 'SUCCESS';
+           } else if (rawTxnStatus === 'FAILED' || rawTxnStatus === 'FAILURE' || rawTxnStatus === 'REJECTED') {
+             bbpsStatus = 'FAILED';
+           } else if (rawTxnStatus === 'AWAITED' || rawTxnStatus === 'PENDING' || errCode === 'PNR001' || errCode === 'PWB001' || errMsg.includes('in progress') || errMsg.includes('awaited')) {
+             bbpsStatus = 'AWAITED';
+           } else if (errCode || errMsg) {
+             bbpsStatus = 'FAILED';
+           } else {
+             bbpsStatus = rawTxnStatus || 'UNKNOWN';
+           }
          }
        }
     }
@@ -685,7 +699,21 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
          } else {
            const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
            billAvenueTxnData = txnList;
-           bbpsStatus = txnList?.txnStatus?.toUpperCase() || 'UNKNOWN';
+           const rawTxnStatus = txnList?.txnStatus?.toUpperCase() || '';
+           const errCode = txnList?.errorInfo?.error?.errorCode || txnList?.errorCode || '';
+           const errMsg = (txnList?.errorInfo?.error?.errorMessage || txnList?.errorMessage || '').toLowerCase();
+
+           if (rawTxnStatus === 'SUCCESS' || rawTxnStatus === 'APPROVED') {
+             bbpsStatus = 'SUCCESS';
+           } else if (rawTxnStatus === 'FAILED' || rawTxnStatus === 'FAILURE' || rawTxnStatus === 'REJECTED') {
+             bbpsStatus = 'FAILED';
+           } else if (rawTxnStatus === 'AWAITED' || rawTxnStatus === 'PENDING' || errCode === 'PNR001' || errCode === 'PWB001' || errMsg.includes('in progress') || errMsg.includes('awaited')) {
+             bbpsStatus = 'AWAITED';
+           } else if (errCode || errMsg) {
+             bbpsStatus = 'FAILED';
+           } else {
+             bbpsStatus = rawTxnStatus || 'UNKNOWN';
+           }
          }
        }
     }

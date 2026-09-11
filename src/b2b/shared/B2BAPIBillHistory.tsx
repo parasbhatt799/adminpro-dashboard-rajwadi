@@ -653,8 +653,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     }
 
     // Charge Filter
-    const isFailed = statusInfo.text.toLowerCase() === 'failed';
-    const chargeVal = isFailed ? 0 : Number(
+    const isSuccessFilter = statusInfo.text.toLowerCase() === 'success';
+    const chargeVal = !isSuccessFilter ? 0 : Number(
       (log as any).charge_deducted ||
       reqBody?.chargeDeducted ||
       reqBody?.chargePerBill ||
@@ -729,9 +729,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const resBody = log.response_payload || log.response_body || {};
       const amt = Number(reqBody.amount || 0);
       const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
-      const isFailed = statusInfo.text.toLowerCase() === 'failed';
-
-      const chg = isFailed ? 0 : Number(
+      const isEntrySuccess = statusInfo.text.toLowerCase() === 'success';
+      const chg = !isEntrySuccess ? 0 : Number(
         (log as any).charge_deducted ||
         reqBody?.chargeDeducted ||
         reqBody?.chargePerBill ||
@@ -739,13 +738,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ||
         0
       );
-      const devChg = isFailed || chg === 0 ? 0 : Number(
+      const devChg = !isEntrySuccess || chg === 0 ? 0 : Number(
         log.developer_charge ||
         reqBody?.developerCharge ||
         reqBody?.developer_charge ||
         0
       );
-      const ownerChg = isFailed || chg === 0 ? 0 : Number(
+      const ownerChg = !isEntrySuccess || chg === 0 ? 0 : Number(
         log.owner_charge ||
         reqBody?.ownerCharge ||
         reqBody?.owner_charge ||
@@ -817,9 +816,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const resBody = log.response_payload || log.response_body || {};
       const amt = Number(reqBody.amount || 0);
       const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
-      const isFailed = statusInfo.text.toLowerCase() === 'failed';
-
-      const chg = isFailed ? 0 : Number(
+      const isEntrySuccess = statusInfo.text.toLowerCase() === 'success';
+      const chg = !isEntrySuccess ? 0 : Number(
         (log as any).charge_deducted ||
         reqBody?.chargeDeducted ||
         reqBody?.chargePerBill ||
@@ -827,13 +825,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ||
         0
       );
-      const devChg = isFailed || chg === 0 ? 0 : Number(
+      const devChg = !isEntrySuccess || chg === 0 ? 0 : Number(
         log.developer_charge ||
         reqBody?.developerCharge ||
         reqBody?.developer_charge ||
         0
       );
-      const ownerChg = isFailed || chg === 0 ? 0 : Number(
+      const ownerChg = !isEntrySuccess || chg === 0 ? 0 : Number(
         log.owner_charge ||
         reqBody?.ownerCharge ||
         reqBody?.owner_charge ||
@@ -894,8 +892,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
           ? reqBody.customerParams[0].value
           : null;
-        const isFailed = statusInfo.text.toLowerCase() === 'failed';
-        const chargeVal = isFailed ? 0 : Number(
+        const isEntrySuccess = statusInfo.text.toLowerCase() === 'success';
+        const chargeVal = !isEntrySuccess ? 0 : Number(
           (log as any).charge_deducted ||
           reqBody?.chargeDeducted ||
           reqBody?.chargePerBill ||
@@ -903,13 +901,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ||
           0
         );
-        const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+        const devChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
           log.developer_charge ||
           reqBody?.developerCharge ||
           reqBody?.developer_charge ||
           0
         );
-        const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+        const ownerChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
           log.owner_charge ||
           reqBody?.ownerCharge ||
           reqBody?.owner_charge ||
@@ -1014,8 +1012,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
           ? reqBody.customerParams[0].value
           : null;
-        const isFailed = statusInfo.text.toLowerCase() === 'failed';
-        const chargeVal = isFailed ? 0 : Number(
+        const isEntrySuccess = statusInfo.text.toLowerCase() === 'success';
+        const chargeVal = !isEntrySuccess ? 0 : Number(
           (log as any).charge_deducted ||
           reqBody?.chargeDeducted ||
           reqBody?.chargePerBill ||
@@ -1023,13 +1021,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ||
           0
         );
-        const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+        const devChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
           log.developer_charge ||
           reqBody?.developerCharge ||
           reqBody?.developer_charge ||
           0
         );
-        const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+        const ownerChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
           log.owner_charge ||
           reqBody?.ownerCharge ||
           reqBody?.owner_charge ||
@@ -1664,8 +1662,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     ? reqBody.customerParams[0].value
                     : null;
 
-                  const isFailed = statusInfo.text.toLowerCase() === 'failed';
-                  const chargeVal = isFailed ? 0 : Number(
+                  const isEntrySuccess = statusInfo.text.toLowerCase() === 'success';
+                  const chargeVal = !isEntrySuccess ? 0 : Number(
                     (log as any).charge_deducted ||
                     reqBody?.chargeDeducted ||
                     reqBody?.chargePerBill ||
@@ -1674,14 +1672,14 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     0
                   );
 
-                  const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+                  const devChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
                     log.developer_charge ||
                     reqBody?.developerCharge ||
                     reqBody?.developer_charge ||
                     0
                   );
 
-                  const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+                  const ownerChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
                     log.owner_charge ||
                     reqBody?.ownerCharge ||
                     reqBody?.owner_charge ||
@@ -1936,8 +1934,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             const res = selectedLog.response_payload || {};
             const statusInfo = getStatusInfo(selectedLog.status_code, res, selectedLog.payment_status);
             const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId || res?.billPayResponse?.txnReferenceId || res?.ExtBillPayResponse?.txnReferenceId || res?.txnReferenceId;
-            const isFailed = statusInfo.text.toLowerCase() === 'failed';
-            const chargeVal = isFailed ? 0 : Number(
+            const isEntrySuccess = statusInfo.text.toLowerCase() === 'success';
+            const chargeVal = !isEntrySuccess ? 0 : Number(
               (selectedLog as any).charge_deducted ||
               req?.chargeDeducted ||
               req?.chargePerBill ||
@@ -1946,14 +1944,14 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               0
             );
 
-            const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+            const devChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
               selectedLog.developer_charge ||
               req?.developerCharge ||
               req?.developer_charge ||
               0
             );
 
-            const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
+            const ownerChargeVal = !isEntrySuccess || chargeVal === 0 ? 0 : Number(
               selectedLog.owner_charge ||
               req?.ownerCharge ||
               req?.owner_charge ||
