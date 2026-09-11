@@ -495,7 +495,9 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
     );
   }
 
-  if (isActive === false) {
+  const isTester = Boolean(userProfile?.is_tester);
+
+  if (isActive === false && !isTester) {
     return (
       <div className="p-8 max-w-lg mx-auto my-12 bg-white border border-slate-200 rounded-3xl shadow-xl text-center space-y-5">
         <div className="w-16 h-16 bg-rose-50 border border-rose-200 text-rose-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
@@ -519,6 +521,12 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
 
   return (
     <div className="space-y-6">
+      {isActive === false && isTester && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-center gap-2.5 text-amber-500 text-xs font-bold">
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+          Tester Access: UsePayout service is OFF for normal users, but active for your Tester account.
+        </div>
+      )}
       
       {/* Top Header & Action */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

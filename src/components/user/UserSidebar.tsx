@@ -150,7 +150,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       if (!isCamlenioAepsPayoutEnabled && (item.id === 'camlenio-payout' || item.id === 'payout-history') && !isTester) {
         return false;
       }
-      if (!isIndiaTekPayoutEnabled && item.id === 'indiatek-payout') {
+      if (!isIndiaTekPayoutEnabled && item.id === 'indiatek-payout' && !isTester) {
         return false;
       }
       return true;

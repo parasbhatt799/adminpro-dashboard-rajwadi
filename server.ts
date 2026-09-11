@@ -5428,8 +5428,14 @@ async function startServer() {
       const local = indiatekPayout.getLocalSettings();
       const isActive = dbSettings ? dbSettings.is_active !== false : local.is_active !== false;
 
-      if (!isActive) {
-        return res.status(400).json({ success: false, message: "IndiaTek Payout service is currently disabled by administrator." });
+      let isTester = false;
+      if (userId && userId !== "admin") {
+        const { data: uProf } = await supabaseAdmin.from("users_profiles").select("is_tester").eq("id", userId).maybeSingle();
+        isTester = Boolean(uProf?.is_tester);
+      }
+
+      if (!isActive && !isTester) {
+        return res.status(400).json({ success: false, message: "UsePayout service is currently disabled by administrator." });
       }
 
       const verificationCharge = Number(
@@ -5707,8 +5713,14 @@ async function startServer() {
       const local = indiatekPayout.getLocalSettings();
       const isActive = dbSettings ? dbSettings.is_active !== false : local.is_active !== false;
 
-      if (!isActive) {
-        return res.status(400).json({ success: false, message: "IndiaTek Payout service is currently disabled by administrator." });
+      let isTester = false;
+      if (user_id && user_id !== "admin") {
+        const { data: uProf } = await supabaseAdmin.from("users_profiles").select("is_tester").eq("id", user_id).maybeSingle();
+        isTester = Boolean(uProf?.is_tester);
+      }
+
+      if (!isActive && !isTester) {
+        return res.status(400).json({ success: false, message: "UsePayout service is currently disabled by administrator." });
       }
 
       const minPayout = Number(dbSettings?.min_payout !== undefined ? dbSettings.min_payout : (local.min_payout !== undefined ? local.min_payout : 10));
