@@ -248,7 +248,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     try {
       const req = log.request_payload || log.request_body || {};
       const res = log.response_payload || log.response_body || {};
-      const transactionId = req?.transaction_id || req?.requestId || res?.transaction_id;
+      const transactionId = req?.transaction_id 
+        || req?.requestId 
+        || req?.fetchRequestId
+        || res?.transaction_id 
+        || res?.api_txn_id 
+        || req?.api_txn_id 
+        || req?.client_transaction_id 
+        || log.id;
+
       if (!transactionId) {
         alert('Transaction ID not found for this log.');
         return;
@@ -258,7 +266,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
       const API_URL = import.meta.env.VITE_API_URL || '';
 
-      const resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
+      let resData = await fetch(`${API_URL}/api/v1/b2b/admin/status/${transactionId}`);
+      if (!resData.ok && resData.status === 404) {
+        resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
+      }
       const data = await resData.json();
 
       if (data.status === 'success') {
@@ -1777,16 +1788,14 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                         <div className="flex items-center justify-end gap-1">
                           {isAdmin && (
                             <>
-                              {statusInfo.text === 'Pending' && (
-                                <button
-                                  onClick={() => handleLiveCheck(log)}
-                                  disabled={updatingStatus === log.id}
-                                  className="inline-flex items-center justify-center p-1.5 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors"
-                                  title="Check Live BBPS Status"
-                                >
-                                  {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3.5 h-3.5" />}
-                                </button>
-                              )}
+                              <button
+                                onClick={() => handleLiveCheck(log)}
+                                disabled={updatingStatus === log.id}
+                                className="inline-flex items-center justify-center p-1.5 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors cursor-pointer"
+                                title="Check Live BBPS Status with Gateway"
+                              >
+                                {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3.5 h-3.5" />}
+                              </button>
                               <button
                                 onClick={() => handleStatusChange(log.id, 'success')}
                                 disabled={updatingStatus === log.id || statusInfo.text === 'Success'}
