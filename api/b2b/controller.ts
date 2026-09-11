@@ -677,8 +677,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
     }
 
     // Always merge and persist the FULL gateway response into response_payload
-    const existingPayload = log.response_payload || {};
-    const reqPayload = log.request_payload || {};
+    const existingPayload = resPayload || log.response_payload || {};
     const cc01Ref = billAvenueTxnData?.txnReferenceId 
       || billAvenueTxnData?.txnRefId 
       || existingPayload?.ExtBillPayResponse?.txnRefId 
