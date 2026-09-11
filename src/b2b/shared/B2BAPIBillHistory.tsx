@@ -1958,8 +1958,30 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   </div>
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Status</div>
-                    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${statusInfo.color}`}>
-                      {statusInfo.icon} {statusInfo.text}
+                    <div className="flex flex-col gap-1.5">
+                      <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium ${statusInfo.color}`}>
+                        {statusInfo.icon} {statusInfo.text}
+                      </div>
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            await handleLiveCheck(selectedLog);
+                            const { data: updated } = await supabase
+                              .from('b2b_api_logs')
+                              .select('*')
+                              .eq('id', selectedLog.id)
+                              .single();
+                            if (updated) setSelectedLog(updated);
+                          }}
+                          disabled={updatingStatus === selectedLog.id}
+                          className="inline-flex items-center justify-center gap-1.5 px-2 py-1 rounded-lg border text-[11px] font-semibold bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30 transition-colors cursor-pointer mt-1"
+                          title="Query BillAvenue gateway for live status"
+                        >
+                          {updatingStatus === selectedLog.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3 h-3" />}
+                          Check Gateway Status
+                        </button>
+                      )}
                     </div>
                   </div>
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
