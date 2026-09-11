@@ -382,7 +382,7 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
     
     let localStatus = log.payment_status || 'pending';
     
-    // If BBPS Status is terminal and differs from local status, update atomically
+    // If BBPS Status is terminal or pending and differs from local status, update atomically
     if ((bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') && localStatus !== 'success') {
       console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is SUCCESS on BillAvenue. Updating status from ${localStatus} to success via RPC...`);
       await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
@@ -390,13 +390,39 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
         p_status: 'success'
       });
       localStatus = 'success';
-    } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
-      console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
+    } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus !== 'failed') {
+      console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is FAILED on BillAvenue. Updating status from ${localStatus} to failed via RPC...`);
       await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
         p_log_id: log.id,
         p_status: 'failed'
       });
       localStatus = 'failed';
+    } else if ((bbpsStatus === 'AWAITED' || bbpsStatus === 'PENDING') && localStatus !== 'pending') {
+      console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is AWAITED / PENDING on BillAvenue. Updating status from ${localStatus} to pending...`);
+      if (localStatus === 'failed') {
+        const totalDeduction = Number(log.request_payload?.totalDeduction || log.request_payload?.amount || 0);
+        if (totalDeduction > 0) {
+          await supabaseAdmin.rpc('deduct_b2b_wallet_balance', {
+            p_agent_id: log.agent_id,
+            p_amount: totalDeduction
+          });
+          console.log(`[B2B Admin CheckStatus] Re-deducted ₹${totalDeduction} from agent ${log.agent_id} wallet because bill is AWAITED/PENDING at gateway.`);
+        }
+      } else if (localStatus === 'success') {
+        const chargeDeducted = Number(log.charge_deducted || log.request_payload?.chargeDeducted || 0);
+        if (chargeDeducted > 0) {
+          await supabaseAdmin.rpc('add_admin_balance', { p_amount: -chargeDeducted });
+        }
+      }
+      localStatus = 'pending';
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({
+          payment_status: 'pending',
+          status_code: 202,
+          charge_deducted: 0
+        })
+        .eq('id', log.id);
     }
 
     // Always merge and persist the FULL gateway response into response_payload
@@ -415,12 +441,17 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
       || transaction_id;
     let clientTxnId = reqPayload?.client_transaction_id || existingPayload?.client_transaction_id || apiTxnId;
 
+    const isGatewaySuccess = bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED';
+    const isGatewayPending = bbpsStatus === 'AWAITED' || bbpsStatus === 'PENDING';
+    const isGatewayFailed = bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED';
+
     const extBillPayResponse: any = {
       ...(existingPayload.ExtBillPayResponse || existingPayload.billPayResponse || {}),
       ...(billAvenueTxnData || {}),
+      txnStatus: bbpsStatus,
       txnRefId: cc01Ref || existingPayload?.ExtBillPayResponse?.txnRefId || existingPayload?.billPayResponse?.txnRefId || undefined,
-      responseCode: root?.responseCode || (bbpsStatus === 'SUCCESS' ? '000' : (bbpsStatus === 'FAILED' ? '999' : (existingPayload?.ExtBillPayResponse?.responseCode || '000'))),
-      responseReason: root?.responseReason || (bbpsStatus === 'SUCCESS' ? 'Successful' : (bbpsStatus === 'FAILED' ? 'Failure' : (existingPayload?.ExtBillPayResponse?.responseReason || 'Successful'))),
+      responseCode: isGatewaySuccess ? '000' : (isGatewayPending ? '001' : (isGatewayFailed ? '999' : (existingPayload?.ExtBillPayResponse?.responseCode || '001'))),
+      responseReason: isGatewaySuccess ? 'Successful' : (isGatewayPending ? 'Awaited' : (isGatewayFailed ? 'Failure' : (existingPayload?.ExtBillPayResponse?.responseReason || 'Pending'))),
       approvalRefNumber: billAvenueTxnData?.approvalRefNumber || existingPayload?.ExtBillPayResponse?.approvalRefNumber || undefined,
       RespAmount: billAvenueTxnData?.amount ? String(Math.round(Number(billAvenueTxnData.amount) * 100)) : (existingPayload?.ExtBillPayResponse?.RespAmount || undefined),
       CustConvFee: billAvenueTxnData?.custConvFee || existingPayload?.ExtBillPayResponse?.CustConvFee || '0',
@@ -659,7 +690,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
        }
     }
 
-    // If BBPS Status is terminal and differs from local status, update atomically
+    // If BBPS Status is terminal or pending and differs from local status, update atomically
     if ((bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') && localStatus !== 'success') {
       console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is SUCCESS on BillAvenue. Updating status from ${localStatus} to success via RPC...`);
       await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
@@ -667,13 +698,39 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
         p_status: 'success'
       });
       localStatus = 'success';
-    } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
-      console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
+    } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus !== 'failed') {
+      console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is FAILED on BillAvenue. Updating status from ${localStatus} to failed via RPC...`);
       await supabaseAdmin.rpc('admin_update_b2b_bill_status', {
         p_log_id: log.id,
         p_status: 'failed'
       });
       localStatus = 'failed';
+    } else if ((bbpsStatus === 'AWAITED' || bbpsStatus === 'PENDING') && localStatus !== 'pending') {
+      console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is AWAITED / PENDING on BillAvenue. Updating status from ${localStatus} to pending...`);
+      if (localStatus === 'failed') {
+        const totalDeduction = Number(log.request_payload?.totalDeduction || log.request_payload?.amount || 0);
+        if (totalDeduction > 0) {
+          await supabaseAdmin.rpc('deduct_b2b_wallet_balance', {
+            p_agent_id: log.agent_id,
+            p_amount: totalDeduction
+          });
+          console.log(`[B2B CheckStatus] Re-deducted ₹${totalDeduction} from agent ${log.agent_id} wallet because bill is AWAITED/PENDING at gateway.`);
+        }
+      } else if (localStatus === 'success') {
+        const chargeDeducted = Number(log.charge_deducted || log.request_payload?.chargeDeducted || 0);
+        if (chargeDeducted > 0) {
+          await supabaseAdmin.rpc('add_admin_balance', { p_amount: -chargeDeducted });
+        }
+      }
+      localStatus = 'pending';
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({
+          payment_status: 'pending',
+          status_code: 202,
+          charge_deducted: 0
+        })
+        .eq('id', log.id);
     }
 
     // Always merge and persist the FULL gateway response into response_payload
@@ -684,12 +741,17 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
       || existingPayload?.billPayResponse?.txnRefId 
       || (typeof existingPayload?.txnRefId === 'string' && existingPayload.txnRefId.startsWith('CC01') ? existingPayload.txnRefId : undefined);
 
+    const isGatewaySuccess = bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED';
+    const isGatewayPending = bbpsStatus === 'AWAITED' || bbpsStatus === 'PENDING';
+    const isGatewayFailed = bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED';
+
     const extBillPayResponse: any = {
       ...(existingPayload.ExtBillPayResponse || existingPayload.billPayResponse || {}),
       ...(billAvenueTxnData || {}),
+      txnStatus: bbpsStatus,
       txnRefId: cc01Ref || existingPayload?.ExtBillPayResponse?.txnRefId || existingPayload?.billPayResponse?.txnRefId || undefined,
-      responseCode: root?.responseCode || (bbpsStatus === 'SUCCESS' ? '000' : (bbpsStatus === 'FAILED' ? '999' : (existingPayload?.ExtBillPayResponse?.responseCode || '000'))),
-      responseReason: root?.responseReason || (bbpsStatus === 'SUCCESS' ? 'Successful' : (bbpsStatus === 'FAILED' ? 'Failure' : (existingPayload?.ExtBillPayResponse?.responseReason || 'Successful'))),
+      responseCode: isGatewaySuccess ? '000' : (isGatewayPending ? '001' : (isGatewayFailed ? '999' : (existingPayload?.ExtBillPayResponse?.responseCode || '001'))),
+      responseReason: isGatewaySuccess ? 'Successful' : (isGatewayPending ? 'Awaited' : (isGatewayFailed ? 'Failure' : (existingPayload?.ExtBillPayResponse?.responseReason || 'Pending'))),
       approvalRefNumber: billAvenueTxnData?.approvalRefNumber || existingPayload?.ExtBillPayResponse?.approvalRefNumber || undefined,
       RespAmount: billAvenueTxnData?.amount ? String(Math.round(Number(billAvenueTxnData.amount) * 100)) : (existingPayload?.ExtBillPayResponse?.RespAmount || undefined),
       CustConvFee: billAvenueTxnData?.custConvFee || existingPayload?.ExtBillPayResponse?.CustConvFee || '0',
