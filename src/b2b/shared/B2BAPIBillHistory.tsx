@@ -413,7 +413,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const bpr = responseBody?.ExtBillPayResponse || responseBody?.billPayResponse || responseBody;
     const responseCode = bpr?.responseCode || responseBody?.responseCode;
     const responseReason = (bpr?.responseReason || responseBody?.responseReason || '').toLowerCase();
-    const txnRefId = bpr?.txnRefId || responseBody?.txnRefId;
+    const txnRefId = bpr?.txnRefId || responseBody?.txnRefId || bpr?.txnReferenceId || responseBody?.txnReferenceId;
     const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
 
     const isSuccess =
@@ -553,7 +553,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
     const amount = reqBody?.amount !== undefined && reqBody?.amount !== null ? String(reqBody.amount) : '';
     const txnId = resBody?.transaction_id || reqBody?.transaction_id || reqBody?.client_transaction_id || reqBody?.fetchRequestId || reqBody?.requestId || '';
-    const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || '';
+    const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || resBody?.billPayResponse?.txnReferenceId || resBody?.ExtBillPayResponse?.txnReferenceId || resBody?.txnReferenceId || '';
     const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId || '';
     const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
 
@@ -845,7 +845,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const resBody = log.response_payload || log.response_body || {};
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
-        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
+        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || resBody?.billPayResponse?.txnReferenceId || resBody?.ExtBillPayResponse?.txnReferenceId || resBody?.txnReferenceId || 'N/A';
         const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId || 'N/A';
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
           ? reqBody.customerParams[0].value
@@ -965,7 +965,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const resBody = log.response_payload || log.response_body || {};
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
-        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
+        const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || resBody?.billPayResponse?.txnReferenceId || resBody?.ExtBillPayResponse?.txnReferenceId || resBody?.txnReferenceId || 'N/A';
         const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId || 'N/A';
         const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
           ? reqBody.customerParams[0].value
@@ -1612,7 +1612,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
                   const apiTxnId = resBody?.api_txn_id || (typeof resBody?.transaction_id === 'string' && resBody.transaction_id.startsWith('BBPSU') ? resBody.transaction_id : null) || reqBody?.api_txn_id || (typeof reqBody?.transaction_id === 'string' && reqBody.transaction_id.startsWith('BBPSU') ? reqBody.transaction_id : null) || resBody?.transaction_id || reqBody?.transaction_id || 'N/A';
                   const clientTxnId = reqBody?.client_transaction_id || (resBody?.client_transaction_id && resBody.client_transaction_id !== apiTxnId ? resBody.client_transaction_id : null);
-                  const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId;
+                  const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || resBody?.billPayResponse?.txnReferenceId || resBody?.ExtBillPayResponse?.txnReferenceId || resBody?.txnReferenceId;
                   const reqId = reqBody?.fetchRequestId || reqBody?.billavenue_request_id || reqBody?.requestId || resBody?.requestId || resBody?.payRequestId || reqBody?.payRequestId;
 
                   // Extract the primary customer parameter (like Credit Card number, Consumer Number)
@@ -1893,7 +1893,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             const req = selectedLog.request_payload || {};
             const res = selectedLog.response_payload || {};
             const statusInfo = getStatusInfo(selectedLog.status_code, res, selectedLog.payment_status);
-            const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId;
+            const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId || res?.billPayResponse?.txnReferenceId || res?.ExtBillPayResponse?.txnReferenceId || res?.txnReferenceId;
             const isFailed = statusInfo.text.toLowerCase() === 'failed';
             const chargeVal = isFailed ? 0 : Number(
               (selectedLog as any).charge_deducted ??

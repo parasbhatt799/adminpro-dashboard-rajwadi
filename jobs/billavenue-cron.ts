@@ -123,6 +123,29 @@ cron.schedule('0 */5 * * *', async () => {
           const clientTxnId = reqPayload?.client_transaction_id 
             || (String(transactionId).startsWith('BBPSU') ? (reqPayload?.transaction_id || apiTxnId) : transactionId);
 
+          const cc01Ref = billAvenueTxnData?.txnReferenceId 
+            || billAvenueTxnData?.txnRefId 
+            || existingPayload?.ExtBillPayResponse?.txnRefId 
+            || existingPayload?.billPayResponse?.txnRefId 
+            || (typeof existingPayload?.txnRefId === 'string' && existingPayload.txnRefId.startsWith('CC01') ? existingPayload.txnRefId : undefined);
+
+          const extBillPayResponse: any = {
+            ...(existingPayload.ExtBillPayResponse || existingPayload.billPayResponse || {}),
+            ...(billAvenueTxnData || {}),
+            txnRefId: cc01Ref || undefined,
+            responseCode: root.responseCode || (newStatus === 'success' ? '000' : '999'),
+            responseReason: root.responseReason || (newStatus === 'success' ? 'Successful' : 'Failure'),
+            approvalRefNumber: billAvenueTxnData?.approvalRefNumber || existingPayload?.ExtBillPayResponse?.approvalRefNumber || undefined,
+            RespAmount: billAvenueTxnData?.amount ? String(Math.round(Number(billAvenueTxnData.amount) * 100)) : (existingPayload?.ExtBillPayResponse?.RespAmount || undefined),
+            CustConvFee: billAvenueTxnData?.custConvFee || existingPayload?.ExtBillPayResponse?.CustConvFee || '0',
+            RespCustomerName: billAvenueTxnData?.respCustomerName || reqPayload?.billerResponseInfo?.customerName || existingPayload?.ExtBillPayResponse?.RespCustomerName || undefined,
+            txnRespType: billAvenueTxnData?.txnRespType || existingPayload?.ExtBillPayResponse?.txnRespType || 'FORWARD TYPE RESPONSE'
+          };
+
+          if (billAvenueTxnData?.inputList && !extBillPayResponse.inputParams) {
+            extBillPayResponse.inputParams = { input: billAvenueTxnData.inputList };
+          }
+
           const mergedPayload = {
             ...existingPayload,
             payment_status: newStatus,
@@ -131,12 +154,8 @@ cron.schedule('0 */5 * * *', async () => {
             api_txn_id: apiTxnId,
             client_transaction_id: clientTxnId,
             bbps_txn_ref_id: apiTxnId,
-            billPayResponse: {
-              ...(existingPayload.billPayResponse || {}),
-              ...(billAvenueTxnData || {}),
-              responseCode: root.responseCode,
-              responseReason: root.responseReason
-            },
+            ExtBillPayResponse: extBillPayResponse,
+            billPayResponse: extBillPayResponse,
             statusCheckDetails: {
               checked_at: new Date().toISOString(),
               trackType,

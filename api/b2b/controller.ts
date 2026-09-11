@@ -362,8 +362,9 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
     let bbpsStatus = 'UNKNOWN';
     let billAvenueTxnData: any = null;
     
+    let root: any = null;
     if (statusResult?.json) {
-       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
+       root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
        if (root) {
          if (root.responseCode === '205') {
            console.warn(`[B2B Admin CheckStatus] Response code 205 (No Txn mapped) received for ${transaction_id}`);
@@ -388,10 +389,6 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
         p_log_id: log.id,
         p_status: 'success'
       });
-      await supabaseAdmin
-        .from('b2b_api_logs')
-        .update({ payment_status: 'success', status_code: 200 })
-        .eq('id', log.id);
       localStatus = 'success';
     } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
       console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
@@ -399,12 +396,69 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
         p_log_id: log.id,
         p_status: 'failed'
       });
-      await supabaseAdmin
-        .from('b2b_api_logs')
-        .update({ payment_status: 'failed', status_code: 500 })
-        .eq('id', log.id);
       localStatus = 'failed';
     }
+
+    // Always merge and persist the FULL gateway response into response_payload
+    const existingPayload = log.response_payload || {};
+    const reqPayload = log.request_payload || {};
+    const cc01Ref = billAvenueTxnData?.txnReferenceId 
+      || billAvenueTxnData?.txnRefId 
+      || existingPayload?.ExtBillPayResponse?.txnRefId 
+      || existingPayload?.billPayResponse?.txnRefId 
+      || (typeof existingPayload?.txnRefId === 'string' && existingPayload.txnRefId.startsWith('CC01') ? existingPayload.txnRefId : undefined);
+
+    let apiTxnId = existingPayload?.api_txn_id 
+      || reqPayload?.api_txn_id 
+      || (typeof existingPayload?.transaction_id === 'string' && existingPayload.transaction_id.startsWith('BBPSU') ? existingPayload.transaction_id : null) 
+      || (typeof reqPayload?.transaction_id === 'string' && reqPayload.transaction_id.startsWith('BBPSU') ? reqPayload.transaction_id : null) 
+      || transaction_id;
+    let clientTxnId = reqPayload?.client_transaction_id || existingPayload?.client_transaction_id || apiTxnId;
+
+    const extBillPayResponse: any = {
+      ...(existingPayload.ExtBillPayResponse || existingPayload.billPayResponse || {}),
+      ...(billAvenueTxnData || {}),
+      txnRefId: cc01Ref || existingPayload?.ExtBillPayResponse?.txnRefId || existingPayload?.billPayResponse?.txnRefId || undefined,
+      responseCode: root?.responseCode || (bbpsStatus === 'SUCCESS' ? '000' : (bbpsStatus === 'FAILED' ? '999' : (existingPayload?.ExtBillPayResponse?.responseCode || '000'))),
+      responseReason: root?.responseReason || (bbpsStatus === 'SUCCESS' ? 'Successful' : (bbpsStatus === 'FAILED' ? 'Failure' : (existingPayload?.ExtBillPayResponse?.responseReason || 'Successful'))),
+      approvalRefNumber: billAvenueTxnData?.approvalRefNumber || existingPayload?.ExtBillPayResponse?.approvalRefNumber || undefined,
+      RespAmount: billAvenueTxnData?.amount ? String(Math.round(Number(billAvenueTxnData.amount) * 100)) : (existingPayload?.ExtBillPayResponse?.RespAmount || undefined),
+      CustConvFee: billAvenueTxnData?.custConvFee || existingPayload?.ExtBillPayResponse?.CustConvFee || '0',
+      RespCustomerName: billAvenueTxnData?.respCustomerName || reqPayload?.billerResponseInfo?.customerName || existingPayload?.ExtBillPayResponse?.RespCustomerName || undefined,
+      txnRespType: billAvenueTxnData?.txnRespType || existingPayload?.ExtBillPayResponse?.txnRespType || 'FORWARD TYPE RESPONSE'
+    };
+
+    if (billAvenueTxnData?.inputList && !extBillPayResponse.inputParams) {
+      extBillPayResponse.inputParams = { input: billAvenueTxnData.inputList };
+    }
+
+    const mergedPayload = {
+      ...existingPayload,
+      requestId: reqPayload?.fetchRequestId || reqPayload?.billavenue_request_id || reqPayload?.requestId || existingPayload?.requestId || trackValue,
+      api_txn_id: apiTxnId,
+      finalStatus: localStatus,
+      payment_status: localStatus,
+      transaction_id: apiTxnId,
+      bbps_txn_ref_id: apiTxnId,
+      client_transaction_id: clientTxnId,
+      ExtBillPayResponse: extBillPayResponse,
+      billPayResponse: extBillPayResponse,
+      statusCheckDetails: {
+        checked_at: new Date().toISOString(),
+        trackType,
+        trackValue,
+        bbpsStatus
+      }
+    };
+
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .update({
+        payment_status: localStatus,
+        status_code: localStatus === 'success' ? 200 : (localStatus === 'pending' ? 202 : 500),
+        response_payload: mergedPayload
+      })
+      .eq('id', log.id);
 
     return res.json({
       status: 'success',
@@ -412,6 +466,8 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
         transaction_id,
         current_status: localStatus,
         bbps_status: bbpsStatus,
+        bbps_txn_id: cc01Ref || undefined,
+        approval_ref_number: billAvenueTxnData?.approvalRefNumber || undefined,
         polled_at: new Date().toISOString()
       }
     });
@@ -585,8 +641,9 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
     let bbpsStatus = 'UNKNOWN';
     let billAvenueTxnData: any = null;
     
+    let root: any = null;
     if (statusResult?.json) {
-       const root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
+       root = statusResult.json.transactionStatusResp || statusResult.json.transactionStatusRes || statusResult.json.transactionStatusResponse;
        if (root) {
          if (root.responseCode === '205') {
            console.warn(`[B2B CheckStatus] Response code 205 (No Txn mapped against ${trackType}) for ${targetTxnId}`);
@@ -609,10 +666,6 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
         p_log_id: log.id,
         p_status: 'success'
       });
-      await supabaseAdmin
-        .from('b2b_api_logs')
-        .update({ payment_status: 'success', status_code: 200 })
-        .eq('id', log.id);
       localStatus = 'success';
     } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
       console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
@@ -620,12 +673,62 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
         p_log_id: log.id,
         p_status: 'failed'
       });
-      await supabaseAdmin
-        .from('b2b_api_logs')
-        .update({ payment_status: 'failed', status_code: 500 })
-        .eq('id', log.id);
       localStatus = 'failed';
     }
+
+    // Always merge and persist the FULL gateway response into response_payload
+    const existingPayload = log.response_payload || {};
+    const reqPayload = log.request_payload || {};
+    const cc01Ref = billAvenueTxnData?.txnReferenceId 
+      || billAvenueTxnData?.txnRefId 
+      || existingPayload?.ExtBillPayResponse?.txnRefId 
+      || existingPayload?.billPayResponse?.txnRefId 
+      || (typeof existingPayload?.txnRefId === 'string' && existingPayload.txnRefId.startsWith('CC01') ? existingPayload.txnRefId : undefined);
+
+    const extBillPayResponse: any = {
+      ...(existingPayload.ExtBillPayResponse || existingPayload.billPayResponse || {}),
+      ...(billAvenueTxnData || {}),
+      txnRefId: cc01Ref || existingPayload?.ExtBillPayResponse?.txnRefId || existingPayload?.billPayResponse?.txnRefId || undefined,
+      responseCode: root?.responseCode || (bbpsStatus === 'SUCCESS' ? '000' : (bbpsStatus === 'FAILED' ? '999' : (existingPayload?.ExtBillPayResponse?.responseCode || '000'))),
+      responseReason: root?.responseReason || (bbpsStatus === 'SUCCESS' ? 'Successful' : (bbpsStatus === 'FAILED' ? 'Failure' : (existingPayload?.ExtBillPayResponse?.responseReason || 'Successful'))),
+      approvalRefNumber: billAvenueTxnData?.approvalRefNumber || existingPayload?.ExtBillPayResponse?.approvalRefNumber || undefined,
+      RespAmount: billAvenueTxnData?.amount ? String(Math.round(Number(billAvenueTxnData.amount) * 100)) : (existingPayload?.ExtBillPayResponse?.RespAmount || undefined),
+      CustConvFee: billAvenueTxnData?.custConvFee || existingPayload?.ExtBillPayResponse?.CustConvFee || '0',
+      RespCustomerName: billAvenueTxnData?.respCustomerName || reqPayload?.billerResponseInfo?.customerName || existingPayload?.ExtBillPayResponse?.RespCustomerName || undefined,
+      txnRespType: billAvenueTxnData?.txnRespType || existingPayload?.ExtBillPayResponse?.txnRespType || 'FORWARD TYPE RESPONSE'
+    };
+
+    if (billAvenueTxnData?.inputList && !extBillPayResponse.inputParams) {
+      extBillPayResponse.inputParams = { input: billAvenueTxnData.inputList };
+    }
+
+    const mergedPayload = {
+      ...existingPayload,
+      requestId: reqPayload?.fetchRequestId || reqPayload?.billavenue_request_id || reqPayload?.requestId || existingPayload?.requestId || trackValue,
+      api_txn_id: apiTxnId,
+      finalStatus: localStatus,
+      payment_status: localStatus,
+      transaction_id: apiTxnId,
+      bbps_txn_ref_id: apiTxnId,
+      client_transaction_id: clientTxnId,
+      ExtBillPayResponse: extBillPayResponse,
+      billPayResponse: extBillPayResponse,
+      statusCheckDetails: {
+        checked_at: new Date().toISOString(),
+        trackType,
+        trackValue,
+        bbpsStatus
+      }
+    };
+
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .update({
+        payment_status: localStatus,
+        status_code: localStatus === 'success' ? 200 : (localStatus === 'pending' ? 202 : 500),
+        response_payload: mergedPayload
+      })
+      .eq('id', log.id);
 
     return res.json({
       status: 'success',
@@ -634,6 +737,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
         api_txn_id: apiTxnId,
         client_transaction_id: clientTxnId,
         bbps_txn_ref_id: apiTxnId,
+        bbps_txn_id: cc01Ref || undefined,
         approval_ref_number: billAvenueTxnData?.approvalRefNumber || undefined,
         current_status: localStatus,
         bbps_status: bbpsStatus,
