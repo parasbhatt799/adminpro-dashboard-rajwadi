@@ -10,6 +10,7 @@
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
     "sync-billers": "tsx scripts/sync-billers.ts",
+    "sync-all-bills": "tsx scripts/sync_all_pending_bills.ts",
     "import-billers": "tsx scripts/import-excel-billers.ts"
   },
   "dependencies": {

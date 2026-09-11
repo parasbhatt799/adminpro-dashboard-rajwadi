@@ -81,7 +81,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const fetchLogs = async () => {
     try {
       setLoading(true);
-      
+
       let allLogs: LogEntry[] = [];
       let from = 0;
       const step = 1000;
@@ -149,7 +149,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         }
 
         const { data, error } = await query;
-        
+
         if (error) throw error;
 
         if (data && data.length > 0) {
@@ -216,11 +216,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   };
 
   const handleStatusChange = async (logId: string, newStatus: 'success' | 'failed') => {
-    const promptMsg = newStatus === 'failed' 
-      ? `Are you sure you want to mark this bill as FAILED?\nThe agent's wallet will be refunded.` 
+    const promptMsg = newStatus === 'failed'
+      ? `Are you sure you want to mark this bill as FAILED?\nThe agent's wallet will be refunded.`
       : `Are you sure you want to mark this bill as SUCCESS?`;
     if (!confirm(promptMsg)) return;
-    
+
     try {
       setUpdatingStatus(logId);
       const { data, error } = await supabase.rpc('admin_update_b2b_bill_status', {
@@ -229,7 +229,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       });
 
       if (error) throw error;
-      
+
       if (data && data.success) {
         alert(data.message || 'Status updated successfully');
         fetchLogs(); // Refresh the list
@@ -255,12 +255,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       }
 
       setUpdatingStatus(log.id);
-      
+
       const API_URL = import.meta.env.VITE_API_URL || '';
-      
+
       const resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
       const data = await resData.json();
-      
+
       if (data.status === 'success') {
         const messageDetails = data.data?.message ? `\nNote: ${data.data.message}` : '';
         alert(`Current BBPS Status: ${data.data?.bbps_status || 'CHECKED'}${messageDetails}\nOur DB was updated automatically!`);
@@ -284,11 +284,12 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const req = log.request_payload || log.request_body || {};
       const bpr = res?.billPayResponse || res?.ExtBillPayResponse || res;
       const cc01RefId = bpr?.txnRefId || bpr?.billerResponse?.txnRefId || req?.billerResponseInfo?.txnRefId;
-      return !!(cc01RefId && String(cc01RefId).toUpperCase().startsWith('CC01'));
+      const reqIdCandidate = req?.fetchRequestId || req?.billavenue_request_id || req?.requestId || res?.requestId;
+      return !!((cc01RefId && String(cc01RefId).toUpperCase().startsWith('CC01')) || reqIdCandidate);
     });
 
     if (candidates.length === 0) {
-      alert('No eligible transactions found with BillAvenue CC01 Reference IDs to sync.');
+      alert('No eligible transactions found with BillAvenue CC01 Reference IDs or Request IDs to sync.');
       return;
     }
 
@@ -305,12 +306,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       for (const log of candidates) {
         const req = log.request_payload || log.request_body || {};
         const res = log.response_payload || log.response_body || {};
-        const transactionId = req?.transaction_id || req?.requestId || res?.transaction_id;
-        
+        const transactionId = req?.transaction_id || req?.requestId || res?.transaction_id || res?.api_txn_id || req?.api_txn_id || req?.client_transaction_id || log.id;
+
         if (!transactionId) continue;
 
         try {
-          const resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
+          let resData = await fetch(`${API_URL}/api/v1/b2b/admin/status/${transactionId}`);
+          if (!resData.ok && resData.status === 404) {
+            resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
+          }
           const data = await resData.json();
           if (data.status === 'success') {
             successCount++;
@@ -374,10 +378,10 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const handleMasterApiToggle = async () => {
     if (!isAdmin) return;
     const nextState = !isApiEnabled;
-    const confirmMsg = nextState 
+    const confirmMsg = nextState
       ? "Are you sure you want to ENABLE all B2B Agent APIs?"
       : "Are you sure you want to DISABLE all B2B Agent APIs?\nAll agent API calls will be immediately blocked!";
-    
+
     if (!confirm(confirmMsg)) return;
 
     try {
@@ -412,17 +416,17 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const txnRefId = bpr?.txnRefId || responseBody?.txnRefId;
     const hasCC01 = !!(txnRefId && String(txnRefId).toUpperCase().startsWith('CC01'));
 
-    const isSuccess = 
-      rawStatus === 'success' || 
-      responseCode === '000' || 
-      responseCode === '0000' || 
-      responseReason === 'successful' || 
+    const isSuccess =
+      rawStatus === 'success' ||
+      responseCode === '000' ||
+      responseCode === '0000' ||
+      responseReason === 'successful' ||
       responseReason === 'success' ||
       (hasCC01 && statusCode === 200 && rawStatus !== 'failed');
 
     if (isSuccess) {
-      return { 
-        text: 'Success', 
+      return {
+        text: 'Success',
         color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
         icon: <CheckCircle2 className="w-4 h-4 text-emerald-400" />
       };
@@ -432,15 +436,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     const isFailed = rawStatus === 'failed' || statusCode === 500 || (hasErrorInfo && !hasCC01);
 
     if (isFailed) {
-      return { 
-        text: 'Failed', 
+      return {
+        text: 'Failed',
         color: 'text-rose-400 bg-rose-500/10 border-rose-500/20',
         icon: <XCircle className="w-4 h-4 text-rose-400" />
       };
     }
 
-    return { 
-      text: 'Pending', 
+    return {
+      text: 'Pending',
       color: 'text-amber-400 bg-amber-500/10 border-amber-500/20',
       icon: <Clock className="w-4 h-4 text-amber-400" />
     };
@@ -471,36 +475,36 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
   const checkDateFilter = (createdAtStr: string, filter: string) => {
     if (filter === 'all') return true;
-    
+
     const createdDate = new Date(createdAtStr);
     const now = new Date();
-    
+
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    
+
     if (filter === 'today') {
       return createdDate >= todayStart && createdDate <= todayEnd;
     }
-    
+
     if (filter === 'yesterday') {
       const yesterdayStart = new Date(todayStart);
       yesterdayStart.setDate(yesterdayStart.getDate() - 1);
       const yesterdayEnd = new Date(todayStart.getTime() - 1);
       return createdDate >= yesterdayStart && createdDate <= yesterdayEnd;
     }
-    
+
     if (filter === '7days') {
       const sevenDaysAgo = new Date(todayStart);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
       return createdDate >= sevenDaysAgo;
     }
-    
+
     if (filter === '30days') {
       const thirtyDaysAgo = new Date(todayStart);
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       return createdDate >= thirtyDaysAgo;
     }
-    
+
     if (filter === 'thisMonth') {
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       return createdDate >= firstDayOfMonth;
@@ -512,7 +516,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const end = customRange.end ? new Date(`${customRange.end}T23:59:59.999`) : new Date();
       return createdDate >= start && createdDate <= end;
     }
-    
+
     return true;
   };
 
@@ -580,15 +584,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     let matchesCardMobile = true;
     if (cardMobileTrimmed) {
       const mobileVal = (reqBody.mobile || '').toString().toLowerCase();
-      const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
-        ? (reqBody.customerParams[0].value || '').toString().toLowerCase() 
+      const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
+        ? (reqBody.customerParams[0].value || '').toString().toLowerCase()
         : '';
       const paramsVal = (reqBody.customerParams || [])
         .map((p: any) => (p.value || '').toString().toLowerCase())
         .join(' ');
-      matchesCardMobile = mobileVal.includes(cardMobileTrimmed) || 
-                          primaryParam.includes(cardMobileTrimmed) || 
-                          paramsVal.includes(cardMobileTrimmed);
+      matchesCardMobile = mobileVal.includes(cardMobileTrimmed) ||
+        primaryParam.includes(cardMobileTrimmed) ||
+        paramsVal.includes(cardMobileTrimmed);
     }
 
     // Amount Filter
@@ -606,11 +610,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     // Charge Filter
     const isFailed = statusInfo.text.toLowerCase() === 'failed';
     const chargeVal = isFailed ? 0 : Number(
-      (log as any).charge_deducted ?? 
-      reqBody?.chargeDeducted ?? 
-      reqBody?.chargePerBill ?? 
-      reqBody?.charge ?? 
-      (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+      (log as any).charge_deducted ??
+      reqBody?.chargeDeducted ??
+      reqBody?.chargePerBill ??
+      reqBody?.charge ??
+      (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ??
       0
     );
     const chargeTrimmed = chargeFilter.trim();
@@ -682,23 +686,23 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const isFailed = statusInfo.text.toLowerCase() === 'failed';
 
       const chg = isFailed ? 0 : Number(
-        (log as any).charge_deducted ?? 
-        reqBody?.chargeDeducted ?? 
-        reqBody?.chargePerBill ?? 
-        reqBody?.charge ?? 
-        (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+        (log as any).charge_deducted ??
+        reqBody?.chargeDeducted ??
+        reqBody?.chargePerBill ??
+        reqBody?.charge ??
+        (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ??
         0
       );
       const devChg = isFailed || chg === 0 ? 0 : Number(
-        log.developer_charge ?? 
-        reqBody?.developerCharge ?? 
-        reqBody?.developer_charge ?? 
+        log.developer_charge ??
+        reqBody?.developerCharge ??
+        reqBody?.developer_charge ??
         0
       );
       const ownerChg = isFailed || chg === 0 ? 0 : Number(
-        log.owner_charge ?? 
-        reqBody?.ownerCharge ?? 
-        reqBody?.owner_charge ?? 
+        log.owner_charge ??
+        reqBody?.ownerCharge ??
+        reqBody?.owner_charge ??
         Math.max(0, chg - devChg)
       );
 
@@ -770,23 +774,23 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       const isFailed = statusInfo.text.toLowerCase() === 'failed';
 
       const chg = isFailed ? 0 : Number(
-        (log as any).charge_deducted ?? 
-        reqBody?.chargeDeducted ?? 
-        reqBody?.chargePerBill ?? 
-        reqBody?.charge ?? 
-        (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+        (log as any).charge_deducted ??
+        reqBody?.chargeDeducted ??
+        reqBody?.chargePerBill ??
+        reqBody?.charge ??
+        (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ??
         0
       );
       const devChg = isFailed || chg === 0 ? 0 : Number(
-        log.developer_charge ?? 
-        reqBody?.developerCharge ?? 
-        reqBody?.developer_charge ?? 
+        log.developer_charge ??
+        reqBody?.developerCharge ??
+        reqBody?.developer_charge ??
         0
       );
       const ownerChg = isFailed || chg === 0 ? 0 : Number(
-        log.owner_charge ?? 
-        reqBody?.ownerCharge ?? 
-        reqBody?.owner_charge ?? 
+        log.owner_charge ??
+        reqBody?.ownerCharge ??
+        reqBody?.owner_charge ??
         Math.max(0, chg - devChg)
       );
       const agentIdKey = log.agent_id || 'unknown';
@@ -840,28 +844,28 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
         const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
-        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
-          ? reqBody.customerParams[0].value 
+        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
+          ? reqBody.customerParams[0].value
           : null;
         const isFailed = statusInfo.text.toLowerCase() === 'failed';
         const chargeVal = isFailed ? 0 : Number(
-          (log as any).charge_deducted ?? 
-          reqBody?.chargeDeducted ?? 
-          reqBody?.chargePerBill ?? 
-          reqBody?.charge ?? 
-          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+          (log as any).charge_deducted ??
+          reqBody?.chargeDeducted ??
+          reqBody?.chargePerBill ??
+          reqBody?.charge ??
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ??
           0
         );
         const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-          log.developer_charge ?? 
-          reqBody?.developerCharge ?? 
-          reqBody?.developer_charge ?? 
+          log.developer_charge ??
+          reqBody?.developerCharge ??
+          reqBody?.developer_charge ??
           0
         );
         const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-          log.owner_charge ?? 
-          reqBody?.ownerCharge ?? 
-          reqBody?.owner_charge ?? 
+          log.owner_charge ??
+          reqBody?.ownerCharge ??
+          reqBody?.owner_charge ??
           Math.max(0, chargeVal - devChargeVal)
         );
 
@@ -905,11 +909,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       summaryRow['Charge (₹)'] = Number(filteredLogs.reduce((acc, log) => {
         const reqBody = log.request_payload || log.request_body || {};
         const chg = Number(
-          (log as any).charge_deducted ?? 
-          reqBody?.chargeDeducted ?? 
-          reqBody?.chargePerBill ?? 
-          reqBody?.charge ?? 
-          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+          (log as any).charge_deducted ??
+          reqBody?.chargeDeducted ??
+          reqBody?.chargePerBill ??
+          reqBody?.charge ??
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ??
           0
         );
         return acc + chg;
@@ -925,7 +929,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       exportData.push(summaryRow);
 
       const ws = XLSX.utils.json_to_sheet(exportData);
-      ws['!cols'] = isAdmin 
+      ws['!cols'] = isAdmin
         ? [{ wch: 8 }, { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 22 }, { wch: 12 }]
         : [{ wch: 8 }, { wch: 22 }, { wch: 15 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 22 }, { wch: 22 }, { wch: 12 }];
 
@@ -957,28 +961,28 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
         const txnId = resBody?.transaction_id || 'N/A';
         const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId || 'N/A';
-        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
-          ? reqBody.customerParams[0].value 
+        const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
+          ? reqBody.customerParams[0].value
           : null;
         const isFailed = statusInfo.text.toLowerCase() === 'failed';
         const chargeVal = isFailed ? 0 : Number(
-          (log as any).charge_deducted ?? 
-          reqBody?.chargeDeducted ?? 
-          reqBody?.chargePerBill ?? 
-          reqBody?.charge ?? 
-          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+          (log as any).charge_deducted ??
+          reqBody?.chargeDeducted ??
+          reqBody?.chargePerBill ??
+          reqBody?.charge ??
+          (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ??
           0
         );
         const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-          log.developer_charge ?? 
-          reqBody?.developerCharge ?? 
-          reqBody?.developer_charge ?? 
+          log.developer_charge ??
+          reqBody?.developerCharge ??
+          reqBody?.developer_charge ??
           0
         );
         const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-          log.owner_charge ?? 
-          reqBody?.ownerCharge ?? 
-          reqBody?.owner_charge ?? 
+          log.owner_charge ??
+          reqBody?.ownerCharge ??
+          reqBody?.owner_charge ??
           Math.max(0, chargeVal - devChargeVal)
         );
 
@@ -1092,15 +1096,13 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                 <button
                   onClick={handleMasterApiToggle}
                   disabled={togglingApi}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${
-                    isApiEnabled ? 'bg-emerald-500' : 'bg-rose-600'
-                  } ${togglingApi ? 'opacity-50 cursor-wait' : ''}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none cursor-pointer ${isApiEnabled ? 'bg-emerald-500' : 'bg-rose-600'
+                    } ${togglingApi ? 'opacity-50 cursor-wait' : ''}`}
                   title={isApiEnabled ? 'Click to TURN OFF API for all agents' : 'Click to TURN ON API for all agents'}
                 >
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      isApiEnabled ? 'translate-x-6' : 'translate-x-1'
-                    }`}
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isApiEnabled ? 'translate-x-6' : 'translate-x-1'
+                      }`}
                   />
                 </button>
               </div>
@@ -1603,43 +1605,43 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                   const apiTxnId = resBody?.api_txn_id || (typeof resBody?.transaction_id === 'string' && resBody.transaction_id.startsWith('BBPSU') ? resBody.transaction_id : null) || reqBody?.api_txn_id || (typeof reqBody?.transaction_id === 'string' && reqBody.transaction_id.startsWith('BBPSU') ? reqBody.transaction_id : null) || resBody?.transaction_id || reqBody?.transaction_id || 'N/A';
                   const clientTxnId = reqBody?.client_transaction_id || (resBody?.client_transaction_id && resBody.client_transaction_id !== apiTxnId ? resBody.client_transaction_id : null);
                   const bbpsTxnId = resBody?.billPayResponse?.txnRefId || resBody?.ExtBillPayResponse?.txnRefId || resBody?.txnRefId;
-                  
+
                   // Extract the primary customer parameter (like Credit Card number, Consumer Number)
-                  const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0 
-                    ? reqBody.customerParams[0].value 
+                  const primaryParam = reqBody.customerParams && reqBody.customerParams.length > 0
+                    ? reqBody.customerParams[0].value
                     : null;
-                  
+
                   const isFailed = statusInfo.text.toLowerCase() === 'failed';
                   const chargeVal = isFailed ? 0 : Number(
-                    (log as any).charge_deducted ?? 
-                    reqBody?.chargeDeducted ?? 
-                    reqBody?.chargePerBill ?? 
-                    reqBody?.charge ?? 
-                    (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ?? 
+                    (log as any).charge_deducted ??
+                    reqBody?.chargeDeducted ??
+                    reqBody?.chargePerBill ??
+                    reqBody?.charge ??
+                    (reqBody?.totalDeduction && reqBody?.amount ? reqBody.totalDeduction - reqBody.amount : undefined) ??
                     0
                   );
 
                   const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-                    log.developer_charge ?? 
-                    reqBody?.developerCharge ?? 
-                    reqBody?.developer_charge ?? 
+                    log.developer_charge ??
+                    reqBody?.developerCharge ??
+                    reqBody?.developer_charge ??
                     0
                   );
 
                   const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-                    log.owner_charge ?? 
-                    reqBody?.ownerCharge ?? 
-                    reqBody?.owner_charge ?? 
+                    log.owner_charge ??
+                    reqBody?.ownerCharge ??
+                    reqBody?.owner_charge ??
                     Math.max(0, chargeVal - devChargeVal)
                   );
-                  
+
                   return (
                     <tr key={log.id} className="hover:bg-slate-700/20 transition-colors">
                       <td className="px-3 py-3">
                         <div className="font-medium text-slate-300 text-xs">{format(parseISO(log.created_at), 'dd MMM, yyyy')}</div>
                         <div className="text-slate-500 text-[11px]">{format(parseISO(log.created_at), 'hh:mm:ss a')}</div>
                       </td>
-                      
+
                       {isAdmin && (
                         <td className="px-3 py-3">
                           <div className="font-bold text-indigo-300 font-mono text-xs truncate max-w-[130px]" title={agentMap[log.agent_id]?.b2b_login_id || log.agent_id}>
@@ -1664,11 +1666,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                           })()}
                         </td>
                       )}
-                      
+
                       <td className="px-3 py-3">
                         <div className="font-medium text-indigo-400 text-xs truncate max-w-[130px]" title={reqBody.billerId || 'Unknown Biller'}>{reqBody.billerId || 'Unknown Biller'}</div>
                       </td>
-                      
+
                       <td className="px-3 py-3">
                         <div className="font-mono text-xs text-white">
                           {primaryParam || reqBody.mobile || 'N/A'}
@@ -1680,7 +1682,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                           </div>
                         )}
                       </td>
-                      
+
                       <td className="px-3 py-3 font-semibold text-white font-mono text-xs">
                         ₹ {Number(reqBody.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                       </td>
@@ -1731,20 +1733,20 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                           <span className="text-slate-500 font-sans">-</span>
                         )}
                       </td>
-                      
+
                       <td className="px-3 py-3">
                         <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[11px] font-medium ${statusInfo.color}`}>
                           {statusInfo.icon}
                           {statusInfo.text}
                         </div>
                       </td>
-                      
+
                       <td className="px-3 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           {isAdmin && (
                             <>
                               {statusInfo.text === 'Pending' && (
-                                <button 
+                                <button
                                   onClick={() => handleLiveCheck(log)}
                                   disabled={updatingStatus === log.id}
                                   className="inline-flex items-center justify-center p-1.5 rounded-lg border text-xs font-medium bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/20 transition-colors"
@@ -1753,33 +1755,31 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                                   {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <RefreshCw className="w-3.5 h-3.5" />}
                                 </button>
                               )}
-                              <button 
+                              <button
                                 onClick={() => handleStatusChange(log.id, 'success')}
                                 disabled={updatingStatus === log.id || statusInfo.text === 'Success'}
-                                className={`inline-flex items-center gap-1 p-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                                  statusInfo.text === 'Success' 
-                                    ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed' 
+                                className={`inline-flex items-center gap-1 p-1.5 rounded-lg border text-xs font-medium transition-colors ${statusInfo.text === 'Success'
+                                    ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed'
                                     : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/20'
-                                }`}
+                                  }`}
                                 title="Mark as Success"
                               >
                                 {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleStatusChange(log.id, 'failed')}
                                 disabled={updatingStatus === log.id || statusInfo.text === 'Failed'}
-                                className={`inline-flex items-center gap-1 p-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                                  statusInfo.text === 'Failed' 
-                                    ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed' 
+                                className={`inline-flex items-center gap-1 p-1.5 rounded-lg border text-xs font-medium transition-colors ${statusInfo.text === 'Failed'
+                                    ? 'bg-slate-800 text-slate-500 border-slate-700 opacity-50 cursor-not-allowed'
                                     : 'bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/20'
-                                }`}
+                                  }`}
                                 title="Reject & Refund"
                               >
                                 {updatingStatus === log.id ? <LoadingSpinner size="sm" /> : <XCircle className="w-3.5 h-3.5" />}
                               </button>
                             </>
                           )}
-                          <button 
+                          <button
                             onClick={() => setSelectedLog(log)}
                             className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-900 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-lg border border-slate-700 transition-colors"
                           >
@@ -1864,31 +1864,31 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId;
             const isFailed = statusInfo.text.toLowerCase() === 'failed';
             const chargeVal = isFailed ? 0 : Number(
-              (selectedLog as any).charge_deducted ?? 
-              req?.chargeDeducted ?? 
-              req?.chargePerBill ?? 
-              req?.charge ?? 
-              (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ?? 
+              (selectedLog as any).charge_deducted ??
+              req?.chargeDeducted ??
+              req?.chargePerBill ??
+              req?.charge ??
+              (req?.totalDeduction && req?.amount ? req.totalDeduction - req.amount : undefined) ??
               0
             );
 
             const devChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-              selectedLog.developer_charge ?? 
-              req?.developerCharge ?? 
-              req?.developer_charge ?? 
+              selectedLog.developer_charge ??
+              req?.developerCharge ??
+              req?.developer_charge ??
               0
             );
 
             const ownerChargeVal = isFailed || chargeVal === 0 ? 0 : Number(
-              selectedLog.owner_charge ?? 
-              req?.ownerCharge ?? 
-              req?.owner_charge ?? 
+              selectedLog.owner_charge ??
+              req?.ownerCharge ??
+              req?.owner_charge ??
               Math.max(0, chargeVal - devChargeVal)
             );
 
             return (
               <div className="space-y-6">
-                
+
                 {/* Summary Header */}
                 <div className={`grid grid-cols-2 ${isAdmin ? 'md:grid-cols-4 lg:grid-cols-7' : 'md:grid-cols-5'} gap-4`}>
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
@@ -1925,7 +1925,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     <div className="text-xs text-slate-500 uppercase font-bold mb-1">Transaction ID</div>
                     <div className="text-sm font-mono text-slate-300 break-all" title="API Txn ID">{res.transaction_id || 'N/A'}</div>
                     {bbpsTxnId && (
-                       <div className="text-xs font-mono text-indigo-400 mt-1" title="BillAvenue Ref ID">BBPS: {bbpsTxnId}</div>
+                      <div className="text-xs font-mono text-indigo-400 mt-1" title="BillAvenue Ref ID">BBPS: {bbpsTxnId}</div>
                     )}
                   </div>
                   <div className="bg-slate-900 border border-slate-700 rounded-xl p-4">
@@ -1941,57 +1941,57 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
                       Request Details (Agent -&gt; API)
                     </h3>
-                    
+
                     <div className="bg-slate-900 rounded-xl border border-slate-700 p-4">
-                       <dl className="space-y-3 text-sm">
-                         <div>
-                           <dt className="text-slate-500 text-xs uppercase font-bold">Biller ID</dt>
-                           <dd className="text-white font-medium">{req.billerId || 'N/A'}</dd>
-                         </div>
-                         
-                         {req.customerParams && req.customerParams.length > 0 && (
-                           <div>
-                             <dt className="text-slate-500 text-xs uppercase font-bold">Parameters</dt>
-                             <dd className="text-white font-medium text-sm mt-1">
-                               {req.customerParams.map((p: any, i: number) => (
-                                 <div key={i} className="mb-1"><span className="text-slate-400 text-xs">{p.name}:</span> <span className="font-mono">{p.value}</span></div>
-                               ))}
-                             </dd>
-                           </div>
-                         )}
+                      <dl className="space-y-3 text-sm">
+                        <div>
+                          <dt className="text-slate-500 text-xs uppercase font-bold">Biller ID</dt>
+                          <dd className="text-white font-medium">{req.billerId || 'N/A'}</dd>
+                        </div>
 
-                         <div>
-                           <dt className="text-slate-500 text-xs uppercase font-bold">Mobile</dt>
-                           <dd className="text-white font-medium">{req.mobile || 'N/A'}</dd>
-                         </div>
-                       </dl>
-                       
-                       {/* Customer Params */}
-                       {req.customerParams && req.customerParams.length > 0 && (
-                         <div className="mt-4 pt-4 border-t border-slate-800">
-                           <dt className="text-slate-500 text-xs uppercase font-bold mb-2">Customer Parameters</dt>
-                           <div className="bg-slate-950 rounded-lg p-3 space-y-2">
-                             {req.customerParams.map((param: any, idx: number) => (
-                               <div key={idx} className="flex justify-between items-center text-xs">
-                                 <span className="text-slate-400">{param.name}:</span>
-                                 <span className="text-indigo-300 font-medium">{param.value}</span>
-                               </div>
-                             ))}
-                           </div>
-                         </div>
-                       )}
+                        {req.customerParams && req.customerParams.length > 0 && (
+                          <div>
+                            <dt className="text-slate-500 text-xs uppercase font-bold">Parameters</dt>
+                            <dd className="text-white font-medium text-sm mt-1">
+                              {req.customerParams.map((p: any, i: number) => (
+                                <div key={i} className="mb-1"><span className="text-slate-400 text-xs">{p.name}:</span> <span className="font-mono">{p.value}</span></div>
+                              ))}
+                            </dd>
+                          </div>
+                        )}
 
-                       {/* Biller Response Info (if provided during pay) */}
-                       {req.billerResponseInfo && Object.keys(req.billerResponseInfo).length > 0 && (
-                         <div className="mt-4 pt-4 border-t border-slate-800">
-                           <dt className="text-slate-500 text-xs uppercase font-bold mb-2">Fetched Bill Details (billerResponseInfo)</dt>
-                           <div className="bg-slate-950 rounded-lg p-3">
-                             <pre className="text-[10px] text-slate-300 overflow-x-auto">
-                               {JSON.stringify(req.billerResponseInfo, null, 2)}
-                             </pre>
-                           </div>
-                         </div>
-                       )}
+                        <div>
+                          <dt className="text-slate-500 text-xs uppercase font-bold">Mobile</dt>
+                          <dd className="text-white font-medium">{req.mobile || 'N/A'}</dd>
+                        </div>
+                      </dl>
+
+                      {/* Customer Params */}
+                      {req.customerParams && req.customerParams.length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-slate-800">
+                          <dt className="text-slate-500 text-xs uppercase font-bold mb-2">Customer Parameters</dt>
+                          <div className="bg-slate-950 rounded-lg p-3 space-y-2">
+                            {req.customerParams.map((param: any, idx: number) => (
+                              <div key={idx} className="flex justify-between items-center text-xs">
+                                <span className="text-slate-400">{param.name}:</span>
+                                <span className="text-indigo-300 font-medium">{param.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Biller Response Info (if provided during pay) */}
+                      {req.billerResponseInfo && Object.keys(req.billerResponseInfo).length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-slate-800">
+                          <dt className="text-slate-500 text-xs uppercase font-bold mb-2">Fetched Bill Details (billerResponseInfo)</dt>
+                          <div className="bg-slate-950 rounded-lg p-3">
+                            <pre className="text-[10px] text-slate-300 overflow-x-auto">
+                              {JSON.stringify(req.billerResponseInfo, null, 2)}
+                            </pre>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -2004,16 +2004,16 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
                     <div className="bg-slate-900 rounded-xl border border-slate-700 p-4">
                       <dl className="space-y-3 text-sm">
-                         <div>
-                           <dt className="text-slate-500 text-xs uppercase font-bold">HTTP Status Code</dt>
-                           <dd className="text-white font-mono">{selectedLog.status_code}</dd>
-                         </div>
-                         <div>
-                           <dt className="text-slate-500 text-xs uppercase font-bold">API Response Code</dt>
-                           <dd className="text-amber-400 font-mono font-bold">
-                             {res?.data?.responseCode || res?.responseCode || 'N/A'}
-                           </dd>
-                         </div>
+                        <div>
+                          <dt className="text-slate-500 text-xs uppercase font-bold">HTTP Status Code</dt>
+                          <dd className="text-white font-mono">{selectedLog.status_code}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-500 text-xs uppercase font-bold">API Response Code</dt>
+                          <dd className="text-amber-400 font-mono font-bold">
+                            {res?.data?.responseCode || res?.responseCode || 'N/A'}
+                          </dd>
+                        </div>
                       </dl>
 
                       <div className="mt-4 pt-4 border-t border-slate-800">
@@ -2084,9 +2084,9 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                     .filter(item => {
                       if (!agentSearchInModal.trim()) return true;
                       const q = agentSearchInModal.toLowerCase();
-                      return item.loginId.toLowerCase().includes(q) || 
-                             item.baAgentId.toLowerCase().includes(q) || 
-                             item.name.toLowerCase().includes(q);
+                      return item.loginId.toLowerCase().includes(q) ||
+                        item.baAgentId.toLowerCase().includes(q) ||
+                        item.name.toLowerCase().includes(q);
                     })
                     .map((item, idx) => (
                       <tr key={item.agentId} className="hover:bg-slate-800/50 transition-colors">

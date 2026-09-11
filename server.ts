@@ -177,7 +177,7 @@ async function startServer() {
   app.post('/api/v1/b2b/admin/whatsapp/notify-new-request', async (req, res) => {
     try {
       let { agentId, agentName, agentPhone, amount, utr, mode, proofUrl, adminPhone } = req.body;
-      
+
       if ((!agentName || agentName === 'B2B Agent' || !agentPhone || agentPhone === 'N/A') && agentId) {
         const { data: b2bCred } = await supabaseAdmin
           .from('b2b_api_credentials')
@@ -198,7 +198,7 @@ async function startServer() {
           .from('admin_profiles')
           .select('mobile, phone')
           .eq('is_b2b_admin', true);
-          
+
         if (b2bAdmins && b2bAdmins.length > 0) {
           targetAdminPhones = b2bAdmins.map(a => a.mobile || a.phone).filter(Boolean);
         }
@@ -2119,8 +2119,8 @@ async function startServer() {
         .eq("id", 1)
         .single();
 
-      const maxCsplLimit = Number(globalSettings?.cspl_max_limit) > 0 
-        ? Number(globalSettings?.cspl_max_limit) 
+      const maxCsplLimit = Number(globalSettings?.cspl_max_limit) > 0
+        ? Number(globalSettings?.cspl_max_limit)
         : (Number(globalSettings?.bbps_max_limit) || 49999);
 
       if (Number(amount) > maxCsplLimit) {
@@ -2152,7 +2152,7 @@ async function startServer() {
       const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Credit Card";
 
       const custBillAmountInPaise = Math.round(Number(amount) * 100);
-      const fetchedAmountInPaise = billDetails?.billAmount 
+      const fetchedAmountInPaise = billDetails?.billAmount
         ? Math.round(Number(billDetails.billAmount) * 100)
         : (fetchedBillerResponse?.billAmount ? Number(fetchedBillerResponse.billAmount) : custBillAmountInPaise);
 
@@ -3179,8 +3179,8 @@ async function startServer() {
         .eq("id", 1)
         .single();
 
-      const maxBillAvenueLimit = Number(globalSettings?.billavenue_max_limit) > 0 
-        ? Number(globalSettings?.billavenue_max_limit) 
+      const maxBillAvenueLimit = Number(globalSettings?.billavenue_max_limit) > 0
+        ? Number(globalSettings?.billavenue_max_limit)
         : (Number(globalSettings?.bbps_max_limit) || 49999);
 
       if (paymentAmount > maxBillAvenueLimit) {
@@ -5433,8 +5433,8 @@ async function startServer() {
       }
 
       const verificationCharge = Number(
-        dbSettings?.verification_charge !== undefined 
-          ? dbSettings.verification_charge 
+        dbSettings?.verification_charge !== undefined
+          ? dbSettings.verification_charge
           : (local.verification_charge !== undefined ? local.verification_charge : 5)
       );
 
@@ -5483,9 +5483,9 @@ async function startServer() {
       console.log("[IndiaTek Verify Result]:", verifyResult);
 
       const status = (verifyResult?.status || verifyResult?.transaction_status || "").toString().toUpperCase();
-      const verifiedName = 
-        verifyResult?.verified_name || 
-        verifyResult?.data?.verified_name || 
+      const verifiedName =
+        verifyResult?.verified_name ||
+        verifyResult?.data?.verified_name ||
         verifyResult?.beneficiary_name ||
         verifyResult?.data?.beneficiary_name ||
         verifyResult?.account_holder_name ||
@@ -5565,11 +5565,11 @@ async function startServer() {
           message: verifyResult?.message || "Bank account verified successfully"
         });
       } else {
-        const errorMsg = 
-          verifyResult?.message || 
-          verifyResult?.error || 
-          (verifyResult?.errors ? Object.values(verifyResult.errors).flat().join(', ') : null) || 
-          verifyResult?.data?.message || 
+        const errorMsg =
+          verifyResult?.message ||
+          verifyResult?.error ||
+          (verifyResult?.errors ? Object.values(verifyResult.errors).flat().join(', ') : null) ||
+          verifyResult?.data?.message ||
           `Bank verification failed with status: ${status || 'FAILED'}`;
         return res.status(400).json({
           success: false,
@@ -5819,11 +5819,11 @@ async function startServer() {
       const transactionId = payoutResult?.data?.transaction_id || payoutResult?.txn_id || null;
       const isSuccessOrPending = statusStr === "SUCCESS" || statusStr === "PENDING";
 
-      let responseMessage = 
-        payoutResult?.error || 
-        (payoutResult?.errors ? Object.values(payoutResult.errors).flat().join(', ') : null) || 
-        payoutResult?.data?.message || 
-        payoutResult?.message || 
+      let responseMessage =
+        payoutResult?.error ||
+        (payoutResult?.errors ? Object.values(payoutResult.errors).flat().join(', ') : null) ||
+        payoutResult?.data?.message ||
+        payoutResult?.message ||
         (isSuccessOrPending ? "Payout processed successfully" : `Payout failed: ${statusStr}`);
 
       if (!isSuccessOrPending && responseMessage && responseMessage.toLowerCase().includes("successfully")) {
@@ -5872,7 +5872,7 @@ async function startServer() {
           message: responseMessage,
           response: payoutResult
         });
-      } 
+      }
       // Handle FAILURE -> Auto Refund & Mark Rejected
       else {
         if (payoutSubmissionId) {
@@ -5917,7 +5917,7 @@ async function startServer() {
               charges: chargeAmount,
               response_payload: payoutResult
             });
-        } catch (_) {}
+        } catch (_) { }
 
         return res.status(400).json({
           success: false,
@@ -6085,11 +6085,11 @@ async function startServer() {
 
       // Resolve partner reference / client_ref_id from all possible keys
       const partnerRef = (
-        payload.client_ref_id || 
-        payload.partner_reference || 
+        payload.client_ref_id ||
+        payload.partner_reference ||
         payload.api_ref ||
-        data.client_ref_id || 
-        data.partner_reference || 
+        data.client_ref_id ||
+        data.partner_reference ||
         data.api_ref ||
         payload.ref_id ||
         data.ref_id ||
@@ -6097,10 +6097,10 @@ async function startServer() {
       ).toString().trim();
 
       const newStatus = (
-        payload.status || 
-        data.status || 
-        payload.transaction_status || 
-        data.transaction_status || 
+        payload.status ||
+        data.status ||
+        payload.transaction_status ||
+        data.transaction_status ||
         "PENDING"
       ).toString().toUpperCase();
 
