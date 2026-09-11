@@ -257,6 +257,10 @@ export default function AdminCamlenioPayoutHistory() {
         const bankRef = (tx.bank_ref || '').toLowerCase();
         const txnId = (tx.txn_id || '').toLowerCase();
         const amountStr = (tx.amount || '').toString();
+        const beneName = (tx.account_holder_name || tx.beneficiary_name || tx.holder_name || '').toLowerCase();
+        const beneAcc = (tx.account_number || '').toLowerCase();
+        const beneIfsc = (tx.ifsc_code || '').toLowerCase();
+        const beneMobile = (tx.customer_mobile || tx.phone || '').toLowerCase();
 
         const matches =
           firmName.includes(q) ||
@@ -264,7 +268,11 @@ export default function AdminCamlenioPayoutHistory() {
           userMobile.includes(q) ||
           bankRef.includes(q) ||
           txnId.includes(q) ||
-          amountStr.includes(q);
+          amountStr.includes(q) ||
+          beneName.includes(q) ||
+          beneAcc.includes(q) ||
+          beneIfsc.includes(q) ||
+          beneMobile.includes(q);
 
         if (!matches) return false;
       }
@@ -689,7 +697,7 @@ export default function AdminCamlenioPayoutHistory() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search user, mobile, ref, txn ID..."
+              placeholder="Search user, mobile, account, beneficiary, ref, txn ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
@@ -788,6 +796,7 @@ export default function AdminCamlenioPayoutHistory() {
               <tr>
                 <th className="px-6 py-4">Date & Time</th>
                 <th className="px-6 py-4">User</th>
+                <th className="px-6 py-4">Beneficiary Details</th>
                 <th className="px-6 py-4">Type / Bank Ref</th>
                 <th className="px-6 py-4 text-right">Amount</th>
                 <th className="px-6 py-4 text-right">Charge</th>
@@ -798,7 +807,7 @@ export default function AdminCamlenioPayoutHistory() {
             <tbody className="divide-y divide-slate-100">
               {paginatedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                     No transactions found matching the selected filters.
                   </td>
                 </tr>
@@ -826,6 +835,19 @@ export default function AdminCamlenioPayoutHistory() {
                         <div className="text-xs text-slate-500 font-medium mt-0.5">{tx.users_profiles.name}</div>
                       )}
                       <div className="text-xs text-slate-400 font-mono mt-0.5">{tx.users_profiles?.mobile_number}</div>
+                    </td>
+                    <td className="px-6 py-4 min-w-[200px]">
+                      <div className="font-bold text-slate-900">
+                        {tx.account_holder_name || tx.beneficiary_name || tx.holder_name || 'N/A'}
+                      </div>
+                      <div className="text-slate-500 font-mono text-[11px] mt-0.5">
+                        {tx.account_number || 'N/A'} {tx.ifsc_code ? `(${tx.ifsc_code})` : ''}
+                      </div>
+                      {(tx.customer_mobile || tx.phone || tx.users_profiles?.mobile_number) && (
+                        <div className="text-slate-400 text-[10px] mt-0.5">
+                          Mob: {tx.customer_mobile || tx.phone || tx.users_profiles?.mobile_number}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 flex-wrap">
@@ -1013,6 +1035,30 @@ export default function AdminCamlenioPayoutHistory() {
                 <span className="text-slate-400 font-bold uppercase">Mobile Number</span>
                 <span className="font-bold text-slate-900 font-mono">{selectedTx.users_profiles?.mobile_number || 'N/A'}</span>
               </div>
+              {(selectedTx.account_holder_name || selectedTx.beneficiary_name || selectedTx.account_number) && (
+                <>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-400 font-bold uppercase">Beneficiary Name</span>
+                    <span className="font-bold text-slate-900 text-right">{selectedTx.account_holder_name || selectedTx.beneficiary_name || selectedTx.holder_name || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-400 font-bold uppercase">Beneficiary A/C</span>
+                    <span className="font-bold text-slate-900 font-mono text-right">{selectedTx.account_number || 'N/A'}</span>
+                  </div>
+                  {selectedTx.ifsc_code && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-400 font-bold uppercase">IFSC Code</span>
+                      <span className="font-bold text-slate-900 font-mono text-right">{selectedTx.ifsc_code}</span>
+                    </div>
+                  )}
+                  {selectedTx.bank_name && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-400 font-bold uppercase">Bank Name</span>
+                      <span className="font-bold text-slate-900 text-right">{selectedTx.bank_name}</span>
+                    </div>
+                  )}
+                </>
+              )}
               <div className="flex justify-between py-1 border-b border-slate-200/60">
                 <span className="text-slate-400 font-bold uppercase">Transfer Amount</span>
                 <span className="font-black text-slate-900">₹{Number(selectedTx.amount).toFixed(2)}</span>
