@@ -1005,30 +1005,29 @@ export const payBill = async (req: Request, res: Response) => {
     // 2. responseReason 'awaited' or 'pending'
     // 3. errorCode PWB001 (Currently request in progress), PNR001, TIMEOUT
     // 4. In-progress message description
-    // 5. Any request where CC01 reference was generated and BillAvenue has not explicitly returned txnStatus === 'FAILED' / 'FAILURE' / 'REJECTED'
-    const isPending = 
-      rawResponseCode === '999' || 
-      rawResponseCode === '001' ||
-      rawResponseCode.toLowerCase() === 'pending' ||
-      rawResponseReason === 'awaited' || 
-      rawResponseReason === 'pending' ||
-      txnStatus === 'PENDING' ||
-      txnStatus === 'AWAITED' ||
-      errorCode === 'PNR001' || 
-      errorCode === 'PWB001' || 
-      errorCode === 'TIMEOUT' ||
-      errorMessage.toLowerCase().includes('in progress') ||
-      errorMessage.toLowerCase().includes('check the status after some time') ||
-      (hasCC01 && txnStatus !== 'FAILED' && txnStatus !== 'FAILURE' && txnStatus !== 'REJECTED');
-
     const isSuccess = 
-      !isPending && (
-        txnStatus === 'SUCCESS' || 
-        txnStatus === 'APPROVED' || 
-        rawResponseCode === '000' || 
-        rawResponseCode === '0000' || 
-        rawResponseReason === 'successful' || 
-        rawResponseReason === 'success'
+      txnStatus === 'SUCCESS' || 
+      txnStatus === 'APPROVED' || 
+      rawResponseCode === '000' || 
+      rawResponseCode === '0000' || 
+      rawResponseReason === 'successful' || 
+      rawResponseReason === 'success';
+
+    const isPending = 
+      !isSuccess && (
+        rawResponseCode === '999' || 
+        rawResponseCode === '001' ||
+        rawResponseCode.toLowerCase() === 'pending' ||
+        rawResponseReason === 'awaited' || 
+        rawResponseReason === 'pending' ||
+        txnStatus === 'PENDING' ||
+        txnStatus === 'AWAITED' ||
+        errorCode === 'PNR001' || 
+        errorCode === 'PWB001' || 
+        errorCode === 'TIMEOUT' ||
+        errorMessage.toLowerCase().includes('in progress') ||
+        errorMessage.toLowerCase().includes('check the status after some time') ||
+        (hasCC01 && txnStatus !== 'FAILED' && txnStatus !== 'FAILURE' && txnStatus !== 'REJECTED')
       );
 
     let finalStatus = 'pending';
@@ -1052,6 +1051,9 @@ export const payBill = async (req: Request, res: Response) => {
       const updatePayload: any = {
         status_code: finalStatus === 'success' ? 200 : (finalStatus === 'pending' ? 202 : 500),
         payment_status: finalStatus,
+        developer_charge: finalStatus === 'success' ? developerCharge : (finalStatus === 'pending' ? developerCharge : 0),
+        owner_charge: finalStatus === 'success' ? ownerCharge : (finalStatus === 'pending' ? ownerCharge : 0),
+        charge_deducted: finalStatus === 'success' ? chargePerBill : 0,
         response_payload: { 
           ...payJson, 
           finalStatus, 
@@ -1063,9 +1065,8 @@ export const payBill = async (req: Request, res: Response) => {
           requestId: billavenueRequestId 
         }
       };
-      // Only log the charge as deducted if payment is successful
+      // Only log the charge as deducted and credit profit if payment is successful
       if (finalStatus === 'success') {
-        updatePayload.charge_deducted = chargePerBill;
         // Credit the API charge to the Admin's Profit Balance
         if (chargePerBill > 0) {
           await supabaseAdmin.rpc('add_admin_balance', { p_amount: chargePerBill });
