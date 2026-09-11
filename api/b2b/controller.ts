@@ -388,6 +388,10 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
         p_log_id: log.id,
         p_status: 'success'
       });
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({ payment_status: 'success', status_code: 200 })
+        .eq('id', log.id);
       localStatus = 'success';
     } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
       console.log(`[B2B Admin CheckStatus] Transaction ${transaction_id} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
@@ -395,6 +399,10 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
         p_log_id: log.id,
         p_status: 'failed'
       });
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({ payment_status: 'failed', status_code: 500 })
+        .eq('id', log.id);
       localStatus = 'failed';
     }
 
@@ -601,6 +609,10 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
         p_log_id: log.id,
         p_status: 'success'
       });
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({ payment_status: 'success', status_code: 200 })
+        .eq('id', log.id);
       localStatus = 'success';
     } else if ((bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') && localStatus === 'pending') {
       console.log(`[B2B CheckStatus] Transaction ${targetTxnId} is FAILED on BillAvenue. Updating status from pending to failed via RPC...`);
@@ -608,6 +620,10 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
         p_log_id: log.id,
         p_status: 'failed'
       });
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({ payment_status: 'failed', status_code: 500 })
+        .eq('id', log.id);
       localStatus = 'failed';
     }
 

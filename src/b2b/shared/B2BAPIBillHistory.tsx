@@ -409,7 +409,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   };
 
   const getStatusInfo = (statusCode: number, responseBody: any, paymentStatus?: string) => {
-    const rawStatus = (paymentStatus || responseBody?.payment_status || responseBody?.finalStatus || '').toLowerCase();
+    const rawStatus = (responseBody?.payment_status || responseBody?.finalStatus || paymentStatus || '').toLowerCase();
     const bpr = responseBody?.ExtBillPayResponse || responseBody?.billPayResponse || responseBody;
     const responseCode = bpr?.responseCode || responseBody?.responseCode;
     const responseReason = (bpr?.responseReason || responseBody?.responseReason || '').toLowerCase();
