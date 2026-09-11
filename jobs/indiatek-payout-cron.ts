@@ -85,7 +85,7 @@ export async function processPendingIndiaTekPayouts() {
           ''
         ).toString().toUpperCase();
 
-        const txnId = statusResult?.data?.transaction_id || statusResult?.txn_id || statusResult?.data?.utr || null;
+        const txnId = statusResult?.operator_ref || statusResult?.data?.transaction_id || statusResult?.txn_id || statusResult?.data?.utr || null;
 
         console.log(`[IndiaTek CRON] Payout Ref: ${partnerRef} -> API Status: '${rawStatus}', Txn ID: '${txnId}'`);
 

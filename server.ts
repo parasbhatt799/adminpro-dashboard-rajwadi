@@ -5966,7 +5966,7 @@ async function startServer() {
 
       const statusResult = await indiatekPayout.checkIndiaTekStatus(partnerRef, username, apiSecret);
       const newStatus = (statusResult?.status || statusResult?.data?.status || "PENDING").toString().toUpperCase();
-      const txnId = statusResult?.txn_id || statusResult?.data?.transaction_id || statusResult?.data?.utr || null;
+      const txnId = statusResult?.operator_ref || statusResult?.txn_id || statusResult?.data?.transaction_id || statusResult?.data?.utr || null;
 
       // Update DB records
       try {
