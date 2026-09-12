@@ -77,7 +77,12 @@ export async function processPendingIndiaTekPayouts() {
       }
 
       try {
-        const statusResult = await indiatekPayout.checkIndiaTekStatus(partnerRef, username, apiSecret);
+        const statusResult = await indiatekPayout.checkIndiaTekStatus(
+          partnerRef,
+          username,
+          apiSecret,
+          payout.transaction_id || undefined
+        );
         const rawStatus = (
           statusResult?.data?.status || 
           statusResult?.status || 
@@ -85,9 +90,22 @@ export async function processPendingIndiaTekPayouts() {
           ''
         ).toString().toUpperCase();
 
-        const txnId = statusResult?.operator_ref || statusResult?.data?.transaction_id || statusResult?.txn_id || statusResult?.data?.utr || null;
+        const txnId = statusResult?.operator_ref || statusResult?.data?.transaction_id || statusResult?.txn_id || statusResult?.data?.utr || payout.transaction_id || null;
+        const resolvedClientRef = statusResult?.client_ref_id || statusResult?.data?.client_ref_id || partnerRef;
+        const resolvedUtr = statusResult?.operator_ref || statusResult?.data?.operator_ref || statusResult?.data?.utr || txnId || resolvedClientRef;
 
-        console.log(`[IndiaTek CRON] Payout Ref: ${partnerRef} -> API Status: '${rawStatus}', Txn ID: '${txnId}'`);
+        console.log(`[IndiaTek CRON] Payout Ref: ${partnerRef} (Txn: ${payout.transaction_id || 'N/A'}) -> API Status: '${rawStatus}', Resolved Txn ID: '${txnId}'`);
+
+        // All match conditions for master payout_submissions
+        const allMatchRefs = Array.from(new Set([
+          partnerRef,
+          payout.transaction_id,
+          resolvedClientRef,
+          txnId,
+          resolvedUtr
+        ].filter(Boolean) as string[]));
+
+        const orConditions = allMatchRefs.map(r => `bank_ref.eq.${r},txn_id.eq.${r},transaction_id.eq.${r},utr_number.eq.${r}`).join(',');
 
         // A. SUCCESS Status
         if (rawStatus === 'SUCCESS' || rawStatus === 'APPROVED' || rawStatus === 'COMPLETED') {
@@ -96,6 +114,7 @@ export async function processPendingIndiaTekPayouts() {
             .update({
               status: 'SUCCESS',
               transaction_id: txnId || payout.transaction_id,
+              partner_reference: resolvedClientRef || partnerRef,
               response_payload: statusResult,
               updated_at: new Date().toISOString()
             })
@@ -106,12 +125,13 @@ export async function processPendingIndiaTekPayouts() {
             .from('payout_submissions')
             .update({
               status: 'approved',
-              transaction_id: txnId || payout.transaction_id,
-              txn_id: txnId || payout.transaction_id,
-              utr_number: txnId || payout.transaction_id,
+              transaction_id: txnId || resolvedClientRef,
+              txn_id: txnId || resolvedClientRef,
+              utr_number: resolvedUtr || txnId || resolvedClientRef,
+              bank_ref: resolvedClientRef,
               remark: 'UsePayout Success'
             })
-            .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
+            .or(orConditions);
 
           results.success++;
           results.details.push(`${partnerRef} -> SUCCESS (Txn: ${txnId})`);
@@ -124,6 +144,7 @@ export async function processPendingIndiaTekPayouts() {
             .update({
               status: 'FAILED',
               transaction_id: txnId || payout.transaction_id,
+              partner_reference: resolvedClientRef || partnerRef,
               response_payload: statusResult,
               updated_at: new Date().toISOString()
             })
@@ -134,13 +155,13 @@ export async function processPendingIndiaTekPayouts() {
             .from('payout_submissions')
             .update({
               status: 'rejected',
-              transaction_id: txnId || payout.transaction_id,
-              txn_id: txnId || payout.transaction_id,
-              utr_number: txnId || payout.transaction_id,
-              remark: 'UsePayout Failed',
-              rejection_reason: 'UsePayout Failed'
+              transaction_id: txnId || resolvedClientRef,
+              txn_id: txnId || resolvedClientRef,
+              utr_number: resolvedUtr || txnId || resolvedClientRef,
+              bank_ref: resolvedClientRef,
+              remark: 'UsePayout Failed'
             })
-            .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
+            .or(orConditions);
 
           // Refund user balance
           const refundAmount = Number(payout.amount || 0) + Number(payout.charges || 0);

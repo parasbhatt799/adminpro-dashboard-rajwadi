@@ -5685,6 +5685,8 @@ async function startServer() {
   app.post("/api/indiatek-payout/send", async (req: any, res: any) => {
     try {
       const { account_number, ifsc_code, ifsc, amount, beneficiary_name, customer_mobile, partner_reference, user_id, bank_name, bankName } = req.body;
+      let payoutSubmissionId: string | null = null;
+      let totalRequired = 0;
       const resolvedIfsc = String(ifsc || ifsc_code || '').trim().toUpperCase();
       const resolvedAccount = String(account_number || req.body.accountNumber || '').trim();
 
@@ -5730,7 +5732,7 @@ async function startServer() {
       const minPayout = Number(dbSettings?.min_payout !== undefined ? dbSettings.min_payout : (local.min_payout !== undefined ? local.min_payout : 10));
       const maxPayout = Number(dbSettings?.max_payout !== undefined ? dbSettings.max_payout : (local.max_payout !== undefined ? local.max_payout : 50000));
       const chargeAmount = Number(dbSettings?.charge_amount !== undefined ? dbSettings.charge_amount : (local.charge_amount !== undefined ? local.charge_amount : 0));
-      const totalRequired = numAmount + chargeAmount;
+      totalRequired = numAmount + chargeAmount;
 
       if (numAmount < minPayout) {
         return res.status(400).json({ success: false, message: `Minimum payout allowed is ₹${minPayout}.` });
@@ -5760,7 +5762,6 @@ async function startServer() {
       const finalPartnerRef = partner_reference || `PAYOUT_${Date.now()}`;
 
       // Deduct User Wallet Balance & Create Entry in payout_submissions (same as CSPL/Camlenio)
-      let payoutSubmissionId: string | null = null;
       if (user_id && user_id !== "admin") {
         try {
           const rpcData = await supabaseAdmin.rpc("submit_auto_payout_request", {
@@ -5901,8 +5902,7 @@ async function startServer() {
             transaction_id: transactionId || finalPartnerRef,
             txn_id: transactionId || finalPartnerRef,
             utr_number: transactionId || finalPartnerRef,
-            remark: responseMessage,
-            rejection_reason: responseMessage
+            remark: responseMessage
           }).eq("id", payoutSubmissionId);
         }
 
@@ -5950,6 +5950,26 @@ async function startServer() {
       }
     } catch (err: any) {
       console.error("[IndiaTek Payout Send Error]", err);
+      if (payoutSubmissionId) {
+        try {
+          await supabaseAdmin.from("payout_submissions").update({
+            status: "rejected",
+            remark: (err.message || "Failed to process payout").slice(0, 200)
+          }).eq("id", payoutSubmissionId);
+        } catch (_) {}
+      }
+      if (req.body?.user_id && req.body?.user_id !== "admin" && totalRequired > 0 && payoutSubmissionId) {
+        try {
+          const { data: prof } = await supabaseAdmin.from("users_profiles").select("wallet_balance").eq("id", req.body.user_id).single();
+          if (prof) {
+            const newBal = Number(prof.wallet_balance || 0) + totalRequired;
+            await supabaseAdmin.from("users_profiles").update({ wallet_balance: newBal }).eq("id", req.body.user_id);
+            console.log(`[IndiaTek Payout] Auto-refunded ₹${totalRequired} to user ${req.body.user_id} due to exception`);
+          }
+        } catch (refErr) {
+          console.error("[IndiaTek Payout] Exception auto-refund error:", refErr);
+        }
+      }
       const errMsg = (err.message || "Failed to process payout").replace(/indiatek/gi, "UsePayout");
       return res.status(500).json({ success: false, message: errMsg });
     }
@@ -5957,11 +5977,12 @@ async function startServer() {
 
 
   // 5. Check IndiaTek Payout Status
+  // 5. Check IndiaTek Payout Status (Supports both client_ref_id and txn_id)
   app.get("/api/indiatek-payout/status/:partnerRef", async (req: any, res: any) => {
     try {
-      const partnerRef = req.params.partnerRef;
-      if (!partnerRef) {
-        return res.status(400).json({ success: false, message: "Partner Reference is required" });
+      const inputRef = String(req.params.partnerRef || "").trim();
+      if (!inputRef) {
+        return res.status(400).json({ success: false, message: "Reference / Transaction ID is required" });
       }
 
       const { data: dbSettings } = await supabaseAdmin
@@ -5973,17 +5994,54 @@ async function startServer() {
       const username = dbSettings?.username || process.env.INDIATEK_PAYOUT_USERNAME || "";
       const apiSecret = dbSettings?.api_secret || process.env.INDIATEK_PAYOUT_API_SECRET || "$2y$12$KpOhRX4vBdqLjsAr3mJeTOd6oKAVauwwlWqkdPJEpXqO6HBTkCvgC";
 
-      const statusResult = await indiatekPayout.checkIndiaTekStatus(partnerRef, username, apiSecret);
+      // 1. Look up existing record in indiatek_payout_submissions by partner_reference OR transaction_id
+      const { data: existingSub } = await supabaseAdmin
+        .from("indiatek_payout_submissions")
+        .select("*")
+        .or(`partner_reference.eq.${inputRef},transaction_id.eq.${inputRef}`)
+        .maybeSingle();
+
+      // 2. Also check payout_submissions table
+      const { data: existingPayout } = await supabaseAdmin
+        .from("payout_submissions")
+        .select("*")
+        .or(`bank_ref.eq.${inputRef},transaction_id.eq.${inputRef},txn_id.eq.${inputRef},utr_number.eq.${inputRef}`)
+        .maybeSingle();
+
+      // Determine client_ref_id (KingWallet docs recommend querying with client_ref_id) and alternate txn_id
+      const knownClientRef = existingSub?.partner_reference || existingPayout?.bank_ref || (inputRef.startsWith("PAYOUT_") ? inputRef : "");
+      const knownTxnId = existingSub?.transaction_id || existingPayout?.transaction_id || existingPayout?.txn_id || (!inputRef.startsWith("PAYOUT_") ? inputRef : "");
+
+      const primaryRef = knownClientRef || inputRef;
+      const alternateRef = knownTxnId && knownTxnId !== primaryRef ? knownTxnId : (inputRef !== primaryRef ? inputRef : undefined);
+
+      console.log(`[IndiaTek Status Check] Checking with Primary: '${primaryRef}', Alternate: '${alternateRef || 'none'}' (Input: '${inputRef}')`);
+
+      const statusResult = await indiatekPayout.checkIndiaTekStatus(primaryRef, username, apiSecret, alternateRef);
       const newStatus = (statusResult?.status || statusResult?.data?.status || "PENDING").toString().toUpperCase();
-      const txnId = statusResult?.operator_ref || statusResult?.txn_id || statusResult?.data?.transaction_id || statusResult?.data?.utr || null;
+      const resolvedTxnId = statusResult?.operator_ref || statusResult?.txn_id || statusResult?.data?.txn_id || statusResult?.data?.transaction_id || statusResult?.data?.utr || knownTxnId || null;
+      const resolvedClientRef = statusResult?.client_ref_id || statusResult?.data?.client_ref_id || knownClientRef || primaryRef;
+      const resolvedUtr = statusResult?.operator_ref || statusResult?.data?.operator_ref || statusResult?.data?.utr || resolvedTxnId || resolvedClientRef;
 
       // Update DB records
       try {
-        const { data: existingSub } = await supabaseAdmin
-          .from("indiatek_payout_submissions")
-          .select("*")
-          .eq("partner_reference", partnerRef)
-          .maybeSingle();
+        // Collect all possible match references for robust lookup
+        const allMatchRefs = Array.from(new Set([
+          inputRef,
+          primaryRef,
+          alternateRef,
+          resolvedClientRef,
+          resolvedTxnId,
+          resolvedUtr,
+          existingSub?.partner_reference,
+          existingSub?.transaction_id,
+          existingPayout?.bank_ref,
+          existingPayout?.txn_id,
+          existingPayout?.transaction_id,
+          existingPayout?.utr_number
+        ].filter(Boolean) as string[]));
+
+        const orConditions = allMatchRefs.map(r => `bank_ref.eq.${r},txn_id.eq.${r},transaction_id.eq.${r},utr_number.eq.${r}`).join(',');
 
         if (existingSub) {
           const prevStatus = (existingSub.status || "").toUpperCase();
@@ -5992,7 +6050,8 @@ async function startServer() {
             .from("indiatek_payout_submissions")
             .update({
               status: newStatus,
-              transaction_id: txnId || existingSub.transaction_id,
+              transaction_id: resolvedTxnId || existingSub.transaction_id,
+              partner_reference: resolvedClientRef || existingSub.partner_reference,
               response_payload: statusResult,
               updated_at: new Date().toISOString()
             })
@@ -6004,12 +6063,13 @@ async function startServer() {
               .from("payout_submissions")
               .update({
                 status: "approved",
-                transaction_id: txnId || existingSub.transaction_id,
-                txn_id: txnId || existingSub.transaction_id,
-                utr_number: txnId || existingSub.transaction_id,
+                transaction_id: resolvedTxnId || resolvedClientRef,
+                txn_id: resolvedTxnId || resolvedClientRef,
+                utr_number: resolvedUtr || resolvedTxnId || resolvedClientRef,
+                bank_ref: resolvedClientRef,
                 remark: "UsePayout Success"
               })
-              .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
+              .or(orConditions);
           }
           // If FAILED: update payout_submissions to rejected & auto refund
           else if (newStatus === "FAILED" || newStatus === "FAILURE" || newStatus === "REJECTED") {
@@ -6017,13 +6077,13 @@ async function startServer() {
               .from("payout_submissions")
               .update({
                 status: "rejected",
-                transaction_id: txnId || existingSub.transaction_id,
-                txn_id: txnId || existingSub.transaction_id,
-                utr_number: txnId || existingSub.transaction_id,
-                remark: "UsePayout Failed",
-                rejection_reason: "UsePayout Failed"
+                transaction_id: resolvedTxnId || resolvedClientRef,
+                txn_id: resolvedTxnId || resolvedClientRef,
+                utr_number: resolvedUtr || resolvedTxnId || resolvedClientRef,
+                bank_ref: resolvedClientRef,
+                remark: "UsePayout Failed"
               })
-              .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
+              .or(orConditions);
 
             const wasPending = prevStatus === "PENDING" || prevStatus === "PROCESSING";
             if (wasPending && existingSub.user_id && existingSub.user_id !== "admin") {
@@ -6042,6 +6102,32 @@ async function startServer() {
                 }
               }
             }
+          }
+        } else if (existingPayout) {
+          if (newStatus === "SUCCESS" || newStatus === "APPROVED" || newStatus === "COMPLETED") {
+            await supabaseAdmin
+              .from("payout_submissions")
+              .update({
+                status: "approved",
+                transaction_id: resolvedTxnId || resolvedClientRef,
+                txn_id: resolvedTxnId || resolvedClientRef,
+                utr_number: resolvedUtr || resolvedTxnId || resolvedClientRef,
+                bank_ref: resolvedClientRef,
+                remark: "UsePayout Success"
+              })
+              .or(orConditions);
+          } else if (newStatus === "FAILED" || newStatus === "FAILURE" || newStatus === "REJECTED") {
+            await supabaseAdmin
+              .from("payout_submissions")
+              .update({
+                status: "rejected",
+                transaction_id: resolvedTxnId || resolvedClientRef,
+                txn_id: resolvedTxnId || resolvedClientRef,
+                utr_number: resolvedUtr || resolvedTxnId || resolvedClientRef,
+                bank_ref: resolvedClientRef,
+                remark: "UsePayout Failed"
+              })
+              .or(orConditions);
           }
         }
       } catch (dbSyncErr) {
@@ -6175,8 +6261,7 @@ async function startServer() {
               transaction_id: txnId || existingSub.transaction_id,
               txn_id: txnId || existingSub.transaction_id,
               utr_number: txnId || existingSub.transaction_id,
-              remark: "UsePayout Webhook Failed",
-              rejection_reason: "UsePayout Webhook Failed"
+              remark: "UsePayout Webhook Failed"
             })
             .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},utr_number.eq.${partnerRef}`);
         }

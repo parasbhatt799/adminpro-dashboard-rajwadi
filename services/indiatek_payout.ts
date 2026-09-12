@@ -168,22 +168,62 @@ export async function initiateIndiaTekPayout(payload: IndiaTekPayoutPayload, use
 
 /**
  * Check Transaction Status
- * GET https://api.kingwallet.in/api/v1/b2b/status/{partner_reference}
+ * GET https://api.kingwallet.in/api/v1/b2b/status/{client_ref_id}
+ * Supports querying by client_ref_id or txn_id with automatic fallback
  */
-export async function checkIndiaTekStatus(partnerReference: string, username?: string, apiSecret?: string) {
-  const url = `${BASE_URL}/status/${partnerReference}`;
+export async function checkIndiaTekStatus(
+  primaryRef: string,
+  username?: string,
+  apiSecret?: string,
+  alternateRef?: string
+) {
   const headers = generateIndiaTekHeaders(username, apiSecret);
-  console.log('[IndiaTek Payout] Checking Status for ref:', partnerReference);
+  const cleanPrimary = String(primaryRef || '').trim();
+  const cleanAlt = String(alternateRef || '').trim();
 
-  try {
+  const tryFetchStatus = async (ref: string) => {
+    const url = `${BASE_URL}/status/${encodeURIComponent(ref)}`;
+    console.log('[IndiaTek Payout] Checking Status for ref:', ref, 'at:', url);
     const response = await fetch(url, {
       method: 'GET',
       headers: headers as any
     });
     const data = await response.json();
-    console.log('[IndiaTek Payout] Status Response:', data);
+    console.log('[IndiaTek Payout] Status Response for', ref, ':', data);
     return { statusCode: response.status, ...data };
+  };
+
+  try {
+    const result = await tryFetchStatus(cleanPrimary);
+
+    const isNotFound =
+      result.statusCode === 404 ||
+      result.status === 'ERROR' ||
+      result.status === 'error' ||
+      (result.message && /not found/i.test(result.message));
+
+    // If primary reference returned 404 / not found, and alternateRef exists and differs, try alternateRef!
+    if (isNotFound && cleanAlt && cleanAlt !== cleanPrimary) {
+      console.log(`[IndiaTek Payout] Primary ref '${cleanPrimary}' not found. Trying fallback alternate ref '${cleanAlt}'...`);
+      try {
+        const altResult = await tryFetchStatus(cleanAlt);
+        if (altResult.statusCode === 200 || (altResult.status && altResult.status !== 'ERROR' && altResult.status !== 'error')) {
+          return altResult;
+        }
+        return altResult.statusCode === 200 ? altResult : result;
+      } catch (altErr) {
+        console.warn('[IndiaTek Payout] Alternate ref status check failed:', altErr);
+      }
+    }
+
+    return result;
   } catch (error: any) {
+    if (cleanAlt && cleanAlt !== cleanPrimary) {
+      try {
+        console.log(`[IndiaTek Payout] Error on primary ref '${cleanPrimary}'. Trying alternate ref '${cleanAlt}'...`);
+        return await tryFetchStatus(cleanAlt);
+      } catch (_) {}
+    }
     console.error('[IndiaTek Payout] Status check error:', error);
     throw error;
   }

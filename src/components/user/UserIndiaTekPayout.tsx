@@ -483,13 +483,16 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
   };
 
   // Step 5: Check Live Status of a transaction
-  const handleCheckStatus = async (partnerRef: string) => {
-    setCheckingStatusRef(partnerRef);
+  const handleCheckStatus = async (partnerRef?: string, txnId?: string) => {
+    const queryId = String(partnerRef || txnId || '').trim();
+    if (!queryId) return;
+
+    setCheckingStatusRef(queryId);
     try {
-      const res = await fetch(`/api/indiatek-payout/status/${partnerRef}`);
+      const res = await fetch(`/api/indiatek-payout/status/${encodeURIComponent(queryId)}`);
       const data = await res.json();
       const newStatus = (data?.status || data?.data?.status || 'PENDING').toString().toUpperCase();
-      setSuccess(`Status for ${partnerRef}: ${newStatus}`);
+      setSuccess(`Status for ${queryId}: ${newStatus}`);
       fetchUserHistory();
       fetchUserData(); // Refresh balance if refunded
     } catch (err) {
@@ -1035,13 +1038,13 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                       <td className="py-3 px-4 text-right">
                         <div className="inline-flex items-center gap-2">
                           <button
-                            onClick={() => handleCheckStatus(txn.partner_reference)}
-                            disabled={checkingStatusRef === txn.partner_reference}
+                            onClick={() => handleCheckStatus(txn.partner_reference, txn.transaction_id)}
+                            disabled={checkingStatusRef === (txn.partner_reference || txn.transaction_id)}
                             className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition-colors inline-flex items-center gap-1"
                             title="Check Live Status"
                           >
                             <RotateCcw
-                              className={`w-3.5 h-3.5 ${checkingStatusRef === txn.partner_reference ? 'animate-spin' : ''}`}
+                              className={`w-3.5 h-3.5 ${checkingStatusRef === (txn.partner_reference || txn.transaction_id) ? 'animate-spin' : ''}`}
                             />
                             Status
                           </button>

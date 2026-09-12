@@ -192,13 +192,17 @@ export default function AdminIndiaTekPayout() {
     }
   };
 
-  const handleCheckLiveStatus = async (partnerRef: string) => {
-    setCheckingStatusId(partnerRef);
+  const handleCheckLiveStatus = async (partnerRef?: string, txnId?: string) => {
+    const queryId = String(partnerRef || txnId || '').trim();
+    if (!queryId) return;
+
+    setCheckingStatusId(queryId);
     try {
-      const res = await fetch(`/api/indiatek-payout/status/${partnerRef}`);
+      const res = await fetch(`/api/indiatek-payout/status/${encodeURIComponent(queryId)}`);
       const data = await res.json();
       fetchHistory();
-      setMessage({ type: 'success', text: `Status for ${partnerRef}: ${data?.status || data?.data?.status || 'Fetched'}` });
+      const st = data?.status || data?.data?.status || 'Fetched';
+      setMessage({ type: 'success', text: `Status for ${queryId}: ${st}` });
     } catch (err) {
       console.error('Error checking live status:', err);
       setMessage({ type: 'error', text: 'Failed to fetch status from IndiaTek API' });
@@ -442,11 +446,11 @@ export default function AdminIndiaTekPayout() {
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">
                         <button
-                          onClick={() => handleCheckLiveStatus(sub.partner_reference)}
-                          disabled={checkingStatusId === sub.partner_reference}
+                          onClick={() => handleCheckLiveStatus(sub.partner_reference, sub.transaction_id)}
+                          disabled={checkingStatusId === (sub.partner_reference || sub.transaction_id)}
                           className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-indigo-700 hover:text-indigo-900 rounded-xl text-xs font-bold border border-slate-200 transition-colors inline-flex items-center gap-1.5"
                         >
-                          <RefreshCw className={`w-3.5 h-3.5 ${checkingStatusId === sub.partner_reference ? 'animate-spin' : ''}`} />
+                          <RefreshCw className={`w-3.5 h-3.5 ${checkingStatusId === (sub.partner_reference || sub.transaction_id) ? 'animate-spin' : ''}`} />
                           Check Live Status
                         </button>
                       </td>
