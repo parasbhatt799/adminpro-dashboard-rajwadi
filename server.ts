@@ -4848,6 +4848,184 @@ async function startServer() {
     }
   });
 
+  // Admin Manual Payout Refund: refunds Amount + Charge to user wallet and sets status to rejected
+  app.post("/api/payout/admin-refund", async (req, res) => {
+    try {
+      const { payoutId, txn_id, reason } = req.body;
+      const targetIdentifier = payoutId || txn_id;
+
+      if (!targetIdentifier) {
+        return res.status(400).json({ success: false, message: "Payout ID or transaction ID is required" });
+      }
+
+      let payoutRecord: any = null;
+
+      // 1. Try finding by ID in payout_submissions
+      try {
+        const { data } = await supabaseAdmin.from('payout_submissions').select('*').eq('id', targetIdentifier).maybeSingle();
+        payoutRecord = data;
+      } catch (err) {
+        // May fail if not valid UUID
+      }
+
+      // 2. If not found by ID, search by bank_ref, txn_id, transaction_id, or utr_number
+      if (!payoutRecord) {
+        const { data } = await supabaseAdmin
+          .from('payout_submissions')
+          .select('*')
+          .or(`bank_ref.eq.${targetIdentifier},txn_id.eq.${targetIdentifier},transaction_id.eq.${targetIdentifier},utr_number.eq.${targetIdentifier}`)
+          .maybeSingle();
+        payoutRecord = data;
+      }
+
+      // 3. If found in payout_submissions
+      if (payoutRecord) {
+        const currentStatus = (payoutRecord.status || '').toLowerCase();
+        if (currentStatus === 'rejected' || currentStatus === 'refunded' || currentStatus === 'failed') {
+          return res.status(400).json({
+            success: false,
+            message: `This payout transaction is already marked as ${currentStatus.toUpperCase()} and cannot be refunded again.`
+          });
+        }
+
+        const amount = Number(payoutRecord.amount || 0);
+        const charge = Number(payoutRecord.charge_amount || 0);
+        const totalRefund = amount + charge;
+
+        if (totalRefund <= 0) {
+          return res.status(400).json({ success: false, message: "Invalid refund amount (0 or negative)" });
+        }
+
+        let newBalance = 0;
+        let userName = '';
+
+        // Credit to user's wallet
+        if (payoutRecord.user_id && payoutRecord.user_id !== 'admin') {
+          const { data: userProfile, error: uErr } = await supabaseAdmin
+            .from('users_profiles')
+            .select('wallet_balance, name, firm_name, mobile_number')
+            .eq('id', payoutRecord.user_id)
+            .single();
+
+          if (uErr || !userProfile) {
+            return res.status(400).json({ success: false, message: `User profile not found for user ID: ${payoutRecord.user_id}` });
+          }
+
+          const currentBal = Number(userProfile.wallet_balance || 0);
+          newBalance = currentBal + totalRefund;
+          userName = userProfile.firm_name || userProfile.name || 'User';
+
+          const { error: updErr } = await supabaseAdmin
+            .from('users_profiles')
+            .update({ wallet_balance: newBalance })
+            .eq('id', payoutRecord.user_id);
+
+          if (updErr) {
+            return res.status(500).json({ success: false, message: `Failed to update user wallet: ${updErr.message}` });
+          }
+
+          console.log(`[Admin Payout Refund] Refunded ₹${totalRefund} to user ${payoutRecord.user_id} (${userName}). New balance: ₹${newBalance}`);
+        }
+
+        // Build remark
+        const refundRemark = `Admin Refund: ₹${totalRefund.toFixed(2)} refunded to wallet (Amount: ₹${amount.toFixed(2)} + Charge: ₹${charge.toFixed(2)}). ${reason ? 'Reason: ' + reason.trim() : 'Bank payout not received'}`;
+
+        // Update payout_submissions status to rejected
+        await supabaseAdmin
+          .from('payout_submissions')
+          .update({
+            status: 'rejected',
+            remark: refundRemark,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', payoutRecord.id);
+
+        // Also update matching row in indiatek_payout_submissions if exists
+        const refToMatch = payoutRecord.bank_ref || payoutRecord.txn_id || payoutRecord.transaction_id || payoutRecord.utr_number;
+        if (refToMatch) {
+          await supabaseAdmin
+            .from('indiatek_payout_submissions')
+            .update({
+              status: 'FAILED',
+              remark: refundRemark
+            })
+            .or(`partner_reference.eq.${refToMatch},transaction_id.eq.${refToMatch}`);
+        }
+
+        return res.json({
+          success: true,
+          message: `Successfully refunded ₹${totalRefund.toFixed(2)} to ${userName || 'user'} wallet.`,
+          refundAmount: totalRefund,
+          newBalance,
+          payoutId: payoutRecord.id
+        });
+      }
+
+      // 4. Fallback check in indiatek_payout_submissions if not in payout_submissions
+      const { data: indiatekRecord } = await supabaseAdmin
+        .from('indiatek_payout_submissions')
+        .select('*')
+        .or(`partner_reference.eq.${targetIdentifier},transaction_id.eq.${targetIdentifier}`)
+        .maybeSingle();
+
+      if (indiatekRecord) {
+        const curStatus = (indiatekRecord.status || '').toUpperCase();
+        if (curStatus === 'FAILED' || curStatus === 'REJECTED' || curStatus === 'REFUNDED') {
+          return res.status(400).json({
+            success: false,
+            message: `This UsePayout transaction is already marked as ${curStatus} and cannot be refunded again.`
+          });
+        }
+
+        const amt = Number(indiatekRecord.amount || 0);
+        const chg = Number(indiatekRecord.charges || 0);
+        const totRefund = amt + chg;
+
+        let newBal = 0;
+        let uName = '';
+
+        if (indiatekRecord.user_id && indiatekRecord.user_id !== 'admin') {
+          const { data: prof } = await supabaseAdmin
+            .from('users_profiles')
+            .select('wallet_balance, name, firm_name')
+            .eq('id', indiatekRecord.user_id)
+            .single();
+
+          if (prof) {
+            const curB = Number(prof.wallet_balance || 0);
+            newBal = curB + totRefund;
+            uName = prof.firm_name || prof.name || 'User';
+            await supabaseAdmin.from('users_profiles').update({ wallet_balance: newBal }).eq('id', indiatekRecord.user_id);
+          }
+        }
+
+        const refRemark = `Admin Refund: ₹${totRefund.toFixed(2)} refunded to wallet (Amount: ₹${amt.toFixed(2)} + Charge: ₹${chg.toFixed(2)}). ${reason ? 'Reason: ' + reason.trim() : 'Bank payout not received'}`;
+
+        await supabaseAdmin
+          .from('indiatek_payout_submissions')
+          .update({
+            status: 'FAILED',
+            remark: refRemark
+          })
+          .eq('id', indiatekRecord.id);
+
+        return res.json({
+          success: true,
+          message: `Successfully refunded ₹${totRefund.toFixed(2)} to ${uName || 'user'} wallet.`,
+          refundAmount: totRefund,
+          newBalance: newBal,
+          payoutId: indiatekRecord.id
+        });
+      }
+
+      return res.status(404).json({ success: false, message: "Payout transaction record not found." });
+
+    } catch (error: any) {
+      console.error("[Payout Admin Refund Error]:", error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  });
+
   // Trigger Payout Cron Auto-Check on demand or via Vercel/External Cron
   app.all(["/api/cron/payout-status-check", "/api/payout/sync-pending"], async (req, res) => {
     try {
@@ -5683,10 +5861,10 @@ async function startServer() {
 
   // 4. Initiate IndiaTek Payout
   app.post("/api/indiatek-payout/send", async (req: any, res: any) => {
+    let payoutSubmissionId: string | null = null;
+    let totalRequired = 0;
     try {
       const { account_number, ifsc_code, ifsc, amount, beneficiary_name, customer_mobile, partner_reference, user_id, bank_name, bankName } = req.body;
-      let payoutSubmissionId: string | null = null;
-      let totalRequired = 0;
       const resolvedIfsc = String(ifsc || ifsc_code || '').trim().toUpperCase();
       const resolvedAccount = String(account_number || req.body.accountNumber || '').trim();
 
