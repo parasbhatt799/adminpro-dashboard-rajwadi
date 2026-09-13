@@ -12,7 +12,7 @@ interface ModalProps {
   confirmText?: string;
   cancelText?: string;
   children?: React.ReactNode;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | 'full';
   isDark?: boolean;
 }
 
