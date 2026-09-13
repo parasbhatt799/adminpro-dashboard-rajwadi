@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
-import { Wallet, ShieldCheck, Activity, ArrowUpRight, Crown, User, PlusCircle, History, Search, Trash2, Clock, Landmark } from 'lucide-react';
+import { Wallet, ShieldCheck, Activity, ArrowUpRight, Crown, User, PlusCircle, History, Search, Clock, Landmark, Lock, KeyRound, AlertCircle, Loader2, Shield } from 'lucide-react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { format } from 'date-fns';
 
@@ -9,6 +9,14 @@ export default function B2BAdminWithdrawals() {
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Security PIN Lock State (Preserved in sessionStorage for current tab session)
+  const [isUnlocked, setIsUnlocked] = useState<boolean>(
+    () => sessionStorage.getItem('b2b_withdrawals_unlocked') === 'true'
+  );
+  const [pin, setPin] = useState('');
+  const [verifyingPin, setVerifyingPin] = useState(false);
+  const [pinError, setPinError] = useState('');
 
   // Gross Earnings from Logs
   const [grossTotalRevenue, setGrossTotalRevenue] = useState<number>(0);
@@ -27,6 +35,11 @@ export default function B2BAdminWithdrawals() {
   const [searchTerm, setSearchTerm] = useState<string>('');
 
   useEffect(() => {
+    if (!isUnlocked) {
+      setLoading(false);
+      return;
+    }
+
     fetchData();
 
     // Realtime listeners
@@ -52,7 +65,7 @@ export default function B2BAdminWithdrawals() {
       supabase.removeChannel(logsChannel);
       supabase.removeChannel(withdrawalsChannel);
     };
-  }, []);
+  }, [isUnlocked]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -241,33 +254,55 @@ export default function B2BAdminWithdrawals() {
     }
   };
 
-  // Delete Withdrawal Entry
-  const handleDeleteWithdrawal = async (id: string, role: string, amt: number) => {
-    const rLabel =
-      role === 'developer'
-        ? 'Developer Share'
-        : role === 'owner'
-        ? 'Owner Share'
-        : 'Total Net API Revenue';
-
-    if (!window.confirm(`Are you sure you want to delete this withdrawal entry of ₹${amt.toLocaleString('en-IN')} for [ ${rLabel} ]? This will RESTORE the balance.`)) {
+  // Verify Security PIN via Backend
+  const handleVerifyPin = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!pin.trim()) {
+      setPinError('Please enter your Security PIN.');
       return;
     }
 
+    setVerifyingPin(true);
+    setPinError('');
+
     try {
-      const { error } = await supabase
-        .from('b2b_revenue_withdrawals')
-        .delete()
-        .eq('id', id);
+      const adminId = localStorage.getItem('b2bAdminId');
+      const response = await fetch('/api/b2b/admin/verify-withdrawal-pin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminId, pin: pin.trim() })
+      });
 
-      if (error) throw error;
+      const data = await response.json();
 
-      toast.success(`Withdrawal entry deleted and ₹${amt.toLocaleString('en-IN')} restored to balance!`);
-      fetchData();
+      if (!response.ok || !data.success) {
+        const errMsg = data.message || 'Incorrect Security PIN. Access denied.';
+        setPinError(errMsg);
+        toast.error(errMsg);
+        setPin('');
+      } else {
+        toast.success('Security PIN verified successfully!');
+        sessionStorage.setItem('b2b_withdrawals_unlocked', 'true');
+        setIsUnlocked(true);
+        setPin('');
+        setPinError('');
+      }
     } catch (err: any) {
-      console.error('Error deleting withdrawal:', err);
-      toast.error('Failed to delete withdrawal entry.');
+      console.error('Error verifying PIN:', err);
+      setPinError('Network error while verifying PIN. Please try again.');
+      toast.error('Network error while verifying PIN');
+    } finally {
+      setVerifyingPin(false);
     }
+  };
+
+  // Lock Page
+  const handleLockPage = () => {
+    sessionStorage.removeItem('b2b_withdrawals_unlocked');
+    setIsUnlocked(false);
+    setPin('');
+    setPinError('');
+    toast.info('Withdrawals page locked.');
   };
 
   // Filtered Withdrawals List
@@ -289,11 +324,90 @@ export default function B2BAdminWithdrawals() {
             <ArrowUpRight className="h-6 w-6 text-indigo-400" />
             Revenue Withdrawals
           </h2>
-          <p className="text-slate-400">Directly deduct payouts from Total API Revenue, Developer Share, or Owner Share.</p>
+          <p className="text-slate-400 text-xs sm:text-sm">Directly deduct payouts from Total API Revenue, Developer Share, or Owner Share.</p>
         </div>
+
+        {isUnlocked && (
+          <button
+            onClick={handleLockPage}
+            className="self-start sm:self-auto px-3.5 py-2 bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-semibold rounded-xl border border-slate-700/80 flex items-center gap-2 transition-all shadow-sm cursor-pointer active:scale-95 hover:border-slate-600"
+            title="Lock Revenue Withdrawals Page"
+          >
+            <Lock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Lock Page</span>
+          </button>
+        )}
       </div>
 
-      {loading ? (
+      {!isUnlocked ? (
+        /* Security PIN Lock Card */
+        <div className="min-h-[55vh] flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-slate-900/90 border border-slate-700/80 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
+            {/* Background Glows */}
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="text-center relative z-10">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shadow-lg shadow-indigo-500/10">
+                <Lock className="w-8 h-8 text-indigo-400" />
+              </div>
+
+              <h3 className="text-xl font-bold text-white tracking-tight">Security PIN Required</h3>
+              <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+                Enter your confidential Security PIN to unlock Revenue Withdrawals, balances, and history logs.
+              </p>
+
+              <form onSubmit={handleVerifyPin} className="mt-6 space-y-4">
+                <div className="relative">
+                  <input
+                    type="password"
+                    maxLength={10}
+                    autoFocus
+                    placeholder="• • • •"
+                    value={pin}
+                    onChange={(e) => {
+                      setPin(e.target.value);
+                      setPinError('');
+                    }}
+                    className="w-full bg-slate-950 border border-slate-700/80 rounded-2xl py-3.5 px-4 text-center text-2xl font-mono tracking-[0.4em] text-white placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all shadow-inner"
+                  />
+                  <KeyRound className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+                </div>
+
+                {pinError && (
+                  <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl text-rose-400 text-xs flex items-center gap-2 text-left">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                    <span>{pinError}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={verifyingPin || !pin.trim()}
+                  className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-600/30 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {verifyingPin ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Verifying PIN...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-4 h-4" />
+                      <span>Unlock Page</span>
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="mt-6 pt-5 border-t border-slate-800 text-[11px] text-slate-500 flex items-center justify-center gap-1.5">
+                <Shield className="w-3.5 h-3.5 text-slate-500" />
+                <span>PIN is authenticated securely directly from the database</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : loading ? (
         <div className="h-64 flex items-center justify-center">
           <LoadingSpinner size="lg" />
         </div>
@@ -546,7 +660,6 @@ export default function B2BAdminWithdrawals() {
                       <th className="px-6 py-3">Target Account</th>
                       <th className="px-6 py-3">Withdrawn Amount</th>
                       <th className="px-6 py-3">Remark / Note</th>
-                      <th className="px-6 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60">
@@ -578,15 +691,6 @@ export default function B2BAdminWithdrawals() {
                         </td>
                         <td className="px-6 py-4 text-slate-300 text-xs">
                           {w.remark || <span className="italic text-slate-500">No remark</span>}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <button
-                            onClick={() => handleDeleteWithdrawal(w.id, w.role, Number(w.amount))}
-                            className="p-1.5 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer"
-                            title="Delete withdrawal & restore balance"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
                         </td>
                       </tr>
                     ))}

@@ -5041,6 +5041,58 @@ async function startServer() {
     }
   });
 
+  // Verify B2B Withdrawal Security PIN (Securely checks database column withdrawal_pin)
+  app.post("/api/b2b/admin/verify-withdrawal-pin", async (req, res) => {
+    try {
+      const { adminId, pin } = req.body;
+      if (!pin || typeof pin !== 'string') {
+        return res.status(400).json({ success: false, message: "Security PIN is required" });
+      }
+
+      const cleanPin = pin.trim();
+
+      // Query admin_profiles
+      let query = supabaseAdmin.from('admin_profiles').select('id, withdrawal_pin, is_b2b_admin, role');
+
+      if (adminId) {
+        query = query.eq('id', adminId);
+      } else {
+        query = query.or('is_b2b_admin.eq.true,role.eq.admin');
+      }
+
+      const { data: admins, error } = await query;
+      if (error) {
+        console.error('[Verify Withdrawal PIN Error]:', error);
+        return res.status(500).json({ success: false, message: "Failed to verify PIN due to database error" });
+      }
+
+      if (!admins || admins.length === 0) {
+        return res.status(404).json({ success: false, message: "Admin profile not found" });
+      }
+
+      // Check if PIN matches
+      const matched = admins.find(a => a.withdrawal_pin && a.withdrawal_pin.toString().trim() === cleanPin);
+      if (matched) {
+        return res.json({ success: true, message: "PIN verified successfully" });
+      }
+
+      // Check if withdrawal_pin is configured at all in database
+      const hasConfiguredPin = admins.some(a => a.withdrawal_pin && a.withdrawal_pin.toString().trim().length > 0);
+      if (!hasConfiguredPin) {
+        return res.status(400).json({
+          success: false,
+          notConfigured: true,
+          message: "Withdrawal PIN is not set in the database. Please update 'withdrawal_pin' in the admin_profiles table."
+        });
+      }
+
+      return res.status(401).json({ success: false, message: "Incorrect Security PIN. Access denied." });
+    } catch (error: any) {
+      console.error("[Verify Withdrawal PIN Server Error]:", error);
+      return res.status(500).json({ success: false, message: error.message || "Internal server error" });
+    }
+  });
+
   app.post("/api/webhooks/camlenio/payout", async (req: any, res) => {
     try {
       const signature = req.headers['x-camlenio-signature'] as string ||
