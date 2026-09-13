@@ -59,7 +59,8 @@ export default function Modal({
       case '3xl': return 'max-w-3xl';
       case '4xl': return 'max-w-4xl';
       case '5xl': return 'max-w-5xl';
-      case 'full': return 'max-w-full mx-4';
+      case '6xl': return 'max-w-6xl';
+      case 'full': return 'max-w-[96vw] mx-2';
       default: return 'max-w-sm';
     }
   };
@@ -67,13 +68,13 @@ export default function Modal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm"
+            className="absolute inset-0 bg-slate-950/85 backdrop-blur-sm"
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -81,26 +82,26 @@ export default function Modal({
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             className={`w-full ${getSizeClass()} relative z-[101] ${
               isDark
-                ? 'bg-slate-800 border border-slate-700 text-white shadow-2xl shadow-black/50 rounded-3xl'
+                ? 'bg-slate-900 border border-slate-700/80 text-white shadow-2xl shadow-black/80 rounded-3xl'
                 : 'bg-white rounded-[2.5rem] shadow-2xl'
-            } p-6 sm:p-8 overflow-hidden ${!children ? 'text-center' : ''}`}
-            style={children ? { maxHeight: '90vh', display: 'flex', flexDirection: 'column' } : {}}
+            } p-5 sm:p-7 overflow-hidden ${!children ? 'text-center' : ''}`}
+            style={children ? { maxHeight: '92vh', display: 'flex', flexDirection: 'column' } : {}}
           >
             <button 
               onClick={onClose}
-              className={`absolute top-6 right-6 ${
+              className={`absolute top-5 right-5 ${
                 isDark 
-                  ? 'text-slate-400 hover:text-white bg-slate-700/50 hover:bg-slate-700' 
+                  ? 'text-slate-400 hover:text-white bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60' 
                   : 'text-slate-400 hover:text-slate-600'
-              } transition-colors z-10 p-1.5 rounded-full`}
+              } transition-colors z-10 p-1.5 rounded-full cursor-pointer`}
             >
               <X size={20} />
             </button>
 
             {children ? (
-              <div className="flex flex-col h-full overflow-hidden">
-                <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'} mb-6 pr-8 flex-shrink-0`}>{title}</h3>
-                <div className="w-full overflow-y-auto overflow-x-hidden flex-1 scrollbar-hide">
+              <div className="flex flex-col h-full min-h-0 overflow-hidden">
+                <h3 className={`text-xl font-bold ${isDark ? 'text-white' : 'text-slate-900'} mb-5 pr-8 flex-shrink-0`}>{title}</h3>
+                <div className={`w-full overflow-y-auto overflow-x-auto flex-1 min-h-0 ${isDark ? 'custom-scrollbar-dark' : 'custom-scrollbar'} pr-1`}>
                   {children}
                 </div>
               </div>

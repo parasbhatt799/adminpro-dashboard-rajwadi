@@ -1907,6 +1907,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           onClose={() => setSelectedLog(null)}
           title="API Bill Payment Details"
           size="4xl" // Large size for detailed JSON viewing
+          isDark={true}
         >
           {(() => {
             const req = selectedLog.request_payload || {};
@@ -2131,10 +2132,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           isOpen={showAgentSummaryModal}
           onClose={() => setShowAgentSummaryModal(false)}
           title="Agent-Wise Charge Breakdown"
-          size="4xl"
+          size="5xl"
+          isDark={true}
         >
           <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/80 p-4 rounded-xl border border-slate-700">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/80 p-4 rounded-xl border border-slate-700/80">
               <div>
                 <p className="text-xs text-slate-400">
                   Total Active B2B Agents with Transactions: <span className="font-bold text-white">{agentChargeSummary.length}</span>
@@ -2156,19 +2158,19 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               </div>
             </div>
 
-            <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden max-h-[60vh] overflow-y-auto">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] font-bold sticky top-0 z-10">
+            <div className="bg-slate-900/90 rounded-2xl border border-slate-700/80 overflow-x-auto overflow-y-auto max-h-[58vh] custom-scrollbar-dark shadow-inner">
+              <table className="w-full min-w-[950px] text-left text-xs border-collapse">
+                <thead className="bg-slate-950/95 text-slate-400 uppercase text-[10px] font-bold sticky top-0 z-10 border-b border-slate-800">
                   <tr>
-                    <th className="px-4 py-3">#</th>
-                    <th className="px-4 py-3">B2B Login ID</th>
-                    <th className="px-4 py-3">BillAvenue Agent ID</th>
-                    <th className="px-4 py-3 text-center">Total Bills</th>
-                    <th className="px-4 py-3 text-right">Total Volume</th>
-                    <th className="px-4 py-3 text-right text-amber-400">Total Charge Collected</th>
-                    <th className="px-4 py-3 text-right text-cyan-400">Dev Charge</th>
-                    <th className="px-4 py-3 text-right text-purple-400">Owner Charge</th>
-                    <th className="px-4 py-3 text-right">Action</th>
+                    <th className="px-4 py-3 whitespace-nowrap">#</th>
+                    <th className="px-4 py-3 whitespace-nowrap">B2B Login ID</th>
+                    <th className="px-4 py-3 whitespace-nowrap">BillAvenue Agent ID</th>
+                    <th className="px-4 py-3 text-center whitespace-nowrap">Total Bills</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Total Volume</th>
+                    <th className="px-4 py-3 text-right text-amber-400 whitespace-nowrap">Total Charge Collected</th>
+                    <th className="px-4 py-3 text-right text-cyan-400 whitespace-nowrap">Dev Charge</th>
+                    <th className="px-4 py-3 text-right text-purple-400 whitespace-nowrap">Owner Charge</th>
+                    <th className="px-4 py-3 text-right whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -2181,37 +2183,37 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                         item.name.toLowerCase().includes(q);
                     })
                     .map((item, idx) => (
-                      <tr key={item.agentId} className="hover:bg-slate-800/50 transition-colors">
-                        <td className="px-4 py-3 text-slate-500 font-mono">{idx + 1}</td>
-                        <td className="px-4 py-3 font-bold text-indigo-300 font-mono">
+                      <tr key={item.agentId} className="hover:bg-slate-800/60 transition-colors">
+                        <td className="px-4 py-3 text-slate-500 font-mono whitespace-nowrap">{idx + 1}</td>
+                        <td className="px-4 py-3 font-bold text-indigo-300 font-mono whitespace-nowrap">
                           {item.loginId}
                           {item.name && <div className="text-[10px] text-slate-400 font-sans font-normal">{item.name}</div>}
                         </td>
-                        <td className="px-4 py-3 font-mono text-emerald-400">{item.baAgentId}</td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 font-mono text-emerald-400 whitespace-nowrap">{item.baAgentId}</td>
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
                           <span className="bg-slate-800 text-slate-200 px-2 py-0.5 rounded-full font-bold">
                             {item.totalBills} ({item.successBills} success)
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-white">
+                        <td className="px-4 py-3 text-right font-bold text-white whitespace-nowrap">
                           ₹ {item.totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-amber-400">
+                        <td className="px-4 py-3 text-right font-bold text-amber-400 whitespace-nowrap">
                           ₹ {item.totalCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-cyan-400">
+                        <td className="px-4 py-3 text-right font-bold text-cyan-400 whitespace-nowrap">
                           ₹ {item.totalDevCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="px-4 py-3 text-right font-bold text-purple-400">
+                        <td className="px-4 py-3 text-right font-bold text-purple-400 whitespace-nowrap">
                           ₹ {item.totalOwnerCharge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
                           <button
                             onClick={() => {
                               setB2bLoginFilter(item.loginId);
                               setShowAgentSummaryModal(false);
                             }}
-                            className="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all"
+                            className="bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 hover:border-indigo-400/60 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all shadow-sm"
                           >
                             Filter History
                           </button>
