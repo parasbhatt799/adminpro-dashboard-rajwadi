@@ -40,7 +40,7 @@ export default function StatementReport() {
   // Filters
   const [firmName, setFirmName] = useState('');
   const [exactAmount, setExactAmount] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL' | 'PAYOUT'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL' | 'PAYOUT' | 'REFUND'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -227,19 +227,21 @@ export default function StatementReport() {
             mobile = r.customer_mobile;
           }
 
-          billMapped.push({
-            id: String(r.id || ''),
-            numericId: String(r.id || '').split('-')[0].toUpperCase(),
-            type: 'BILL',
-            date: r.created_at,
-            firm_name: r.users_profiles?.firm_name || 'N/A',
-            reference: mobile || '0000000000',
-            amount: Number(r.amount),
-            charges: Number(r.charges || 0),
-            final_total: Number(r.amount) + Number(r.charges || 0),
-            status: r.status,
-            raw_data: { ...r, card_number: isBbps ? r.consumer_number : r.card_number }
-          });
+          if (typeFilter !== 'REFUND') {
+            billMapped.push({
+              id: String(r.id || ''),
+              numericId: String(r.id || '').split('-')[0].toUpperCase(),
+              type: 'BILL',
+              date: r.created_at,
+              firm_name: r.users_profiles?.firm_name || 'N/A',
+              reference: mobile || '0000000000',
+              amount: Number(r.amount),
+              charges: Number(r.charges || 0),
+              final_total: Number(r.amount) + Number(r.charges || 0),
+              status: r.status,
+              raw_data: { ...r, card_number: isBbps ? r.consumer_number : r.card_number }
+            });
+          }
 
           if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             billMapped.push({
@@ -260,30 +262,38 @@ export default function StatementReport() {
       }
 
       // 3. Fetch Payouts
-      if (typeFilter === 'all' || typeFilter === 'PAYOUT') {
+      if (typeFilter === 'all' || typeFilter === 'PAYOUT' || typeFilter === 'REFUND') {
         const payoutData = await fetchAll((f, t) => {
           let q = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
           if (firmName) q = q.ilike('users_profiles.firm_name', `%${firmName}%`);
           if (exactAmount) q = q.eq('amount', Number(exactAmount));
-          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+          if (startDate && endDate) {
+            q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(updated_at.gte.${startDate}T00:00:00,updated_at.lte.${endDate}T23:59:59)`);
+          } else if (startDate) {
+            q = q.or(`created_at.gte.${startDate}T00:00:00,updated_at.gte.${startDate}T00:00:00`);
+          } else if (endDate) {
+            q = q.lte('created_at', `${endDate}T23:59:59`);
+          }
           return q.range(f, t);
         });
 
         (payoutData || []).forEach(r => {
-          payoutMapped.push({
-            id: String(r.id || ''),
-            numericId: String(r.id || '').split('-')[0].toUpperCase(),
-            type: 'PAYOUT',
-            date: r.created_at,
-            firm_name: r.users_profiles?.firm_name || 'N/A',
-            reference: r.transaction_id || 'N/A',
-            amount: Number(r.amount),
-            charges: Number(r.charge_amount || 0),
-            final_total: Number(r.amount) + Number(r.charge_amount || 0),
-            status: r.status,
-            raw_data: r
-          });
+          const payoutRef = r.transaction_id || r.txn_id || r.bank_ref || r.utr_number || 'N/A';
+          if (typeFilter !== 'REFUND') {
+            payoutMapped.push({
+              id: String(r.id || ''),
+              numericId: String(r.id || '').split('-')[0].toUpperCase(),
+              type: 'PAYOUT',
+              date: r.created_at,
+              firm_name: r.users_profiles?.firm_name || 'N/A',
+              reference: payoutRef,
+              amount: Number(r.amount),
+              charges: Number(r.charge_amount || 0),
+              final_total: Number(r.amount) + Number(r.charge_amount || 0),
+              status: r.status,
+              raw_data: r
+            });
+          }
 
           if (['rejected', 'failed', 'refunded'].includes(r.status)) {
             payoutMapped.push({
@@ -292,7 +302,7 @@ export default function StatementReport() {
               type: 'REFUND',
               date: r.updated_at || r.actioned_at || r.created_at, 
               firm_name: r.users_profiles?.firm_name || 'N/A',
-              reference: r.transaction_id || 'N/A',
+              reference: payoutRef,
               amount: Number(r.amount),
               charges: Number(r.charge_amount || 0),
               final_total: Number(r.amount) + Number(r.charge_amount || 0),
@@ -329,9 +339,21 @@ export default function StatementReport() {
         return r;
       });
 
+      // Filter by date & type and sort
+      let mergedList = [...finalQrMapped, ...billMapped, ...payoutMapped];
+      if (startDate) {
+        mergedList = mergedList.filter(r => new Date(r.date) >= new Date(`${startDate}T00:00:00`));
+      }
+      if (endDate) {
+        mergedList = mergedList.filter(r => new Date(r.date) <= new Date(`${endDate}T23:59:59`));
+      }
+      if (typeFilter !== 'all') {
+        mergedList = mergedList.filter(r => r.type === typeFilter);
+      }
+
       // Merge and Sort (Oldest first for running balance with credit tie-breaker)
       const isCreditType = (type: string) => ['QR', 'REFUND', 'TRANSFER_CREDIT'].includes(type);
-      const merged = [...finalQrMapped, ...billMapped, ...payoutMapped].sort((a, b) => {
+      const merged = mergedList.sort((a, b) => {
         const timeA = new Date(a.date).getTime();
         const timeB = new Date(b.date).getTime();
         if (timeA !== timeB) return timeA - timeB;
@@ -541,6 +563,19 @@ export default function StatementReport() {
           </div>
         </div>
 
+        {/* Type Filter */}
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as any)}
+          className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none cursor-pointer"
+        >
+          <option value="all">All Services</option>
+          <option value="QR">QR Payments</option>
+          <option value="BILL">Bill Payments</option>
+          <option value="PAYOUT">Payouts</option>
+          <option value="REFUND">Refunds</option>
+        </select>
+
         <button onClick={fetchStatement} className="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
           <Search size={16} /> Filter
         </button>
@@ -618,11 +653,13 @@ export default function StatementReport() {
                       {r.type === 'QR'
                         ? (r.raw_data?.qr_history?.qr_name || 'N/A')
                         : r.type === 'PAYOUT' || r.type === 'REFUND'
-                          ? r.raw_data?.bank_name
+                          ? (r.raw_data?.bank_name || (r.raw_data?.is_bbps ? r.raw_data?.provider : r.raw_data?.card_bank) || '-')
                           : (r.raw_data?.is_bbps ? r.raw_data?.provider : r.raw_data?.card_bank) || '-'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center">
-                      {r.type === 'PAYOUT' ? r.raw_data?.account_number : (r.raw_data?.card_number ? r.raw_data.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****')}
+                      {(r.type === 'PAYOUT' || (r.type === 'REFUND' && r.raw_data?.account_number))
+                        ? r.raw_data?.account_number
+                        : (r.raw_data?.card_number ? r.raw_data.card_number.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ') : '****')}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] text-[#4c4c4c] leading-relaxed">
                       {r.type === 'BILL' ? (
@@ -658,8 +695,8 @@ export default function StatementReport() {
                       ) : r.type === 'REFUND' ? (
                         <div className="bg-emerald-50 border border-emerald-100 p-2 rounded">
                           <div className="font-bold text-emerald-700 uppercase text-[11px]">Wallet Refund</div>
-                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} (#{r.numericId})</div>
-                          <div className="text-[10px] text-emerald-500 font-medium">Rejection Reason: {r.raw_data?.rejection_reason || 'Admin Rejection'}</div>
+                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.bank_name || r.raw_data?.card_bank || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} (#{r.numericId})</div>
+                          <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.remark || r.raw_data?.rejection_reason || 'Manual Refund'}</div>
                         </div>
                       ) : (
                         <>

@@ -37,6 +37,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
   // Filters
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL' | 'PAYOUT' | 'REFUND' | 'TRANSFER'>('all');
 
   const fetchStatement = async () => {
     if (!userId) {
@@ -159,8 +160,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
               .select('*')
               .eq('user_id', userId)
               .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+            if (startDate && endDate) {
+              q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(updated_at.gte.${startDate}T00:00:00,updated_at.lte.${endDate}T23:59:59)`);
+            } else if (startDate) {
+              q = q.or(`created_at.gte.${startDate}T00:00:00,updated_at.gte.${startDate}T00:00:00`);
+            } else if (endDate) {
+              q = q.lte('created_at', `${endDate}T23:59:59`);
+            }
             return q.range(f, t);
           });
         } catch (e) { console.error('Bill sub fetch error:', e); }
@@ -173,8 +179,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
               .select('*')
               .eq('user_id', userId)
               .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+            if (startDate && endDate) {
+              q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(updated_at.gte.${startDate}T00:00:00,updated_at.lte.${endDate}T23:59:59)`);
+            } else if (startDate) {
+              q = q.or(`created_at.gte.${startDate}T00:00:00,updated_at.gte.${startDate}T00:00:00`);
+            } else if (endDate) {
+              q = q.lte('created_at', `${endDate}T23:59:59`);
+            }
             return q.range(f, t);
           });
         } catch (e) { console.error('BBPS sub fetch error:', e); }
@@ -237,8 +248,13 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             .eq('user_id', userId)
             .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
 
-          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
-          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
+          if (startDate && endDate) {
+            q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(updated_at.gte.${startDate}T00:00:00,updated_at.lte.${endDate}T23:59:59)`);
+          } else if (startDate) {
+            q = q.or(`created_at.gte.${startDate}T00:00:00,updated_at.gte.${startDate}T00:00:00`);
+          } else if (endDate) {
+            q = q.lte('created_at', `${endDate}T23:59:59`);
+          }
           return q.range(f, t);
         });
         
@@ -308,9 +324,25 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         console.error('Error fetching fund transfers:', err);
       }
 
+      // Filter by date & type and sort
+      let mergedList = [...qrMapped, ...billMapped, ...payoutMapped, ...ftMapped];
+      if (startDate) {
+        mergedList = mergedList.filter(r => new Date(r.date) >= new Date(`${startDate}T00:00:00`));
+      }
+      if (endDate) {
+        mergedList = mergedList.filter(r => new Date(r.date) <= new Date(`${endDate}T23:59:59`));
+      }
+      if (typeFilter !== 'all') {
+        if (typeFilter === 'TRANSFER') {
+          mergedList = mergedList.filter(r => r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT');
+        } else {
+          mergedList = mergedList.filter(r => r.type === typeFilter);
+        }
+      }
+
       // Merge oldest first for running balance calculation with deterministic tie-breaker (Credits first on same timestamp)
       const isCreditType = (type: string) => ['QR', 'REFUND', 'TRANSFER_CREDIT'].includes(type);
-      const merged = [...qrMapped, ...billMapped, ...payoutMapped, ...ftMapped].sort((a, b) => {
+      const merged = mergedList.sort((a, b) => {
         const timeA = new Date(a.date).getTime();
         const timeB = new Date(b.date).getTime();
         if (timeA !== timeB) return timeA - timeB;
@@ -341,7 +373,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
 
   useEffect(() => {
     if (userId) fetchStatement();
-  }, [userId, startDate, endDate]);
+  }, [userId, startDate, endDate, typeFilter]);
 
   const exportToExcel = () => {
     const dataToExport = records.slice(0, displayCount);
@@ -356,8 +388,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
       }),
       'PaymentId': r.numericId,
       'Transaction Type': r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'VERIFICATION' ? 'VERIFICATION' : r.type === 'TRANSFER_DEBIT' ? 'FT DEBIT' : r.type === 'TRANSFER_CREDIT' ? 'FT CREDIT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT',
-      'QR / Bank': r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : (r.type === 'PAYOUT' || r.type === 'VERIFICATION') ? r.raw_data?.bank_name : (r.type === 'TRANSFER_DEBIT' ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name) : r.type === 'TRANSFER_CREDIT' ? (r.raw_data?.sender?.firm_name || r.raw_data?.sender?.name) : '-'),
-      'Card / Account No': (r.type === 'PAYOUT' || r.type === 'VERIFICATION') ? r.raw_data?.account_number : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT' ? r.reference : (r.raw_data?.card_number || '****')),
+      'QR / Bank': r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : (r.type === 'PAYOUT' || r.type === 'VERIFICATION' || (r.type === 'REFUND' && r.raw_data?.bank_name)) ? r.raw_data?.bank_name : (r.type === 'TRANSFER_DEBIT' ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name) : r.type === 'TRANSFER_CREDIT' ? (r.raw_data?.sender?.firm_name || r.raw_data?.sender?.name) : '-'),
+      'Card / Account No': (r.type === 'PAYOUT' || r.type === 'VERIFICATION' || (r.type === 'REFUND' && r.raw_data?.account_number)) ? r.raw_data?.account_number : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT' ? r.reference : (r.raw_data?.card_number || '****')),
       'Credit Amount': (r.type === 'QR' || r.type === 'REFUND' || r.type === 'TRANSFER_CREDIT') ? r.final_total.toFixed(2) : '0.00',
       'Debit Amount': (r.type === 'BILL' || r.type === 'PAYOUT' || r.type === 'VERIFICATION' || r.type === 'TRANSFER_DEBIT') ? r.final_total.toFixed(2) : '0.00',
       'Balance': r.balance.toFixed(2),
@@ -383,8 +415,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
         }),
         r.numericId,
         r.type === 'BILL' ? 'CCBILLPAY' : r.type === 'PAYOUT' ? 'PAYOUT' : r.type === 'VERIFICATION' ? 'VERIFICATION' : r.type === 'TRANSFER_DEBIT' ? 'FT DEBIT' : r.type === 'TRANSFER_CREDIT' ? 'FT CREDIT' : r.type === 'REFUND' ? 'REFUND' : 'PAYMENT',
-        r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : (r.type === 'PAYOUT' || r.type === 'VERIFICATION') ? r.raw_data?.bank_name : (r.type === 'TRANSFER_DEBIT' ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name) : r.type === 'TRANSFER_CREDIT' ? (r.raw_data?.sender?.firm_name || r.raw_data?.sender?.name) : '-'),
-        (r.type === 'PAYOUT' || r.type === 'VERIFICATION') ? r.raw_data?.account_number : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT' ? r.reference : (r.raw_data?.card_number || '****')),
+        r.type === 'QR' ? (r.raw_data?.qr_name || 'N/A') : (r.type === 'PAYOUT' || r.type === 'VERIFICATION' || (r.type === 'REFUND' && r.raw_data?.bank_name)) ? r.raw_data?.bank_name : (r.type === 'TRANSFER_DEBIT' ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name) : r.type === 'TRANSFER_CREDIT' ? (r.raw_data?.sender?.firm_name || r.raw_data?.sender?.name) : '-'),
+        (r.type === 'PAYOUT' || r.type === 'VERIFICATION' || (r.type === 'REFUND' && r.raw_data?.account_number)) ? r.raw_data?.account_number : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT' ? r.reference : (r.raw_data?.card_number || '****')),
         (r.type === 'QR' || r.type === 'REFUND' || r.type === 'TRANSFER_CREDIT') ? r.final_total.toFixed(2) : '0.00',
         (r.type === 'BILL' || r.type === 'PAYOUT' || r.type === 'VERIFICATION' || r.type === 'TRANSFER_DEBIT') ? r.final_total.toFixed(2) : '0.00',
         r.balance.toFixed(2),
@@ -431,6 +463,20 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="text-xs font-bold text-slate-700 outline-none bg-transparent" />
           </div>
         </div>
+
+        {/* Service Filter */}
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as any)}
+          className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-700 outline-none cursor-pointer"
+        >
+          <option value="all">All Services</option>
+          <option value="QR">QR Payments</option>
+          <option value="BILL">Bill Payments</option>
+          <option value="PAYOUT">Payouts</option>
+          <option value="REFUND">Refunds</option>
+          <option value="TRANSFER">Fund Transfers</option>
+        </select>
 
         <button onClick={fetchStatement} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2">
           <Search size={15} /> Filter
@@ -520,7 +566,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600">
                       {r.type === 'QR'
                         ? (r.raw_data?.qr_name || 'N/A')
-                        : (r.type === 'PAYOUT' || r.type === 'VERIFICATION')
+                        : (r.type === 'PAYOUT' || r.type === 'VERIFICATION' || (r.type === 'REFUND' && r.raw_data?.bank_name))
                           ? r.raw_data?.bank_name
                           : r.type === 'TRANSFER_DEBIT'
                             ? (r.raw_data?.receiver?.firm_name || r.raw_data?.receiver?.name || 'N/A')
@@ -529,7 +575,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                               : (r.raw_data?.is_bbps ? r.raw_data?.provider : r.raw_data?.card_bank) || '-'}
                     </td>
                     <td className="px-4 py-3 align-top text-[13px] font-bold text-slate-600 text-center font-mono">
-                      {(r.type === 'PAYOUT' || r.type === 'VERIFICATION')
+                      {(r.type === 'PAYOUT' || r.type === 'VERIFICATION' || (r.type === 'REFUND' && r.raw_data?.account_number))
                         ? r.raw_data?.account_number
                         : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT')
                           ? r.reference
@@ -569,8 +615,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
                       ) : r.type === 'REFUND' ? (
                         <div className="bg-emerald-50 border border-emerald-100 p-2 rounded">
                           <div className="font-bold text-emerald-700 uppercase text-[11px]">Wallet Refund</div>
-                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || 'Bill/Payout'} (#{r.numericId})</div>
-                          <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.rejection_reason || 'Rejection'}</div>
+                          <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.bank_name || r.raw_data?.card_bank || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} (#{r.numericId})</div>
+                          <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.remark || r.raw_data?.rejection_reason || 'Manual Refund'}</div>
                         </div>
                       ) : (r.type === 'TRANSFER_DEBIT' || r.type === 'TRANSFER_CREDIT') ? (
                         r.type === 'TRANSFER_DEBIT' ? (

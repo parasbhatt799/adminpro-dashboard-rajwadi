@@ -5009,6 +5009,48 @@ async function startServer() {
           })
           .eq('id', indiatekRecord.id);
 
+        // Also ensure record exists in payout_submissions for statements
+        try {
+          const partnerRef = indiatekRecord.partner_reference || targetIdentifier;
+          const { data: existingPayout } = await supabaseAdmin
+            .from('payout_submissions')
+            .select('id')
+            .or(`bank_ref.eq.${partnerRef},txn_id.eq.${partnerRef},transaction_id.eq.${partnerRef},utr_number.eq.${partnerRef}`)
+            .maybeSingle();
+
+          if (existingPayout) {
+            await supabaseAdmin
+              .from('payout_submissions')
+              .update({
+                status: 'failed',
+                remark: refRemark,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingPayout.id);
+          } else {
+            await supabaseAdmin.from('payout_submissions').insert({
+              user_id: indiatekRecord.user_id || 'admin',
+              account_number: indiatekRecord.account_number,
+              ifsc_code: indiatekRecord.ifsc_code,
+              amount: amt,
+              charge_amount: chg,
+              status: 'failed',
+              bank_name: indiatekRecord.bank_name || 'UsePayout',
+              account_holder_name: indiatekRecord.beneficiary_name,
+              customer_mobile: indiatekRecord.customer_mobile,
+              bank_ref: partnerRef,
+              transaction_id: indiatekRecord.transaction_id || partnerRef,
+              txn_id: partnerRef,
+              utr_number: indiatekRecord.transaction_id || partnerRef,
+              remark: refRemark,
+              created_at: indiatekRecord.created_at || new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            });
+          }
+        } catch (mirrorErr) {
+          console.warn('[IndiaTek Refund] Mirror to payout_submissions warning:', mirrorErr);
+        }
+
         return res.json({
           success: true,
           message: `Successfully refunded ₹${totRefund.toFixed(2)} to ${uName || 'user'} wallet.`,

@@ -21,7 +21,7 @@ import * as XLSX from 'xlsx';
 
 interface UnifiedRecord {
   id: string;
-  type: 'QR' | 'BILL' | 'PAYOUT' | 'VERIFICATION' | 'ADJUSTMENT' | 'TRANSFER_DEBIT' | 'TRANSFER_CREDIT';
+  type: 'QR' | 'BILL' | 'PAYOUT' | 'VERIFICATION' | 'ADJUSTMENT' | 'REFUND' | 'TRANSFER_DEBIT' | 'TRANSFER_CREDIT';
   date: string;
   firm_name: string;
   user_name: string;
@@ -49,7 +49,7 @@ export default function AdminStatementReport() {
 
   // Filters
   const [firmName, setFirmName] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL' | 'PAYOUT'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'QR' | 'BILL' | 'PAYOUT' | 'REFUND'>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -184,7 +184,7 @@ export default function AdminStatementReport() {
           billMapped.push({
             id: `${r.id}-refund`,
             numericId: String(r.id).split('-')[0].toUpperCase(),
-            type: 'ADJUSTMENT',
+            type: 'REFUND',
             date: r.updated_at || r.actioned_at || r.created_at,
             firm_name: r.users_profiles?.firm_name || 'N/A',
             user_name: r.users_profiles?.name || 'N/A',
@@ -230,7 +230,7 @@ export default function AdminStatementReport() {
           payoutMapped.push({
             id: `${r.id}-refund`,
             numericId: String(r.id).split('-')[0].toUpperCase(),
-            type: 'ADJUSTMENT',
+            type: 'REFUND',
             date: r.updated_at || r.actioned_at || r.created_at,
             firm_name: r.users_profiles?.firm_name || 'N/A',
             user_name: r.users_profiles?.name || 'N/A',
@@ -249,7 +249,7 @@ export default function AdminStatementReport() {
       });
 
       // 5. Sort all by date (Newest First) with tie-breaker
-      const isCreditType = (type: string) => ['QR', 'ADJUSTMENT', 'TRANSFER_CREDIT'].includes(type);
+      const isCreditType = (type: string) => ['QR', 'ADJUSTMENT', 'REFUND', 'TRANSFER_CREDIT'].includes(type);
       const allTransactions = [...qrMapped, ...billMapped, ...payoutMapped].sort((a, b) => {
         const timeA = new Date(a.date).getTime();
         const timeB = new Date(b.date).getTime();
@@ -272,7 +272,7 @@ export default function AdminStatementReport() {
           if (tx.status === 'approved') {
             systemRunningBalance -= tx.final_total;
           }
-        } else if (tx.type === 'ADJUSTMENT') {
+        } else if (tx.type === 'ADJUSTMENT' || tx.type === 'REFUND') {
           systemRunningBalance -= tx.final_total;
         } else {
           // BILL or PAYOUT: Wallet is deducted initially
@@ -285,7 +285,7 @@ export default function AdminStatementReport() {
           if (tx.status === 'approved') {
             perUserRunningBalance[userId] = currentUserBalance - tx.final_total;
           }
-        } else if (tx.type === 'ADJUSTMENT') {
+        } else if (tx.type === 'ADJUSTMENT' || tx.type === 'REFUND') {
           perUserRunningBalance[userId] = currentUserBalance - tx.final_total;
         } else {
           perUserRunningBalance[userId] = currentUserBalance + tx.final_total;
@@ -313,7 +313,7 @@ export default function AdminStatementReport() {
       }
 
       if (typeFilter !== 'all') {
-        filtered = filtered.filter(r => r.type === typeFilter);
+        filtered = filtered.filter(r => r.type === typeFilter || (typeFilter === 'REFUND' && r.type === 'ADJUSTMENT'));
       }
 
       if (startDate) {
@@ -516,6 +516,7 @@ export default function AdminStatementReport() {
           <option value="QR">QR Payments</option>
           <option value="BILL">Bill Payments</option>
           <option value="PAYOUT">Payouts</option>
+          <option value="REFUND">Refunds</option>
         </select>
 
         <button 
@@ -607,10 +608,10 @@ export default function AdminStatementReport() {
                         <span className={`w-fit px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
                           r.type === 'QR' ? 'bg-indigo-50 text-indigo-600 border border-indigo-100' :
                           r.type === 'BILL' ? 'bg-rose-50 text-rose-600 border border-rose-100' :
-                          r.type === 'ADJUSTMENT' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                          (r.type === 'ADJUSTMENT' || r.type === 'REFUND') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                           'bg-amber-50 text-amber-600 border border-amber-100'
                         }`}>
-                          {r.type === 'QR' ? 'QR Payment' : r.type === 'BILL' ? 'Bill Pay' : r.type === 'ADJUSTMENT' ? 'REFUND' : 'Payout'}
+                          {r.type === 'QR' ? 'QR Payment' : r.type === 'BILL' ? 'Bill Pay' : (r.type === 'ADJUSTMENT' || r.type === 'REFUND') ? 'REFUND' : 'Payout'}
                         </span>
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">#{r.numericId}</span>
                       </div>
@@ -655,11 +656,11 @@ export default function AdminStatementReport() {
                                 <span className="text-slate-400 italic">({r.amount} + {r.charges} Txn Fee)</span>
                               </>
                             )
-                          ) : r.type === 'ADJUSTMENT' ? (
+                          ) : (r.type === 'ADJUSTMENT' || r.type === 'REFUND') ? (
                             <div className="bg-emerald-50 border border-emerald-100 p-2 rounded-xl">
                               <div className="font-bold text-emerald-700 uppercase text-[10px]">Wallet Refund</div>
-                              <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.card_bank || r.raw_data?.bank_name || 'Bill/Payout'} (#{r.numericId})</div>
-                              <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.rejection_reason || 'Rejection'}</div>
+                              <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.bank_name || r.raw_data?.card_bank || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} (#{r.numericId})</div>
+                              <div className="text-[10px] text-emerald-500 font-medium">{r.raw_data?.remark || r.raw_data?.rejection_reason || 'Manual Refund'}</div>
                             </div>
                           ) : (
                             <>
@@ -672,7 +673,7 @@ export default function AdminStatementReport() {
                        </div>
                     </td>
                     <td className="px-6 py-5 text-right">
-                       {(r.type === 'QR' && r.status === 'approved') || r.type === 'ADJUSTMENT' ? (
+                       {(r.type === 'QR' && r.status === 'approved') || r.type === 'ADJUSTMENT' || r.type === 'REFUND' ? (
                          <span className="text-xs font-bold text-emerald-600">+₹{r.final_total.toLocaleString()}</span>
                        ) : <span className="text-slate-300">--</span>}
                     </td>
@@ -691,10 +692,11 @@ export default function AdminStatementReport() {
                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
                          r.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                          r.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                         (r.status === 'refunded' || r.type === 'REFUND' || r.type === 'ADJUSTMENT') ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
                          'bg-indigo-50 text-indigo-600 border border-indigo-100'
                        }`}>
                          {r.status === 'pending' ? <Clock size={8} /> : null}
-                         {r.status}
+                         {(r.type === 'REFUND' || r.type === 'ADJUSTMENT' || r.status === 'refunded') ? 'REFUNDED' : r.status}
                        </span>
                     </td>
                     <td className="px-6 py-5 text-right">
