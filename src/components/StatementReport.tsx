@@ -248,7 +248,7 @@ export default function StatementReport() {
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.actioned_at || r.created_at,
+              date: new Date(new Date(r.created_at).getTime() + 1000).toISOString(),
               firm_name: r.users_profiles?.firm_name || 'N/A',
               reference: mobile || '0000000000',
               amount: Number(r.amount),
@@ -267,13 +267,8 @@ export default function StatementReport() {
           let q = supabase.from('payout_submissions').select('*, users_profiles!inner(firm_name)').in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
           if (firmName) q = q.ilike('users_profiles.firm_name', `%${firmName}%`);
           if (exactAmount) q = q.eq('amount', Number(exactAmount));
-          if (startDate && endDate) {
-            q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(actioned_at.gte.${startDate}T00:00:00,actioned_at.lte.${endDate}T23:59:59)`);
-          } else if (startDate) {
-            q = q.or(`created_at.gte.${startDate}T00:00:00,actioned_at.gte.${startDate}T00:00:00`);
-          } else if (endDate) {
-            q = q.lte('created_at', `${endDate}T23:59:59`);
-          }
+          if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+          if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
           return q.range(f, t);
         });
 
@@ -300,7 +295,7 @@ export default function StatementReport() {
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.actioned_at || r.created_at, 
+              date: new Date(new Date(r.created_at).getTime() + 1000).toISOString(), 
               firm_name: r.users_profiles?.firm_name || 'N/A',
               reference: payoutRef,
               amount: Number(r.amount),
