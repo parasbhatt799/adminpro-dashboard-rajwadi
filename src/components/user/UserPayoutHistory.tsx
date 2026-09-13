@@ -236,17 +236,11 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
         );
       case 'rejected':
       case 'failed':
+      case 'refunded':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
             <X size={13} className="text-rose-600" />
-            Rejected
-          </span>
-        );
-      case 'refunded':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-            <AlertCircle size={13} className="text-amber-600" />
-            Refunded
+            Failed
           </span>
         );
       default:
@@ -481,7 +475,7 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
                 <option value="all">All Statuses</option>
                 <option value="approved">Approved / Success</option>
                 <option value="pending">Pending / Processing</option>
-                <option value="rejected">Rejected / Failed</option>
+                <option value="rejected">Failed</option>
               </select>
             </div>
 

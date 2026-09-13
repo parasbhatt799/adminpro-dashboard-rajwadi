@@ -1030,7 +1030,7 @@ export default function UserIndiaTekPayout({ userId: propUserId }: UserIndiaTekP
                               isSuccess ? 'bg-emerald-500' : isPending ? 'bg-amber-500 animate-pulse' : 'bg-rose-500'
                             }`}
                           />
-                          {statusUpper}
+                          {['FAILED', 'REJECTED', 'REFUNDED'].includes(statusUpper) ? 'FAILED' : statusUpper}
                         </span>
                       </td>
 

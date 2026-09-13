@@ -165,8 +165,13 @@ export default function AdminCamlenioPayoutHistory() {
       }
 
       // 2. Status filter
-      if (statusFilter !== 'all' && tx.status !== statusFilter) {
-        return false;
+      if (statusFilter !== 'all') {
+        const txSt = (tx.status || '').toLowerCase();
+        if (statusFilter === 'rejected' || statusFilter === 'failed') {
+          if (!['rejected', 'failed', 'refunded'].includes(txSt)) return false;
+        } else if (txSt !== statusFilter) {
+          return false;
+        }
       }
 
       // 3. Gateway filter
@@ -716,7 +721,7 @@ export default function AdminCamlenioPayoutHistory() {
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-800">Total Failed / Rejected</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-rose-800">Total Failed</span>
               <div className="p-1 bg-rose-100/50 rounded-md text-rose-600">
                 <XCircle className="w-3.5 h-3.5" />
               </div>
@@ -761,7 +766,7 @@ export default function AdminCamlenioPayoutHistory() {
             <option value="approved">Approved</option>
             <option value="pending">Pending</option>
             <option value="processing">Processing</option>
-            <option value="rejected">Rejected</option>
+            <option value="rejected">Failed</option>
             <option value="refunded">Refunded</option>
           </select>
 
@@ -918,12 +923,11 @@ export default function AdminCamlenioPayoutHistory() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                        tx.status === 'approved' ? 'bg-green-100 text-green-700' :
-                        tx.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                        tx.status === 'refunded' ? 'bg-slate-100 text-slate-700' :
+                        (tx.status || '').toLowerCase() === 'approved' || (tx.status || '').toLowerCase() === 'success' ? 'bg-green-100 text-green-700' :
+                        ['rejected', 'failed', 'refunded'].includes((tx.status || '').toLowerCase()) ? 'bg-red-100 text-red-700' :
                         'bg-amber-100 text-amber-700'
                       }`}>
-                        {tx.status.toUpperCase()}
+                        {['rejected', 'failed', 'refunded'].includes((tx.status || '').toLowerCase()) ? 'FAILED' : (tx.status || 'PENDING').toUpperCase()}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-center">
@@ -1132,10 +1136,10 @@ export default function AdminCamlenioPayoutHistory() {
               <div className="flex justify-between py-1 border-b border-slate-200/60">
                 <span className="text-slate-400 font-bold uppercase">Status</span>
                 <span className={`font-black uppercase px-2 py-0.5 rounded text-[10px] ${
-                  selectedTx.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
-                  selectedTx.status === 'rejected' ? 'bg-rose-100 text-rose-700' :
+                  (selectedTx.status || '').toLowerCase() === 'approved' || (selectedTx.status || '').toLowerCase() === 'success' ? 'bg-emerald-100 text-emerald-700' :
+                  ['rejected', 'failed', 'refunded'].includes((selectedTx.status || '').toLowerCase()) ? 'bg-rose-100 text-rose-700' :
                   'bg-amber-100 text-amber-700'
-                }`}>{selectedTx.status}</span>
+                }`}>{['rejected', 'failed', 'refunded'].includes((selectedTx.status || '').toLowerCase()) ? 'FAILED' : (selectedTx.status || 'PENDING').toUpperCase()}</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-slate-400 font-bold uppercase">Date & Time</span>
@@ -1239,7 +1243,7 @@ export default function AdminCamlenioPayoutHistory() {
             <div className="p-3.5 bg-amber-50 border border-amber-200/80 rounded-2xl text-xs text-amber-900 flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                Are you sure you want to refund this payout? The status will be marked as <strong className="font-bold text-rose-700">REJECTED</strong> and the entire amount (<strong className="font-bold">Transfer Amount + Service Charge</strong>) will be credited back to the user's wallet immediately.
+                Are you sure you want to refund this payout? The status will be marked as <strong className="font-bold text-rose-700">FAILED</strong> and the entire amount (<strong className="font-bold">Transfer Amount + Service Charge</strong>) will be credited back to the user's wallet immediately.
               </p>
             </div>
 

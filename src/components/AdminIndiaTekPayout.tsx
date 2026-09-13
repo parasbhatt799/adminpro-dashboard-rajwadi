@@ -486,7 +486,7 @@ export default function AdminIndiaTekPayout() {
                             : 'bg-rose-50 text-rose-700 border border-rose-200'
                         }`}>
                           {sub.status === 'SUCCESS' || sub.status === 'APPROVED' ? <CheckCircle2 className="w-3 h-3" /> : sub.status === 'PENDING' ? <Clock className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                          {sub.status}
+                          {['FAILED', 'REJECTED', 'REFUNDED'].includes((sub.status || '').toUpperCase()) ? 'FAILED' : sub.status}
                         </span>
                       </td>
                       <td className="p-3.5 text-right whitespace-nowrap">

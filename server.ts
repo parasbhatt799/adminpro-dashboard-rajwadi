@@ -4930,11 +4930,11 @@ async function startServer() {
         // Build remark
         const refundRemark = `Admin Refund: ₹${totalRefund.toFixed(2)} refunded to wallet (Amount: ₹${amount.toFixed(2)} + Charge: ₹${charge.toFixed(2)}). ${reason ? 'Reason: ' + reason.trim() : 'Bank payout not received'}`;
 
-        // Update payout_submissions status to rejected
+        // Update payout_submissions status to failed
         await supabaseAdmin
           .from('payout_submissions')
           .update({
-            status: 'rejected',
+            status: 'failed',
             remark: refundRemark,
             updated_at: new Date().toISOString()
           })
@@ -6487,7 +6487,7 @@ async function startServer() {
           await supabaseAdmin
             .from("payout_submissions")
             .update({
-              status: "rejected",
+              status: "failed",
               transaction_id: txnId || existingSub.transaction_id,
               txn_id: txnId || existingSub.transaction_id,
               utr_number: txnId || existingSub.transaction_id,
