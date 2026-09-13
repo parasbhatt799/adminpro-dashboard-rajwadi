@@ -160,13 +160,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
               .select('*')
               .eq('user_id', userId)
               .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-            if (startDate && endDate) {
-              q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(updated_at.gte.${startDate}T00:00:00,updated_at.lte.${endDate}T23:59:59)`);
-            } else if (startDate) {
-              q = q.or(`created_at.gte.${startDate}T00:00:00,updated_at.gte.${startDate}T00:00:00`);
-            } else if (endDate) {
-              q = q.lte('created_at', `${endDate}T23:59:59`);
-            }
+            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
             return q.range(f, t);
           });
         } catch (e) { console.error('Bill sub fetch error:', e); }
@@ -179,13 +174,8 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
               .select('*')
               .eq('user_id', userId)
               .in('status', ['approved', 'pending', 'rejected', 'failed', 'refunded']);
-            if (startDate && endDate) {
-              q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(updated_at.gte.${startDate}T00:00:00,updated_at.lte.${endDate}T23:59:59)`);
-            } else if (startDate) {
-              q = q.or(`created_at.gte.${startDate}T00:00:00,updated_at.gte.${startDate}T00:00:00`);
-            } else if (endDate) {
-              q = q.lte('created_at', `${endDate}T23:59:59`);
-            }
+            if (startDate) q = q.gte('created_at', `${startDate}T00:00:00`);
+            if (endDate) q = q.lte('created_at', `${endDate}T23:59:59`);
             return q.range(f, t);
           });
         } catch (e) { console.error('BBPS sub fetch error:', e); }
@@ -225,7 +215,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.updated_at || r.actioned_at || r.created_at,
+              date: r.actioned_at || r.created_at,
               reference: mobile || '0000000000',
               amount: Number(r.amount),
               charges: Number(r.charges || 0),
@@ -249,9 +239,9 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
             .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded']);
 
           if (startDate && endDate) {
-            q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(updated_at.gte.${startDate}T00:00:00,updated_at.lte.${endDate}T23:59:59)`);
+            q = q.or(`and(created_at.gte.${startDate}T00:00:00,created_at.lte.${endDate}T23:59:59),and(actioned_at.gte.${startDate}T00:00:00,actioned_at.lte.${endDate}T23:59:59)`);
           } else if (startDate) {
-            q = q.or(`created_at.gte.${startDate}T00:00:00,updated_at.gte.${startDate}T00:00:00`);
+            q = q.or(`created_at.gte.${startDate}T00:00:00,actioned_at.gte.${startDate}T00:00:00`);
           } else if (endDate) {
             q = q.lte('created_at', `${endDate}T23:59:59`);
           }
@@ -277,7 +267,7 @@ export default function UserStatementReport({ userId }: UserStatementReportProps
               id: `${r.id}-refund`,
               numericId: String(r.id || '').split('-')[0].toUpperCase(),
               type: 'REFUND',
-              date: r.updated_at || r.actioned_at || r.created_at,
+              date: r.actioned_at || r.created_at,
               reference: r.transaction_id || r.txn_id || r.bank_ref || r.utr_number || 'N/A',
               amount: Number(r.amount),
               charges: Number(r.charge_amount || 0),

@@ -358,7 +358,7 @@ export default function AdminCamlenioPayoutHistory() {
       const { data: txData, error: txError } = await supabase
         .from('payout_submissions')
         .select('*, users_profiles(id, name, firm_name, mobile_number, email)')
-        .in('status', ['approved', 'pending', 'processing', 'rejected', 'refunded'])
+        .in('status', ['approved', 'pending', 'processing', 'rejected', 'failed', 'refunded'])
         .order('created_at', { ascending: false });
 
       if (txError) throw txError;

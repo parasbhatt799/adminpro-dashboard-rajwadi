@@ -4930,26 +4930,36 @@ async function startServer() {
         // Build remark
         const refundRemark = `Admin Refund: ₹${totalRefund.toFixed(2)} refunded to wallet (Amount: ₹${amount.toFixed(2)} + Charge: ₹${charge.toFixed(2)}). ${reason ? 'Reason: ' + reason.trim() : 'Bank payout not received'}`;
 
-        // Update payout_submissions status to failed
-        await supabaseAdmin
+        // Update payout_submissions status to failed (note: payout_submissions has actioned_at, not updated_at)
+        const { error: pSubUpdErr } = await supabaseAdmin
           .from('payout_submissions')
           .update({
             status: 'failed',
             remark: refundRemark,
-            updated_at: new Date().toISOString()
+            actioned_at: new Date().toISOString(),
+            actioned_by: 'admin'
           })
           .eq('id', payoutRecord.id);
+
+        if (pSubUpdErr) {
+          console.error('[Admin Payout Refund] Error updating payout_submissions:', pSubUpdErr);
+        } else {
+          console.log(`[Admin Payout Refund] payout_submissions #${payoutRecord.id} marked as failed`);
+        }
 
         // Also update matching row in indiatek_payout_submissions if exists
         const refToMatch = payoutRecord.bank_ref || payoutRecord.txn_id || payoutRecord.transaction_id || payoutRecord.utr_number;
         if (refToMatch) {
-          await supabaseAdmin
+          const { error: itkUpdErr } = await supabaseAdmin
             .from('indiatek_payout_submissions')
             .update({
               status: 'FAILED',
-              remark: refundRemark
+              updated_at: new Date().toISOString()
             })
             .or(`partner_reference.eq.${refToMatch},transaction_id.eq.${refToMatch}`);
+          if (itkUpdErr) {
+            console.warn('[Admin Payout Refund] IndiaTek match update warn:', itkUpdErr);
+          }
         }
 
         return res.json({
@@ -5005,7 +5015,7 @@ async function startServer() {
           .from('indiatek_payout_submissions')
           .update({
             status: 'FAILED',
-            remark: refRemark
+            updated_at: new Date().toISOString()
           })
           .eq('id', indiatekRecord.id);
 
@@ -5024,7 +5034,8 @@ async function startServer() {
               .update({
                 status: 'failed',
                 remark: refRemark,
-                updated_at: new Date().toISOString()
+                actioned_at: new Date().toISOString(),
+                actioned_by: 'admin'
               })
               .eq('id', existingPayout.id);
           } else {
@@ -5044,7 +5055,8 @@ async function startServer() {
               utr_number: indiatekRecord.transaction_id || partnerRef,
               remark: refRemark,
               created_at: indiatekRecord.created_at || new Date().toISOString(),
-              updated_at: new Date().toISOString()
+              actioned_at: new Date().toISOString(),
+              actioned_by: 'admin'
             });
           }
         } catch (mirrorErr) {

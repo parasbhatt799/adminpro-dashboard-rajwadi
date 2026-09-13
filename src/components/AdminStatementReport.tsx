@@ -231,7 +231,7 @@ export default function AdminStatementReport() {
             id: `${r.id}-refund`,
             numericId: String(r.id).split('-')[0].toUpperCase(),
             type: 'REFUND',
-            date: r.updated_at || r.actioned_at || r.created_at,
+            date: r.actioned_at || r.created_at,
             firm_name: r.users_profiles?.firm_name || 'N/A',
             user_name: r.users_profiles?.name || 'N/A',
             reference: r.transaction_id || r.txn_id || r.bank_ref || r.utr_number || 'N/A',
