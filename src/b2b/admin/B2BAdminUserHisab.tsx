@@ -61,8 +61,6 @@ interface BillLogItem {
   owner_charge?: number;
   request_payload?: any;
   response_payload?: any;
-  request_body?: any;
-  response_body?: any;
 }
 
 type CombinedEntry = {
@@ -252,7 +250,7 @@ export default function B2BAdminUserHisab() {
       while (logHasMore) {
         let q = supabase
           .from('b2b_api_logs')
-          .select('id, agent_id, created_at, status_code, payment_status, charge_deducted, developer_charge, owner_charge, request_payload, response_payload, request_body, response_body')
+          .select('id, agent_id, created_at, status_code, payment_status, charge_deducted, developer_charge, owner_charge, request_payload, response_payload')
           .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill')
           .order('created_at', { ascending: false })
           .range(logFrom, logFrom + logStep - 1);
@@ -298,8 +296,8 @@ export default function B2BAdminUserHisab() {
 
   // Helper to determine status for a bill log
   const parseBillLogStatus = (log: BillLogItem) => {
-    const req = log.request_payload || log.request_body || {};
-    const res = log.response_payload || log.response_body || {};
+    const req = log.request_payload || {};
+    const res = log.response_payload || {};
     const bpr = res?.ExtBillPayResponse || res?.billPayResponse || res;
     const responseCode = String(bpr?.responseCode || res?.responseCode || '').trim();
     const responseReason = String(bpr?.responseReason || res?.responseReason || '').trim().toLowerCase();
@@ -337,8 +335,8 @@ export default function B2BAdminUserHisab() {
 
   // Helper to extract bill amount and charge
   const parseBillLogValues = (log: BillLogItem) => {
-    const req = log.request_payload || log.request_body || {};
-    const res = log.response_payload || log.response_body || {};
+    const req = log.request_payload || {};
+    const res = log.response_payload || {};
 
     const amount = Number(req?.amount || res?.amount || 0);
 
@@ -493,8 +491,8 @@ export default function B2BAdminUserHisab() {
       const agName = ag ? [ag.first_name, ag.last_name].filter(Boolean).join(' ') || 'B2B User' : 'Unknown User';
       const agLogin = ag?.b2b_login_id || ag?.mobile || 'N/A';
 
-      const req = log.request_payload || log.request_body || {};
-      const res = log.response_payload || log.response_body || {};
+      const req = log.request_payload || {};
+      const res = log.response_payload || {};
       const status = parseBillLogStatus(log);
       const { amount, charge } = parseBillLogValues(log);
 
