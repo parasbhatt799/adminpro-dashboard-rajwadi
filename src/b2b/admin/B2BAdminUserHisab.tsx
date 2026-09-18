@@ -924,21 +924,23 @@ export default function B2BAdminUserHisab() {
             </div>
 
             {/* Reconciliation Tally Status */}
-            <div className="flex flex-wrap items-center gap-2 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-800 text-xs">
+            <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-800 text-xs">
               <span className="text-emerald-400 font-semibold" title="કુલ એપ્રૂવ ફંડ">
                 ફંડ: ₹{summaryStats.approvedFundAmount.toLocaleString('en-IN')}
               </span>
-              <span className="text-slate-500 font-bold">-</span>
+              <span className="text-slate-400 font-bold">-</span>
+              <span className="text-slate-500 font-bold">(</span>
               <span className="text-blue-400 font-semibold" title="કુલ બિલ પેમેન્ટ">
                 બિલ: ₹{summaryStats.billSuccessAmount.toLocaleString('en-IN')}
               </span>
-              <span className="text-slate-500 font-bold">-</span>
+              <span className="text-slate-400 font-bold">+</span>
               <span className="text-purple-400 font-semibold" title="કુલ ચાર્જ">
                 ચાર્જ: ₹{summaryStats.billSuccessCharge.toLocaleString('en-IN')}
               </span>
-              <span className="text-slate-500 font-bold">=</span>
-              <span className="text-amber-400 font-bold" title="બાકી વૉલેટ બેલેન્સ">
-                વૉલેટ: ₹{summaryStats.totalUserBalance.toLocaleString('en-IN')}
+              <span className="text-slate-500 font-bold">)</span>
+              <span className="text-slate-400 font-bold">=</span>
+              <span className="text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20" title="ફંડમાંથી બિલ અને ચાર્જ બાદ કરતાં વધતી રકમ">
+                બાકી વૉલેટ: ₹{summaryStats.expectedRemaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
