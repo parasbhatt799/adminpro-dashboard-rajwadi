@@ -11,7 +11,7 @@ interface B2BAdminSidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'B2B Dashboard', icon: LayoutDashboard, path: '/b2b/admin/dashboard' },
-  { id: 'user-hisab', label: 'User Hisab (યુઝર હિસાબ)', icon: Calculator, path: '/b2b/admin/user-hisab' },
+  { id: 'user-hisab', label: 'User Reconciliation', icon: Calculator, path: '/b2b/admin/user-hisab' },
   { id: 'revenue-withdrawals', label: 'Revenue Withdrawals', icon: ArrowUpRight, path: '/b2b/admin/withdrawals' },
   { id: 'fund-requests', label: 'Fund Requests', icon: Wallet, path: '/b2b/admin/fund-requests' },
   { id: 'bank-accounts', label: 'Bank Accounts', icon: Landmark, path: '/b2b/admin/bank-accounts' },

@@ -594,7 +594,7 @@ export default function B2BAdminUserHisab() {
           format(new Date(row.date), 'dd/MM/yyyy hh:mm a'),
           row.agent_name,
           row.agent_login,
-          row.type === 'fund' ? 'Fund In (ક્રેડિટ)' : 'Bill Out (ડેબિટ)',
+          row.type === 'fund' ? 'Fund In (Credit)' : 'Bill Out (Debit)',
           row.reference,
           row.details,
           row.amount,
@@ -634,11 +634,11 @@ export default function B2BAdminUserHisab() {
               <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
                 User Hisab & Reconciliation
                 <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-0.5 rounded-full font-medium">
-                  સિંગલ સ્ક્રીન હિસાબ
+                  Single Screen Ledger
                 </span>
               </h1>
               <p className="text-slate-400 text-sm mt-0.5">
-                એક જ પેજ પરથી એપ્રૂવ ફંડ, બિલ પેમેન્ટ, ચાર્જ અને યુઝર બેલેન્સનો સંપૂર્ણ હિસાબ મેળવો
+                Reconcile approved funds, bill payments, service charges, and live wallet balances from a single dashboard.
               </p>
             </div>
           </div>
@@ -653,7 +653,7 @@ export default function B2BAdminUserHisab() {
             }}
             disabled={loading}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition font-medium text-sm disabled:opacity-50"
-            title="ડેટા રિફ્રેશ કરો"
+            title="Refresh Data"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-indigo-400' : ''}`} />
             Refresh
@@ -662,7 +662,7 @@ export default function B2BAdminUserHisab() {
           <button
             onClick={handleExportExcel}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm shadow-lg shadow-emerald-600/20 transition"
-            title="Excel શીટ ડાઉનલોડ કરો"
+            title="Download Excel Sheet"
           >
             <FileSpreadsheet className="h-4 w-4" />
             Excel Export
@@ -676,7 +676,7 @@ export default function B2BAdminUserHisab() {
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm border-b border-slate-800/80 pb-3">
           <Filter className="h-4 w-4 text-indigo-400" />
-          <span>ફિલ્ટર્સ (Filters): યુઝર વાઇઝ & તારીખ-સમય ફિલ્ટર</span>
+          <span>Filters: User / Agent & Date-Time Range</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
@@ -684,7 +684,7 @@ export default function B2BAdminUserHisab() {
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-indigo-400" />
-              યુઝર પસંદ કરો (User / Agent Wise Filter):
+              Select User / Agent:
             </label>
             <div className="relative">
               <select
@@ -692,7 +692,7 @@ export default function B2BAdminUserHisab() {
                 onChange={(e) => setSelectedAgentId(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/50 appearance-none pr-9 font-medium"
               >
-                <option value="all">🌐 બધા યુઝર્સ (All B2B Agents) - કુલ {agents.length}</option>
+                <option value="all">🌐 All B2B Agents - Total {agents.length}</option>
                 {agents.map((ag) => {
                   const name = [ag.first_name, ag.last_name].filter(Boolean).join(' ') || 'User';
                   const bal = Number(ag.wallet_balance || 0).toLocaleString('en-IN', {
@@ -701,7 +701,7 @@ export default function B2BAdminUserHisab() {
                   });
                   return (
                     <option key={ag.id} value={ag.id}>
-                      {name} ({ag.b2b_login_id || ag.mobile || ag.id.slice(0, 6)}) — વૉલેટ: ₹{bal}
+                      {name} ({ag.b2b_login_id || ag.mobile || ag.id.slice(0, 6)}) — Wallet: ₹{bal}
                     </option>
                   );
                 })}
@@ -710,7 +710,7 @@ export default function B2BAdminUserHisab() {
             </div>
             {selectedAgentObj && (
               <p className="text-[11px] text-indigo-400 mt-1 truncate">
-                સિલેક્ટ કરેલ: <span className="text-white font-medium">{selectedAgentObj.first_name} {selectedAgentObj.last_name}</span> | Login ID: <span className="text-amber-400 font-mono">{selectedAgentObj.b2b_login_id || 'N/A'}</span>
+                Selected: <span className="text-white font-medium">{selectedAgentObj.first_name} {selectedAgentObj.last_name}</span> | Login ID: <span className="text-amber-400 font-mono">{selectedAgentObj.b2b_login_id || 'N/A'}</span>
               </p>
             )}
           </div>
@@ -719,7 +719,7 @@ export default function B2BAdminUserHisab() {
           <div>
             <label className="block text-xs font-semibold text-slate-300 mb-1.5 flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5 text-emerald-400" />
-              તારીખ ગાળો (Date Range):
+              Date Range:
             </label>
             <div className="relative">
               <select
@@ -727,40 +727,40 @@ export default function B2BAdminUserHisab() {
                 onChange={(e) => setDateFilter(e.target.value as any)}
                 className="w-full bg-slate-950 border border-slate-700 text-white rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/50 appearance-none pr-9 font-medium"
               >
-                <option value="today">આજે (Today)</option>
-                <option value="yesterday">ગઈકાલે (Yesterday)</option>
-                <option value="7days">છેલ્લા ૭ દિવસ (Last 7 Days)</option>
-                <option value="30days">છેલ્લા ૩૦ દિવસ (Last 30 Days)</option>
-                <option value="thisMonth">આ મહિને (This Month)</option>
-                <option value="all">ઓલ ટાઈમ (All Time History)</option>
-                <option value="custom">કસ્ટમ તારીખ અને સમય (Custom Range)...</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="7days">Last 7 Days</option>
+                <option value="30days">Last 30 Days</option>
+                <option value="thisMonth">This Month</option>
+                <option value="all">All Time History</option>
+                <option value="custom">Custom Date & Time Range...</option>
               </select>
               <div className="absolute right-3.5 top-3 pointer-events-none text-slate-400 text-xs">▼</div>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              {dateFilter === 'today' && 'આજના દિવસના 12:00 AM થી અત્યાર સુધીનો હિસાબ'}
-              {dateFilter === 'yesterday' && 'ગઈકાલના આખા દિવસનો હિસાબ'}
-              {dateFilter === '7days' && 'છેલ્લા 7 દિવસના તમામ ટ્રાન્ઝેક્શન્સ'}
-              {dateFilter === '30days' && 'છેલ્લા 30 દિવસના તમામ ટ્રાન્ઝેક્શન્સ'}
-              {dateFilter === 'thisMonth' && 'ચાલુ મહિનાની 1લી તારીખથી અત્યાર સુધી'}
-              {dateFilter === 'all' && 'શરૂઆતથી અત્યાર સુધીનો પૂર્ણ હિસાબ'}
-              {dateFilter === 'custom' && 'ચોક્કસ સમયગાળો નીચે સેટ કરો'}
+              {dateFilter === 'today' && "Today's transactions from 12:00 AM to now"}
+              {dateFilter === 'yesterday' && "All transactions from yesterday"}
+              {dateFilter === '7days' && "All transactions from the last 7 days"}
+              {dateFilter === '30days' && "All transactions from the last 30 days"}
+              {dateFilter === 'thisMonth' && "From the 1st of this month to now"}
+              {dateFilter === 'all' && "Lifetime complete reconciliation history"}
+              {dateFilter === 'custom' && "Set specific date and time bounds below"}
             </p>
           </div>
 
           {/* 3. CURRENT ACTIVE FILTER SUMMARY */}
           <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
             <div>
-              <span className="text-[11px] text-slate-400 uppercase font-semibold block">કુલ એન્ટ્રીઓ (Total Records)</span>
+              <span className="text-[11px] text-slate-400 uppercase font-semibold block">Total Records</span>
               <span className="text-lg font-bold text-white">
                 {fundRequests.length + billLogs.length}{' '}
                 <span className="text-xs text-slate-400 font-normal">
-                  ({fundRequests.length} ફંડ + {billLogs.length} બિલ)
+                  ({fundRequests.length} Fund + {billLogs.length} Bills)
                 </span>
               </span>
             </div>
             <div className="text-right">
-              <span className="text-[11px] text-slate-400 uppercase font-semibold block">સ્થિતિ (Status)</span>
+              <span className="text-[11px] text-slate-400 uppercase font-semibold block">Status</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-medium">
                 Live Data
               </span>
@@ -773,7 +773,7 @@ export default function B2BAdminUserHisab() {
           <div className="pt-3 border-t border-slate-800/80 grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950/50 p-3.5 rounded-xl">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                શરૂઆતની તારીખ અને સમય (Start Date & Time):
+                Start Date & Time:
               </label>
               <input
                 type="datetime-local"
@@ -784,7 +784,7 @@ export default function B2BAdminUserHisab() {
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                અંતિમ તારીખ અને સમય (End Date & Time):
+                End Date & Time:
               </label>
               <input
                 type="datetime-local"
@@ -803,7 +803,7 @@ export default function B2BAdminUserHisab() {
       {loading ? (
         <div className="h-44 flex flex-col items-center justify-center bg-slate-900/40 border border-slate-800 rounded-2xl">
           <LoadingSpinner size="lg" />
-          <p className="text-slate-400 text-sm mt-3 animate-pulse">હિસાબ ગણતરી ચાલુ છે...</p>
+          <p className="text-slate-400 text-sm mt-3 animate-pulse">Calculating reconciliation ledger...</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -814,7 +814,7 @@ export default function B2BAdminUserHisab() {
                 <ArrowDownLeft className="h-6 w-6" />
               </div>
               <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold">
-                {summaryStats.approvedFundCount} મંજૂર (Approved)
+                {summaryStats.approvedFundCount} Approved
               </span>
             </div>
             <p className="text-xs font-extrabold text-emerald-400 uppercase tracking-wider mb-1">
@@ -824,7 +824,7 @@ export default function B2BAdminUserHisab() {
               ₹{summaryStats.approvedFundAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <div className="mt-3 pt-2.5 border-t border-emerald-500/20 flex items-center justify-between text-[11px] text-slate-400">
-              <span>પેન્ડિંગ રિક્વેસ્ટ:</span>
+              <span>Pending Requests:</span>
               <span className="text-amber-400 font-semibold">
                 {summaryStats.pendingFundCount} (₹{summaryStats.pendingFundAmount.toLocaleString('en-IN')})
               </span>
@@ -838,7 +838,7 @@ export default function B2BAdminUserHisab() {
                 <Receipt className="h-6 w-6" />
               </div>
               <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-semibold">
-                {summaryStats.billSuccessCount} સફળ (Success)
+                {summaryStats.billSuccessCount} Success
               </span>
             </div>
             <p className="text-xs font-extrabold text-blue-400 uppercase tracking-wider mb-1">
@@ -848,9 +848,9 @@ export default function B2BAdminUserHisab() {
               ₹{summaryStats.billSuccessAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <div className="mt-3 pt-2.5 border-t border-blue-500/20 flex items-center justify-between text-[11px] text-slate-400">
-              <span>પેન્ડિંગ / ફેલ બિલ્સ:</span>
+              <span>Pending / Failed Bills:</span>
               <span className="text-slate-300 font-medium">
-                {summaryStats.billPendingCount} પેન્ડિંગ | {summaryStats.billFailedCount} ફેલ
+                {summaryStats.billPendingCount} Pending | {summaryStats.billFailedCount} Failed
               </span>
             </div>
           </div>
@@ -862,7 +862,7 @@ export default function B2BAdminUserHisab() {
                 <DollarSign className="h-6 w-6" />
               </div>
               <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-semibold">
-                સર્વિસ ચાર્જ
+                Service Charges
               </span>
             </div>
             <p className="text-xs font-extrabold text-purple-400 uppercase tracking-wider mb-1">
@@ -872,7 +872,7 @@ export default function B2BAdminUserHisab() {
               ₹{summaryStats.billSuccessCharge.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex items-center justify-between text-[11px] text-slate-400">
-              <span>બિલ + ચાર્જ કુલ ખર્ચ:</span>
+              <span>Bills + Charges Total Spent:</span>
               <span className="text-purple-300 font-semibold">
                 ₹{summaryStats.totalOutflow.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
@@ -886,7 +886,7 @@ export default function B2BAdminUserHisab() {
                 <Wallet className="h-6 w-6" />
               </div>
               <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-semibold">
-                {selectedAgentId === 'all' ? 'બધા યુઝર્સ' : 'સિલેક્ટેડ યુઝર'}
+                {selectedAgentId === 'all' ? 'All Agents' : 'Selected Agent'}
               </span>
             </div>
             <p className="text-xs font-extrabold text-amber-400 uppercase tracking-wider mb-1">
@@ -896,8 +896,8 @@ export default function B2BAdminUserHisab() {
               ₹{summaryStats.totalUserBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
             <div className="mt-3 pt-2.5 border-t border-amber-500/20 flex items-center justify-between text-[11px] text-slate-400">
-              <span>વૉલેટ સ્થિતિ:</span>
-              <span className="text-emerald-400 font-semibold">લાઈવ ઉપલબ્ધ બેલેન્સ</span>
+              <span>Wallet Status:</span>
+              <span className="text-emerald-400 font-semibold">Live Available Balance</span>
             </div>
           </div>
         </div>
@@ -915,32 +915,32 @@ export default function B2BAdminUserHisab() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  સંપૂર્ણ હિસાબ મેળવણી (Accounting Equation Tally)
+                  Accounting Reconciliation Equation
                 </h3>
                 <p className="text-xs text-slate-400">
-                  કુલ મંજૂર ફંડ - (બિલ પેમેન્ટ + કપાયેલ ચાર્જ) = બાકી વૉલેટ બેલેન્સ
+                  Approved Fund - (Bill Payment + Service Charge) = Expected Wallet Balance
                 </p>
               </div>
             </div>
 
             {/* Reconciliation Tally Status */}
             <div className="flex flex-wrap items-center gap-1.5 bg-slate-950 px-4 py-2.5 rounded-xl border border-slate-800 text-xs">
-              <span className="text-emerald-400 font-semibold" title="કુલ એપ્રૂવ ફંડ">
-                ફંડ: ₹{summaryStats.approvedFundAmount.toLocaleString('en-IN')}
+              <span className="text-emerald-400 font-semibold" title="Approved Fund Total">
+                Fund: ₹{summaryStats.approvedFundAmount.toLocaleString('en-IN')}
               </span>
               <span className="text-slate-400 font-bold">-</span>
               <span className="text-slate-500 font-bold">(</span>
-              <span className="text-blue-400 font-semibold" title="કુલ બિલ પેમેન્ટ">
-                બિલ: ₹{summaryStats.billSuccessAmount.toLocaleString('en-IN')}
+              <span className="text-blue-400 font-semibold" title="Bill Payment Total">
+                Bill: ₹{summaryStats.billSuccessAmount.toLocaleString('en-IN')}
               </span>
               <span className="text-slate-400 font-bold">+</span>
-              <span className="text-purple-400 font-semibold" title="કુલ ચાર્જ">
-                ચાર્જ: ₹{summaryStats.billSuccessCharge.toLocaleString('en-IN')}
+              <span className="text-purple-400 font-semibold" title="Service Charges Total">
+                Charge: ₹{summaryStats.billSuccessCharge.toLocaleString('en-IN')}
               </span>
               <span className="text-slate-500 font-bold">)</span>
               <span className="text-slate-400 font-bold">=</span>
-              <span className="text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20" title="ફંડમાંથી બિલ અને ચાર્જ બાદ કરતાં વધતી રકમ">
-                બાકી વૉલેટ: ₹{summaryStats.expectedRemaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+              <span className="text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20" title="Remaining balance after deducting bills and charges from fund">
+                Expected Wallet: ₹{summaryStats.expectedRemaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
@@ -948,12 +948,12 @@ export default function B2BAdminUserHisab() {
           {/* Difference Indicator */}
           <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-slate-400">અપેક્ષિત બાકી રકમ (Fund - Spent):</span>
+              <span className="text-slate-400">Expected Wallet (Fund - Spent):</span>
               <span className="text-white font-mono font-bold">
                 ₹{summaryStats.expectedRemaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
               <span className="text-slate-500">|</span>
-              <span className="text-slate-400">હાલનું વૉલેટ બેલેન્સ:</span>
+              <span className="text-slate-400">Actual Live Wallet:</span>
               <span className="text-amber-300 font-mono font-bold">
                 ₹{summaryStats.totalUserBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
@@ -963,17 +963,17 @@ export default function B2BAdminUserHisab() {
               {Math.abs(summaryStats.difference) < 0.01 ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                  ૧૦૦% હિસાબ મેળવેલ (Perfect Tally Matched)
+                  100% Tally Matched (Zero Discrepancy)
                 </span>
               ) : dateFilter !== 'all' ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium">
                   <Clock className="h-3.5 w-3.5 text-blue-400" />
-                  આ સમયગાળાનો હિસાબ (અગાઉનું બેલેન્સ સામેલ હોઈ શકે)
+                  Filtered Period (May include prior opening balance)
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
                   <AlertCircle className="h-3.5 w-3.5 text-amber-400" />
-                  તફાવત (Difference): ₹{Math.abs(summaryStats.difference).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  Difference: ₹{Math.abs(summaryStats.difference).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                 </span>
               )}
             </div>
@@ -989,13 +989,13 @@ export default function B2BAdminUserHisab() {
         <div className="p-5 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              વિગતવાર હિસાબ લેજર (Combined Transactions Ledger)
+              Combined Transactions Ledger
               <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-medium">
                 {filteredEntries.length} Records
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              સિંગલ લિસ્ટમાં ફંડ જમા અને બિલ પેમેન્ટના તમામ ટ્રાન્ઝેક્શન્સ
+              Chronological ledger of all fund deposits and bill payment deductions
             </p>
           </div>
 
@@ -1018,19 +1018,19 @@ export default function B2BAdminUserHisab() {
                 onClick={() => setTypeFilter('all')}
                 className={`px-3 py-1.5 rounded-lg transition font-medium ${typeFilter === 'all' ? 'bg-indigo-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
               >
-                બધું (All)
+                All
               </button>
               <button
                 onClick={() => setTypeFilter('fund')}
                 className={`px-3 py-1.5 rounded-lg transition font-medium ${typeFilter === 'fund' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
               >
-                📥 ફંડ
+                📥 Fund
               </button>
               <button
                 onClick={() => setTypeFilter('bill')}
                 className={`px-3 py-1.5 rounded-lg transition font-medium ${typeFilter === 'bill' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
               >
-                📤 બિલ્સ
+                📤 Bills
               </button>
             </div>
 
@@ -1040,10 +1040,10 @@ export default function B2BAdminUserHisab() {
               onChange={(e) => setStatusFilter(e.target.value as any)}
               className="bg-slate-950 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
-              <option value="all">બધા સ્ટેટસ (All Status)</option>
-              <option value="success">સફળ / મંજૂર (Success/Approved)</option>
-              <option value="pending">પેન્ડિંગ (Pending)</option>
-              <option value="failed">ફેલ / રદ (Failed/Rejected)</option>
+              <option value="all">All Status</option>
+              <option value="success">Success / Approved</option>
+              <option value="pending">Pending</option>
+              <option value="failed">Failed / Rejected</option>
             </select>
           </div>
         </div>
@@ -1053,14 +1053,14 @@ export default function B2BAdminUserHisab() {
           <table className="w-full text-left text-xs text-slate-300">
             <thead className="bg-slate-950/80 text-slate-400 uppercase tracking-wider text-[11px] border-b border-slate-800 font-semibold">
               <tr>
-                <th className="px-4 py-3.5">તારીખ & સમય</th>
-                <th className="px-4 py-3.5">યુઝર / એજન્ટ</th>
-                <th className="px-4 py-3.5">પ્રકાર (Type)</th>
-                <th className="px-4 py-3.5">રેફરન્સ / વિગત</th>
-                <th className="px-4 py-3.5 text-right">રકમ (Amount)</th>
-                <th className="px-4 py-3.5 text-right">ચાર્જ (Charge)</th>
-                <th className="px-4 py-3.5 text-right">કુલ અસર (Net Impact)</th>
-                <th className="px-4 py-3.5 text-center">સ્ટેટસ</th>
+                <th className="px-4 py-3.5">Date & Time</th>
+                <th className="px-4 py-3.5">User / Agent</th>
+                <th className="px-4 py-3.5">Type</th>
+                <th className="px-4 py-3.5">Reference & Details</th>
+                <th className="px-4 py-3.5 text-right">Amount</th>
+                <th className="px-4 py-3.5 text-right">Charge</th>
+                <th className="px-4 py-3.5 text-right">Net Impact</th>
+                <th className="px-4 py-3.5 text-center">Status</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -1069,8 +1069,8 @@ export default function B2BAdminUserHisab() {
                   <td colSpan={8} className="px-6 py-12 text-center text-slate-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search className="h-8 w-8 text-slate-600" />
-                      <p className="font-semibold text-sm">કોઈ ટ્રાન્ઝેક્શન્સ મળ્યા નહીં</p>
-                      <p className="text-xs text-slate-500">પસંદ કરેલ યુઝર અથવા ફિલ્ટર બદલીને ફરી પ્રયાસ કરો.</p>
+                      <p className="font-semibold text-sm">No transactions found</p>
+                      <p className="text-xs text-slate-500">Try adjusting your filters or search query.</p>
                     </div>
                   </td>
                 </tr>
@@ -1107,12 +1107,12 @@ export default function B2BAdminUserHisab() {
                         {isFund ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold text-[11px]">
                             <ArrowDownLeft className="h-3 w-3" />
-                            ફંડ જમા (Credit)
+                            Fund Credit
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold text-[11px]">
                             <ArrowUpRight className="h-3 w-3" />
-                            બિલ ચૂકવણી (Debit)
+                            Bill Debit
                           </span>
                         )}
                       </td>
@@ -1188,17 +1188,19 @@ export default function B2BAdminUserHisab() {
         {/* PAGINATION FOOTER */}
         <div className="p-4 border-t border-slate-800 bg-slate-950/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-400">
           <div className="flex items-center gap-2">
-            <span>દર્શાવો:</span>
+            <span>Show:</span>
             <select
               value={pageSize}
               onChange={(e) => setPageSize(Number(e.target.value))}
               className="bg-slate-900 border border-slate-700 text-white rounded-lg px-2 py-1 text-xs focus:outline-none"
             >
-              <option value={25}>25 પ્રતિ પેજ</option>
-              <option value={50}>50 પ્રતિ પેજ</option>
-              <option value={100}>100 પ્રતિ પેજ</option>
+              <option value={25}>25 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
             </select>
-            <span>કુલ {filteredEntries.length} માંથી {(currentPage - 1) * pageSize + 1} થી {Math.min(currentPage * pageSize, filteredEntries.length)}</span>
+            <span>
+              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredEntries.length)} of {filteredEntries.length} records
+            </span>
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -1206,18 +1208,18 @@ export default function B2BAdminUserHisab() {
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
               className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 disabled:opacity-40 transition"
-              title="અગાઉનું પેજ"
+              title="Previous Page"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <span className="font-semibold text-white px-2">
-              પેજ {currentPage} / {totalPages}
+              Page {currentPage} of {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
               className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 disabled:opacity-40 transition"
-              title="આગળનું પેજ"
+              title="Next Page"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
