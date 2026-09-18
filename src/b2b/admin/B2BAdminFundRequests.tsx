@@ -940,188 +940,290 @@ export default function B2BAdminFundRequests() {
           isOpen={!!selectedProofReq}
           onClose={() => setSelectedProofReq(null)}
           title="Payment Proof & Request Details"
-          size="2xl"
+          size="6xl"
           isDark={true}
         >
-          <div className="space-y-6">
-            {/* Details Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 bg-slate-900/60 p-4 rounded-2xl border border-slate-700 text-xs">
-              <div>
-                <span className="text-slate-400 font-semibold uppercase block">Agent Name</span>
-                <span className="font-bold text-white text-sm block mt-0.5">
-                  {selectedProofReq.b2b_api_credentials?.first_name} {selectedProofReq.b2b_api_credentials?.last_name}
-                </span>
-                <span className="block text-[11px] text-indigo-300 font-mono mt-0.5">{selectedProofReq.b2b_api_credentials?.b2b_login_id}</span>
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+            {/* LEFT COLUMN: Request Info, Bank Details, OCR & Actions */}
+            <div className="lg:col-span-6 space-y-3.5">
+              {/* Details Bar */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-700 text-xs">
+                <div>
+                  <span className="text-slate-400 font-semibold uppercase block text-[10px]">Agent Name</span>
+                  <span className="font-bold text-white text-sm block mt-0.5">
+                    {selectedProofReq.b2b_api_credentials?.first_name} {selectedProofReq.b2b_api_credentials?.last_name}
+                  </span>
+                  <span className="block text-[11px] text-indigo-300 font-mono mt-0.5">{selectedProofReq.b2b_api_credentials?.b2b_login_id}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold uppercase block text-[10px]">Agent Tag / Portal</span>
+                  <span className="font-bold font-mono text-indigo-300 text-xs bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20 inline-block mt-1">
+                    {selectedProofReq.b2b_api_credentials?.agent_tag || 'N/A'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold uppercase block text-[10px]">Requested Amount</span>
+                  <span className="font-bold text-indigo-400 text-base block mt-0.5">₹{Number(selectedProofReq.amount).toLocaleString('en-IN')}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold uppercase block text-[10px]">UTR Number</span>
+                  <span className="font-bold font-mono text-indigo-300 text-xs bg-slate-900 px-2 py-1 rounded border border-slate-700 inline-block mt-1">
+                    {selectedProofReq.utr_number}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold uppercase block text-[10px]">Status</span>
+                  <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full inline-block mt-1 border ${
+                    selectedProofReq.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                    selectedProofReq.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
+                    'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                  }`}>
+                    {selectedProofReq.status.toUpperCase()}
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="text-slate-400 font-semibold uppercase block">Agent Tag / Portal</span>
-                <span className="font-bold font-mono text-indigo-300 text-xs bg-indigo-500/10 px-2 py-1 rounded border border-indigo-500/20 inline-block mt-1">
-                  {selectedProofReq.b2b_api_credentials?.agent_tag || 'N/A'}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 font-semibold uppercase block">Requested Amount</span>
-                <span className="font-bold text-indigo-400 text-base block mt-0.5">₹{Number(selectedProofReq.amount).toLocaleString('en-IN')}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 font-semibold uppercase block">UTR Number</span>
-                <span className="font-bold font-mono text-indigo-300 text-xs bg-slate-900 px-2 py-1 rounded border border-slate-700 inline-block mt-1">
-                  {selectedProofReq.utr_number}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 font-semibold uppercase block">Status</span>
-                <span className={`px-2.5 py-1 text-xs font-bold rounded-full inline-block mt-1 border ${
-                  selectedProofReq.status === 'approved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                  selectedProofReq.status === 'rejected' ? 'bg-rose-500/10 text-rose-400 border-rose-500/20' :
-                  'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                }`}>
-                  {selectedProofReq.status.toUpperCase()}
-                </span>
+
+              {/* Target Admin Bank Account Details Box */}
+              {(() => {
+                const bankDetails = selectedProofReq.admin_bank_details || selectedProofReq.b2b_admin_bank_accounts;
+                if (bankDetails && bankDetails.bank_name) {
+                  return (
+                    <div className="bg-indigo-950/60 border border-indigo-500/40 rounded-2xl p-3.5 text-xs space-y-2 relative overflow-hidden">
+                      <div className="flex items-center justify-between border-b border-indigo-500/30 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">
+                            DEPOSIT BANK
+                          </span>
+                          <span className="font-bold text-white text-sm">{bankDetails.bank_name}</span>
+                        </div>
+                        {bankDetails.upi_id && (
+                          <span className="text-amber-300 font-mono font-bold text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                            UPI: {bankDetails.upi_id}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Holder</span>
+                          <span className="text-slate-200 font-bold truncate block">{bankDetails.account_name}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Number</span>
+                          <span className="text-emerald-400 font-mono font-bold">{bankDetails.account_number}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 text-[10px] font-semibold uppercase block">IFSC Code</span>
+                          <span className="text-indigo-300 font-mono font-bold">{bankDetails.ifsc_code}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-400 flex items-center justify-between">
+                    <span>Target Admin Bank: <strong className="text-slate-300">General / Not Specified</strong></span>
+                  </div>
+                );
+              })()}
+
+              {/* OCR Verification Status Card */}
+              {selectedProofReq.proof_url && (
+                <div className="bg-slate-900/90 border border-slate-700 rounded-2xl p-3.5 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {ocrState === 'loading' && (
+                        <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs">
+                          <Loader2 size={16} className="animate-spin" />
+                          <span>Scanning Payment Screenshot ({ocrProgress}%)...</span>
+                        </div>
+                      )}
+                      {ocrState === 'success' && (
+                        (ocrUtrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched') ? (
+                          <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
+                            <CheckCircle2 size={16} />
+                            <span>OCR Verification Successful (UTR & Amount Matched)</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
+                            <AlertCircle size={16} />
+                            <span>OCR Verification Warning (UTR or Amount Mismatch)</span>
+                          </div>
+                        )
+                      )}
+                      {ocrState === 'error' && (
+                        <div className="flex items-center gap-1.5 text-rose-400 font-bold text-xs">
+                          <XCircle size={16} />
+                          <span>OCR Scan Failed / Low Image Clarity</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => runOcrOnProof(selectedProofReq.proof_url, selectedProofReq.utr_number || '', Number(selectedProofReq.amount || 0))}
+                      disabled={ocrState === 'loading'}
+                      className="text-[11px] font-bold text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1 rounded-lg border border-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {ocrState === 'loading' ? 'Scanning...' : 'Re-Scan OCR'}
+                    </button>
+                  </div>
+
+                  {/* Progress bar */}
+                  {ocrState === 'loading' && (
+                    <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-500 transition-all duration-200" style={{ width: `${ocrProgress}%` }} />
+                    </div>
+                  )}
+
+                  {/* Detection Details Cards */}
+                  {ocrState === 'success' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1 text-xs">
+                      {/* UTR Check Box */}
+                      <div className={`p-2.5 rounded-xl border flex flex-col justify-between ${
+                        ocrUtrMatchStatus === 'matched' ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
+                      }`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-400">UTR Matching</span>
+                          <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase border ${
+                            ocrUtrMatchStatus === 'matched' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
+                            {ocrUtrMatchStatus === 'matched' ? '✓ Found' : '✗ Mismatch'}
+                          </span>
+                        </div>
+                        <div className="font-mono text-xs font-bold mt-0.5">
+                          Requested UTR: <span className="text-white">{selectedProofReq.utr_number}</span>
+                        </div>
+                        {detectedUtrs.length > 0 && (
+                          <div className="text-[10px] text-slate-400 mt-1">
+                            Detected in Image: <span className="font-mono text-slate-200">{detectedUtrs.join(', ')}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Amount Check Box */}
+                      <div className={`p-2.5 rounded-xl border flex flex-col justify-between ${
+                        ocrAmountMatchStatus === 'matched' ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
+                      }`}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-400">Amount Matching</span>
+                          <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase border ${
+                            ocrAmountMatchStatus === 'matched' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                          }`}>
+                            {ocrAmountMatchStatus === 'matched' ? '✓ Matched' : '✗ Mismatch'}
+                          </span>
+                        </div>
+                        <div className="font-mono text-xs font-bold mt-0.5">
+                          Requested Amount: <span className="text-white">₹{Number(selectedProofReq.amount).toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bypass OCR Checkbox */}
+              {selectedProofReq.status === 'pending' && (
+                <div>
+                  <label className={`flex items-start gap-3 p-3 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
+                    bypassOcr 
+                      ? 'bg-amber-950/40 border-amber-500/50 text-amber-300 shadow-md' 
+                      : 'bg-slate-900/60 border-slate-700/80 text-slate-300 hover:border-slate-600'
+                  }`}>
+                    <input
+                      type="checkbox"
+                      checked={bypassOcr}
+                      onChange={(e) => setBypassOcr(e.target.checked)}
+                      className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-700 cursor-pointer mt-0.5 flex-shrink-0"
+                    />
+                    <div>
+                      <span>Bypass OCR Verification (I have manually verified payment screenshot)</span>
+                      <p className="text-[10px] font-normal text-slate-400 mt-0.5">
+                        Check this box to enable the Approve button if OCR mismatch occurred or image clarity is low.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              {/* Bottom Actions inside Left Column */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-700/80">
+                <div className="text-[11px] text-slate-400 font-medium">
+                  Requested On: {format(new Date(selectedProofReq.created_at), 'dd MMM yyyy, hh:mm a')}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {selectedProofReq.status === 'pending' ? (
+                    <>
+                      <button
+                        disabled={actionLoading || processingIds.includes(selectedProofReq.id)}
+                        onClick={async () => {
+                          await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'reject');
+                          setSelectedProofReq(null);
+                        }}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                      >
+                        {processingIds.includes(selectedProofReq.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Reject Request
+                      </button>
+
+                      {(() => {
+                        const isOcrPassed = (ocrUtrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched') || bypassOcr;
+                        const isProcessing = processingIds.includes(selectedProofReq.id);
+                        return (
+                          <button
+                            disabled={actionLoading || isProcessing || ocrState === 'loading' || !isOcrPassed}
+                            onClick={async () => {
+                              await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
+                              setSelectedProofReq(null);
+                            }}
+                            title={!isOcrPassed ? 'OCR Verification failed or pending. Check Bypass OCR box to enable.' : ''}
+                            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 active:scale-95"
+                          >
+                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve & Credit Balance
+                          </button>
+                        );
+                      })()}
+                    </>
+                  ) : selectedProofReq.status === 'approved' ? (
+                    <>
+                      <button
+                        disabled={actionLoading || processingIds.includes(selectedProofReq.id)}
+                        onClick={async () => {
+                          await handleAction(
+                            selectedProofReq.id,
+                            selectedProofReq.agent_id,
+                            selectedProofReq.amount,
+                            'revert_approved',
+                            selectedProofReq.b2b_api_credentials?.wallet_balance
+                          );
+                          setSelectedProofReq(null);
+                        }}
+                        className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
+                      >
+                        {processingIds.includes(selectedProofReq.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />} Reject & Revert Balance
+                      </button>
+                      <button
+                        disabled={processingIds.includes(selectedProofReq.id)}
+                        onClick={() => setSelectedProofReq(null)}
+                        className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
+                      >
+                        Close
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={() => setSelectedProofReq(null)}
+                      className="px-5 py-2 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
+                    >
+                      Close
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* Target Admin Bank Account Details Box */}
-            {(() => {
-              const bankDetails = selectedProofReq.admin_bank_details || selectedProofReq.b2b_admin_bank_accounts;
-              if (bankDetails && bankDetails.bank_name) {
-                return (
-                  <div className="bg-indigo-950/60 border border-indigo-500/40 rounded-2xl p-4 text-xs space-y-2 relative overflow-hidden">
-                    <div className="flex items-center justify-between border-b border-indigo-500/30 pb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase">
-                          DEPOSIT BANK
-                        </span>
-                        <span className="font-bold text-white text-sm">{bankDetails.bank_name}</span>
-                      </div>
-                      {bankDetails.upi_id && (
-                        <span className="text-amber-300 font-mono font-bold text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                          UPI: {bankDetails.upi_id}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
-                      <div>
-                        <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Holder</span>
-                        <span className="text-slate-200 font-bold">{bankDetails.account_name}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 text-[10px] font-semibold uppercase block">Account Number</span>
-                        <span className="text-emerald-400 font-mono font-bold">{bankDetails.account_number}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 text-[10px] font-semibold uppercase block">IFSC Code</span>
-                        <span className="text-indigo-300 font-mono font-bold">{bankDetails.ifsc_code}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-              return (
-                <div className="bg-slate-900/60 border border-slate-700/80 rounded-xl p-3 text-xs text-slate-400 flex items-center justify-between">
-                  <span>Target Admin Bank: <strong className="text-slate-300">General / Not Specified</strong></span>
-                </div>
-              );
-            })()}
-
-            {/* OCR Verification Status Card */}
-            {selectedProofReq.proof_url && (
-              <div className="bg-slate-900/90 border border-slate-700 rounded-2xl p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    {ocrState === 'loading' && (
-                      <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs">
-                        <Loader2 size={16} className="animate-spin" />
-                        <span>Scanning Payment Screenshot ({ocrProgress}%)...</span>
-                      </div>
-                    )}
-                    {ocrState === 'success' && (
-                      (ocrUtrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched') ? (
-                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
-                          <CheckCircle2 size={16} />
-                          <span>OCR Verification Successful (UTR & Amount Matched)</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
-                          <AlertCircle size={16} />
-                          <span>OCR Verification Warning (UTR or Amount Mismatch)</span>
-                        </div>
-                      )
-                    )}
-                    {ocrState === 'error' && (
-                      <div className="flex items-center gap-1.5 text-rose-400 font-bold text-xs">
-                        <XCircle size={16} />
-                        <span>OCR Scan Failed / Low Image Clarity</span>
-                      </div>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => runOcrOnProof(selectedProofReq.proof_url, selectedProofReq.utr_number || '', Number(selectedProofReq.amount || 0))}
-                    disabled={ocrState === 'loading'}
-                    className="text-[11px] font-bold text-indigo-300 hover:text-indigo-200 bg-indigo-500/10 hover:bg-indigo-500/20 px-2.5 py-1 rounded-lg border border-indigo-500/20 transition-all disabled:opacity-50 cursor-pointer"
-                  >
-                    {ocrState === 'loading' ? 'Scanning...' : 'Re-Scan OCR'}
-                  </button>
-                </div>
-
-                {/* Progress bar */}
-                {ocrState === 'loading' && (
-                  <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-indigo-500 transition-all duration-200" style={{ width: `${ocrProgress}%` }} />
-                  </div>
-                )}
-
-                {/* Detection Details Cards */}
-                {ocrState === 'success' && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 text-xs">
-                    {/* UTR Check Box */}
-                    <div className={`p-3 rounded-xl border flex flex-col justify-between ${
-                      ocrUtrMatchStatus === 'matched' ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
-                    }`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-400">UTR Matching</span>
-                        <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase border ${
-                          ocrUtrMatchStatus === 'matched' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                        }`}>
-                          {ocrUtrMatchStatus === 'matched' ? '✓ Found' : '✗ Mismatch'}
-                        </span>
-                      </div>
-                      <div className="font-mono text-xs font-bold mt-1">
-                        Requested UTR: <span className="text-white">{selectedProofReq.utr_number}</span>
-                      </div>
-                      {detectedUtrs.length > 0 && (
-                        <div className="text-[10px] text-slate-400 mt-1">
-                          Detected in Image: <span className="font-mono text-slate-200">{detectedUtrs.join(', ')}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Amount Check Box */}
-                    <div className={`p-3 rounded-xl border flex flex-col justify-between ${
-                      ocrAmountMatchStatus === 'matched' ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-300' : 'bg-amber-950/30 border-amber-500/30 text-amber-300'
-                    }`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-semibold uppercase text-[10px] tracking-wider text-slate-400">Amount Matching</span>
-                        <span className={`font-bold px-2 py-0.5 rounded text-[10px] uppercase border ${
-                          ocrAmountMatchStatus === 'matched' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                        }`}>
-                          {ocrAmountMatchStatus === 'matched' ? '✓ Matched' : '✗ Mismatch'}
-                        </span>
-                      </div>
-                      <div className="font-mono text-xs font-bold mt-1">
-                        Requested Amount: <span className="text-white">₹{Number(selectedProofReq.amount).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Proof Preview Image with Interactive Zoom & Pan Movement */}
-            <div className="space-y-2">
+            {/* RIGHT COLUMN: Proof Preview Image with Interactive Zoom & Pan */}
+            <div className="lg:col-span-6 flex flex-col space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Payment Screenshot / Receipt</span>
                 {selectedProofReq.proof_url && (
@@ -1139,109 +1241,10 @@ export default function B2BAdminFundRequests() {
               {selectedProofReq.proof_url ? (
                 <ProofImageViewer src={selectedProofReq.proof_url} />
               ) : (
-                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-700 flex items-center justify-center min-h-[200px]">
+                <div className="bg-slate-900 rounded-2xl p-6 border border-slate-700 flex items-center justify-center min-h-[360px]">
                   <div className="text-slate-400 text-sm py-8">No proof image uploaded for this request</div>
                 </div>
               )}
-            </div>
-
-            {/* Bypass OCR Checkbox */}
-            {selectedProofReq.status === 'pending' && (
-              <div className="pt-2">
-                <label className={`flex items-center gap-3 p-3.5 rounded-xl border text-xs font-bold cursor-pointer transition-all ${
-                  bypassOcr 
-                    ? 'bg-amber-950/40 border-amber-500/50 text-amber-300 shadow-md' 
-                    : 'bg-slate-900/60 border-slate-700/80 text-slate-300 hover:border-slate-600'
-                }`}>
-                  <input
-                    type="checkbox"
-                    checked={bypassOcr}
-                    onChange={(e) => setBypassOcr(e.target.checked)}
-                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-700 cursor-pointer"
-                  />
-                  <div>
-                    <span>Bypass OCR Verification (I have manually verified payment screenshot)</span>
-                    <p className="text-[10px] font-normal text-slate-400 mt-0.5">
-                      Check this box to enable the Approve button if OCR mismatch occurred or image clarity is low.
-                    </p>
-                  </div>
-                </label>
-              </div>
-            )}
-
-            {/* Bottom Actions inside Modal */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-700">
-              <div className="text-xs text-slate-400 font-medium">
-                Requested On: {format(new Date(selectedProofReq.created_at), 'dd MMM yyyy, hh:mm a')}
-              </div>
-
-              <div className="flex items-center gap-3">
-                {selectedProofReq.status === 'pending' ? (
-                  <>
-                    <button
-                      disabled={actionLoading || processingIds.includes(selectedProofReq.id)}
-                      onClick={async () => {
-                        await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'reject');
-                        setSelectedProofReq(null);
-                      }}
-                      className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
-                    >
-                      {processingIds.includes(selectedProofReq.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />} Reject Request
-                    </button>
-
-                    {(() => {
-                      const isOcrPassed = (ocrUtrMatchStatus === 'matched' && ocrAmountMatchStatus === 'matched') || bypassOcr;
-                      const isProcessing = processingIds.includes(selectedProofReq.id);
-                      return (
-                        <button
-                          disabled={actionLoading || isProcessing || ocrState === 'loading' || !isOcrPassed}
-                          onClick={async () => {
-                            await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
-                            setSelectedProofReq(null);
-                          }}
-                          title={!isOcrPassed ? 'OCR Verification failed or pending. Check Bypass OCR box to enable.' : ''}
-                          className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-emerald-600 active:scale-95"
-                        >
-                          {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Approve & Credit Balance
-                        </button>
-                      );
-                    })()}
-                  </>
-                ) : selectedProofReq.status === 'approved' ? (
-                  <>
-                    <button
-                      disabled={actionLoading || processingIds.includes(selectedProofReq.id)}
-                      onClick={async () => {
-                        await handleAction(
-                          selectedProofReq.id,
-                          selectedProofReq.agent_id,
-                          selectedProofReq.amount,
-                          'revert_approved',
-                          selectedProofReq.b2b_api_credentials?.wallet_balance
-                        );
-                        setSelectedProofReq(null);
-                      }}
-                      className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
-                    >
-                      {processingIds.includes(selectedProofReq.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : <RotateCw className="w-4 h-4" />} Reject & Revert Balance
-                    </button>
-                    <button
-                      disabled={processingIds.includes(selectedProofReq.id)}
-                      onClick={() => setSelectedProofReq(null)}
-                      className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
-                    >
-                      Close
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    onClick={() => setSelectedProofReq(null)}
-                    className="px-6 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold rounded-xl transition-all cursor-pointer border border-slate-600"
-                  >
-                    Close
-                  </button>
-                )}
-              </div>
             </div>
           </div>
         </Modal>
@@ -1363,12 +1366,12 @@ function ProofImageViewer({ src }: { src: string }) {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        className={`relative bg-slate-950 rounded-2xl p-4 border border-slate-700 flex items-center justify-center min-h-[300px] max-h-[480px] overflow-hidden select-none ${
+        className={`relative bg-slate-950 rounded-2xl p-4 border border-slate-700 flex items-center justify-center h-[500px] max-h-[500px] overflow-hidden select-none ${
           isDragging ? 'cursor-grabbing' : 'cursor-grab'
         }`}
       >
         <div
-          className="transition-transform duration-100 ease-out flex items-center justify-center"
+          className="transition-transform duration-100 ease-out flex items-center justify-center max-h-full max-w-full"
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${zoom}) rotate(${rotation}deg)`,
             transformOrigin: 'center center',
@@ -1378,7 +1381,7 @@ function ProofImageViewer({ src }: { src: string }) {
             src={src}
             alt="Payment Proof"
             draggable={false}
-            className="max-h-[420px] w-auto object-contain rounded-xl shadow-2xl pointer-events-none"
+            className="max-h-[460px] max-w-full w-auto object-contain rounded-xl shadow-2xl pointer-events-none"
           />
         </div>
         
