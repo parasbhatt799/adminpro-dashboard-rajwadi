@@ -838,7 +838,7 @@ export default function B2BAgentStatement() {
               </span>
             </div>
             <p className="text-slate-400 text-xs sm:text-sm mt-0.5">
-              બેંક જેવું લાઈવ પાસબુક સ્ટેટમેન્ટ અને રોજેરોજનું ડેઈલી ઓપનિંગ & ક્લોઝિંગ બેલેન્સ
+              Live bank-style passbook statement with daily opening and closing balances.
             </p>
           </div>
         </div>
@@ -888,7 +888,7 @@ export default function B2BAgentStatement() {
           </div>
           <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            ચાલુ ખાતાનું વાસ્તવિક લાઈવ બેલેન્સ
+            Real-time available account balance
           </p>
         </div>
 
@@ -904,7 +904,7 @@ export default function B2BAgentStatement() {
             + ₹ {filteredData.periodCredits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            સમયગાળામાં કુલ જમા (ફંડ રિક્વેસ્ટ + રિફંડ)
+            Total credited funds & refunds in period
           </p>
         </div>
 
@@ -920,7 +920,7 @@ export default function B2BAgentStatement() {
             - ₹ {filteredData.periodDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            સમયગાળામાં થયેલ કુલ બિલ પેમેન્ટ અને ચાર્જ
+            Total bill payments & fee charges in period
           </p>
         </div>
 
@@ -959,7 +959,7 @@ export default function B2BAgentStatement() {
               }`}
             >
               <Receipt className="w-4 h-4" />
-              <span>વિગતવાર બેંક સ્ટેટમેન્ટ (Detailed Passbook)</span>
+              <span>Detailed Statement (Passbook)</span>
               <span className="ml-1 bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full text-[10px] font-mono">
                 {filteredData.displayedTxns.length}
               </span>
@@ -974,7 +974,7 @@ export default function B2BAgentStatement() {
               }`}
             >
               <Calendar className="w-4 h-4" />
-              <span>દૈનિક બેલેન્સ સમરી (Daily Balance Ledger)</span>
+              <span>Daily Balance Summary (Day Ledger)</span>
               <span className="ml-1 bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full text-[10px] font-mono">
                 {dailyLedgerList.length} Days
               </span>
@@ -985,13 +985,13 @@ export default function B2BAgentStatement() {
           <div className="flex items-center gap-1.5 flex-wrap w-full sm:w-auto justify-end">
             {(['today', 'yesterday', '7days', '30days', 'thisMonth', 'custom', 'all'] as const).map((filter) => {
               const labels: Record<string, string> = {
-                today: 'આજે',
-                yesterday: 'ગઈકાલે',
-                '7days': 'છેલ્લા ૭ દિવસ',
-                '30days': 'છેલ્લા ૩૦ દિવસ',
-                thisMonth: 'આ મહિનો',
-                custom: 'તારીખ પસંદ કરો',
-                all: 'તમામ (All)'
+                today: 'Today',
+                yesterday: 'Yesterday',
+                '7days': 'Last 7 Days',
+                '30days': 'Last 30 Days',
+                thisMonth: 'This Month',
+                custom: 'Custom Range',
+                all: 'All Time'
               };
               return (
                 <button
@@ -1066,7 +1066,7 @@ export default function B2BAgentStatement() {
                   typeFilter === 'all' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'
                 }`}
               >
-                બધા (All)
+                All
               </button>
               <button
                 onClick={() => setTypeFilter('credit')}
@@ -1075,7 +1075,7 @@ export default function B2BAgentStatement() {
                 }`}
               >
                 <ArrowDownLeft className="w-3.5 h-3.5" />
-                જમા (Credit +)
+                Credit (+)
               </button>
               <button
                 onClick={() => setTypeFilter('debit')}
@@ -1084,7 +1084,7 @@ export default function B2BAgentStatement() {
                 }`}
               >
                 <ArrowUpRight className="w-3.5 h-3.5" />
-                ઉધાર (Debit -)
+                Debit (-)
               </button>
             </div>
           )}
@@ -1111,9 +1111,9 @@ export default function B2BAgentStatement() {
             {filteredData.displayedTxns.length === 0 ? (
               <div className="p-12 text-center space-y-3">
                 <Receipt className="w-12 h-12 text-slate-600 mx-auto" />
-                <h3 className="text-base font-bold text-slate-300">કોઈ ટ્રાન્ઝેક્શન મળ્યા નથી (No Transactions Found)</h3>
+                <h3 className="text-base font-bold text-slate-300">No Transactions Found</h3>
                 <p className="text-slate-500 text-xs max-w-sm mx-auto">
-                  પસંદ કરેલ તારીખ અથવા ફિલ્ટરમાં કોઈ વ્યવહાર ઉપલબ્ધ નથી. કૃપા કરીને ફિલ્ટર બદલો અથવા તારીખ વધારો.
+                  No records match your selected date range or search filter.
                 </p>
               </div>
             ) : (
@@ -1235,7 +1235,7 @@ export default function B2BAgentStatement() {
       )}
 
       {/* --------------------------------------------------------- */}
-      {/* TAB 2: DAILY BALANCE LEDGER (રોજેરોજનો હિસાબ)             */}
+      {/* TAB 2: DAILY BALANCE LEDGER                               */}
       {/* --------------------------------------------------------- */}
       {activeTab === 'daily' && (
         <div className="space-y-4">
@@ -1243,20 +1243,20 @@ export default function B2BAgentStatement() {
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4 text-indigo-400" />
               <span>
-                દરેક દિવસની શરૂઆતનું <strong>ઓપનિંગ બેલેન્સ (Opening Balance)</strong>, આખા દિવસમાં થયેલ <strong>કુલ જમા/ઉધાર</strong>, અને દિવસના અંતનું <strong>ક્લોઝિંગ બેલેન્સ (Closing Balance)</strong>.
+                Day-by-day <strong>Opening Balance</strong>, total <strong>Credits / Debits</strong>, and end-of-day <strong>Closing Balance</strong>.
               </span>
             </div>
             <span className="text-[11px] text-slate-400">
-              કોઈપણ તારીખ પર ક્લિક કરવાથી તે દિવસના તમામ વ્યવહારો ખુલી જશે.
+              Click on any day row to expand all transactions for that date.
             </span>
           </div>
 
           {dailyLedgerList.length === 0 ? (
             <div className="bg-slate-800 rounded-2xl border border-slate-700 p-12 text-center space-y-3">
               <Calendar className="w-12 h-12 text-slate-600 mx-auto" />
-              <h3 className="text-base font-bold text-slate-300">કોઈ ડેઈલી બેલેન્સ ડેટા મળ્યો નથી</h3>
+              <h3 className="text-base font-bold text-slate-300">No Daily Balance Records Found</h3>
               <p className="text-slate-500 text-xs max-w-sm mx-auto">
-                પસંદ કરેલ તારીખના સમયગાળામાં કોઈ વ્યવહાર નોંધાયેલ નથી.
+                No transactions recorded within the selected date period.
               </p>
             </div>
           ) : (
@@ -1264,13 +1264,13 @@ export default function B2BAgentStatement() {
               <table className="w-full text-left text-xs whitespace-nowrap">
                 <thead className="bg-slate-900/70 text-slate-400 font-bold uppercase tracking-wider text-[11px] border-b border-slate-700">
                   <tr>
-                    <th className="px-5 py-3.5">તારીખ (Date & Day)</th>
-                    <th className="px-5 py-3.5 text-right">શરૂઆતનું બેલેન્સ (Opening)</th>
-                    <th className="px-5 py-3.5 text-right text-emerald-400">દિવસમાં જમા (Total Credit +)</th>
-                    <th className="px-5 py-3.5 text-right text-rose-400">દિવસમાં ઉધાર (Total Debit -)</th>
-                    <th className="px-5 py-3.5 text-right text-cyan-300">ચોખ્ખો ફેરફાર (Net Flow)</th>
-                    <th className="px-5 py-3.5 text-right text-indigo-300">છેલ્લું બેલેન્સ (Closing)</th>
-                    <th className="px-5 py-3.5 text-center">ટ્રાન્ઝેક્શન્સ</th>
+                    <th className="px-5 py-3.5">Date & Day</th>
+                    <th className="px-5 py-3.5 text-right">Opening Balance</th>
+                    <th className="px-5 py-3.5 text-right text-emerald-400">Total Credit (+)</th>
+                    <th className="px-5 py-3.5 text-right text-rose-400">Total Debit (-)</th>
+                    <th className="px-5 py-3.5 text-right text-cyan-300">Net Flow</th>
+                    <th className="px-5 py-3.5 text-right text-indigo-300">Closing Balance</th>
+                    <th className="px-5 py-3.5 text-center">Transactions</th>
                     <th className="px-5 py-3.5 text-center w-12">Action</th>
                   </tr>
                 </thead>
@@ -1330,7 +1330,7 @@ export default function B2BAgentStatement() {
                               <div className="bg-slate-950 rounded-xl border border-slate-700/80 p-3 space-y-2">
                                 <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800">
                                   <span className="font-bold text-indigo-300">
-                                    {day.displayDate} ના તમામ વ્યવહારો ({day.txns.length})
+                                    All Transactions on {day.displayDate} ({day.txns.length})
                                   </span>
                                   <span>
                                     Day Opening: <strong>₹{day.openingBalance.toFixed(2)}</strong> → Day Closing: <strong>₹{day.closingBalance.toFixed(2)}</strong>
