@@ -24,6 +24,7 @@ const B2BAgentLayout = lazy(() => import('./b2b/agent/B2BAgentLayout'));
 const B2BAgentDashboard = lazy(() => import('./b2b/agent/B2BAgentDashboard'));
 const B2BAgentFundRequest = lazy(() => import('./b2b/agent/B2BAgentFundRequest'));
 const B2BAgentBillHistory = lazy(() => import('./b2b/agent/B2BAgentBillHistory'));
+const B2BAgentStatement = lazy(() => import('./b2b/agent/B2BAgentStatement'));
 
 const Sidebar = lazy(() => import('./components/Sidebar'));
 const AgentBalances = lazy(() => import('./pages/AgentBalances'));
@@ -1401,6 +1402,7 @@ export default function App() {
           <Route index element={<Navigate to="/b2b/agent/dashboard" replace />} />
           <Route path="dashboard" element={<B2BAgentDashboard />} />
           <Route path="fund-request" element={<B2BAgentFundRequest />} />
+          <Route path="statement" element={<B2BAgentStatement />} />
           <Route path="api-docs" element={<B2BAPIDocumentation />} />
           <Route path="bill-history" element={<B2BAgentBillHistory />} />
         </Route>

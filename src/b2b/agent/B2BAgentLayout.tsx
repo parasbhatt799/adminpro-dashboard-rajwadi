@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
-import { Terminal, LogOut, Wallet, Book, LayoutDashboard, Activity, User } from 'lucide-react';
+import { Terminal, LogOut, Wallet, Book, LayoutDashboard, Activity, User, Receipt } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
@@ -21,43 +21,45 @@ export default function B2BAgentLayout() {
       return;
     }
 
-    fetchBalance(agentId);
-
-    // Subscribe to balance changes
+    // Subscribe to real-time wallet changes
     const channel = supabase
-      .channel('b2b_balance_changes')
+      .channel('agent_wallet_channel')
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'b2b_api_credentials',
-          filter: `id=eq.${agentId}`
+          filter: `id=eq.${agentId}`,
         },
-        (payload) => {
+        (payload: any) => {
           setWalletBalance(payload.new.wallet_balance || 0);
           setFixedDepositAmount(payload.new.fixed_deposit_amount || 0);
-          if (payload.new.profile_photo_url) {
-            setAgentProfile(prev => ({ ...prev, profile_photo_url: payload.new.profile_photo_url }));
-          }
+          setAgentProfile({
+            first_name: payload.new.first_name,
+            last_name: payload.new.last_name,
+            profile_photo_url: payload.new.profile_photo_url
+          });
         }
       )
       .subscribe();
+
+    fetchWalletBalance(agentId);
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [navigate]);
 
-  const fetchBalance = async (agentId: string) => {
+  const fetchWalletBalance = async (agentId: string) => {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('b2b_api_credentials')
         .select('wallet_balance, fixed_deposit_amount, first_name, last_name, profile_photo_url')
         .eq('id', agentId)
         .single();
-        
-      if (data) {
+
+      if (!error && data) {
         setWalletBalance(data.wallet_balance || 0);
         setFixedDepositAmount(data.fixed_deposit_amount || 0);
         setAgentProfile({
@@ -67,10 +69,14 @@ export default function B2BAgentLayout() {
         });
       }
     } catch (err) {
-      console.error('Error fetching balance:', err);
+      console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const isActive = (path: string) => {
+    return location.pathname.includes(path);
   };
 
   const handleLogout = () => {
@@ -85,8 +91,6 @@ export default function B2BAgentLayout() {
       </div>
     );
   }
-
-  const isActive = (path: string) => location.pathname.includes(path);
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
@@ -113,6 +117,12 @@ export default function B2BAgentLayout() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('fund-request') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
                 >
                   <Wallet className="h-4 w-4" /> Fund Request
+                </Link>
+                <Link 
+                  to="/b2b/agent/statement" 
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('statement') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                >
+                  <Receipt className="h-4 w-4" /> Statement
                 </Link>
                 <Link 
                   to="/b2b/agent/api-docs" 
@@ -143,45 +153,47 @@ export default function B2BAgentLayout() {
                   <span className="text-emerald-400 font-bold leading-none tracking-tight">₹ {walletBalance.toFixed(2)}</span>
                 </div>
                 {fixedDepositAmount > 0 && (
-                  <>
-                    <div className="flex flex-col border-l border-slate-700 pl-3">
-                      <span className="text-[10px] text-amber-400 font-semibold uppercase leading-none mb-1">🔒 Deposit Frozen</span>
+                  <div className="flex items-center gap-2 pl-3 border-l border-slate-700 text-xs">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-amber-400 font-semibold uppercase leading-none mb-1">Deposit</span>
                       <span className="text-amber-400 font-bold leading-none tracking-tight">₹ {fixedDepositAmount.toFixed(2)}</span>
                     </div>
-                    <div className="flex flex-col border-l border-slate-700 pl-3">
-                      <span className="text-[10px] text-cyan-400 font-semibold uppercase leading-none mb-1">Usable Balance</span>
+                    <div className="flex flex-col pl-2 border-l border-slate-700/60">
+                      <span className="text-[10px] text-cyan-400 font-semibold uppercase leading-none mb-1">Usable</span>
                       <span className="text-cyan-400 font-bold leading-none tracking-tight">₹ {Math.max(0, walletBalance - fixedDepositAmount).toFixed(2)}</span>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 
-              {/* Agent Profile Avatar */}
-              {agentProfile && (
-                <div className="flex items-center gap-2 bg-slate-900/50 px-3 py-1.5 rounded-xl border border-slate-700/70">
-                  {agentProfile.profile_photo_url ? (
-                    <img
-                      src={agentProfile.profile_photo_url}
-                      alt="Agent Avatar"
-                      className="w-7 h-7 rounded-full object-cover border border-slate-600"
-                    />
-                  ) : (
-                    <div className="w-7 h-7 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xs font-bold">
-                      {agentProfile.first_name?.[0]?.toUpperCase() || <User size={14} />}
-                    </div>
-                  )}
-                  <span className="text-xs font-semibold text-slate-200 hidden lg:inline-block">
-                    {agentProfile.first_name} {agentProfile.last_name}
+              {/* Agent Profile Photo or Initials */}
+              <div className="flex items-center gap-2 pl-2 border-l border-slate-700">
+                {agentProfile?.profile_photo_url ? (
+                  <img
+                    src={agentProfile.profile_photo_url}
+                    alt="Agent Profile"
+                    className="w-9 h-9 rounded-full object-cover border border-indigo-500/40 shadow-sm"
+                  />
+                ) : (
+                  <div className="w-9 h-9 rounded-full bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-bold text-xs uppercase shadow-sm">
+                    {agentProfile?.first_name ? agentProfile.first_name[0] : <User className="w-4 h-4" />}
+                  </div>
+                )}
+                <div className="hidden lg:flex flex-col text-left">
+                  <span className="text-xs font-semibold text-white leading-tight">
+                    {agentProfile?.first_name ? `${agentProfile.first_name} ${agentProfile.last_name || ''}` : 'Agent'}
                   </span>
+                  <span className="text-[10px] text-slate-400 leading-tight">B2B Portal</span>
                 </div>
-              )}
+              </div>
 
+              {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors font-medium text-sm bg-slate-700/50 hover:bg-slate-700 px-4 py-2 rounded-lg border border-slate-600/50 hidden sm:flex"
+                className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-lg transition-colors"
+                title="Logout"
               >
-                <LogOut className="h-4 w-4" />
-                Sign Out
+                <LogOut className="h-5 w-5" />
               </button>
             </div>
           </div>
@@ -195,6 +207,9 @@ export default function B2BAgentLayout() {
             </Link>
             <Link to="/b2b/agent/fund-request" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('fund-request') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
               <Wallet className="h-4 w-4" /> Funds
+            </Link>
+            <Link to="/b2b/agent/statement" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('statement') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
+              <Receipt className="h-4 w-4" /> Statement
             </Link>
             <Link to="/b2b/agent/api-docs" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('api-docs') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
               <Book className="h-4 w-4" /> Docs
