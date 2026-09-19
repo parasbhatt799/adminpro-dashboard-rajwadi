@@ -377,30 +377,18 @@ export default function B2BAgentStatement() {
       }
     });
 
-    // Sort strictly ascending by exact timestamp (chronological real-time order)
+    // Sort ascending by time to calculate accurate running balance
     list.sort((a, b) => a.timestamp - b.timestamp);
 
-    // Calculate baseline initial balance from verified live balance
-    const liveBal = Number(agentDetails?.wallet_balance ?? 0);
-    const sumCredits = list.reduce((s, t) => s + t.netCredit, 0);
-    const sumDebits = list.reduce((s, t) => s + t.netDebit, 0);
-    const initialBalance = Math.round((liveBal - sumCredits + sumDebits) * 100) / 100;
-
-    // Compute running balance in strict chronological order of events
-    let bal = initialBalance;
+    // Compute running balance from beginning of time
+    let bal = 0;
     for (let i = 0; i < list.length; i++) {
       bal = bal + list[i].netCredit - list[i].netDebit;
-      // In prepaid wallets, running balance never dips below 0 (floored at 0 for display)
-      list[i].runningBalance = Math.max(0, Math.round(bal * 100) / 100);
-    }
-
-    // Anchor latest transaction to current live wallet balance if available
-    if (list.length > 0 && liveBal > 0) {
-      list[list.length - 1].runningBalance = liveBal;
+      list[i].runningBalance = Math.round(bal * 100) / 100;
     }
 
     return list;
-  }, [allFunds, allLogs, agentDetails]);
+  }, [allFunds, allLogs]);
 
   // Date Bounds for Filtering
   const dateBounds = useMemo(() => {
@@ -448,7 +436,7 @@ export default function B2BAgentStatement() {
     if (start) {
       const priorTxns = allLedgerTxns.filter((t) => t.timestamp < start.getTime());
       if (priorTxns.length > 0) {
-        openingBalance = Math.max(0, priorTxns[priorTxns.length - 1].runningBalance);
+        openingBalance = priorTxns[priorTxns.length - 1].runningBalance;
       }
     }
 
@@ -467,12 +455,7 @@ export default function B2BAgentStatement() {
       periodDebits += t.netDebit;
     });
 
-    const isCurrentPeriod = !end || end.getTime() >= Date.now();
-    const liveBal = Number(agentDetails?.wallet_balance || 0);
-    let closingBalance = Math.max(0, Math.round((openingBalance + periodCredits - periodDebits) * 100) / 100);
-    if (isCurrentPeriod && liveBal > 0) {
-      closingBalance = liveBal;
-    }
+    const closingBalance = openingBalance + periodCredits - periodDebits;
 
     // Apply Type Filter
     let displayedTxns = periodTxns;
@@ -510,7 +493,7 @@ export default function B2BAgentStatement() {
       displayedTxns: reversedDisplay,
       rawPeriodTxns: periodTxns // chronological for daily aggregation
     };
-  }, [allLedgerTxns, dateBounds, typeFilter, searchTerm, agentDetails]);
+  }, [allLedgerTxns, dateBounds, typeFilter, searchTerm]);
 
   // Aggregate into Daily Balances
   const dailyLedgerList = useMemo(() => {
@@ -526,13 +509,12 @@ export default function B2BAgentStatement() {
     const sortedDates = Object.keys(groups).sort();
     const result: DailyLedgerItem[] = [];
 
+    // If no transactions in period but range is known, create day entries
     let runningDayBal = filteredData.openingBalance;
-    const liveBal = Number(agentDetails?.wallet_balance || 0);
-    const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     sortedDates.forEach((dKey) => {
       const dayTxns = groups[dKey];
-      const dayOpen = Math.max(0, Math.round(runningDayBal * 100) / 100);
+      const dayOpen = runningDayBal;
       let dayCredits = 0;
       let dayDebits = 0;
 
@@ -541,10 +523,7 @@ export default function B2BAgentStatement() {
         dayDebits += t.netDebit;
       });
 
-      let dayClose = Math.max(0, Math.round((dayOpen + dayCredits - dayDebits) * 100) / 100);
-      if (dKey === todayStr && liveBal > 0) {
-        dayClose = liveBal;
-      }
+      const dayClose = dayOpen + dayCredits - dayDebits;
       runningDayBal = dayClose;
 
       const dateObj = parseISO(dKey);
@@ -564,7 +543,7 @@ export default function B2BAgentStatement() {
 
     // Return reversed so latest day is on top
     return result.reverse();
-  }, [filteredData, agentDetails]);
+  }, [filteredData]);
 
   const toggleDateExpand = (dateKey: string) => {
     setExpandedDates((prev) => ({
