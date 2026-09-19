@@ -377,7 +377,7 @@ export default function B2BAgentStatement() {
       }
     });
 
-    // Sort ascending by time
+    // Sort strictly ascending by exact timestamp (chronological real-time order)
     list.sort((a, b) => a.timestamp - b.timestamp);
 
     // Calculate baseline initial balance from verified live balance
@@ -386,54 +386,20 @@ export default function B2BAgentStatement() {
     const sumDebits = list.reduce((s, t) => s + t.netDebit, 0);
     const initialBalance = Math.round((liveBal - sumCredits + sumDebits) * 100) / 100;
 
-    // Group transactions by calendar date (with IST +5:30 offset for Indian banking business day)
-    const dayBuckets: Record<string, StatementTxn[]> = {};
-    list.forEach((t) => {
-      const dStr = new Date(t.timestamp + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
-      if (!dayBuckets[dStr]) dayBuckets[dStr] = [];
-      dayBuckets[dStr].push(t);
-    });
-
-    // Smart batch alignment:
-    // When an agent deposits funds (Fund Top-Up), the funds provide liquidity for that operational batch.
-    // Move credits to precede the debits that consume them within the same operational session window.
-    const orderedList: StatementTxn[] = [];
-    const days = Object.keys(dayBuckets).sort();
-    days.forEach((d) => {
-      const dayTxns = dayBuckets[d];
-      for (let i = 0; i < dayTxns.length; i++) {
-        if (dayTxns[i].type === 'credit') {
-          let j = i - 1;
-          let moveBefore = -1;
-          while (j >= 0 && dayTxns[j].type === 'debit') {
-            if (dayTxns[i].timestamp - dayTxns[j].timestamp < 6 * 3600 * 1000) {
-              moveBefore = j;
-            }
-            j--;
-          }
-          if (moveBefore !== -1 && moveBefore < i) {
-            const [c] = dayTxns.splice(i, 1);
-            dayTxns.splice(moveBefore, 0, c);
-          }
-        }
-      }
-      orderedList.push(...dayTxns);
-    });
-
-    // Compute running balance forward from initialBalance
+    // Compute running balance in strict chronological order of events
     let bal = initialBalance;
-    for (let i = 0; i < orderedList.length; i++) {
-      bal = bal + orderedList[i].netCredit - orderedList[i].netDebit;
-      // Guard against minor approval timing lags crossing midnight
-      orderedList[i].runningBalance = Math.max(0, Math.round(bal * 100) / 100);
+    for (let i = 0; i < list.length; i++) {
+      bal = bal + list[i].netCredit - list[i].netDebit;
+      // In prepaid wallets, running balance never dips below 0 (floored at 0 for display)
+      list[i].runningBalance = Math.max(0, Math.round(bal * 100) / 100);
     }
 
-    // Anchor latest transaction to live wallet balance if available
-    if (orderedList.length > 0 && liveBal > 0) {
-      orderedList[orderedList.length - 1].runningBalance = liveBal;
+    // Anchor latest transaction to current live wallet balance if available
+    if (list.length > 0 && liveBal > 0) {
+      list[list.length - 1].runningBalance = liveBal;
     }
 
-    return orderedList;
+    return list;
   }, [allFunds, allLogs, agentDetails]);
 
   // Date Bounds for Filtering
