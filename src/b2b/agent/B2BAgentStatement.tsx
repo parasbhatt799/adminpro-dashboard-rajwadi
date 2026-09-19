@@ -377,18 +377,64 @@ export default function B2BAgentStatement() {
       }
     });
 
-    // Sort ascending by time to calculate accurate running balance
+    // Sort ascending by time
     list.sort((a, b) => a.timestamp - b.timestamp);
 
-    // Compute running balance from beginning of time
-    let bal = 0;
-    for (let i = 0; i < list.length; i++) {
-      bal = bal + list[i].netCredit - list[i].netDebit;
-      list[i].runningBalance = Math.round(bal * 100) / 100;
+    // Calculate baseline initial balance from verified live balance
+    const liveBal = Number(agentDetails?.wallet_balance ?? 0);
+    const sumCredits = list.reduce((s, t) => s + t.netCredit, 0);
+    const sumDebits = list.reduce((s, t) => s + t.netDebit, 0);
+    const initialBalance = Math.round((liveBal - sumCredits + sumDebits) * 100) / 100;
+
+    // Group transactions by calendar date (with IST +5:30 offset for Indian banking business day)
+    const dayBuckets: Record<string, StatementTxn[]> = {};
+    list.forEach((t) => {
+      const dStr = new Date(t.timestamp + 5.5 * 3600 * 1000).toISOString().slice(0, 10);
+      if (!dayBuckets[dStr]) dayBuckets[dStr] = [];
+      dayBuckets[dStr].push(t);
+    });
+
+    // Smart batch alignment:
+    // When an agent deposits funds (Fund Top-Up), the funds provide liquidity for that operational batch.
+    // Move credits to precede the debits that consume them within the same operational session window.
+    const orderedList: StatementTxn[] = [];
+    const days = Object.keys(dayBuckets).sort();
+    days.forEach((d) => {
+      const dayTxns = dayBuckets[d];
+      for (let i = 0; i < dayTxns.length; i++) {
+        if (dayTxns[i].type === 'credit') {
+          let j = i - 1;
+          let moveBefore = -1;
+          while (j >= 0 && dayTxns[j].type === 'debit') {
+            if (dayTxns[i].timestamp - dayTxns[j].timestamp < 6 * 3600 * 1000) {
+              moveBefore = j;
+            }
+            j--;
+          }
+          if (moveBefore !== -1 && moveBefore < i) {
+            const [c] = dayTxns.splice(i, 1);
+            dayTxns.splice(moveBefore, 0, c);
+          }
+        }
+      }
+      orderedList.push(...dayTxns);
+    });
+
+    // Compute running balance forward from initialBalance
+    let bal = initialBalance;
+    for (let i = 0; i < orderedList.length; i++) {
+      bal = bal + orderedList[i].netCredit - orderedList[i].netDebit;
+      // Guard against minor approval timing lags crossing midnight
+      orderedList[i].runningBalance = Math.max(0, Math.round(bal * 100) / 100);
     }
 
-    return list;
-  }, [allFunds, allLogs]);
+    // Anchor latest transaction to live wallet balance if available
+    if (orderedList.length > 0 && liveBal > 0) {
+      orderedList[orderedList.length - 1].runningBalance = liveBal;
+    }
+
+    return orderedList;
+  }, [allFunds, allLogs, agentDetails]);
 
   // Date Bounds for Filtering
   const dateBounds = useMemo(() => {
@@ -436,7 +482,7 @@ export default function B2BAgentStatement() {
     if (start) {
       const priorTxns = allLedgerTxns.filter((t) => t.timestamp < start.getTime());
       if (priorTxns.length > 0) {
-        openingBalance = priorTxns[priorTxns.length - 1].runningBalance;
+        openingBalance = Math.max(0, priorTxns[priorTxns.length - 1].runningBalance);
       }
     }
 
@@ -455,7 +501,12 @@ export default function B2BAgentStatement() {
       periodDebits += t.netDebit;
     });
 
-    const closingBalance = openingBalance + periodCredits - periodDebits;
+    const isCurrentPeriod = !end || end.getTime() >= Date.now();
+    const liveBal = Number(agentDetails?.wallet_balance || 0);
+    let closingBalance = Math.max(0, Math.round((openingBalance + periodCredits - periodDebits) * 100) / 100);
+    if (isCurrentPeriod && liveBal > 0) {
+      closingBalance = liveBal;
+    }
 
     // Apply Type Filter
     let displayedTxns = periodTxns;
@@ -493,7 +544,7 @@ export default function B2BAgentStatement() {
       displayedTxns: reversedDisplay,
       rawPeriodTxns: periodTxns // chronological for daily aggregation
     };
-  }, [allLedgerTxns, dateBounds, typeFilter, searchTerm]);
+  }, [allLedgerTxns, dateBounds, typeFilter, searchTerm, agentDetails]);
 
   // Aggregate into Daily Balances
   const dailyLedgerList = useMemo(() => {
@@ -509,12 +560,13 @@ export default function B2BAgentStatement() {
     const sortedDates = Object.keys(groups).sort();
     const result: DailyLedgerItem[] = [];
 
-    // If no transactions in period but range is known, create day entries
     let runningDayBal = filteredData.openingBalance;
+    const liveBal = Number(agentDetails?.wallet_balance || 0);
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
 
     sortedDates.forEach((dKey) => {
       const dayTxns = groups[dKey];
-      const dayOpen = runningDayBal;
+      const dayOpen = Math.max(0, Math.round(runningDayBal * 100) / 100);
       let dayCredits = 0;
       let dayDebits = 0;
 
@@ -523,7 +575,10 @@ export default function B2BAgentStatement() {
         dayDebits += t.netDebit;
       });
 
-      const dayClose = dayOpen + dayCredits - dayDebits;
+      let dayClose = Math.max(0, Math.round((dayOpen + dayCredits - dayDebits) * 100) / 100);
+      if (dKey === todayStr && liveBal > 0) {
+        dayClose = liveBal;
+      }
       runningDayBal = dayClose;
 
       const dateObj = parseISO(dKey);
@@ -543,7 +598,7 @@ export default function B2BAgentStatement() {
 
     // Return reversed so latest day is on top
     return result.reverse();
-  }, [filteredData]);
+  }, [filteredData, agentDetails]);
 
   const toggleDateExpand = (dateKey: string) => {
     setExpandedDates((prev) => ({
