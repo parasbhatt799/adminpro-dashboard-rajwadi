@@ -125,8 +125,8 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         }
       }
 
-      // Max safety pages (default 5 pages = 5000 logs max for 'all', 1-2 pages for filtered)
-      const maxPages = dateFilter === 'all' ? 5 : 20;
+      // Safety page limit to prevent infinite loops (allows up to 100,000 logs)
+      const maxPages = 100;
 
       while (hasMore && safetyCounter < maxPages) {
         safetyCounter++;
