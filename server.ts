@@ -3735,6 +3735,199 @@ async function startServer() {
     }
   });
 
+  app.post("/api/bbps/check-status", async (req, res) => {
+    try {
+      const { submissionId, trackValue, trackType } = req.body;
+      if (!submissionId && !trackValue) {
+        return res.status(400).json({ success: false, message: "submissionId or trackValue is required." });
+      }
+
+      let sub: any = null;
+      if (submissionId) {
+        const { data, error } = await supabaseAdmin
+          .from("bbps_submissions")
+          .select("*")
+          .eq("id", submissionId)
+          .maybeSingle();
+        if (error) {
+          console.error("[BillAvenue Status Check] Error fetching submission:", error);
+          return res.status(500).json({ success: false, message: error.message });
+        }
+        sub = data;
+      }
+
+      // Determine trackValue and trackType
+      let finalTrackValue = trackValue;
+      let finalTrackType = trackType;
+
+      if (!finalTrackValue && sub) {
+        if (sub.rejection_reason && String(sub.rejection_reason).startsWith("CC01")) {
+          finalTrackValue = sub.rejection_reason;
+          finalTrackType = "TRANS_REF_ID";
+        } else if (sub.metadata?.txnRefId && String(sub.metadata.txnRefId).startsWith("CC01")) {
+          finalTrackValue = sub.metadata.txnRefId;
+          finalTrackType = "TRANS_REF_ID";
+        } else if (sub.metadata?.bConnectTxnId && String(sub.metadata.bConnectTxnId).startsWith("CC01")) {
+          finalTrackValue = sub.metadata.bConnectTxnId;
+          finalTrackType = "TRANS_REF_ID";
+        } else if (sub.transaction_id && String(sub.transaction_id).startsWith("CC01")) {
+          finalTrackValue = sub.transaction_id;
+          finalTrackType = "TRANS_REF_ID";
+        } else if (sub.metadata?.requestId) {
+          finalTrackValue = sub.metadata.requestId;
+          finalTrackType = "REQUEST_ID";
+        } else if (sub.metadata?.fetchRequestId) {
+          finalTrackValue = sub.metadata.fetchRequestId;
+          finalTrackType = "REQUEST_ID";
+        } else if (sub.rejection_reason && sub.rejection_reason !== "N/A" && !String(sub.rejection_reason).startsWith("BA-")) {
+          finalTrackValue = sub.rejection_reason;
+          finalTrackType = String(sub.rejection_reason).startsWith("CC01") ? "TRANS_REF_ID" : "REQUEST_ID";
+        } else if (sub.transaction_id && sub.transaction_id !== "N/A") {
+          finalTrackValue = sub.transaction_id;
+          finalTrackType = String(sub.transaction_id).startsWith("CC01") ? "TRANS_REF_ID" : "REQUEST_ID";
+        }
+      }
+
+      if (!finalTrackValue) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Could not find a valid BillAvenue Reference ID (CC01...) or Request ID for this transaction." 
+        });
+      }
+
+      if (!finalTrackType) {
+        finalTrackType = String(finalTrackValue).startsWith("CC01") ? "TRANS_REF_ID" : "REQUEST_ID";
+      }
+
+      console.log(`[BillAvenue Manual Status] Checking ${finalTrackType}: ${finalTrackValue} for submission ${submissionId || 'N/A'}`);
+      const response = await billAvenue.getTransactionStatus(finalTrackValue, finalTrackType);
+
+      const root = response.json?.transactionStatusResp || response.json?.transactionStatusResponse || response.json?.transactionStatusRes;
+
+      if (!root) {
+        return res.json({
+          success: false,
+          message: "No valid response from BillAvenue gateway.",
+          raw: response.json || response.rawXml
+        });
+      }
+
+      let bbpsStatus = 'UNKNOWN';
+      let billAvenueTxnData: any = null;
+      let txnReferenceId = finalTrackValue;
+
+      if (root.responseCode === '205') {
+        bbpsStatus = 'FAILED';
+      } else if (root.responseCode !== '000') {
+        console.warn(`[BillAvenue Manual Status] Response code ${root.responseCode}: ${root.responseReason}`);
+        bbpsStatus = root.responseReason || 'PENDING';
+      } else {
+        const txnList = Array.isArray(root.txnList) ? root.txnList[0] : root.txnList;
+        billAvenueTxnData = txnList;
+        bbpsStatus = (txnList?.txnStatus || '').toUpperCase();
+        txnReferenceId = txnList?.txnReferenceId || txnList?.txnRefId || finalTrackValue;
+      }
+
+      let newStatus: 'approved' | 'rejected' | 'pending' = 'pending';
+      let message = `Transaction status: ${bbpsStatus}`;
+
+      if (bbpsStatus === 'SUCCESS' || bbpsStatus === 'APPROVED') {
+        newStatus = 'approved';
+        message = `Transaction verified successfully as SUCCESS! Reference: ${txnReferenceId}`;
+      } else if (bbpsStatus === 'FAILED' || bbpsStatus === 'FAILURE' || bbpsStatus === 'REJECTED') {
+        newStatus = 'rejected';
+        message = `Transaction FAILED at BillAvenue (${root.responseReason || 'Rejected'}).`;
+      } else {
+        newStatus = 'pending';
+        message = `Transaction is still PENDING at BillAvenue / Bank.`;
+      }
+
+      // If we have the submission record in bbps_submissions, update it
+      if (sub) {
+        const updateData: any = {
+          status: newStatus,
+          rejection_reason: txnReferenceId,
+          metadata: {
+            ...(sub.metadata || {}),
+            billAvenueStatusCheck: response.json,
+            checkedAt: new Date().toISOString()
+          }
+        };
+
+        if (billAvenueTxnData?.approvalRefNumber) {
+          updateData.metadata.approvalRefNumber = billAvenueTxnData.approvalRefNumber;
+        }
+
+        await supabaseAdmin
+          .from("bbps_submissions")
+          .update(updateData)
+          .eq("id", sub.id);
+
+        // Update billavenue_transactions if exists
+        try {
+          const mappedBaStatus = newStatus === 'approved' ? 'success' : newStatus === 'rejected' ? 'failed' : 'pending';
+          await supabaseAdmin
+            .from("billavenue_transactions")
+            .update({
+              txn_ref_id: txnReferenceId,
+              status: mappedBaStatus,
+              response: response.json
+            })
+            .or(`request_id.eq.${finalTrackValue},txn_ref_id.eq.${finalTrackValue}`);
+        } catch (baErr) {
+          console.warn("[BillAvenue Manual Status] Failed to update billavenue_transactions:", baErr);
+        }
+
+        // Refund user if transaction was pending and now marked rejected
+        if (sub.status === 'pending' && newStatus === 'rejected') {
+          const totalDeducted = Number(sub.metadata?.totalDeducted) || (Number(sub.amount || 0) + Number(sub.charges || 0));
+          if (totalDeducted > 0 && sub.user_id) {
+            const { data: userProfile } = await supabaseAdmin
+              .from("users_profiles")
+              .select("wallet_balance")
+              .eq("id", sub.user_id)
+              .single();
+
+            if (userProfile) {
+              const refundedBalance = Number(userProfile.wallet_balance || 0) + totalDeducted;
+              await supabaseAdmin
+                .from("users_profiles")
+                .update({ wallet_balance: refundedBalance })
+                .eq("id", sub.user_id);
+
+              console.log(`[BillAvenue Manual Status] Refunded ₹${totalDeducted} to user ${sub.user_id} for failed transaction`);
+              message += ` ₹${totalDeducted} has been refunded to user wallet.`;
+            }
+          }
+        }
+
+        // If approved and was pending, credit admin charges if applicable
+        if (sub.status === 'pending' && newStatus === 'approved') {
+          const serviceCharge = Number(sub.charges || 0);
+          if (serviceCharge > 0) {
+            try {
+              await supabaseAdmin.rpc('add_admin_balance', { p_amount: serviceCharge });
+            } catch (admErr) {
+              console.warn('[BillAvenue Manual Status] Error adding admin balance:', admErr);
+            }
+          }
+        }
+      }
+
+      return res.json({
+        success: true,
+        status: newStatus,
+        bbpsStatus,
+        txnReferenceId,
+        message,
+        details: billAvenueTxnData || root
+      });
+    } catch (error: any) {
+      console.error("[BillAvenue Manual Status Error]:", error);
+      res.status(500).json({ success: false, message: error.message || "Failed to check status" });
+    }
+  });
+
   app.get("/api/bbps/plans", async (req, res) => {
     try {
       const { billerId } = req.query;

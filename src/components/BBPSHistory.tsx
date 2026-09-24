@@ -156,6 +156,95 @@ export default function BBPSHistory() {
     }
   };
 
+  const [checkingStatusId, setCheckingStatusId] = useState<string | null>(null);
+  const [syncingAllPending, setSyncingAllPending] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+
+  const handleCheckStatus = async (item: BBPSTransaction) => {
+    if (!item?.id) return;
+    setCheckingStatusId(item.id);
+    setStatusMessage(null);
+
+    const utr = getUtrOrTxnId(item);
+    const trackVal = utr !== 'N/A' ? utr : (item.rejection_reason || item.metadata?.requestId || item.metadata?.fetchRequestId || '');
+
+    try {
+      const res = await fetch('/api/bbps/check-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          submissionId: item.id,
+          trackValue: trackVal
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        if (data.status === 'approved') {
+          setStatusMessage({ type: 'success', text: `Success: ${data.message}` });
+        } else if (data.status === 'rejected') {
+          setStatusMessage({ type: 'error', text: `Failed: ${data.message}` });
+        } else {
+          setStatusMessage({ type: 'info', text: `Pending: ${data.message}` });
+        }
+        await fetchTransactions(true);
+      } else {
+        setStatusMessage({ type: 'error', text: data.message || 'Failed to check status' });
+      }
+    } catch (err: any) {
+      console.error('Error checking BBPS status:', err);
+      setStatusMessage({ type: 'error', text: `Error checking status: ${err.message}` });
+    } finally {
+      setCheckingStatusId(null);
+      setTimeout(() => {
+        setStatusMessage(prev => prev ? null : prev);
+      }, 8000);
+    }
+  };
+
+  const handleSyncAllPending = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const pendingItems = transactions.filter(t => t.status === 'pending');
+    if (pendingItems.length === 0) {
+      setStatusMessage({ type: 'info', text: 'No pending transactions found to check.' });
+      return;
+    }
+    setSyncingAllPending(true);
+    setStatusMessage({ type: 'info', text: `Checking ${pendingItems.length} pending transaction(s) with BillAvenue...` });
+
+    let updatedCount = 0;
+    for (const item of pendingItems) {
+      try {
+        const utr = getUtrOrTxnId(item);
+        const trackVal = utr !== 'N/A' ? utr : (item.rejection_reason || item.metadata?.requestId || item.metadata?.fetchRequestId || '');
+        const res = await fetch('/api/bbps/check-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            submissionId: item.id,
+            trackValue: trackVal
+          })
+        });
+        const d = await res.json();
+        if (d.success && d.status !== 'pending') {
+          updatedCount++;
+        }
+      } catch (err) {
+        console.warn('Sync pending item failed:', err);
+      }
+    }
+
+    setSyncingAllPending(false);
+    setStatusMessage({
+      type: 'success',
+      text: `Sync complete! Checked ${pendingItems.length} transactions, ${updatedCount} updated from BillAvenue.`
+    });
+    await fetchTransactions(true);
+    setTimeout(() => {
+      setStatusMessage(prev => prev ? null : prev);
+    }, 8000);
+  };
+
   const getConsumerDetailsList = (item: BBPSTransaction) => {
     if (item.metadata?.consumerDetails && typeof item.metadata.consumerDetails === 'object') {
       const details = item.metadata.consumerDetails;
@@ -897,7 +986,21 @@ export default function BBPSHistory() {
           }`}
         >
           <div>
-            <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest leading-none mb-1.5">Total Pending</p>
+            <div className="flex items-center gap-2 mb-1.5">
+              <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest leading-none">Total Pending</p>
+              {stats.pendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleSyncAllPending}
+                  disabled={syncingAllPending}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold text-amber-800 bg-amber-200/70 hover:bg-amber-200 rounded transition-all cursor-pointer disabled:opacity-50"
+                  title="Check live status from BillAvenue for all pending bills"
+                >
+                  <RotateCcw size={9} className={syncingAllPending ? 'animate-spin' : ''} />
+                  <span>{syncingAllPending ? 'Syncing...' : 'Sync All'}</span>
+                </button>
+              )}
+            </div>
             <p className="text-xl font-black text-amber-950 leading-none">₹{stats.pendingAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
             <span className="text-[10px] font-bold text-amber-700 mt-1 block">{stats.pendingCount} Txns</span>
           </div>
@@ -1025,6 +1128,25 @@ export default function BBPSHistory() {
           </div>
         </div>
       </div>
+
+      {/* Status notification banner */}
+      {statusMessage && (
+        <div className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold border transition-all shadow-xs ${
+          statusMessage.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' :
+          statusMessage.type === 'error' ? 'bg-rose-50 text-rose-800 border-rose-200' :
+          'bg-amber-50 text-amber-800 border-amber-200'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            {statusMessage.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-600 shrink-0" /> :
+             statusMessage.type === 'error' ? <XCircle size={16} className="text-rose-600 shrink-0" /> :
+             <Clock size={16} className="text-amber-600 shrink-0" />}
+            <span>{statusMessage.text}</span>
+          </div>
+          <button onClick={() => setStatusMessage(null)} className="p-1 hover:bg-black/5 rounded-lg cursor-pointer">
+            <X size={14} />
+          </button>
+        </div>
+      )}
 
       {/* Grid / Table container */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden relative">
@@ -1180,13 +1302,37 @@ export default function BBPSHistory() {
 
                     {/* Status */}
                     <td className="px-6 py-4 text-center">
-                      <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                        item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                        item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                        'bg-rose-50 text-rose-600 border border-rose-100'
-                      }`}>
-                        {item.status === 'approved' ? 'Success' : item.status}
-                      </span>
+                      <div className="flex flex-col items-center justify-center gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                          item.status === 'approved' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
+                          item.status === 'pending' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
+                          'bg-rose-50 text-rose-600 border border-rose-100'
+                        }`}>
+                          {item.status === 'approved' ? 'Success' : item.status}
+                        </span>
+
+                        {item.status === 'pending' && (
+                          <button
+                            type="button"
+                            onClick={() => handleCheckStatus(item)}
+                            disabled={checkingStatusId === item.id || syncingAllPending}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 text-[9px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-md transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                            title="Check Live Status from BillAvenue"
+                          >
+                            {checkingStatusId === item.id ? (
+                              <>
+                                <Loader2 size={10} className="animate-spin text-indigo-600" />
+                                <span>Checking...</span>
+                              </>
+                            ) : (
+                              <>
+                                <RotateCcw size={10} className="text-indigo-600" />
+                                <span>Check Status</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </td>
 
                     {/* Print Action */}
