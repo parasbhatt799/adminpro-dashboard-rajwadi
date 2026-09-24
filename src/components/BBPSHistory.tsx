@@ -293,9 +293,9 @@ export default function BBPSHistory() {
     setSearchQuery('');
     setFilter('all');
     setCategoryFilter('all');
-    setDateFilter('today');
-    setStartDate(getTodayStr());
-    setEndDate(getTodayStr());
+    setDateFilter('all');
+    setStartDate('');
+    setEndDate('');
   };
 
   const handleDateFilterChange = (value: string) => {
@@ -326,9 +326,12 @@ export default function BBPSHistory() {
       start.setDate(start.getDate() - 29);
       setStartDate(formatDate(start));
       setEndDate(formatDate(today));
-    } else if (value === 'all' || value === 'custom') {
+    } else if (value === 'all') {
       setStartDate('');
       setEndDate('');
+    } else if (value === 'custom') {
+      if (!startDate) setStartDate(formatDate(today));
+      if (!endDate) setEndDate(formatDate(today));
     }
   };
 
@@ -340,19 +343,30 @@ export default function BBPSHistory() {
       // 1. Pre-query users_profiles if searchQuery is provided to match firm_name, name, mobile
       let userIds: string[] = [];
       if (searchQuery.trim()) {
-        const term = searchQuery.trim();
-        const safeTerm = term.replace(/"/g, '""');
-        try {
-          const { data: matchedUsers } = await supabase
-            .from('users_profiles')
-            .select('id')
-            .or(`firm_name.ilike."%${safeTerm}%",name.ilike."%${safeTerm}%",mobile_number.ilike."%${safeTerm}%"`);
-          if (matchedUsers && matchedUsers.length > 0) {
-            userIds = matchedUsers.map(u => u.id);
+        const term = searchQuery.trim().replace(/[%_'"\\]/g, '');
+        if (term) {
+          try {
+            const { data: matchedUsers } = await supabase
+              .from('users_profiles')
+              .select('id')
+              .or(`firm_name.ilike.%${term}%,name.ilike.%${term}%,mobile_number.ilike.%${term}%`);
+            if (matchedUsers && matchedUsers.length > 0) {
+              userIds = matchedUsers.map(u => u.id);
+            }
+          } catch (uErr) {
+            console.warn('Pre-query user profiles search warn:', uErr);
           }
-        } catch (uErr) {
-          console.warn('Pre-query user profiles search warn:', uErr);
         }
+      }
+
+      // Map filter to array of DB status values
+      let statusList: string[] = [];
+      if (filter === 'approved') {
+        statusList = ['approved', 'success', 'APPROVED', 'SUCCESS'];
+      } else if (filter === 'pending') {
+        statusList = ['pending', 'processing', 'PENDING'];
+      } else if (filter === 'failed') {
+        statusList = ['failed', 'rejected', 'refunded', 'FAILED', 'REJECTED'];
       }
 
       // Fetch all records in batches of 1000 to bypass Supabase PostgREST default 1000-row limit
@@ -368,18 +382,39 @@ export default function BBPSHistory() {
           .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
 
         // Apply Status Filter
-        if (filter !== 'all') {
-          query = query.eq('status', filter);
+        if (statusList.length > 0) {
+          query = query.in('status', statusList);
         }
 
-        // Apply Search Filter (on user firm/name or biller details)
-        if (searchQuery.trim()) {
-          const term = searchQuery.trim();
-          const safeTerm = term.replace(/"/g, '""');
-          if (userIds.length > 0) {
-            query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%",user_id.in.(${userIds.join(',')})`);
+        // Apply Category Filter in DB
+        if (categoryFilter !== 'all') {
+          if (categoryFilter === 'BillAvenue BBPS') {
+            query = query.ilike('service_type', '%BillAvenue%');
+          } else if (categoryFilter === 'Credit Card') {
+            query = query.ilike('service_type', '%Credit Card%');
+          } else if (categoryFilter === 'CSPL BBPS') {
+            query = query.ilike('service_type', '%CSPL%');
+          } else if (categoryFilter === 'PayPrime BBPS') {
+            query = query.ilike('service_type', '%PayPrime%');
           } else {
-            query = query.or(`consumer_number.ilike."%${safeTerm}%",provider.ilike."%${safeTerm}%",transaction_id.ilike."%${safeTerm}%",rejection_reason.ilike."%${safeTerm}%",service_type.ilike."%${safeTerm}%"`);
+            query = query.eq('service_type', categoryFilter);
+          }
+        }
+
+        // Apply Search Filter (on valid columns only: consumer_number, provider, rejection_reason, service_type)
+        if (searchQuery.trim()) {
+          const cleanTerm = searchQuery.trim().replace(/[%_'"\\]/g, '');
+          if (cleanTerm) {
+            const orParts: string[] = [
+              `consumer_number.ilike.%${cleanTerm}%`,
+              `provider.ilike.%${cleanTerm}%`,
+              `rejection_reason.ilike.%${cleanTerm}%`,
+              `service_type.ilike.%${cleanTerm}%`
+            ];
+            if (userIds.length > 0) {
+              userIds.slice(0, 15).forEach(uId => orParts.push(`user_id.eq.${uId}`));
+            }
+            query = query.or(orParts.join(','));
           }
         }
 
@@ -401,6 +436,7 @@ export default function BBPSHistory() {
 
         if (error) {
           fetchError = error;
+          console.error('Fetch chunk error:', error);
           break;
         }
 
@@ -419,58 +455,23 @@ export default function BBPSHistory() {
       let data = allData;
       let error = fetchError;
 
-      // Fallback: If DB search query failed, fetch base filtered rows in chunks
-      if (error && searchQuery.trim()) {
-        console.warn('DB search query failed, using client-side search fallback:', error);
-        let fallbackAll: any[] = [];
-        let fbFrom = 0;
-        let fbHasMore = true;
-
-        while (fbHasMore) {
-          let fallbackQuery = supabase
-            .from('bbps_submissions')
-            .select('*, users_profiles!bbps_submissions_user_id_fkey(id, name, firm_name, profile_photo_url, mobile_number, email)');
-
-          if (filter !== 'all') fallbackQuery = fallbackQuery.eq('status', filter);
-          if (categoryFilter !== 'all') fallbackQuery = fallbackQuery.eq('service_type', categoryFilter);
-          if (startDate) {
-            const [y, m, d] = startDate.split('-').map(Number);
-            fallbackQuery = fallbackQuery.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
-          }
-          if (endDate) {
-            const [y, m, d] = endDate.split('-').map(Number);
-            fallbackQuery = fallbackQuery.lte('created_at', new Date(y, m - 1, d, 23, 59, 59, 999).toISOString());
-          }
-
-          const fallbackRes = await fallbackQuery
-            .order('created_at', { ascending: false })
-            .range(fbFrom, fbFrom + step - 1);
-
-          if (!fallbackRes.error && fallbackRes.data && fallbackRes.data.length > 0) {
-            fallbackAll = fallbackAll.concat(fallbackRes.data);
-            if (fallbackRes.data.length < step) {
-              fbHasMore = false;
-            } else {
-              fbFrom += step;
-            }
-          } else {
-            fbHasMore = false;
-          }
-        }
-
-        if (fallbackAll.length > 0) {
-          data = fallbackAll;
-          error = null;
-        }
-      }
-
-      // Filter locally for categoryFilter and search query for 100% precision
+      // Filter locally for categoryFilter, status and search query for 100% precision
       let filteredData = data || [];
 
       if (categoryFilter !== 'all') {
         filteredData = filteredData.filter(item => {
           const catInfo = getCategoryGatewayInfo(item);
           return catInfo.key === categoryFilter;
+        });
+      }
+
+      if (filter !== 'all') {
+        filteredData = filteredData.filter(item => {
+          const st = (item.status || '').toLowerCase();
+          if (filter === 'approved') return st === 'approved' || st === 'success';
+          if (filter === 'pending') return st === 'pending' || st === 'processing';
+          if (filter === 'failed') return st === 'failed' || st === 'rejected' || st === 'refunded';
+          return true;
         });
       }
 
@@ -484,11 +485,13 @@ export default function BBPSHistory() {
           const provider = (item.provider || '').toLowerCase();
           const txId = (getUtrOrTxnId(item)).toLowerCase();
           const serviceType = (item.service_type || '').toLowerCase();
+          const customerMobile = getCustomerMobileNumber(item).toLowerCase();
           const consumerDetailsStr = item.metadata?.consumerDetails ? JSON.stringify(item.metadata.consumerDetails).toLowerCase() : '';
 
           return firmName.includes(term) ||
             userName.includes(term) ||
             mobile.includes(term) ||
+            customerMobile.includes(term) ||
             consumerNo.includes(term) ||
             provider.includes(term) ||
             txId.includes(term) ||
@@ -499,59 +502,101 @@ export default function BBPSHistory() {
 
       setTransactions(filteredData);
 
-      // Calculate Stats
-      const statsObj = filteredData.reduce((acc, curr) => {
-        const amt = Number(curr.amount) || 0;
-        const chg = Number(curr.charges) || 0;
-        const total = amt + chg;
-        const st = (curr.status || '').toLowerCase();
+      // Calculate Stats:
+      if (filter === 'all' && !searchQuery.trim()) {
+        const statsObj = filteredData.reduce((acc, curr) => {
+          const amt = Number(curr.amount) || 0;
+          const chg = Number(curr.charges) || 0;
+          const total = amt + chg;
+          const st = (curr.status || '').toLowerCase();
 
-        let succCount = acc.successCount;
-        let succAmt = acc.successAmount;
-        let pendCount = acc.pendingCount;
-        let pendAmt = acc.pendingAmount;
-        let failCount = acc.failedCount;
-        let failAmt = acc.failedAmount;
+          let succCount = acc.successCount;
+          let succAmt = acc.successAmount;
+          let pendCount = acc.pendingCount;
+          let pendAmt = acc.pendingAmount;
+          let failCount = acc.failedCount;
+          let failAmt = acc.failedAmount;
 
-        if (st === 'approved' || st === 'success' || st === 'successful') {
-          succCount += 1;
-          succAmt += total;
-        } else if (st === 'pending' || st === 'processing') {
-          pendCount += 1;
-          pendAmt += total;
-        } else if (st === 'failed' || st === 'rejected' || st === 'refunded') {
-          failCount += 1;
-          failAmt += total;
+          if (st === 'approved' || st === 'success') {
+            succCount += 1;
+            succAmt += total;
+          } else if (st === 'pending' || st === 'processing') {
+            pendCount += 1;
+            pendAmt += total;
+          } else if (st === 'failed' || st === 'rejected' || st === 'refunded') {
+            failCount += 1;
+            failAmt += total;
+          }
+
+          return {
+            count: acc.count + 1,
+            totalBase: acc.totalBase + amt,
+            totalCharges: acc.totalCharges + chg,
+            totalDebited: acc.totalDebited + total,
+            totalBbpsCommission: acc.totalBbpsCommission + 0,
+            successCount: succCount,
+            successAmount: succAmt,
+            pendingCount: pendCount,
+            pendingAmount: pendAmt,
+            failedCount: failCount,
+            failedAmount: failAmt
+          };
+        }, {
+          count: 0,
+          totalBase: 0,
+          totalCharges: 0,
+          totalDebited: 0,
+          totalBbpsCommission: 0,
+          successCount: 0,
+          successAmount: 0,
+          pendingCount: 0,
+          pendingAmount: 0,
+          failedCount: 0,
+          failedAmount: 0
+        });
+
+        setStats(statsObj);
+      } else {
+        // When filtered by status or search, run exact count queries so top KPI cards maintain correct totals
+        try {
+          const buildStatsQuery = () => {
+            let q = supabase.from('bbps_submissions').select('*', { count: 'exact', head: true });
+            if (startDate) {
+              const [y, m, d] = startDate.split('-').map(Number);
+              q = q.gte('created_at', new Date(y, m - 1, d, 0, 0, 0, 0).toISOString());
+            }
+            if (endDate) {
+              const [y, m, d] = endDate.split('-').map(Number);
+              q = q.lte('created_at', new Date(y, m - 1, d, 23, 59, 59, 999).toISOString());
+            }
+            if (categoryFilter !== 'all') {
+              if (categoryFilter === 'BillAvenue BBPS') q = q.ilike('service_type', '%BillAvenue%');
+              else if (categoryFilter === 'Credit Card') q = q.ilike('service_type', '%Credit Card%');
+              else if (categoryFilter === 'CSPL BBPS') q = q.ilike('service_type', '%CSPL%');
+              else if (categoryFilter === 'PayPrime BBPS') q = q.ilike('service_type', '%PayPrime%');
+              else q = q.eq('service_type', categoryFilter);
+            }
+            return q;
+          };
+
+          const [tRes, sRes, pRes, fRes] = await Promise.all([
+            buildStatsQuery(),
+            buildStatsQuery().in('status', ['approved', 'success', 'APPROVED', 'SUCCESS']),
+            buildStatsQuery().in('status', ['pending', 'processing', 'PENDING']),
+            buildStatsQuery().in('status', ['failed', 'rejected', 'refunded', 'FAILED', 'REJECTED'])
+          ]);
+
+          setStats(prev => ({
+            ...prev,
+            count: tRes.count ?? prev.count,
+            successCount: sRes.count ?? prev.successCount,
+            pendingCount: pRes.count ?? prev.pendingCount,
+            failedCount: fRes.count ?? prev.failedCount,
+          }));
+        } catch (stErr) {
+          console.warn('Error fetching stats counts:', stErr);
         }
-
-        return {
-          count: acc.count + 1,
-          totalBase: acc.totalBase + amt,
-          totalCharges: acc.totalCharges + chg,
-          totalDebited: acc.totalDebited + total,
-          totalBbpsCommission: acc.totalBbpsCommission + 0,
-          successCount: succCount,
-          successAmount: succAmt,
-          pendingCount: pendCount,
-          pendingAmount: pendAmt,
-          failedCount: failCount,
-          failedAmount: failAmt
-        };
-      }, {
-        count: 0,
-        totalBase: 0,
-        totalCharges: 0,
-        totalDebited: 0,
-        totalBbpsCommission: 0,
-        successCount: 0,
-        successAmount: 0,
-        pendingCount: 0,
-        pendingAmount: 0,
-        failedCount: 0,
-        failedAmount: 0
-      });
-
-      setStats(statsObj);
+      }
 
       // Fetch admin list if not present
       if (Object.keys(adminMap).length === 0) {
@@ -946,7 +991,15 @@ export default function BBPSHistory() {
       {/* Stats Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* TOTAL PAYMENTS */}
-        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm flex items-center justify-between gap-3">
+        <div 
+          onClick={() => setFilter('all')}
+          className={`p-5 rounded-3xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+            filter === 'all'
+              ? 'bg-slate-50 border-indigo-300 ring-2 ring-indigo-500/20 shadow-sm'
+              : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/50'
+          }`}
+          title="Show all transactions"
+        >
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1.5">Total Payments</p>
             <p className="text-xl font-black text-slate-950 leading-none">₹{stats.totalDebited.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
