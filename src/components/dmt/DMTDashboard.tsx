@@ -63,6 +63,8 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
   const [loadingDeposit, setLoadingDeposit] = useState(false);
   const [selectedBankId, setSelectedBankId] = useState<'ARTL' | 'FINO'>('ARTL');
   const [selectedTxnType, setSelectedTxnType] = useState<'IMPS' | 'NEFT'>('IMPS');
+  const [isDmtServiceEnabled, setIsDmtServiceEnabled] = useState(true);
+  const [isTogglingService, setIsTogglingService] = useState(false);
 
   // Sender Search & Details
   const [searchMobile, setSearchMobile] = useState('');
@@ -147,8 +149,34 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
       const data = await res.json();
       if (data.success) {
         setConfig(data);
+        if (data.isEnabled !== undefined) {
+          setIsDmtServiceEnabled(Boolean(data.isEnabled));
+        }
       }
     } catch (e) {}
+  };
+
+  const handleToggleDmtService = async () => {
+    setIsTogglingService(true);
+    const newValue = !isDmtServiceEnabled;
+    try {
+      const res = await fetch('/api/dmt/toggle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: newValue })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIsDmtServiceEnabled(newValue);
+        showAlert(newValue ? 'success' : 'info', `DMT Service has been ${newValue ? 'ENABLED (Visible in User Menu)' : 'DISABLED (Hidden from User Menu)'}`);
+      } else {
+        showAlert('error', data.error || 'Failed to toggle DMT status');
+      }
+    } catch (err: any) {
+      showAlert('error', err.message);
+    } finally {
+      setIsTogglingService(false);
+    }
   };
 
   const fetchDeposit = async () => {
@@ -559,6 +587,22 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  if (!adminView && !isDmtServiceEnabled) {
+    return (
+      <div className="min-h-[70vh] flex items-center justify-center p-4 font-sans">
+        <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 text-center shadow-sm space-y-4">
+          <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto">
+            <ShieldAlert className="w-8 h-8" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900">DMT Service Disabled</h2>
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Direct Money Transfer (DMT) service is currently turned off or undergoing maintenance by the administrator. Please check back later.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50/70 p-4 md:p-6 lg:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -587,21 +631,58 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
               </p>
             </div>
 
-            {/* Live Deposit Balance Card */}
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/15 flex items-center justify-between gap-6 shrink-0">
-              <div>
-                <p className="text-xs text-slate-300 uppercase tracking-wider font-semibold">BillAvenue UAT Deposit</p>
-                <p className="text-2xl font-black text-white mt-0.5">₹{depositBalance}</p>
-                <p className="text-[11px] text-emerald-400 font-medium">Usepay Fintech Solution Pvt Ltd</p>
+            <div className="flex flex-wrap items-center gap-4 shrink-0">
+              {/* Admin Master ON/OFF Service Toggle */}
+              {adminView && (
+                <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/15 flex items-center justify-between gap-4 shrink-0">
+                  <div>
+                    <p className="text-xs text-slate-300 uppercase tracking-wider font-semibold">User Panel DMT Status</p>
+                    <p className="text-xs text-slate-300 mt-0.5">
+                      {isDmtServiceEnabled ? (
+                        <span className="text-emerald-400 font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Visible to Users
+                        </span>
+                      ) : (
+                        <span className="text-rose-400 font-bold flex items-center gap-1">
+                          <XCircle className="w-3.5 h-3.5" /> Hidden from Users
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleToggleDmtService}
+                    disabled={isTogglingService}
+                    title={isDmtServiceEnabled ? 'Click to Disable DMT for Users' : 'Click to Enable DMT for Users'}
+                    className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      isDmtServiceEnabled ? 'bg-emerald-500' : 'bg-rose-500/80'
+                    } ${isTogglingService ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        isDmtServiceEnabled ? 'translate-x-5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              )}
+
+              {/* Live Deposit Balance Card */}
+              <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/15 flex items-center justify-between gap-6 shrink-0">
+                <div>
+                  <p className="text-xs text-slate-300 uppercase tracking-wider font-semibold">BillAvenue UAT Deposit</p>
+                  <p className="text-2xl font-black text-white mt-0.5">₹{depositBalance}</p>
+                  <p className="text-[11px] text-emerald-400 font-medium">Usepay Fintech Solution Pvt Ltd</p>
+                </div>
+                <button
+                  onClick={fetchDeposit}
+                  disabled={loadingDeposit}
+                  className="p-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition active:scale-95 disabled:opacity-50"
+                  title="Refresh Deposit Balance"
+                >
+                  <RefreshCw className={`w-5 h-5 ${loadingDeposit ? 'animate-spin' : ''}`} />
+                </button>
               </div>
-              <button
-                onClick={fetchDeposit}
-                disabled={loadingDeposit}
-                className="p-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition active:scale-95 disabled:opacity-50"
-                title="Refresh Deposit Balance"
-              >
-                <RefreshCw className={`w-5 h-5 ${loadingDeposit ? 'animate-spin' : ''}`} />
-              </button>
             </div>
           </div>
 

@@ -118,6 +118,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
   const [isCsplEnabled, setIsCsplEnabled] = useState(false);
   const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
   const [isFundTransferEnabled, setIsFundTransferEnabled] = useState(true);
+  const [isDmtEnabled, setIsDmtEnabled] = useState(true);
   const [isCamlenioAepsPayoutEnabled, setIsCamlenioAepsPayoutEnabled] = useState(false);
   const [isIndiaTekPayoutEnabled, setIsIndiaTekPayoutEnabled] = useState(true);
 
@@ -130,7 +131,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       return true;
     }),
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints' || item.id === 'dmt-transfer')) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment' && !isTester) {
@@ -148,6 +149,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       if (!isFundTransferEnabled && item.id === 'fund-transfer') {
         return false;
       }
+      if (!isDmtEnabled && item.id === 'dmt-transfer' && !isTester) {
+        return false;
+      }
       if (!isCamlenioAepsPayoutEnabled && (item.id === 'camlenio-payout' || item.id === 'payout-history') && !isTester) {
         return false;
       }
@@ -160,7 +164,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
 
   useEffect(() => {
     const fetchBranding = async () => {
-      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled').eq('id', 1).single();
+      const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled, is_dmt_enabled').eq('id', 1).single();
       const { data: payoutData } = await supabase.from('payout_settings').select('camlenio_is_enabled').eq('id', 1).single();
       const { data: indiatekData } = await supabase.from('indiatek_payout_settings').select('is_active').eq('id', 1).maybeSingle();
 
@@ -179,6 +183,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
         setIsCsplEnabled(data.is_cspl_enabled ?? false);
         setIsRechargeEnabled(data.is_recharge_enabled ?? true);
         setIsFundTransferEnabled(data.is_fund_transfer_enabled ?? true);
+        setIsDmtEnabled(data.is_dmt_enabled ?? true);
         setIsCamlenioAepsPayoutEnabled(payoutData?.camlenio_is_enabled ?? false);
       }
     };
@@ -206,6 +211,9 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
           }
           if ('is_fund_transfer_enabled' in payload.new) {
             setIsFundTransferEnabled(payload.new.is_fund_transfer_enabled ?? true);
+          }
+          if ('is_dmt_enabled' in payload.new) {
+            setIsDmtEnabled(payload.new.is_dmt_enabled ?? true);
           }
         }
       })

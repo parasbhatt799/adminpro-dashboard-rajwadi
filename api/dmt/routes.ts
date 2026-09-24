@@ -7,14 +7,47 @@ const router = Router();
 // 1. DMT Configuration & Status
 router.get('/config', async (req, res) => {
   try {
+    let isEnabled = true;
+    try {
+      const { data } = await supabaseAdmin.from('qr_settings').select('is_dmt_enabled').eq('id', 1).single();
+      if (data && data.is_dmt_enabled !== undefined && data.is_dmt_enabled !== null) {
+        isEnabled = Boolean(data.is_dmt_enabled);
+      }
+    } catch (e) {}
+
     res.json({
       success: true,
+      isEnabled,
       instituteId: dmtService.DMT_CONFIG.INSTITUTE_ID,
       accessCode: dmtService.DMT_CONFIG.ACCESS_CODE,
       environment: dmtService.DMT_CONFIG.IS_PROD ? 'production' : 'staging_uat',
       version: dmtService.DMT_CONFIG.VERSION,
       channels: ['ARTL', 'FINO'],
       allowSandboxFallback: dmtService.DMT_CONFIG.ALLOW_SANDBOX_FALLBACK
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Admin Toggle DMT Service On/Off
+router.post('/toggle', async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    const isEnabled = Boolean(enabled);
+    const { error } = await supabaseAdmin
+      .from('qr_settings')
+      .update({ is_dmt_enabled: isEnabled })
+      .eq('id', 1);
+
+    if (error) {
+      console.warn('[DMT Router] qr_settings update error:', error.message);
+    }
+
+    res.json({
+      success: true,
+      isEnabled,
+      message: `DMT Service has been ${isEnabled ? 'ENABLED' : 'DISABLED'} for users.`
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

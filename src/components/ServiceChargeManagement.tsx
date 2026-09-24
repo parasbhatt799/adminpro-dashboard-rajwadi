@@ -58,6 +58,8 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
 
   const [isFundTransferEnabled, setIsFundTransferEnabled] = useState<boolean>(true);
   const [togglingFundTransfer, setTogglingFundTransfer] = useState(false);
+  const [isDmtEnabled, setIsDmtEnabled] = useState<boolean>(true);
+  const [togglingDmt, setTogglingDmt] = useState(false);
 
   const [formData, setFormData] = useState({
     min_amount: '',
@@ -92,7 +94,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       try {
         const { data } = await supabase
           .from('qr_settings')
-          .select('qr_min_limit, qr_max_limit, bbps_max_limit, billavenue_max_limit, cspl_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled, t_plus_one_limit, ds_min_fund_transfer_limit, md_min_fund_transfer_limit')
+          .select('qr_min_limit, qr_max_limit, bbps_max_limit, billavenue_max_limit, cspl_max_limit, daily_live_bbps_limit, daily_normal_bill_limit, is_fund_transfer_enabled, is_dmt_enabled, t_plus_one_limit, ds_min_fund_transfer_limit, md_min_fund_transfer_limit')
           .eq('id', 1)
           .single();
         if (data) {
@@ -107,6 +109,7 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           setDsMinFundTransferLimit(Number(data.ds_min_fund_transfer_limit) || 0);
           setMdMinFundTransferLimit(Number(data.md_min_fund_transfer_limit) || 0);
           setIsFundTransferEnabled(data.is_fund_transfer_enabled !== false);
+          setIsDmtEnabled(data.is_dmt_enabled !== false);
         }
       } catch (err) {
         console.error('Error fetching QR settings limits:', err);
@@ -132,6 +135,26 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       alert('Failed to update fund transfer status');
     } finally {
       setTogglingFundTransfer(false);
+    }
+  };
+
+  const handleToggleDmt = async () => {
+    if (!isFullAdmin) return;
+    setTogglingDmt(true);
+    const newValue = !isDmtEnabled;
+    try {
+      const { error } = await supabase
+        .from('qr_settings')
+        .update({ is_dmt_enabled: newValue })
+        .eq('id', 1);
+
+      if (error) throw error;
+      setIsDmtEnabled(newValue);
+    } catch (err: any) {
+      console.error('Error toggling DMT status:', err);
+      alert('Failed to update DMT status');
+    } finally {
+      setTogglingDmt(false);
     }
   };
 
@@ -286,6 +309,29 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
               </button>
               <span className={`text-xs font-black uppercase tracking-wider ${isFundTransferEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>
                 {isFundTransferEnabled ? 'On' : 'Off'}
+              </span>
+            </div>
+          )}
+          {isFullAdmin && (
+            <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-2xl px-4 py-2.5">
+              <span className="text-sm font-extrabold text-slate-600">DMT (Money Transfer):</span>
+              <button
+                type="button"
+                onClick={handleToggleDmt}
+                disabled={togglingDmt}
+                title={isDmtEnabled ? 'Click to Disable DMT in User Panel' : 'Click to Enable DMT in User Panel'}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isDmtEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                } ${togglingDmt ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isDmtEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className={`text-xs font-black uppercase tracking-wider ${isDmtEnabled ? 'text-emerald-600' : 'text-slate-400'}`}>
+                {isDmtEnabled ? 'On' : 'Off'}
               </span>
             </div>
           )}
