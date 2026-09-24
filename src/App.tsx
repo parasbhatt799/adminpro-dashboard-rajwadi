@@ -100,6 +100,7 @@ const BBPSHistory = lazy(() => import('./components/BBPSHistory'));
 const RechargeDashboard = lazy(() => import('./components/RechargeDashboard'));
 const UserRecharge = lazy(() => import('./components/user/UserRecharge'));
 const UserAeps = lazy(() => import('./components/user/UserAeps'));
+const DMTDashboard = lazy(() => import('./components/dmt/DMTDashboard'));
 import { Search, Bell, User, Menu, MessageSquare, Clock, ShieldCheck, Shield, Trash2, Smartphone } from 'lucide-react';
 import { supabase, addDevicePushId, removeDevicePushId } from './lib/supabase';
 import { formatDistanceToNow, parseISO, format } from 'date-fns';
@@ -1298,6 +1299,8 @@ export default function App() {
           <Route path="bbps-history" element={(adminRole === 'full' || adminPermissions.includes('bbps-history')) ? <BBPSHistory /> : <Navigate to="/dashboard" replace />} />
           <Route path="agent-balances" element={(adminRole === 'full' || adminPermissions.includes('agent-balances')) ? <AgentBalances /> : <Navigate to="/dashboard" replace />} />
           <Route path="admin/recharge-dashboard" element={(adminRole === 'full' || adminPermissions.includes('recharge-dashboard')) ? <RechargeDashboard /> : <Navigate to="/dashboard" replace />} />
+          <Route path="dmt" element={<DMTDashboard userId={userId} adminView={true} />} />
+          <Route path="admin/dmt" element={<DMTDashboard userId={userId} adminView={true} />} />
           
           <Route path="reports">
             <Route path="qr-payment" element={(adminRole === 'full' || adminPermissions.includes('report-generate')) ? <QRPaymentReport /> : <Navigate to="/dashboard" replace />} />
@@ -1326,6 +1329,7 @@ export default function App() {
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<UserDashboard userId={userId} />} />
+          <Route path="dmt" element={<DMTDashboard userId={userId} adminView={false} />} />
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="fund-transfer" element={<UserFundTransfer userId={userId} />} />
           <Route path="camlenio-payout" element={<UserCamlenioPayout userId={userId} />} />

@@ -18,6 +18,7 @@ import * as camlenioBbps from "./services/camlenio_bbps.js";
 import * as camlenioPayout from "./services/camlenio_payout.js";
 import * as indiatekPayout from "./services/indiatek_payout.js";
 import b2bRoutes from "./api/b2b/routes.js";
+import dmtRoutes from "./api/dmt/routes.js";
 import * as whatsappService from "./services/whatsapp_service.js";
 
 // Initialize CRON Jobs
@@ -348,6 +349,9 @@ async function startServer() {
 
   // Mount B2B API Routes
   app.use("/api/v1/b2b", b2bRoutes);
+
+  // Mount DMT (Direct Money Transfer) API Routes (BillAvenue v1.9.3 UAT & Live)
+  app.use("/api/dmt", dmtRoutes);
 
   // Secure Proxy Endpoint for bbps_submissions table queries (uses service role key to bypass RLS)
   app.use('/api/bbps-proxy', async (req, res) => {

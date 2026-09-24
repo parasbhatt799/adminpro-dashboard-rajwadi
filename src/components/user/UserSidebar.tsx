@@ -35,6 +35,7 @@ const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
+  { id: 'dmt-transfer', label: 'DMT (Money Transfer)', icon: Send, path: '/user/dmt' },
   { id: 'bill-payment', label: 'Bill Payment 1', icon: Receipt, path: '/user/bill-payment' },
   { id: 'billavenue-payment', label: 'Bill Payment', icon: Receipt, path: '/user/billavenue-payment' },
   { id: 'cspl-payment', label: 'Bill Payment 3', icon: Receipt, path: '/user/cspl-payment' },
