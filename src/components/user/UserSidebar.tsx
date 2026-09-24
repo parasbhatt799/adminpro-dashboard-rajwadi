@@ -131,7 +131,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       return true;
     }),
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints' || item.id === 'dmt-transfer')) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints' || (item.id === 'dmt-transfer' && !isTester))) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment' && !isTester) {

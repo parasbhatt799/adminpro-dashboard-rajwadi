@@ -27,9 +27,12 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { supabase } from '../../lib/supabase';
+
 interface DMTDashboardProps {
   userId?: string;
   adminView?: boolean;
+  isTester?: boolean;
 }
 
 interface Recipient {
@@ -56,7 +59,7 @@ interface SenderProfile {
   availableLimitBreakup?: { amtValue: string[] | string };
 }
 
-export default function DMTDashboard({ userId, adminView = false }: DMTDashboardProps) {
+export default function DMTDashboard({ userId, adminView = false, isTester }: DMTDashboardProps) {
   // Config & Deposit State
   const [config, setConfig] = useState<any>(null);
   const [depositBalance, setDepositBalance] = useState<string>('50,000.00');
@@ -64,6 +67,7 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
   const [selectedBankId, setSelectedBankId] = useState<'ARTL' | 'FINO'>('ARTL');
   const [selectedTxnType, setSelectedTxnType] = useState<'IMPS' | 'NEFT'>('IMPS');
   const [isDmtServiceEnabled, setIsDmtServiceEnabled] = useState(true);
+  const [isTesterUser, setIsTesterUser] = useState<boolean>(isTester ?? false);
   const [isTogglingService, setIsTogglingService] = useState(false);
 
   // Sender Search & Details
@@ -130,13 +134,72 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
   const [alertMsg, setAlertMsg] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // Fetch initial config & deposit balance
+  // Fetch initial config, deposit balance & tester status
   useEffect(() => {
     fetchConfig();
     fetchDeposit();
+    fetchTesterStatus();
     // Default demo sender for quick UAT testing convenience
     setSearchMobile('9920010041');
-  }, []);
+
+    // Subscribe to qr_settings for realtime DMT toggle updates
+    const qrChannel = supabase
+      .channel('dmt_qr_settings_listener')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'qr_settings',
+        filter: 'id=eq.1'
+      }, (payload) => {
+        if (payload.new && 'is_dmt_enabled' in payload.new) {
+          setIsDmtServiceEnabled(Boolean(payload.new.is_dmt_enabled));
+        }
+      })
+      .subscribe();
+
+    // Subscribe to user profile for realtime tester mode updates
+    let profileChannel: any = null;
+    if (userId) {
+      profileChannel = supabase
+        .channel(`dmt_user_profile_tester_${userId}`)
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users_profiles',
+          filter: `id=eq.${userId}`
+        }, (payload) => {
+          if (payload.new && 'is_tester' in payload.new) {
+            setIsTesterUser(Boolean(payload.new.is_tester));
+          }
+        })
+        .subscribe();
+    }
+
+    return () => {
+      supabase.removeChannel(qrChannel);
+      if (profileChannel) supabase.removeChannel(profileChannel);
+    };
+  }, [userId, isTester]);
+
+  const fetchTesterStatus = async () => {
+    if (isTester !== undefined) {
+      setIsTesterUser(Boolean(isTester));
+      return;
+    }
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from('users_profiles')
+        .select('is_tester')
+        .eq('id', userId)
+        .single();
+      if (!error && data) {
+        setIsTesterUser(Boolean(data.is_tester));
+      }
+    } catch (err) {
+      console.error('Error fetching user tester status for DMT:', err);
+    }
+  };
 
   const showAlert = (type: 'success' | 'error' | 'info', text: string) => {
     setAlertMsg({ type, text });
@@ -587,7 +650,7 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  if (!adminView && !isDmtServiceEnabled) {
+  if (!adminView && !isDmtServiceEnabled && !isTesterUser) {
     return (
       <div className="min-h-[70vh] flex items-center justify-center p-4 font-sans">
         <div className="max-w-md w-full bg-white rounded-3xl p-8 border border-slate-200 text-center shadow-sm space-y-4">
@@ -606,6 +669,28 @@ export default function DMTDashboard({ userId, adminView = false }: DMTDashboard
   return (
     <div className="min-h-screen bg-slate-50/70 p-4 md:p-6 lg:p-8 font-sans">
       <div className="max-w-7xl mx-auto space-y-6">
+
+        {/* TESTER MODE BYPASS BANNER */}
+        {!isDmtServiceEnabled && isTesterUser && !adminView && (
+          <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 text-amber-900 shadow-sm animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0">
+                <Sliders className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-amber-950">🧪 Tester Mode Active (ટેસ્ટર મોડ ચાલુ છે)</span>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-200 text-amber-900">
+                    Bypass On
+                  </span>
+                </div>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Admin panel mathi DMT Service OFF chhe, pan tamara account ma <strong>Tester Mode ON</strong> hovana lidhe aa service tamne show ane access thai rahi chhe.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* TOP BANNER / UAT STATUS HEADER */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
