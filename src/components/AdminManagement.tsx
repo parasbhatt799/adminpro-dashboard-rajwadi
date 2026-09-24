@@ -1,6 +1,6 @@
 import { LogoLoader } from './shared/LoadingSpinner';
 import React, { useState, useEffect } from 'react';
-import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock, AlertTriangle, Activity, AlertCircle } from 'lucide-react';
+import { UserPlus, Shield, Trash2, Loader2, X, CheckCircle, Eye, EyeOff, Lock, AlertTriangle, Activity, AlertCircle, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 
@@ -27,6 +27,7 @@ interface AdminManagementProps {
   const [newAdminPassword, setNewAdminPassword] = useState('');
   const [newAdminRole, setNewAdminRole] = useState<'full' | 'limited'>('full');
   const [newPermissions, setNewPermissions] = useState<string[]>([]);
+  const [newAllowWallets, setNewAllowWallets] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [showAdminPwd, setShowAdminPwd] = useState(false);
 
@@ -35,10 +36,12 @@ interface AdminManagementProps {
   const [editName, setEditName] = useState('');
   const [editRole, setEditRole] = useState<'full' | 'limited'>('full');
   const [editPermissions, setEditPermissions] = useState<string[]>([]);
+  const [editAllowWallets, setEditAllowWallets] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const AVAILABLE_PERMISSIONS = [
     { id: 'dashboard', label: 'Dashboard' },
+    { id: 'dashboard-wallets', label: 'Dashboard Wallet Balances (PP, BA, CSPL)' },
     { id: 'users-list', label: 'Users list' },
     { id: 'super-distributors', label: 'Super Distributors' },
     { id: 'distributors', label: 'Distributors' },
@@ -152,6 +155,15 @@ interface AdminManagementProps {
       if (!response.ok) throw new Error(result.error || 'Failed to create admin in Auth');
 
       // 2. Create or Update in admin_profiles table
+      let finalNewPermissions: string[] = [];
+      if (newAdminRole === 'full') {
+        finalNewPermissions = newAllowWallets ? ['dashboard-wallets'] : [];
+      } else {
+        finalNewPermissions = newAllowWallets
+          ? Array.from(new Set([...newPermissions, 'dashboard-wallets']))
+          : newPermissions.filter(p => p !== 'dashboard-wallets');
+      }
+
       const { error: dbError } = await supabase
         .from('admin_profiles')
         .upsert([{ 
@@ -159,7 +171,7 @@ interface AdminManagementProps {
           name: newAdminName,
           password: newAdminPassword,
           role: newAdminRole,
-          permissions: newAdminRole === 'full' ? [] : newPermissions
+          permissions: finalNewPermissions
         }], { onConflict: 'mobile_number' });
 
       if (dbError) throw dbError;
@@ -169,6 +181,7 @@ interface AdminManagementProps {
       setNewAdminName('');
       setNewAdminPassword('');
       setNewAdminRole('full');
+      setNewAllowWallets(false);
       fetchAdmins();
       showModal('Success!', 'Administrator added successfully.', 'success');
     } catch (err: any) {
@@ -266,12 +279,21 @@ interface AdminManagementProps {
 
     setActionLoading(true);
     try {
+      let finalEditPermissions: string[] = [];
+      if (editRole === 'full') {
+        finalEditPermissions = editAllowWallets ? ['dashboard-wallets'] : [];
+      } else {
+        finalEditPermissions = editAllowWallets
+          ? Array.from(new Set([...editPermissions, 'dashboard-wallets']))
+          : editPermissions.filter(p => p !== 'dashboard-wallets');
+      }
+
       const { error: dbError } = await supabase
         .from('admin_profiles')
         .update({ 
           name: editName,
           role: editRole,
-          permissions: editRole === 'full' ? [] : editPermissions
+          permissions: finalEditPermissions
         })
         .eq('mobile_number', editingAdmin.mobile_number);
 
@@ -334,6 +356,38 @@ interface AdminManagementProps {
   };
 
   const isSuperAdminOrDeveloper = currentAdminId === DEVELOPER_MOBILE || currentAdminId === GOD_ADMIN_MOBILE;
+
+  const handleToggleWalletAccess = async (admin: any) => {
+    if (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE) {
+      showModal('Action Denied', 'Core System accounts always have permanent wallet balance access.', 'info');
+      return;
+    }
+
+    const currentPerms: string[] = Array.isArray(admin.permissions) ? admin.permissions : [];
+    const hasWalletPerm = currentPerms.includes('dashboard-wallets');
+    const newPerms = hasWalletPerm 
+      ? currentPerms.filter(p => p !== 'dashboard-wallets')
+      : [...currentPerms, 'dashboard-wallets'];
+
+    try {
+      const { error: dbError } = await supabase
+        .from('admin_profiles')
+        .update({ permissions: newPerms })
+        .eq('mobile_number', admin.mobile_number);
+
+      if (dbError) throw dbError;
+
+      fetchAdmins();
+      showModal(
+        'Success!', 
+        `Dashboard Wallet Balances for ${admin.name || admin.mobile_number} is now ${!hasWalletPerm ? 'ALLOWED' : 'HIDDEN'}.`, 
+        'success'
+      );
+    } catch (err: any) {
+      console.error('Toggle wallet access error:', err);
+      showModal('Error', 'Failed to update Dashboard Wallet access.', 'error');
+    }
+  };
 
   const handleToggleB2BAccess = async (admin: any) => {
     if (!isSuperAdminOrDeveloper) {
@@ -703,6 +757,30 @@ interface AdminManagementProps {
                     </button>
                   </div>
 
+                  {/* Dedicated Wallet Balance Permission Card for New Admin */}
+                  <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 mb-6 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 shrink-0">
+                        <Wallet size={20} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Show Dashboard Wallet Balances</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Show live PP, BA & CSPL balances on Dashboard</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setNewAllowWallets(!newAllowWallets)}
+                      className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${
+                        newAllowWallets ? 'bg-indigo-600' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
+                        newAllowWallets ? 'left-7' : 'left-1'
+                      }`} />
+                    </button>
+                  </div>
+
                   {newAdminRole === 'limited' && (
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
@@ -831,6 +909,30 @@ interface AdminManagementProps {
                     </button>
                   </div>
 
+                  {/* Dedicated Wallet Balance Permission Card for Edit Admin */}
+                  <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 mb-6 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 shrink-0">
+                        <Wallet size={20} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">Show Dashboard Wallet Balances</p>
+                        <p className="text-[10px] text-slate-500 font-medium">Show live PP, BA & CSPL balances on Dashboard</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setEditAllowWallets(!editAllowWallets)}
+                      className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${
+                        editAllowWallets ? 'bg-indigo-600' : 'bg-slate-300'
+                      }`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
+                        editAllowWallets ? 'left-7' : 'left-1'
+                      }`} />
+                    </button>
+                  </div>
+
                   {editRole === 'limited' && (
                     <motion.div 
                       initial={{ opacity: 0, height: 0 }}
@@ -902,6 +1004,7 @@ interface AdminManagementProps {
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Administrator</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Access Level</th>
+                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Dashboard Balances</th>
                   {isSuperAdminOrDeveloper && (
                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">B2B Admin Access</th>
                   )}
@@ -967,6 +1070,7 @@ interface AdminManagementProps {
                                 setEditName(admin.name || '');
                                 setEditRole(admin.role || 'full');
                                 setEditPermissions(admin.permissions || []);
+                                setEditAllowWallets(Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets'));
                               }}
                               className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center gap-1"
                             >
@@ -974,6 +1078,33 @@ interface AdminManagementProps {
                             </button>
                           )}
                         </div>
+                    </td>
+                    <td className="px-8 py-5 text-center">
+                      <button 
+                        onClick={() => handleToggleWalletAccess(admin)}
+                        disabled={admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 mx-auto ${
+                          (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
+                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                            : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                        } ${admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE ? 'opacity-80 cursor-default' : ''}`}
+                        title={
+                          admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE
+                            ? 'Core Admin has permanent balance access'
+                            : (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets'))
+                              ? 'Click to Hide Dashboard Balances'
+                              : 'Click to Show Dashboard Balances'
+                        }
+                      >
+                        <span className={`w-2 h-2 rounded-full ${
+                          (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
+                            ? 'bg-emerald-600 animate-pulse'
+                            : 'bg-slate-400'
+                        }`} />
+                        {(admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
+                          ? 'Balances Allowed'
+                          : 'Balances Hidden'}
+                      </button>
                     </td>
                     {isSuperAdminOrDeveloper && (
                       <td className="px-8 py-5 text-center">

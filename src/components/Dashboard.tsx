@@ -93,8 +93,29 @@ const Sparkline: React.FC<SparklineProps> = ({ data, color = 'stroke-indigo-500'
   );
 };
 
-export default function Dashboard() {
+interface DashboardProps {
+  adminRole?: string | null;
+  adminPermissions?: string[];
+}
+
+export default function Dashboard({ adminRole, adminPermissions }: DashboardProps = {}) {
   const navigate = useNavigate();
+
+  // Permissions check for viewing PP, BA, CSPL wallet balances
+  const effectiveRole = adminRole || localStorage.getItem('adminRole');
+  const effectivePermissions: string[] = adminPermissions || (() => {
+    try {
+      return JSON.parse(localStorage.getItem('adminPermissions') || '[]');
+    } catch {
+      return [];
+    }
+  })();
+  const adminMobile = localStorage.getItem('adminMobile') || localStorage.getItem('userId') || '';
+  const isGodAdmin = adminMobile === '7777077377';
+  const isDev = adminMobile === '9999099999';
+  // ONLY God Admin & Developer bypass this. All other admins (Full or Limited) must have dashboard-wallets permission!
+  const canViewWallets = isGodAdmin || isDev || effectivePermissions.includes('dashboard-wallets');
+
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('today');
@@ -692,9 +713,11 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchStats();
-    fetchPayprimeBalance();
-    fetchBillAvenueBalance();
-    fetchCsplBalance();
+    if (canViewWallets) {
+      fetchPayprimeBalance();
+      fetchBillAvenueBalance();
+      fetchCsplBalance();
+    }
     fetchRefundedRequests();
     fetchReasons();
 
@@ -712,7 +735,7 @@ export default function Dashboard() {
     return () => {
       supabase.removeChannel(statsChannel);
     };
-  }, [fetchStats, fetchPayprimeBalance, fetchBillAvenueBalance, fetchCsplBalance, fetchRefundedRequests, fetchReasons]);
+  }, [fetchStats, fetchPayprimeBalance, fetchBillAvenueBalance, fetchCsplBalance, fetchRefundedRequests, fetchReasons, canViewWallets]);
 
   const rangeLabels: Record<TimeRange, string> = {
     today: 'Today',
@@ -741,72 +764,74 @@ export default function Dashboard() {
             </motion.button>
           </div>
 
-          <div className="flex items-center gap-2 flex-nowrap overflow-x-auto hide-scrollbar pb-1">
-            {payprimeBalance !== null && (
-              <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-                <Wallet size={12} className="text-blue-600 animate-pulse" />
-                <span className="text-[9px] font-black text-blue-700 tracking-wider uppercase">PP:</span>
-                <span className="text-xs font-extrabold text-indigo-900 font-mono">
-                  ₹{payprimeBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-                {payprimeUsername && (
-                  <span className="hidden sm:inline-block text-[8px] font-bold text-blue-500 bg-blue-100/50 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">
-                    {payprimeUsername}
+          {canViewWallets && (
+            <div className="flex items-center gap-2 flex-nowrap overflow-x-auto hide-scrollbar pb-1">
+              {payprimeBalance !== null && (
+                <div className="flex items-center gap-1.5 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+                  <Wallet size={12} className="text-blue-600 animate-pulse" />
+                  <span className="text-[9px] font-black text-blue-700 tracking-wider uppercase">PP:</span>
+                  <span className="text-xs font-extrabold text-indigo-900 font-mono">
+                    ₹{payprimeBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
+                  {payprimeUsername && (
+                    <span className="hidden sm:inline-block text-[8px] font-bold text-blue-500 bg-blue-100/50 px-1.5 py-0.5 rounded-full uppercase tracking-tighter">
+                      {payprimeUsername}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+                <Wallet size={12} className="text-emerald-600 animate-pulse" />
+                <span className="text-[9px] font-black text-emerald-700 tracking-wider uppercase">BA:</span>
+                <span className="text-xs font-extrabold text-teal-900 font-mono flex items-center">
+                  {billAvenueLoading ? (
+                    <span className="text-[9px] font-bold text-slate-400">...</span>
+                  ) : billAvenueError ? (
+                    <span className="text-[9px] font-bold text-rose-500 cursor-help" title={billAvenueError}>Err</span>
+                  ) : billAvenueBalance !== null ? (
+                    `₹${billAvenueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  ) : (
+                    <span className="text-[9px] font-bold text-slate-400">N/A</span>
+                  )}
+                </span>
+                {!billAvenueLoading && (
+                  <button
+                    onClick={fetchBillAvenueBalance}
+                    className="text-[8px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-1 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
+                    title="Reload BillAvenue Balance"
+                  >
+                    <RefreshCw size={8} />
+                  </button>
                 )}
               </div>
-            )}
 
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-              <Wallet size={12} className="text-emerald-600 animate-pulse" />
-              <span className="text-[9px] font-black text-emerald-700 tracking-wider uppercase">BA:</span>
-              <span className="text-xs font-extrabold text-teal-900 font-mono flex items-center">
-                {billAvenueLoading ? (
-                  <span className="text-[9px] font-bold text-slate-400">...</span>
-                ) : billAvenueError ? (
-                  <span className="text-[9px] font-bold text-rose-500 cursor-help" title={billAvenueError}>Err</span>
-                ) : billAvenueBalance !== null ? (
-                  `₹${billAvenueBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                ) : (
-                  <span className="text-[9px] font-bold text-slate-400">N/A</span>
+              <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
+                <Wallet size={12} className="text-orange-600 animate-pulse" />
+                <span className="text-[9px] font-black text-orange-700 tracking-wider uppercase">CSPL:</span>
+                <span className="text-xs font-extrabold text-amber-900 font-mono flex items-center">
+                  {csplLoading ? (
+                    <span className="text-[9px] font-bold text-slate-400">...</span>
+                  ) : csplError ? (
+                    <span className="text-[9px] font-bold text-rose-500 cursor-help" title={csplError}>Err</span>
+                  ) : csplBalance !== null ? (
+                    `₹${csplBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  ) : (
+                    <span className="text-[9px] font-bold text-slate-400">N/A</span>
+                  )}
+                </span>
+                {!csplLoading && (
+                  <button
+                    onClick={fetchCsplBalance}
+                    className="text-[8px] bg-orange-100 hover:bg-orange-200 text-orange-800 px-1 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
+                    title="Reload CSPL Balance"
+                  >
+                    <RefreshCw size={8} />
+                  </button>
                 )}
-              </span>
-              {!billAvenueLoading && (
-                <button
-                  onClick={fetchBillAvenueBalance}
-                  className="text-[8px] bg-emerald-100 hover:bg-emerald-200 text-emerald-800 px-1 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
-                  title="Reload BillAvenue Balance"
-                >
-                  <RefreshCw size={8} />
-                </button>
-              )}
+              </div>
             </div>
-
-            <div className="flex items-center gap-1.5 bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-100/80 px-2 py-1 rounded-2xl shadow-sm animate-in fade-in zoom-in duration-300 whitespace-nowrap">
-              <Wallet size={12} className="text-orange-600 animate-pulse" />
-              <span className="text-[9px] font-black text-orange-700 tracking-wider uppercase">CSPL:</span>
-              <span className="text-xs font-extrabold text-amber-900 font-mono flex items-center">
-                {csplLoading ? (
-                  <span className="text-[9px] font-bold text-slate-400">...</span>
-                ) : csplError ? (
-                  <span className="text-[9px] font-bold text-rose-500 cursor-help" title={csplError}>Err</span>
-                ) : csplBalance !== null ? (
-                  `₹${csplBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                ) : (
-                  <span className="text-[9px] font-bold text-slate-400">N/A</span>
-                )}
-              </span>
-              {!csplLoading && (
-                <button
-                  onClick={fetchCsplBalance}
-                  className="text-[8px] bg-orange-100 hover:bg-orange-200 text-orange-800 px-1 py-0.5 rounded-md font-black uppercase tracking-tighter cursor-pointer"
-                  title="Reload CSPL Balance"
-                >
-                  <RefreshCw size={8} />
-                </button>
-              )}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Right side: Date Filter */}

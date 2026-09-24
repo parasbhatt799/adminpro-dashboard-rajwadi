@@ -1244,7 +1244,7 @@ export default function App() {
           }
         >
           <Route path="dashboard" element={
-            (adminRole === 'full' || adminPermissions.includes('dashboard')) ? <Dashboard /> :
+            (adminRole === 'full' || adminPermissions.includes('dashboard')) ? <Dashboard adminRole={adminRole} adminPermissions={adminPermissions} /> :
             adminPermissions.includes('users-list') ? <Navigate to="/users-list" replace /> :
             adminPermissions.includes('qr-payment-requests') ? <Navigate to="/qr-payment-requests" replace /> :
             adminPermissions.includes('bill-payment-requests') ? <Navigate to="/bill-payment-requests" replace /> :
