@@ -358,6 +358,11 @@ interface AdminManagementProps {
   const isSuperAdminOrDeveloper = currentAdminId === DEVELOPER_MOBILE || currentAdminId === GOD_ADMIN_MOBILE;
 
   const handleToggleWalletAccess = async (admin: any) => {
+    if (!isSuperAdminOrDeveloper) {
+      showModal('Access Denied', 'Only God Admin and Developer can manage Dashboard Balances.', 'error');
+      return;
+    }
+
     if (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE) {
       showModal('Action Denied', 'Core System accounts always have permanent wallet balance access.', 'info');
       return;
@@ -757,29 +762,31 @@ interface AdminManagementProps {
                     </button>
                   </div>
 
-                  {/* Dedicated Wallet Balance Permission Card for New Admin */}
-                  <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 mb-6 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 shrink-0">
-                        <Wallet size={20} />
+                  {/* Dedicated Wallet Balance Permission Card for New Admin (God Admin & Dev only) */}
+                  {isSuperAdminOrDeveloper && (
+                    <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 mb-6 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 shrink-0">
+                          <Wallet size={20} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">Show Dashboard Wallet Balances</p>
+                          <p className="text-[10px] text-slate-500 font-medium">Show live PP, BA & CSPL balances on Dashboard</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">Show Dashboard Wallet Balances</p>
-                        <p className="text-[10px] text-slate-500 font-medium">Show live PP, BA & CSPL balances on Dashboard</p>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setNewAllowWallets(!newAllowWallets)}
+                        className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${
+                          newAllowWallets ? 'bg-indigo-600' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
+                          newAllowWallets ? 'left-7' : 'left-1'
+                        }`} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setNewAllowWallets(!newAllowWallets)}
-                      className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${
-                        newAllowWallets ? 'bg-indigo-600' : 'bg-slate-300'
-                      }`}
-                    >
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
-                        newAllowWallets ? 'left-7' : 'left-1'
-                      }`} />
-                    </button>
-                  </div>
+                  )}
 
                   {newAdminRole === 'limited' && (
                     <motion.div 
@@ -789,7 +796,7 @@ interface AdminManagementProps {
                     >
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Enable Modules</label>
                       <div className="grid grid-cols-1 gap-2">
-                        {AVAILABLE_PERMISSIONS.map(perm => (
+                        {AVAILABLE_PERMISSIONS.filter(perm => isSuperAdminOrDeveloper || perm.id !== 'dashboard-wallets').map(perm => (
                           <label key={perm.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-slate-100">
                             <input
                               type="checkbox"
@@ -909,29 +916,31 @@ interface AdminManagementProps {
                     </button>
                   </div>
 
-                  {/* Dedicated Wallet Balance Permission Card for Edit Admin */}
-                  <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 mb-6 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 shrink-0">
-                        <Wallet size={20} />
+                  {/* Dedicated Wallet Balance Permission Card for Edit Admin (God Admin & Dev only) */}
+                  {isSuperAdminOrDeveloper && (
+                    <div className="p-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 mb-6 flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-indigo-600 shadow-sm border border-indigo-100 shrink-0">
+                          <Wallet size={20} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-900">Show Dashboard Wallet Balances</p>
+                          <p className="text-[10px] text-slate-500 font-medium">Show live PP, BA & CSPL balances on Dashboard</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs font-bold text-slate-900">Show Dashboard Wallet Balances</p>
-                        <p className="text-[10px] text-slate-500 font-medium">Show live PP, BA & CSPL balances on Dashboard</p>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditAllowWallets(!editAllowWallets)}
+                        className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${
+                          editAllowWallets ? 'bg-indigo-600' : 'bg-slate-300'
+                        }`}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
+                          editAllowWallets ? 'left-7' : 'left-1'
+                        }`} />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setEditAllowWallets(!editAllowWallets)}
-                      className={`relative w-12 h-6 rounded-full transition-all duration-300 shrink-0 ${
-                        editAllowWallets ? 'bg-indigo-600' : 'bg-slate-300'
-                      }`}
-                    >
-                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
-                        editAllowWallets ? 'left-7' : 'left-1'
-                      }`} />
-                    </button>
-                  </div>
+                  )}
 
                   {editRole === 'limited' && (
                     <motion.div 
@@ -941,7 +950,7 @@ interface AdminManagementProps {
                     >
                       <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Enable Modules</label>
                       <div className="grid grid-cols-1 gap-2">
-                        {AVAILABLE_PERMISSIONS.map(perm => (
+                        {AVAILABLE_PERMISSIONS.filter(perm => isSuperAdminOrDeveloper || perm.id !== 'dashboard-wallets').map(perm => (
                           <label key={perm.id} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-slate-100">
                             <input
                               type="checkbox"
@@ -1004,7 +1013,9 @@ interface AdminManagementProps {
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest">Administrator</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Status</th>
                   <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Access Level</th>
-                  <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Dashboard Balances</th>
+                  {isSuperAdminOrDeveloper && (
+                    <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">Dashboard Balances</th>
+                  )}
                   {isSuperAdminOrDeveloper && (
                     <th className="px-8 py-5 text-xs font-black text-slate-400 uppercase tracking-widest text-center">B2B Admin Access</th>
                   )}
@@ -1038,11 +1049,11 @@ interface AdminManagementProps {
                     <td className="px-8 py-5 text-center">
                       <button 
                         onClick={() => handleToggleStatus(admin)}
-                        disabled={admin.mobile_number === currentAdminId || admin.mobile_number === GOD_ADMIN_MOBILE}
+                        disabled={admin.mobile_number === currentAdminId || admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE}
                         className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
                           admin.status === 'Blocked' ? 'bg-rose-500' : 'bg-emerald-500'
-                        } ${admin.mobile_number === currentAdminId || admin.mobile_number === GOD_ADMIN_MOBILE ? 'opacity-50 cursor-not-allowed' : 'hover:ring-4 hover:ring-slate-100'}`}
-                        title={admin.mobile_number === GOD_ADMIN_MOBILE ? 'God Admin is Permanent' : admin.status === 'Blocked' ? 'Unblock Admin' : 'Block Admin'}
+                        } ${admin.mobile_number === currentAdminId || admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE ? 'opacity-50 cursor-not-allowed' : 'hover:ring-4 hover:ring-slate-100'}`}
+                        title={admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE ? 'Permanent Account' : admin.status === 'Blocked' ? 'Unblock Admin' : 'Block Admin'}
                       >
                         <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all duration-300 ${
                           admin.status === 'Blocked' ? 'left-1' : 'left-7'
@@ -1063,7 +1074,7 @@ interface AdminManagementProps {
                             {admin.permissions.length} modules enabled
                           </p>
                         )}
-                          {admin.mobile_number !== GOD_ADMIN_MOBILE && (
+                          {admin.mobile_number !== GOD_ADMIN_MOBILE && admin.mobile_number !== DEVELOPER_MOBILE && (
                             <button 
                               onClick={() => {
                                 setEditingAdmin(admin);
@@ -1079,33 +1090,35 @@ interface AdminManagementProps {
                           )}
                         </div>
                     </td>
-                    <td className="px-8 py-5 text-center">
-                      <button 
-                        onClick={() => handleToggleWalletAccess(admin)}
-                        disabled={admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 mx-auto ${
-                          (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
-                            ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                            : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
-                        } ${admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE ? 'opacity-80 cursor-default' : ''}`}
-                        title={
-                          admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE
-                            ? 'Core Admin has permanent balance access'
-                            : (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets'))
-                              ? 'Click to Hide Dashboard Balances'
-                              : 'Click to Show Dashboard Balances'
-                        }
-                      >
-                        <span className={`w-2 h-2 rounded-full ${
-                          (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
-                            ? 'bg-emerald-600 animate-pulse'
-                            : 'bg-slate-400'
-                        }`} />
-                        {(admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
-                          ? 'Balances Allowed'
-                          : 'Balances Hidden'}
-                      </button>
-                    </td>
+                    {isSuperAdminOrDeveloper && (
+                      <td className="px-8 py-5 text-center">
+                        <button 
+                          onClick={() => handleToggleWalletAccess(admin)}
+                          disabled={admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 mx-auto ${
+                            (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
+                              ? 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
+                              : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                          } ${admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE ? 'opacity-80 cursor-default' : ''}`}
+                          title={
+                            admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE
+                              ? 'Core Admin has permanent balance access'
+                              : (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets'))
+                                ? 'Click to Hide Dashboard Balances'
+                                : 'Click to Show Dashboard Balances'
+                          }
+                        >
+                          <span className={`w-2 h-2 rounded-full ${
+                            (admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
+                              ? 'bg-emerald-600 animate-pulse'
+                              : 'bg-slate-400'
+                          }`} />
+                          {(admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE || (Array.isArray(admin.permissions) && admin.permissions.includes('dashboard-wallets')))
+                            ? 'Balances Allowed'
+                            : 'Balances Hidden'}
+                        </button>
+                      </td>
+                    )}
                     {isSuperAdminOrDeveloper && (
                       <td className="px-8 py-5 text-center">
                         <button 
@@ -1133,10 +1146,10 @@ interface AdminManagementProps {
                         const isThisAdminFull = !admin.role || admin.role.toLowerCase() === 'full';
                         const totalFullAdmins = admins.filter(a => !a.role || a.role.toLowerCase() === 'full').length;
                         const isLastFullAdmin = isThisAdminFull && totalFullAdmins <= 1;
-                        const isGodAdmin = admin.mobile_number === GOD_ADMIN_MOBILE;
+                        const isPermanent = admin.mobile_number === GOD_ADMIN_MOBILE || admin.mobile_number === DEVELOPER_MOBILE;
                         const isSelf = admin.mobile_number === currentAdminId;
- 
-                        if (isGodAdmin) {
+
+                        if (isPermanent) {
                           return (
                             <div className="flex items-center gap-1 text-indigo-600 justify-end">
                               <Lock size={12} />
