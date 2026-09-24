@@ -1182,19 +1182,38 @@ async function startServer() {
       }
 
       if (action === "delete") {
-        const { data: usersData, error: listError } = await supabaseAdmin.auth.admin.listUsers();
-        if (listError) throw listError;
-
-        const user = usersData.users.find((u: any) => u.phone?.replace('+', '') === mobileNumber.replace('+', ''));
-        if (!user) {
-          // If not found in Auth, just return success as we probably just need to clean up the table
-          return res.json({ success: true, message: "User not found in Auth, but proceeding." });
+        if (mobileNumber === "7777077377" || mobileNumber === "9999099999") {
+          return res.status(403).json({ error: "This admin account is protected and cannot be deleted." });
         }
 
-        const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(user.id);
-        if (deleteError) throw deleteError;
+        // 1. Best-effort delete from Supabase Auth
+        try {
+          const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
+          const cleanNum = mobileNumber.replace(/\D/g, '');
+          const user = usersData?.users?.find((u: any) => {
+            const uPhone = (u.phone || '').replace(/\D/g, '');
+            return uPhone.length >= 10 && cleanNum.length >= 10 && (uPhone.endsWith(cleanNum) || cleanNum.endsWith(uPhone));
+          });
 
-        return res.json({ success: true });
+          if (user?.id) {
+            await supabaseAdmin.auth.admin.deleteUser(user.id);
+          }
+        } catch (authErr: any) {
+          console.warn("[manage-admin] Auth deletion warning:", authErr.message || authErr);
+        }
+
+        // 2. Delete from admin_profiles table via service role (bypasses RLS)
+        const { error: dbError } = await supabaseAdmin
+          .from('admin_profiles')
+          .delete()
+          .eq('mobile_number', mobileNumber);
+
+        if (dbError) {
+          console.error("[manage-admin] admin_profiles DB delete error:", dbError);
+          throw dbError;
+        }
+
+        return res.json({ success: true, message: "Administrator deleted successfully" });
       }
 
       res.status(400).json({ error: "Invalid action" });

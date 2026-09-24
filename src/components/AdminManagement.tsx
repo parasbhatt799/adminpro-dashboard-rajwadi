@@ -225,7 +225,7 @@ interface AdminManagementProps {
 
     showModal(title, message, 'confirm', async () => {
       try {
-        // 1. Remove from Auth via Backend
+        // 1. Remove from Auth & admin_profiles via Backend service role
         const response = await fetch('/api/manage-admin', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -235,29 +235,29 @@ interface AdminManagementProps {
           })
         });
 
+        const result = await response.json();
         if (!response.ok) {
-          const result = await response.json();
-          console.warn('Auth deletion warning:', result.error);
+          throw new Error(result.error || 'Failed to delete administrator');
         }
 
-        // 2. Remove from admin_profiles table
-        const { error: dbError } = await supabase
-          .from('admin_profiles')
-          .delete()
-          .eq('mobile_number', mobileNumber);
-
-        if (dbError) throw dbError;
+        // 2. Client-side cleanup fallback
+        try {
+          await supabase
+            .from('admin_profiles')
+            .delete()
+            .eq('mobile_number', mobileNumber);
+        } catch (ignored) {}
 
         if (isSelf) {
           showModal('Account Deleted', 'Your account has been deleted. Logging out...', 'info');
           setTimeout(() => onLogout(), 2000);
         } else {
-          fetchAdmins();
+          await fetchAdmins();
           showModal('Removed!', 'Administrator removed successfully.', 'success');
         }
       } catch (err: any) {
         console.error('Delete admin error:', err);
-        setError('Failed to delete administrator');
+        showModal('Error', err.message || 'Failed to delete administrator', 'error');
       }
     });
   };
@@ -1152,7 +1152,7 @@ interface AdminManagementProps {
                         return (
                           <button 
                             onClick={() => handleDeleteAdmin(admin.mobile_number)}
-                            className="p-2 text-slate-300 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                            className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
                             title="Revoke Admin Access"
                           >
                             <Trash2 size={18} />
