@@ -33,6 +33,7 @@ interface UserSidebarProps {
 
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/user/dashboard' },
+  { id: 'instant-payout', label: 'Instant Payout', icon: Send, path: '/user/instant-payout' },
   { id: 'payment', label: 'Payment', icon: CreditCard, path: '/user/payment' },
   { id: 'fund-transfer', label: 'Fund Transfer', icon: Wallet, path: '/user/fund-transfer' },
   { id: 'dmt-transfer', label: 'DMT (Money Transfer)', icon: Send, path: '/user/dmt' },
@@ -117,6 +118,7 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
   const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
   const [isFundTransferEnabled, setIsFundTransferEnabled] = useState(true);
   const [isDmtEnabled, setIsDmtEnabled] = useState(true);
+  const [isPayoutEnabled, setIsPayoutEnabled] = useState(true);
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
@@ -127,7 +129,10 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       return true;
     }),
     ...menuItems.slice(1).filter(item => {
-      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints' || (item.id === 'dmt-transfer' && !isTester))) {
+      if ((role === 'distributor' || role === 'super_distributor') && (item.id === 'payment' || item.id === 'instant-payout' || item.id === 'statement' || item.id === 'bill-payment' || item.id === 'billavenue-payment' || item.id === 'billavenue-search' || item.id === 'cspl-payment' || item.id === 'cspl-search' || item.id === 'mobile-recharge' || item.id === 'aeps' || item.id === 'bill-history' || item.id === 'fund-transfer' || item.id === 'bbps-complaints' || (item.id === 'dmt-transfer' && !isTester))) {
+        return false;
+      }
+      if (!isPayoutEnabled && item.id === 'instant-payout' && !isTester) {
         return false;
       }
       if (!isBbpsEnabled && item.id === 'bill-payment' && !isTester) {
@@ -202,8 +207,32 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       })
       .subscribe();
 
+    // Fetch initial Nixasoft payout service status
+    const fetchPayoutStatus = async () => {
+      try {
+        const res = await fetch('/api/nixasoft-payout/config');
+        const d = await res.json();
+        if (d.success && d.is_active !== undefined) {
+          setIsPayoutEnabled(Boolean(d.is_active));
+        }
+      } catch (e) {
+        console.warn('Could not fetch payout status:', e);
+      }
+    };
+    fetchPayoutStatus();
+
+    // Realtime listener for payout_settings table
+    const payoutChannel = supabase.channel('payout_settings_sidebar')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payout_settings', filter: 'id=eq.1' }, (payload) => {
+        if (payload.new && 'is_enabled' in payload.new) {
+          setIsPayoutEnabled(Boolean(payload.new.is_enabled));
+        }
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(payoutChannel);
     };
   }, []);
 

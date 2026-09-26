@@ -23,7 +23,8 @@ import {
   History,
   Smartphone,
   Activity,
-  Send
+  Send,
+  Layers
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom';
@@ -53,6 +54,7 @@ const menuItems = [
   { id: 'qr-payment-requests', label: 'QR Payment Request', icon: QrCode, path: '/qr-payment-requests' },
   { id: 'bill-payment-requests', label: 'Bill Payment Request', icon: FileText, path: '/bill-payment-requests' },
   { id: 'camlenio-payouts', label: 'Instant Payout History', icon: History, path: '/camlenio-payouts' },
+  { id: 'payout-slabs', label: 'Payout Slabs & Settings', icon: Layers, path: '/payout-slabs' },
   { id: 'dmt-service', label: 'DMT (Money Transfer)', icon: Send, path: '/dmt' },
   { id: 'bbps-history', label: 'BBPS Bill History', icon: History, path: '/bbps-history' },
   { id: 'kyc-verification-requests', label: 'KYC Verification Request', icon: ShieldCheck, path: '/kyc-verification-requests', role: 'full' },

@@ -58,9 +58,11 @@ const AdminCCBillerManagement = lazy(() => import('./components/AdminCCBillerMan
 const AdminWithdrawal = lazy(() => import('./components/AdminWithdrawal'));
 const PayoutManagement = lazy(() => import('./components/PayoutManagement'));
 const AdminCamlenioPayoutHistory = lazy(() => import('./components/AdminCamlenioPayoutHistory'));
+const AdminPayoutSlabs = lazy(() => import('./components/AdminPayoutSlabs'));
 const DeveloperLogs = lazy(() => import('./components/DeveloperLogs'));
 const UserPanel = lazy(() => import('./components/user/UserPanel'));
 const UserPayment = lazy(() => import('./components/user/UserPayment'));
+const UserInstantPayout = lazy(() => import('./components/user/UserInstantPayout'));
 const UserBillPayment = lazy(() => import('./components/user/UserBillPayment'));
 const UserBillAvenuePayment = lazy(() => import('./components/user/UserBillAvenuePayment'));
 const UserCsplPayment = lazy(() => import('./components/user/UserCsplPayment'));
@@ -1279,6 +1281,7 @@ export default function App() {
           <Route path="bill-payment-requests" element={(adminRole === 'full' || adminPermissions.includes('bill-payment-requests')) ? <BillPaymentRequests /> : <Navigate to="/dashboard" replace />} />
           <Route path="payout-requests" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <PayoutManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="camlenio-payouts" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <AdminCamlenioPayoutHistory /> : <Navigate to="/dashboard" replace />} />
+          <Route path="payout-slabs" element={(adminRole === 'full' || adminPermissions.includes('payout-requests')) ? <AdminPayoutSlabs /> : <Navigate to="/dashboard" replace />} />
           <Route path="reason-entry" element={(adminRole === 'full' || adminPermissions.includes('reason-entry')) ? <ReasonManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="complaints-management" element={(adminRole === 'full' || adminPermissions.includes('complaints-management')) ? <ComplaintsManagement /> : <Navigate to="/dashboard" replace />} />
           <Route path="headlines" element={(adminRole === 'full' || adminPermissions.includes('headlines')) ? <HeadlineManagement /> : <Navigate to="/dashboard" replace />} />
@@ -1324,6 +1327,7 @@ export default function App() {
         >
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<UserDashboard userId={userId} />} />
+          <Route path="instant-payout" element={<UserInstantPayout userId={userId} />} />
           <Route path="dmt" element={<DMTDashboard userId={userId} adminView={false} />} />
           <Route path="payment" element={<UserPayment userId={userId} />} />
           <Route path="fund-transfer" element={<UserFundTransfer userId={userId} />} />

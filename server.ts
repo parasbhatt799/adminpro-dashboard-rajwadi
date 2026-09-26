@@ -18,6 +18,7 @@ import * as camlenioBbps from "./services/camlenio_bbps.js";
 import b2bRoutes from "./api/b2b/routes.js";
 import dmtRoutes from "./api/dmt/routes.js";
 import * as whatsappService from "./services/whatsapp_service.js";
+import nixasoftPayoutRoutes from "./api/nixasoft/routes.js";
 
 // Initialize CRON Jobs
 import "./jobs/billavenue-cron.js";
@@ -348,6 +349,9 @@ async function startServer() {
 
   // Mount DMT (Direct Money Transfer) API Routes (BillAvenue v1.9.3 UAT & Live)
   app.use("/api/dmt", dmtRoutes);
+
+  // Mount Nixasoft Instant Payout API Routes
+  app.use("/api/nixasoft-payout", nixasoftPayoutRoutes);
 
   // Secure Proxy Endpoint for bbps_submissions table queries (uses service role key to bypass RLS)
   app.use('/api/bbps-proxy', async (req, res) => {
