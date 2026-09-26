@@ -18,7 +18,18 @@ import {
   Globe,
   Lock,
   ChevronRight,
-  Clock
+  Clock,
+  Code2,
+  Terminal,
+  CheckCircle2,
+  Send,
+  FileCode,
+  Copy,
+  Check,
+  Cpu,
+  Layers,
+  Sparkles,
+  ArrowUpRight
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -31,6 +42,11 @@ interface HomePageProps {
 
 export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [activeApiTab, setActiveApiTab] = React.useState<'payout' | 'bbps' | 'dmt'>('payout');
+  const [codeViewMode, setCodeViewMode] = React.useState<'request' | 'response'>('request');
+  const [copiedCode, setCopiedCode] = React.useState(false);
+  const [contactSubject, setContactSubject] = React.useState('General Inquiry');
+  const [contactMessage, setContactMessage] = React.useState('');
   const navigate = useNavigate();
   const isLoggedIn = isAdmin || isUser;
 
@@ -40,6 +56,92 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
       element.scrollIntoView({ behavior: 'smooth' });
     }
     setIsMenuOpen(false);
+  };
+
+  const handleRequestApi = (apiName: string) => {
+    setContactSubject(`B2B API Integration: ${apiName}`);
+    setContactMessage(`Hello UsePay Team, I would like to integrate your ${apiName} into our system. Please share the API Documentation, pricing, and sandbox credentials.`);
+    scrollToSection('contact');
+  };
+
+  const apiSnippets = {
+    payout: {
+      title: 'Instant Payout API',
+      subtitle: '24x7 IMPS / NEFT / RTGS & UPI',
+      endpoint: 'POST https://sandbox.usepay.in/v1/payout/transfer',
+      request: `// POST https://sandbox.usepay.in/v1/payout/transfer
+// Headers: Authorization: Bearer sandbox_key_demo...
+{
+  "reference_id": "USEPAY_TXN_984129",
+  "account_number": "987654321012",
+  "ifsc": "HDFC0001234",
+  "beneficiary_name": "Rajesh Patel",
+  "amount": 5000.00,
+  "mode": "IMPS"
+}`,
+      response: `// Sandbox Demo Response (Simulated 280ms)
+{
+  "status": "SUCCESS",
+  "code": 200,
+  "utr": "426819284192",
+  "bank_ref": "HDFC_IMPS_9812",
+  "settlement": "INSTANT",
+  "mode": "SANDBOX_SIMULATION",
+  "message": "Funds credited successfully"
+}`
+    },
+    bbps: {
+      title: 'BBPS Bill Payment API',
+      subtitle: '20,000+ Bharat BillPay Live Billers',
+      endpoint: 'POST https://sandbox.usepay.in/v1/bill-payment/pay',
+      request: `// POST https://sandbox.usepay.in/v1/bill-payment/pay
+// Headers: Authorization: Bearer sandbox_key_demo...
+{
+  "client_ref_id": "BILL_902184",
+  "biller_id": "UGVCL0000GUJ01",
+  "consumer_number": "1002948291",
+  "bill_amount": 1420.00,
+  "payment_mode": "WALLET"
+}`,
+      response: `// Sandbox Demo Response
+{
+  "status": "SUCCESS",
+  "code": 200,
+  "txn_id": "BBPS928174129",
+  "biller_ack_no": "ACK_881928",
+  "convenience_fee": 0.00,
+  "commission_earned": 3.50
+}`
+    },
+    dmt: {
+      title: 'DMT (Money Transfer) API',
+      subtitle: 'Instant Cash-to-Bank Remittance',
+      endpoint: 'POST https://sandbox.usepay.in/v1/dmt/transfer',
+      request: `// POST https://sandbox.usepay.in/v1/dmt/transfer
+// Headers: Authorization: Bearer sandbox_key_demo...
+{
+  "client_txnid": "DMT_662819",
+  "remitter_phone": "9898012345",
+  "beneficiary_id": "BEN_88291",
+  "amount": 25000.00,
+  "channel": "IMPS"
+}`,
+      response: `// Sandbox Demo Response
+{
+  "status": "SUCCESS",
+  "code": 200,
+  "rrn": "626810294819",
+  "beneficiary_name": "RAMESHBHAI PATEL",
+  "transferred_amount": 25000.00,
+  "service_charge": 10.00
+}`
+    }
+  };
+
+  const handleCopyCode = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const services = [
@@ -106,6 +208,10 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
           <nav className="hidden md:flex items-center gap-8">
             <button onClick={() => scrollToSection('home')} className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors">Home</button>
             <button onClick={() => scrollToSection('services')} className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors">Our Services</button>
+            <button onClick={() => scrollToSection('api-solutions')} className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors flex items-center gap-1.5 group">
+              <span>API Suite</span>
+              <span className="bg-gradient-to-r from-indigo-600 to-emerald-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider shadow-sm group-hover:scale-105 transition-transform">B2B</span>
+            </button>
             <button onClick={() => scrollToSection('about')} className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors">About Us</button>
             <button onClick={() => scrollToSection('contact')} className="text-sm font-bold text-slate-600 hover:text-indigo-600 transition-colors">Contact Us</button>
           </nav>
@@ -149,6 +255,10 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
             <nav className="flex flex-col gap-6">
               <button onClick={() => scrollToSection('home')} className="text-2xl font-bold text-slate-900 border-b border-slate-100 pb-4 text-left">Home</button>
               <button onClick={() => scrollToSection('services')} className="text-2xl font-bold text-slate-900 border-b border-slate-100 pb-4 text-left">Our Services</button>
+              <button onClick={() => scrollToSection('api-solutions')} className="text-2xl font-bold text-slate-900 border-b border-slate-100 pb-4 text-left flex items-center justify-between">
+                <span>API Solutions</span>
+                <span className="bg-indigo-600 text-white text-xs font-bold px-2.5 py-0.5 rounded-full">B2B</span>
+              </button>
               <button onClick={() => scrollToSection('about')} className="text-2xl font-bold text-slate-900 border-b border-slate-100 pb-4 text-left">About Us</button>
               <button onClick={() => scrollToSection('contact')} className="text-2xl font-bold text-slate-900 border-b border-slate-100 pb-4 text-left">Contact Us</button>
             </nav>
@@ -304,6 +414,334 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
         </div>
       </section>
 
+      {/* --- B2B & DEVELOPER API SUITE SECTION --- */}
+      <section id="api-solutions" className="py-24 md:py-32 bg-slate-950 text-white relative px-6 overflow-hidden">
+        {/* Ambient Glows */}
+        <div className="absolute top-1/4 -left-48 w-96 h-96 bg-indigo-600/20 rounded-full blur-[120px] pointer-events-none"></div>
+        <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto relative z-10">
+          {/* Header */}
+          <div className="text-center max-w-3xl mx-auto mb-20">
+            <div className="inline-flex items-center gap-2 bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 px-4 py-2 rounded-full text-xs font-black uppercase tracking-widest leading-none mb-6">
+              <Code2 size={16} /> B2B Developer APIs & SDKs
+            </div>
+            <h2 className="text-4xl md:text-6xl font-black text-white leading-tight tracking-tight">
+              Powerful Fintech APIs <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-emerald-400 to-teal-300">
+                Built For Modern Platforms
+              </span>
+            </h2>
+            <p className="text-slate-400 text-lg font-medium leading-relaxed mt-5">
+              Empower your portal, mobile application, or ERP with UsePay's high-speed API infrastructure. Integrate Bill Payment (BBPS), Instant Bank Payouts, and Domestic Money Transfer (DMT) with sub-second latency.
+            </p>
+          </div>
+
+          {/* 3 Main API Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-20">
+            {/* 1. Bill Payment API (BBPS) */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.1 }}
+              className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 hover:border-emerald-500/50 rounded-[2.5rem] p-8 transition-all hover:shadow-2xl hover:shadow-emerald-500/10 flex flex-col justify-between group"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 group-hover:scale-110 transition-transform">
+                    <Receipt size={28} />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    20,000+ Billers
+                  </span>
+                </div>
+
+                <h3 className="text-2xl font-black text-white mb-2">BBPS Bill Payment API</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                  Direct integration with Bharat BillPay for automated bill fetch, validation, and real-time payment execution across India.
+                </p>
+
+                <div className="space-y-3 mb-8">
+                  {[
+                    'Electricity, Water, Gas & Broadband',
+                    'Real-time Bill Fetch & Instant Receipt',
+                    'Attractive Commission & High Margin',
+                    '99.98% Transaction Success Ratio'
+                  ].map((feature, idx) => (
+                    <div key={idx} className="flex items-center gap-2.5 text-xs font-semibold text-slate-300">
+                      <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => handleRequestApi('Bill Payment (BBPS) API')}
+                  className="w-full bg-emerald-500/10 hover:bg-emerald-500 text-emerald-400 hover:text-slate-950 font-black text-xs uppercase tracking-widest py-4 px-6 rounded-2xl border border-emerald-500/30 transition-all flex items-center justify-center gap-2 group-hover:bg-emerald-500 group-hover:text-slate-950 shadow-lg shadow-emerald-500/5"
+                >
+                  Request BBPS API <ArrowUpRight size={16} />
+                </button>
+              </div>
+            </motion.div>
+
+            {/* 2. Instant Payout API */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 hover:border-indigo-500/50 rounded-[2.5rem] p-8 transition-all hover:shadow-2xl hover:shadow-indigo-500/10 flex flex-col justify-between group relative"
+            >
+              <div className="absolute -top-3.5 right-8 bg-gradient-to-r from-indigo-500 to-emerald-500 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full shadow-lg">
+                Most Popular
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center border border-indigo-500/20 group-hover:scale-110 transition-transform">
+                    <Send size={28} />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                    &lt; 300ms IMPS
+                  </span>
+                </div>
+
+                <h3 className="text-2xl font-black text-white mb-2">Instant Payout API</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                  Disburse payouts to any bank account in India 24x7x365. Ideal for instant vendor payments, user withdrawals, and salary disburals.
+                </p>
+
+                <div className="space-y-3 mb-8">
+                  {[
+                    '24x7 IMPS, NEFT, RTGS & UPI Support',
+                    'Instant Penny Drop Account Verification',
+                    'Single & Bulk Batch Transfers with Webhooks',
+                    'Automatic Retry & Smart Banking Routes'
+                  ].map((feature, idx) => (
+                    <div key={idx} className="flex items-center gap-2.5 text-xs font-semibold text-slate-300">
+                      <CheckCircle2 size={16} className="text-indigo-400 shrink-0" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => handleRequestApi('Instant Payout API')}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black text-xs uppercase tracking-widest py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-xl shadow-indigo-600/20"
+                >
+                  Request Payout API <ArrowUpRight size={16} />
+                </button>
+              </div>
+            </motion.div>
+
+            {/* 3. DMT API */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.3 }}
+              className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 hover:border-purple-500/50 rounded-[2.5rem] p-8 transition-all hover:shadow-2xl hover:shadow-purple-500/10 flex flex-col justify-between group"
+            >
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <div className="w-14 h-14 rounded-2xl bg-purple-500/10 text-purple-400 flex items-center justify-center border border-purple-500/20 group-hover:scale-110 transition-transform">
+                    <Landmark size={28} />
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-wider px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    High Limits
+                  </span>
+                </div>
+
+                <h3 className="text-2xl font-black text-white mb-2">DMT (Money Transfer) API</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                  Empower retail networks and fintech agents to transfer money securely to any bank account with instant KYC and OTP flows.
+                </p>
+
+                <div className="space-y-3 mb-8">
+                  {[
+                    'Instant Customer Remitter Registration',
+                    'Direct Beneficiary Account Verification',
+                    'High Monthly Transaction Quotas',
+                    'Instant SMS Alert & PDF Receipt Generation'
+                  ].map((feature, idx) => (
+                    <div key={idx} className="flex items-center gap-2.5 text-xs font-semibold text-slate-300">
+                      <CheckCircle2 size={16} className="text-purple-400 shrink-0" />
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <button
+                  onClick={() => handleRequestApi('DMT (Money Transfer) API')}
+                  className="w-full bg-purple-500/10 hover:bg-purple-500 text-purple-400 hover:text-white font-black text-xs uppercase tracking-widest py-4 px-6 rounded-2xl border border-purple-500/30 transition-all flex items-center justify-center gap-2 group-hover:bg-purple-600 group-hover:text-white shadow-lg shadow-purple-500/5"
+                >
+                  Request DMT API <ArrowUpRight size={16} />
+                </button>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Interactive Code Preview & Developer Showcase */}
+          <div className="bg-slate-900 border border-slate-800 rounded-[3rem] p-6 md:p-12 shadow-2xl">
+            <div className="grid lg:grid-cols-12 gap-10 items-center">
+              {/* Left Column: Interactive Terminal */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* API Selector Tabs */}
+                <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80">
+                  <button
+                    onClick={() => setActiveApiTab('payout')}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
+                      activeApiTab === 'payout'
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Send size={14} /> Payout API
+                  </button>
+                  <button
+                    onClick={() => setActiveApiTab('bbps')}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
+                      activeApiTab === 'bbps'
+                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Receipt size={14} /> BBPS Bill API
+                  </button>
+                  <button
+                    onClick={() => setActiveApiTab('dmt')}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
+                      activeApiTab === 'dmt'
+                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                        : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    <Landmark size={14} /> DMT API
+                  </button>
+                </div>
+
+                {/* Terminal Window */}
+                <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden font-mono text-xs">
+                  {/* Top Bar */}
+                  <div className="bg-slate-900/90 px-4 py-3 border-b border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-full bg-rose-500/80"></div>
+                      <div className="w-3 h-3 rounded-full bg-amber-500/80"></div>
+                      <div className="w-3 h-3 rounded-full bg-emerald-500/80"></div>
+                      <span className="text-[11px] font-bold text-slate-400 ml-2">
+                        {apiSnippets[activeApiTab].endpoint}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Request / Response Switch */}
+                      <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-[10px]">
+                        <button
+                          onClick={() => setCodeViewMode('request')}
+                          className={`px-2 py-0.5 rounded font-bold transition-all ${
+                            codeViewMode === 'request' ? 'bg-indigo-600 text-white' : 'text-slate-400'
+                          }`}
+                        >
+                          Request
+                        </button>
+                        <button
+                          onClick={() => setCodeViewMode('response')}
+                          className={`px-2 py-0.5 rounded font-bold transition-all ${
+                            codeViewMode === 'response' ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                          }`}
+                        >
+                          Response
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          handleCopyCode(
+                            codeViewMode === 'request'
+                              ? apiSnippets[activeApiTab].request
+                              : apiSnippets[activeApiTab].response
+                          )
+                        }
+                        className="text-slate-400 hover:text-white p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition-all flex items-center gap-1"
+                        title="Copy code"
+                      >
+                        {copiedCode ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Code Body */}
+                  <div className="p-5 overflow-x-auto text-slate-300 leading-relaxed max-h-[300px]">
+                    <pre className="text-indigo-300">
+                      <code>
+                        {codeViewMode === 'request'
+                          ? apiSnippets[activeApiTab].request
+                          : apiSnippets[activeApiTab].response}
+                      </code>
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Why Integrate */}
+              <div className="lg:col-span-5 space-y-6">
+                <div>
+                  <h4 className="text-2xl font-black text-white leading-tight">
+                    Developer-First Integration & Sandbox Access
+                  </h4>
+                  <p className="text-slate-400 text-sm mt-2 leading-relaxed">
+                    Designed for software architects and CTOs who demand bulletproof stability, detailed error diagnostics, and rapid time-to-market.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <p className="text-emerald-400 font-black text-xl">99.99%</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase mt-0.5">Uptime SLA</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <p className="text-indigo-400 font-black text-xl">&lt; 300ms</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase mt-0.5">API Latency</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <p className="text-purple-400 font-black text-xl">Postman</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase mt-0.5">Ready Collection</p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800">
+                    <p className="text-amber-400 font-black text-xl">24x7</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase mt-0.5">Tech Support</p>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => handleRequestApi(`${apiSnippets[activeApiTab].title}`)}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-indigo-600/20 flex items-center justify-center gap-2"
+                  >
+                    Get API Credentials <ArrowRight size={16} />
+                  </button>
+                  <a
+                    href="https://wa.me/919512180909?text=Hello%20UsePay%20Team%2C%20I%20am%20interested%20in%20your%20B2B%20APIs%20(Bill%20Payment%2C%20Payout%2C%20DMT)."
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-4 px-6 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white font-black text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 border border-slate-700"
+                  >
+                    WhatsApp Chat
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* --- ABOUT SECTION --- */}
       <section id="about" className="py-24 md:py-32 px-6">
         <div className="max-w-7xl mx-auto">
@@ -439,6 +877,8 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subject</label>
                   <input
                     type="text"
+                    value={contactSubject}
+                    onChange={(e) => setContactSubject(e.target.value)}
                     placeholder="General Inquiry"
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300"
                   />
@@ -448,6 +888,8 @@ export default function HomePage({ isAdmin, isUser, onLogout }: HomePageProps) {
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">How can we help?</label>
                   <textarea
                     rows={4}
+                    value={contactMessage}
+                    onChange={(e) => setContactMessage(e.target.value)}
                     placeholder="Tell us about your requirements..."
                     className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-slate-300 resize-none"
                   ></textarea>
