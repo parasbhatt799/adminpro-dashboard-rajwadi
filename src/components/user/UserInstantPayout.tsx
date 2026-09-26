@@ -520,94 +520,66 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-64 overflow-y-auto pr-1">
-                {beneficiaries.map((ben) => {
-                  const isSelected = selectedBeneficiary?.id === ben.id;
-                  return (
-                    <div
-                      key={ben.id}
-                      onClick={() => setSelectedBeneficiary(ben)}
-                      className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
-                        isSelected
-                          ? 'bg-indigo-50/70 border-indigo-500 shadow-md shadow-indigo-50'
-                          : 'bg-slate-50 hover:bg-slate-100/80 border-slate-200'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <p className="font-bold text-slate-900 text-sm truncate">{ben.holder_name}</p>
-                          <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
-                            <Building2 size={13} className="text-slate-400" />
-                            {ben.bank_name}
-                          </p>
-                          <p className="text-xs font-mono text-slate-500">
-                            A/c: •••• {ben.account_number.slice(-4)}
-                          </p>
-                          <p className="text-[10px] font-mono text-slate-400">
-                            IFSC: {ben.ifsc_code}
-                          </p>
-                        </div>
-                        {isSelected && (
-                          <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                            <Check size={12} strokeWidth={3} />
-                          </div>
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteBeneficiary(e, ben.id)}
-                        className="absolute bottom-2 right-2 p-1 text-slate-400 hover:text-rose-600 transition-colors"
-                        title="Remove Account"
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1">
+                  {beneficiaries.map((ben) => {
+                    const isSelected = selectedBeneficiary?.id === ben.id;
+                    return (
+                      <div
+                        key={ben.id}
+                        onClick={() => setSelectedBeneficiary(ben)}
+                        className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-indigo-50/70 border-indigo-500 shadow-md shadow-indigo-50'
+                            : 'bg-slate-50 hover:bg-slate-100/80 border-slate-200'
+                        }`}
                       >
-                        <Trash2 size={13} />
-                      </button>
-                    </div>
-                  );
-                })}
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-1">
+                            <p className="font-bold text-slate-900 text-sm truncate">{ben.holder_name}</p>
+                            <p className="text-xs font-medium text-slate-600 flex items-center gap-1.5">
+                              <Building2 size={13} className="text-slate-400" />
+                              {ben.bank_name}
+                            </p>
+                            <p className="text-xs font-mono text-slate-500">
+                              A/c: •••• {ben.account_number.slice(-4)}
+                            </p>
+                            <p className="text-[10px] font-mono text-slate-400">
+                              IFSC: {ben.ifsc_code}
+                            </p>
+                          </div>
+                          {isSelected && (
+                            <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                              <Check size={12} strokeWidth={3} />
+                            </div>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteBeneficiary(e, ben.id)}
+                          className="absolute bottom-2 right-2 p-1 text-slate-400 hover:text-rose-600 transition-colors"
+                          title="Remove Account"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">Saved Beneficiaries: {beneficiaries.length}</span>
+                  <Link
+                    to="/user/payout-history"
+                    className="font-bold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1"
+                  >
+                    View Past Payout History
+                    <ChevronRight size={14} />
+                  </Link>
+                </div>
               </div>
             )}
-          </div>
-
-          {/* Slabs Reference Table */}
-          <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-sm space-y-3">
-            <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider text-slate-400">
-              Active Charge Slabs (Nixasoft)
-            </h4>
-            <div className="divide-y divide-slate-100 text-xs">
-              {slabs.map((s, idx) => (
-                <div key={idx} className="py-2.5 flex items-center justify-between">
-                  <span className="font-medium text-slate-700">
-                    ₹{s.min_amount.toLocaleString()} – ₹{s.max_amount.toLocaleString()}
-                  </span>
-                  <span className="font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-                    {s.charge_type === 'percentage' ? `${s.charge_value}%` : `₹${s.charge_value}`}
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 text-center">
-              <Link
-                to="/user/payout-history"
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-700 inline-flex items-center gap-1"
-              >
-                View Past Payout History
-                <ChevronRight size={14} />
-              </Link>
-            </div>
-          </div>
-
-          {/* Accounting & Statements Guarantee Note */}
-          <div className="p-5 bg-white rounded-3xl border border-slate-200 shadow-sm space-y-2 text-xs text-slate-500">
-            <p className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-              <Info size={16} className="text-indigo-600" />
-              Accounting & Statements Guarantee
-            </p>
-            <p className="leading-relaxed">
-              Every payout immediately reflects in both your <strong>Statement Report</strong> and the <strong>Admin Ledger</strong>.
-              In the rare event of a bank failure or rejection, the full amount including fees is instantly refunded to your wallet balance.
-            </p>
           </div>
         </div>
 
