@@ -14,15 +14,7 @@ const getTodayStr = () => {
 
 export default function AdminCamlenioPayoutHistory() {
   const [loading, setLoading] = useState(true);
-  const [savingSettings, setSavingSettings] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [settings, setSettings] = useState({
-    camlenio_is_enabled: true,
-    camlenio_max_payout: 50000,
-    camlenio_min_payout: 100,
-    camlenio_payout_charge: 0,
-    camlenio_verification_charge: 5
-  });
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   // Date & History Filters State (Defaulting to 'today')
@@ -336,25 +328,7 @@ export default function AdminCamlenioPayoutHistory() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch settings
-      const { data: settingsData, error: settingsError } = await supabase
-        .from('payout_settings')
-        .select('*')
-        .eq('id', 1)
-        .single();
-        
-      if (!settingsError && settingsData) {
-        setSettings({
-          camlenio_is_enabled: settingsData.camlenio_is_enabled ?? true,
-          camlenio_max_payout: settingsData.camlenio_max_payout ?? 50000,
-          camlenio_min_payout: settingsData.camlenio_min_payout ?? 100,
-          camlenio_payout_charge: settingsData.camlenio_payout_charge ?? 0,
-          camlenio_verification_charge: settingsData.camlenio_verification_charge ?? 5
-        });
-      }
-
-      // Fetch payout and verification transactions
-      // They are recorded in payout_submissions
+      // Fetch payout and verification transactions from payout_submissions
       const { data: txData, error: txError } = await supabase
         .from('payout_submissions')
         .select('*, users_profiles(id, name, firm_name, mobile_number, email)')
@@ -362,90 +336,12 @@ export default function AdminCamlenioPayoutHistory() {
         .order('created_at', { ascending: false });
 
       if (txError) throw txError;
-      
-      // Filter only camlenio related (which can be identified by the new charge or regular payout logic)
-      // For now we'll just show all payout_submissions, or if you added a specific transaction_type, filter by that.
       setTransactions(txData || []);
     } catch (err: any) {
       console.error('Error fetching data:', err);
       setMessage({ type: 'error', text: 'Failed to load data.' });
     } finally {
       setLoading(false);
-    }
-  };
-
-  const [syncingPending, setSyncingPending] = useState(false);
-
-  const handleSyncPending = async () => {
-    setSyncingPending(true);
-    setMessage(null);
-    try {
-      const res = await fetch('/api/cron/payout-status-check');
-      const data = await res.json();
-      if (data.success) {
-        setMessage({ type: 'success', text: `Sync complete: Checked ${data.summary?.processed || 0} pending/processing payout(s). Approved: ${data.summary?.approved || 0}, Rejected: ${data.summary?.rejected || 0}.` });
-        fetchData();
-      } else {
-        setMessage({ type: 'error', text: data.message || 'Failed to sync payout statuses.' });
-      }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: `Sync error: ${err.message}` });
-    } finally {
-      setSyncingPending(false);
-    }
-  };
-
-  const handleSaveSettings = async () => {
-    setSavingSettings(true);
-    setMessage(null);
-    try {
-      const { error } = await supabase
-        .from('payout_settings')
-        .upsert({
-          id: 1,
-          camlenio_is_enabled: settings.camlenio_is_enabled,
-          camlenio_max_payout: settings.camlenio_max_payout,
-          camlenio_min_payout: settings.camlenio_min_payout,
-          camlenio_payout_charge: settings.camlenio_payout_charge,
-          camlenio_verification_charge: settings.camlenio_verification_charge
-        });
-
-      if (error) throw error;
-      setMessage({ type: 'success', text: 'Settings updated successfully!' });
-      
-      setTimeout(() => setMessage(null), 3000);
-    } catch (err: any) {
-      console.error('Error saving settings:', err);
-      setMessage({ type: 'error', text: `Failed to save settings: ${err?.message || JSON.stringify(err)}` });
-    } finally {
-      setSavingSettings(false);
-    }
-  };
-
-  const [checkingId, setCheckingId] = useState<string | null>(null);
-
-  const handleCheckStatus = async (tx: any) => {
-    const txnId = tx.bank_ref || tx.txn_id || tx.id;
-    setCheckingId(tx.id);
-    setMessage(null);
-    try {
-      const res = await fetch('/api/payout/check-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txn_id: txnId, payoutId: tx.id })
-      });
-      const data = await res.json();
-      if (data.success) {
-        const statusMsg = data.data?.status_message || data.data?.status || 'Status updated';
-        setMessage({ type: 'success', text: `Status for ${txnId}: ${statusMsg}` });
-        fetchData();
-      } else {
-        setMessage({ type: 'error', text: data.message || 'Failed to check status' });
-      }
-    } catch (err: any) {
-      setMessage({ type: 'error', text: `Error checking status: ${err.message}` });
-    } finally {
-      setCheckingId(null);
     }
   };
 
@@ -504,48 +400,18 @@ export default function AdminCamlenioPayoutHistory() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Camlenio AEPS Payouts</h1>
-          <p className="text-slate-500">Manage settings and view all payout transactions</p>
+          <h1 className="text-2xl font-bold text-slate-900">Instant Payout History</h1>
+          <p className="text-slate-500">Historical records of all instant payouts and user refund management</p>
         </div>
         
         <div className="flex items-center gap-3">
-          {/* AEPS Payout Toggle Switch near Refresh Button */}
-          <div className="flex items-center gap-2.5 bg-white px-3.5 py-2 rounded-xl border border-slate-200 shadow-xs">
-            <span className="text-xs font-bold text-slate-700">AEPS Payout:</span>
-            <button
-              type="button"
-              onClick={() => setSettings({ ...settings, camlenio_is_enabled: !settings.camlenio_is_enabled })}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                settings.camlenio_is_enabled ? 'bg-green-500' : 'bg-slate-300'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  settings.camlenio_is_enabled ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
-            <span className={`text-xs font-extrabold ${settings.camlenio_is_enabled ? 'text-green-600' : 'text-slate-500'}`}>
-              {settings.camlenio_is_enabled ? 'Active (ON)' : 'Disabled (OFF)'}
-            </span>
-          </div>
-
-          <button
-            onClick={handleSyncPending}
-            disabled={syncingPending}
-            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
-            title="Check and update all pending/processing payout statuses"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${syncingPending ? 'animate-spin' : ''}`} />
-            <span>Sync Pending Status</span>
-          </button>
-
           <button
             onClick={fetchData}
-            className="p-2.5 bg-white text-slate-600 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs cursor-pointer"
+            className="px-4 py-2 bg-white text-slate-700 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs cursor-pointer flex items-center gap-2 text-xs font-bold"
             title="Refresh Data"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="w-3.5 h-3.5 text-indigo-600" />
+            <span>Refresh History</span>
           </button>
         </div>
       </div>
@@ -556,94 +422,6 @@ export default function AdminCamlenioPayoutHistory() {
           <p className="text-sm font-medium">{message.text}</p>
         </div>
       )}
-
-      {/* Settings Panel - Compact 1-Line Grid */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
-        <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Settings2 className="w-5 h-5 text-indigo-600" />
-            <h2 className="text-base font-bold text-slate-900">System Settings</h2>
-          </div>
-          <button
-            onClick={handleSaveSettings}
-            disabled={savingSettings}
-            className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center gap-1.5 shadow-xs cursor-pointer"
-          >
-            {savingSettings ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            Save Settings
-          </button>
-        </div>
-
-        <div className="p-4 sm:p-5">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            {/* Max Payout Amount */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Max Payout Amount (₹)</label>
-              <div className="relative">
-                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-3.5 h-3.5" />
-                </div>
-                <input
-                  type="number"
-                  value={settings.camlenio_max_payout}
-                  onChange={(e) => setSettings({ ...settings, camlenio_max_payout: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Min Payout Amount */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Min Payout Amount (₹)</label>
-              <div className="relative">
-                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-3.5 h-3.5" />
-                </div>
-                <input
-                  type="number"
-                  value={settings.camlenio_min_payout}
-                  onChange={(e) => setSettings({ ...settings, camlenio_min_payout: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Verification Charge */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">A/c Verify Charge (₹)</label>
-              <div className="relative">
-                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-3.5 h-3.5" />
-                </div>
-                <input
-                  type="number"
-                  value={settings.camlenio_verification_charge}
-                  onChange={(e) => setSettings({ ...settings, camlenio_verification_charge: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Payout Charge */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700">Payout Charge (₹)</label>
-              <div className="relative">
-                <div className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">
-                  <IndianRupee className="w-3.5 h-3.5" />
-                </div>
-                <input
-                  type="number"
-                  value={settings.camlenio_payout_charge}
-                  onChange={(e) => setSettings({ ...settings, camlenio_payout_charge: parseFloat(e.target.value) || 0 })}
-                  className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                />
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
 
       {/* History Table */}
       <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
@@ -932,20 +710,6 @@ export default function AdminCamlenioPayoutHistory() {
                     </td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleCheckStatus(tx)}
-                          disabled={checkingId === tx.id}
-                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg border border-indigo-200 transition-colors disabled:opacity-50 inline-flex items-center gap-1 cursor-pointer"
-                          title="Check status from provider"
-                        >
-                          {checkingId === tx.id ? (
-                            <Loader2 className="w-3 h-3 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-3 h-3" />
-                          )}
-                          Check Status
-                        </button>
-
                         {/* Refund Button for active payouts */}
                         {!['rejected', 'failed', 'refunded'].includes((tx.status || '').toLowerCase()) ? (
                           <button

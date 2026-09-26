@@ -41,8 +41,6 @@ const menuItems = [
   { id: 'cspl-payment', label: 'Bill Payment 3', icon: Receipt, path: '/user/cspl-payment' },
   { id: 'mobile-recharge', label: 'Mobile Recharge', icon: Smartphone, path: '/user/recharge' },
   { id: 'aeps', label: 'Aadhaar ATM (AEPS)', icon: Fingerprint, path: '/user/aeps' },
-  { id: 'camlenio-payout', label: 'UsePay Payout', icon: Send, path: '/user/camlenio-payout' },
-  { id: 'indiatek-payout', label: 'UsePayout', icon: Send, path: '/user/usepayout' },
   { id: 'payout-history', label: 'Payout History', icon: Clock, path: '/user/payout-history' },
   { id: 'bill-history', label: 'Bill History', icon: ClipboardList, path: '/user/bill-history' },
   { id: 'statement', label: 'Statement', icon: ClipboardList, path: '/user/statement' },
@@ -119,8 +117,6 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
   const [isRechargeEnabled, setIsRechargeEnabled] = useState(true);
   const [isFundTransferEnabled, setIsFundTransferEnabled] = useState(true);
   const [isDmtEnabled, setIsDmtEnabled] = useState(true);
-  const [isCamlenioAepsPayoutEnabled, setIsCamlenioAepsPayoutEnabled] = useState(false);
-  const [isIndiaTekPayoutEnabled, setIsIndiaTekPayoutEnabled] = useState(true);
 
   const finalMenuItems = [
     ...menuItems.slice(0, 1),
@@ -152,12 +148,6 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
       if (!isDmtEnabled && item.id === 'dmt-transfer' && !isTester) {
         return false;
       }
-      if (!isCamlenioAepsPayoutEnabled && (item.id === 'camlenio-payout' || item.id === 'payout-history') && !isTester) {
-        return false;
-      }
-      if (!isIndiaTekPayoutEnabled && item.id === 'indiatek-payout' && !isTester) {
-        return false;
-      }
       return true;
     })
   ];
@@ -165,12 +155,6 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
   useEffect(() => {
     const fetchBranding = async () => {
       const { data } = await supabase.from('qr_settings').select('logo_url, logo_mini_url, favicon_url, is_bbps_enabled, is_billavenue_enabled, is_cspl_enabled, is_recharge_enabled, is_fund_transfer_enabled, is_dmt_enabled').eq('id', 1).single();
-      const { data: payoutData } = await supabase.from('payout_settings').select('camlenio_is_enabled').eq('id', 1).single();
-      const { data: indiatekData } = await supabase.from('indiatek_payout_settings').select('is_active').eq('id', 1).maybeSingle();
-
-      if (indiatekData) {
-        setIsIndiaTekPayoutEnabled(indiatekData.is_active !== false);
-      }
 
       if (data) {
         setBranding({
@@ -184,7 +168,6 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
         setIsRechargeEnabled(data.is_recharge_enabled ?? true);
         setIsFundTransferEnabled(data.is_fund_transfer_enabled ?? true);
         setIsDmtEnabled(data.is_dmt_enabled ?? true);
-        setIsCamlenioAepsPayoutEnabled(payoutData?.camlenio_is_enabled ?? false);
       }
     };
     fetchBranding();
@@ -217,24 +200,10 @@ export default function UserSidebar({ onLogout, isCollapsed, role, isTester }: U
           }
         }
       })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'indiatek_payout_settings', filter: 'id=eq.1' }, (payload) => {
-        if (payload.new && 'is_active' in payload.new) {
-          setIsIndiaTekPayoutEnabled((payload.new as any).is_active !== false);
-        }
-      })
-      .subscribe();
-
-    const payoutChannel = supabase.channel('payout_settings_user')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'payout_settings', filter: 'id=eq.1' }, (payload) => {
-        if (payload.new && 'camlenio_is_enabled' in payload.new) {
-          setIsCamlenioAepsPayoutEnabled(payload.new.camlenio_is_enabled ?? false);
-        }
-      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
-      supabase.removeChannel(payoutChannel);
     };
   }, []);
 
