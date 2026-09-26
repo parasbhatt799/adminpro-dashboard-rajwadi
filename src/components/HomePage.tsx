@@ -508,7 +508,7 @@ export default function HomePage({ isAdmin, isUser }: HomePageProps) {
             <div className="inline-flex items-center gap-2.5 bg-white border border-indigo-100 text-indigo-700 px-4 py-2 rounded-full text-xs font-black shadow-md shadow-indigo-100/50">
               <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
               <Zap size={14} className="text-amber-500 fill-amber-500" />
-              <span>Next-Gen Fintech Operating Platform</span>
+              <span>Fintech Operating Platform</span>
               <span className="text-slate-300">|</span>
               <span className="text-slate-500 font-bold uppercase tracking-wider text-[10px]">NPCI & BBPS Enabled</span>
             </div>
@@ -525,7 +525,7 @@ export default function HomePage({ isAdmin, isUser }: HomePageProps) {
 
             {/* Subtitle */}
             <p className="text-lg md:text-xl text-slate-600 font-medium max-w-xl leading-relaxed">
-              Empowering <strong className="text-slate-900 font-bold">50,000+ merchants, distributors & developers</strong> across India with ultra-fast bank payouts, utility bill payments, cash withdrawals, and DMT transfers with 99.99% uptime.
+              Empowering <strong className="text-slate-900 font-bold">2,000+ merchants, distributors & developers</strong> across India with ultra-fast bank payouts, utility bill payments, cash withdrawals, and DMT transfers with 99.99% uptime.
             </p>
 
             {/* Action Buttons */}
@@ -549,7 +549,7 @@ export default function HomePage({ isAdmin, isUser }: HomePageProps) {
             {/* Live Trust Metrics */}
             <div className="grid grid-cols-3 gap-6 pt-8 border-t border-slate-200/80">
               <div>
-                <h3 className="text-3xl md:text-4xl font-black text-slate-900">50k+</h3>
+                <h3 className="text-3xl md:text-4xl font-black text-slate-900">2k+</h3>
                 <p className="text-xs text-slate-500 font-bold uppercase tracking-wider mt-1">Active Merchants</p>
               </div>
               <div>
@@ -723,31 +723,28 @@ export default function HomePage({ isAdmin, isUser }: HomePageProps) {
             <div className="flex items-center justify-center gap-3 mt-8">
               <button
                 onClick={() => setServiceFilter('all')}
-                className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${
-                  serviceFilter === 'all'
-                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
+                className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${serviceFilter === 'all'
+                  ? 'bg-slate-900 text-white shadow-lg shadow-slate-900/20'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
               >
                 All Services (8)
               </button>
               <button
                 onClick={() => setServiceFilter('banking')}
-                className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${
-                  serviceFilter === 'banking'
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
+                className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${serviceFilter === 'banking'
+                  ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
               >
                 Banking & Payouts
               </button>
               <button
                 onClick={() => setServiceFilter('retail')}
-                className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${
-                  serviceFilter === 'retail'
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
-                    : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
-                }`}
+                className={`px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-wider transition-all ${serviceFilter === 'retail'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'
+                  }`}
               >
                 Retail & Cash Services
               </button>
@@ -989,31 +986,28 @@ export default function HomePage({ isAdmin, isUser }: HomePageProps) {
                 <div className="flex flex-wrap items-center gap-2 bg-slate-950 p-1.5 rounded-2xl border border-slate-800/80">
                   <button
                     onClick={() => setActiveApiTab('payout')}
-                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                      activeApiTab === 'payout'
-                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${activeApiTab === 'payout'
+                      ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Send size={14} /> Payout API
                   </button>
                   <button
                     onClick={() => setActiveApiTab('bbps')}
-                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                      activeApiTab === 'bbps'
-                        ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${activeApiTab === 'bbps'
+                      ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Receipt size={14} /> BBPS Bill API
                   </button>
                   <button
                     onClick={() => setActiveApiTab('dmt')}
-                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                      activeApiTab === 'dmt'
-                        ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                        : 'text-slate-400 hover:text-white'
-                    }`}
+                    className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${activeApiTab === 'dmt'
+                      ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                      : 'text-slate-400 hover:text-white'
+                      }`}
                   >
                     <Landmark size={14} /> DMT API
                   </button>
@@ -1037,17 +1031,15 @@ export default function HomePage({ isAdmin, isUser }: HomePageProps) {
                       <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800 text-[10px]">
                         <button
                           onClick={() => setCodeViewMode('request')}
-                          className={`px-2 py-0.5 rounded font-bold transition-all ${
-                            codeViewMode === 'request' ? 'bg-indigo-600 text-white' : 'text-slate-400'
-                          }`}
+                          className={`px-2 py-0.5 rounded font-bold transition-all ${codeViewMode === 'request' ? 'bg-indigo-600 text-white' : 'text-slate-400'
+                            }`}
                         >
                           Request
                         </button>
                         <button
                           onClick={() => setCodeViewMode('response')}
-                          className={`px-2 py-0.5 rounded font-bold transition-all ${
-                            codeViewMode === 'response' ? 'bg-emerald-600 text-white' : 'text-slate-400'
-                          }`}
+                          className={`px-2 py-0.5 rounded font-bold transition-all ${codeViewMode === 'response' ? 'bg-emerald-600 text-white' : 'text-slate-400'
+                            }`}
                         >
                           Response
                         </button>
