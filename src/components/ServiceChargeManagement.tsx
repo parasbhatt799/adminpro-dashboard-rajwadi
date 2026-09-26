@@ -13,7 +13,6 @@ import {
   Percent,
   ArrowRight,
   Layers,
-  Calculator,
   RefreshCw,
   SlidersVertical
 } from 'lucide-react';
@@ -84,7 +83,6 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [savingPayoutSlab, setSavingPayoutSlab] = useState(false);
   const [payoutDeleteConfirm, setPayoutDeleteConfirm] = useState<string | null>(null);
   const [isDeletingPayoutSlab, setIsDeletingPayoutSlab] = useState(false);
-  const [payoutCalcAmount, setPayoutCalcAmount] = useState('5000');
   const [payoutError, setPayoutError] = useState<string | null>(null);
   const [payoutSuccess, setPayoutSuccess] = useState<string | null>(null);
 
@@ -463,26 +461,6 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
       console.error('Error toggling payout slab status:', err);
     }
   };
-
-  // Fee calculation logic for simulator
-  const testPayoutNum = Number(payoutCalcAmount) || 0;
-  const matchedPayoutSlab = payoutSlabs.find(
-    s => s.is_active && testPayoutNum >= s.min_amount && testPayoutNum <= s.max_amount
-  );
-  let calcPayoutCharge = 0;
-  if (matchedPayoutSlab) {
-    calcPayoutCharge = matchedPayoutSlab.charge_type === 'percentage'
-      ? Math.round(((testPayoutNum * matchedPayoutSlab.charge_value) / 100) * 100) / 100
-      : matchedPayoutSlab.charge_value;
-  } else if (payoutSlabs.length > 0) {
-    const highest = payoutSlabs[payoutSlabs.length - 1];
-    if (testPayoutNum > highest.max_amount && highest.is_active) {
-      calcPayoutCharge = highest.charge_type === 'percentage'
-        ? Math.round(((testPayoutNum * highest.charge_value) / 100) * 100) / 100
-        : highest.charge_value;
-    }
-  }
-  const calcPayoutTotal = testPayoutNum + calcPayoutCharge;
 
   return (
     <div className="space-y-6">
@@ -876,172 +854,122 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Dynamic Charge Slabs Table (8 cols) */}
-        <div className="lg:col-span-8 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-            <div>
-              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
-                Dynamic Charge Slabs
-                <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100">
-                  {payoutSlabs.length} Slabs
-                </span>
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Configure tier-based fees (e.g. ₹100-50,000 = ₹25, ₹50,001-1,00,000 = ₹50) applied atomically during bank payouts
-              </p>
-            </div>
-
-            {isFullAdmin && (
-              <button
-                onClick={handleOpenAddPayoutSlab}
-                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-indigo-100 transition-all active:scale-95"
-              >
-                <Plus size={16} />
-                Add New Slab
-              </button>
-            )}
+      {/* Dynamic Charge Slabs Table */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              Dynamic Charge Slabs
+              <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100">
+                {payoutSlabs.length} Slabs
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Configure tier-based fees (e.g. ₹100-50,000 = ₹25, ₹50,001-1,00,000 = ₹50) applied atomically during bank payouts
+            </p>
           </div>
 
-          {loadingPayoutSlabs ? (
-            <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
-              <LogoLoader size="md" className="mx-auto" />
-              <p className="text-xs font-bold">Loading payout slabs...</p>
-            </div>
-          ) : payoutSlabs.length === 0 ? (
-            <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-2xl space-y-3">
-              <Layers className="w-10 h-10 text-slate-300 mx-auto" />
-              <p className="text-sm font-bold text-slate-700">No Payout Slabs Configured</p>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Click the "Add New Slab" button above to create tier-based payout charges.
-              </p>
-              {isFullAdmin && (
-                <button
-                  onClick={handleOpenAddPayoutSlab}
-                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
-                >
-                  Create First Slab
-                </button>
-              )}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                    <th className="pb-3 px-3">Range (From - To)</th>
-                    <th className="pb-3 px-3">Charge Type</th>
-                    <th className="pb-3 px-3">Charge Amount</th>
-                    <th className="pb-3 px-3 text-center">Status</th>
-                    {isFullAdmin && <th className="pb-3 px-3 text-right">Actions</th>}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 text-sm">
-                  {payoutSlabs.map((slab) => (
-                    <tr key={slab.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-4 px-3 font-bold text-slate-900">
-                        <span className="text-indigo-600">₹{slab.min_amount.toLocaleString()}</span>
-                        <span className="text-slate-400 mx-1.5">→</span>
-                        <span>₹{slab.max_amount.toLocaleString()}</span>
-                      </td>
-                      <td className="py-4 px-3">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
-                          slab.charge_type === 'percentage'
-                            ? 'bg-purple-50 text-purple-700 border border-purple-100'
-                            : 'bg-blue-50 text-blue-700 border border-blue-100'
-                        }`}>
-                          {slab.charge_type === 'percentage' ? 'Percentage (%)' : 'Flat Fee (₹)'}
-                        </span>
-                      </td>
-                      <td className="py-4 px-3 font-black text-rose-600">
-                        {slab.charge_type === 'percentage' ? `${slab.charge_value}%` : `₹${slab.charge_value}`}
-                      </td>
-                      <td className="py-4 px-3 text-center">
-                        <button
-                          onClick={() => isFullAdmin && handleTogglePayoutSlab(slab)}
-                          disabled={!isFullAdmin}
-                          className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase transition-all ${
-                            slab.is_active
-                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                              : 'bg-slate-100 text-slate-500 border border-slate-200'
-                          } ${!isFullAdmin ? 'cursor-default' : 'cursor-pointer hover:shadow-sm'}`}
-                        >
-                          {slab.is_active ? 'Active' : 'Disabled'}
-                        </button>
-                      </td>
-                      {isFullAdmin && (
-                        <td className="py-4 px-3 text-right space-x-2">
-                          <button
-                            onClick={() => handleOpenEditPayoutSlab(slab)}
-                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                            title="Edit Slab"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={() => setPayoutDeleteConfirm(slab.id)}
-                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
-                            title="Delete Slab"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+          {isFullAdmin && (
+            <button
+              onClick={handleOpenAddPayoutSlab}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-indigo-100 transition-all active:scale-95"
+            >
+              <Plus size={16} />
+              Add New Slab
+            </button>
           )}
         </div>
 
-        {/* Fee Simulator / Slab Tester (4 cols) */}
-        <div className="lg:col-span-4 bg-gradient-to-br from-indigo-50/70 via-slate-50/50 to-white rounded-3xl p-6 border border-indigo-100/70 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 border-b border-indigo-100/60 pb-3">
-            <Calculator className="w-5 h-5 text-indigo-600" />
-            <h4 className="font-bold text-slate-900 text-sm">Fee Simulator / Slab Tester</h4>
+        {loadingPayoutSlabs ? (
+          <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
+            <LogoLoader size="md" className="mx-auto" />
+            <p className="text-xs font-bold">Loading payout slabs...</p>
           </div>
-
-          <p className="text-xs text-slate-500">
-            Type an amount to verify which slab applies and the exact fee deducted from the user's wallet.
-          </p>
-
-          <div>
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
-              Test Amount (₹)
-            </label>
-            <input
-              type="number"
-              value={payoutCalcAmount}
-              onChange={(e) => setPayoutCalcAmount(e.target.value)}
-              placeholder="5000"
-              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-base font-bold text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-            />
+        ) : payoutSlabs.length === 0 ? (
+          <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-2xl space-y-3">
+            <Layers className="w-10 h-10 text-slate-300 mx-auto" />
+            <p className="text-sm font-bold text-slate-700">No Payout Slabs Configured</p>
+            <p className="text-xs text-slate-400 max-w-sm mx-auto">
+              Click the "Add New Slab" button above to create tier-based payout charges.
+            </p>
+            {isFullAdmin && (
+              <button
+                onClick={handleOpenAddPayoutSlab}
+                className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+              >
+                Create First Slab
+              </button>
+            )}
           </div>
-
-          <div className="p-4 bg-white rounded-2xl border border-indigo-100 space-y-2 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>Transfer Amount:</span>
-              <span className="font-bold text-slate-900">₹{testPayoutNum.toLocaleString()}</span>
-            </div>
-            <div className="flex justify-between text-slate-600">
-              <span>Matched Slab:</span>
-              <span className="font-bold text-indigo-600 text-right">
-                {matchedPayoutSlab 
-                  ? `₹${matchedPayoutSlab.min_amount.toLocaleString()} - ₹${matchedPayoutSlab.max_amount.toLocaleString()}` 
-                  : 'Default / Out of range'}
-              </span>
-            </div>
-            <div className="flex justify-between text-rose-600">
-              <span>Payout Fee:</span>
-              <span className="font-black">+ ₹{calcPayoutCharge.toFixed(2)}</span>
-            </div>
-            <div className="pt-2 border-t border-slate-100 flex justify-between text-sm font-black text-slate-900">
-              <span>Total Wallet Debit:</span>
-              <span className="text-indigo-600">₹{calcPayoutTotal.toFixed(2)}</span>
-            </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  <th className="pb-3 px-3">Range (From - To)</th>
+                  <th className="pb-3 px-3">Charge Type</th>
+                  <th className="pb-3 px-3">Charge Amount</th>
+                  <th className="pb-3 px-3 text-center">Status</th>
+                  {isFullAdmin && <th className="pb-3 px-3 text-right">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {payoutSlabs.map((slab) => (
+                  <tr key={slab.id} className="hover:bg-slate-50/70 transition-colors">
+                    <td className="py-4 px-3 font-bold text-slate-900">
+                      <span className="text-indigo-600">₹{slab.min_amount.toLocaleString()}</span>
+                      <span className="text-slate-400 mx-1.5">→</span>
+                      <span>₹{slab.max_amount.toLocaleString()}</span>
+                    </td>
+                    <td className="py-4 px-3">
+                      <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
+                        slab.charge_type === 'percentage'
+                          ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                          : 'bg-blue-50 text-blue-700 border border-blue-100'
+                      }`}>
+                        {slab.charge_type === 'percentage' ? 'Percentage (%)' : 'Flat Fee (₹)'}
+                      </span>
+                    </td>
+                    <td className="py-4 px-3 font-black text-rose-600">
+                      {slab.charge_type === 'percentage' ? `${slab.charge_value}%` : `₹${slab.charge_value}`}
+                    </td>
+                    <td className="py-4 px-3 text-center">
+                      <button
+                        onClick={() => isFullAdmin && handleTogglePayoutSlab(slab)}
+                        disabled={!isFullAdmin}
+                        className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase transition-all ${
+                          slab.is_active
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                        } ${!isFullAdmin ? 'cursor-default' : 'cursor-pointer hover:shadow-sm'}`}
+                      >
+                        {slab.is_active ? 'Active' : 'Disabled'}
+                      </button>
+                    </td>
+                    {isFullAdmin && (
+                      <td className="py-4 px-3 text-right space-x-2">
+                        <button
+                          onClick={() => handleOpenEditPayoutSlab(slab)}
+                          className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="Edit Slab"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => setPayoutDeleteConfirm(slab.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="Delete Slab"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        </div>
+        )}
       </div>
     </div>
   )}

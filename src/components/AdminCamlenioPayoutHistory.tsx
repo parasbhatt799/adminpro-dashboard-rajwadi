@@ -17,6 +17,65 @@ export default function AdminCamlenioPayoutHistory() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
+  // Payout Service Status State
+  const [serviceActive, setServiceActive] = useState<boolean>(true);
+  const [loadingServiceStatus, setLoadingServiceStatus] = useState<boolean>(false);
+  const [togglingService, setTogglingService] = useState<boolean>(false);
+  const [payoutSettings, setPayoutSettings] = useState<any>(null);
+
+  const fetchServiceStatus = async () => {
+    try {
+      setLoadingServiceStatus(true);
+      const res = await fetch('/api/nixasoft-payout/admin/settings');
+      const data = await res.json();
+      if (data.success && data.settings) {
+        setPayoutSettings(data.settings);
+        setServiceActive(data.settings.is_active !== false);
+      }
+    } catch (err) {
+      console.error('Error fetching payout service status:', err);
+    } finally {
+      setLoadingServiceStatus(false);
+    }
+  };
+
+  const handleToggleService = async () => {
+    try {
+      setTogglingService(true);
+      const nextState = !serviceActive;
+      setServiceActive(nextState);
+
+      const payload = {
+        ...(payoutSettings || {}),
+        is_active: nextState
+      };
+
+      const res = await fetch('/api/nixasoft-payout/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPayoutSettings(data.settings);
+        setServiceActive(data.settings.is_active);
+        setMessage({
+          type: 'success',
+          text: `Payout service turned ${data.settings.is_active ? 'ON (ACTIVE)' : 'OFF (DISABLED)'} successfully`
+        });
+        setTimeout(() => setMessage(null), 4000);
+      } else {
+        setServiceActive(!nextState);
+        setMessage({ type: 'error', text: data.message || 'Failed to update service status' });
+      }
+    } catch (err: any) {
+      setServiceActive(!serviceActive);
+      setMessage({ type: 'error', text: err.message || 'Error updating service status' });
+    } finally {
+      setTogglingService(false);
+    }
+  };
+
   // Date & History Filters State (Defaulting to 'today')
   const [timeRange, setTimeRange] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all' | 'custom'>('today');
   const [startDate, setStartDate] = useState(getTodayStr());
@@ -323,6 +382,7 @@ export default function AdminCamlenioPayoutHistory() {
 
   useEffect(() => {
     fetchData();
+    fetchServiceStatus();
   }, []);
 
   const fetchData = async () => {
@@ -398,16 +458,47 @@ export default function AdminCamlenioPayoutHistory() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Instant Payout History</h1>
-          <p className="text-slate-500">Historical records of all instant payouts and user refund management</p>
+          <p className="text-slate-500 text-xs sm:text-sm">Historical records of all instant payouts and user refund management</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex items-center flex-wrap gap-4">
+          {/* Payout Service Status Master Toggle */}
+          <div className="flex items-center gap-3.5 bg-slate-900 px-4 py-2.5 rounded-2xl text-white shadow-sm border border-slate-800">
+            <div className="text-right">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block leading-tight">
+                Payout Service Status
+              </span>
+              <span className={`text-xs font-black flex items-center gap-1.5 justify-end ${
+                serviceActive ? 'text-emerald-400' : 'text-rose-400'
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${serviceActive ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'}`} />
+                {serviceActive ? 'SERVICE ACTIVE (ON)' : 'SERVICE DISABLED (OFF)'}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleToggleService}
+              disabled={togglingService || loadingServiceStatus}
+              title={serviceActive ? 'Click to turn Payout Service OFF' : 'Click to turn Payout Service ON'}
+              className={`relative inline-flex h-7 w-14 items-center rounded-full transition-colors focus:outline-none shadow-inner cursor-pointer ${
+                serviceActive ? 'bg-emerald-500' : 'bg-slate-700'
+              } ${togglingService ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition-transform ${
+                  serviceActive ? 'translate-x-8' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
           <button
-            onClick={fetchData}
-            className="px-4 py-2 bg-white text-slate-700 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs cursor-pointer flex items-center gap-2 text-xs font-bold"
+            onClick={() => { fetchData(); fetchServiceStatus(); }}
+            className="px-4 py-2.5 bg-white text-slate-700 rounded-xl hover:bg-slate-50 border border-slate-200 transition-colors shadow-xs cursor-pointer flex items-center gap-2 text-xs font-bold h-[42px]"
             title="Refresh Data"
           >
             <RefreshCw className="w-3.5 h-3.5 text-indigo-600" />
