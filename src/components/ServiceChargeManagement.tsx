@@ -4,6 +4,7 @@ import {
   Plus, 
   Trash2, 
   Edit3, 
+  Edit2,
   Loader2, 
   CheckCircle2, 
   AlertCircle,
@@ -11,11 +12,15 @@ import {
   IndianRupee,
   Percent,
   ArrowRight,
-  Layers
+  Layers,
+  Calculator,
+  RefreshCw,
+  SlidersVertical
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useSearchParams } from 'react-router-dom';
 
 interface Slab {
   id: string;
@@ -27,12 +32,34 @@ interface Slab {
   created_at: string;
 }
 
+export interface PayoutSlab {
+  id: string;
+  min_amount: number;
+  max_amount: number;
+  charge_type: 'flat' | 'percentage';
+  charge_value: number;
+  is_active: boolean;
+}
+
 interface ServiceChargeManagementProps {
   adminRole?: string;
 }
 
 export default function ServiceChargeManagement({ adminRole }: ServiceChargeManagementProps) {
   const isFullAdmin = adminRole === 'full';
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get('tab') === 'payout' ? 'payout' : 'service';
+  const [activeTab, setActiveTab] = useState<'service' | 'payout'>(initialTab);
+
+  // Sync tab from URL searchParams
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'payout' || tab === 'service') {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
+  // General Service Charge Slabs State
   const [slabs, setSlabs] = useState<Slab[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
@@ -41,6 +68,25 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [error, setError] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Dynamic Payout Slabs State
+  const [payoutSlabs, setPayoutSlabs] = useState<PayoutSlab[]>([]);
+  const [loadingPayoutSlabs, setLoadingPayoutSlabs] = useState(false);
+  const [isPayoutModalOpen, setIsPayoutModalOpen] = useState(false);
+  const [editingPayoutSlab, setEditingPayoutSlab] = useState<PayoutSlab | null>(null);
+  const [payoutSlabForm, setPayoutSlabForm] = useState({
+    min_amount: '',
+    max_amount: '',
+    charge_type: 'flat' as 'flat' | 'percentage',
+    charge_value: '',
+    is_active: true
+  });
+  const [savingPayoutSlab, setSavingPayoutSlab] = useState(false);
+  const [payoutDeleteConfirm, setPayoutDeleteConfirm] = useState<string | null>(null);
+  const [isDeletingPayoutSlab, setIsDeletingPayoutSlab] = useState(false);
+  const [payoutCalcAmount, setPayoutCalcAmount] = useState('5000');
+  const [payoutError, setPayoutError] = useState<string | null>(null);
+  const [payoutSuccess, setPayoutSuccess] = useState<string | null>(null);
 
   const [qrMinLimit, setQrMinLimit] = useState<number>(100);
   const [qrMaxLimit, setQrMaxLimit] = useState<number>(100000);
@@ -282,14 +328,223 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
     }
   };
 
+  // Fetch Nixasoft payout slabs
+  const fetchPayoutSlabs = async () => {
+    try {
+      setLoadingPayoutSlabs(true);
+      const res = await fetch('/api/nixasoft-payout/admin/settings');
+      const data = await res.json();
+      if (data.success && data.settings?.slabs) {
+        setPayoutSlabs(data.settings.slabs);
+      }
+    } catch (err) {
+      console.error('Error fetching payout slabs in ServiceChargeManagement:', err);
+    } finally {
+      setLoadingPayoutSlabs(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayoutSlabs();
+  }, []);
+
+  const handleOpenAddPayoutSlab = () => {
+    setEditingPayoutSlab(null);
+    setPayoutSlabForm({
+      min_amount: '',
+      max_amount: '',
+      charge_type: 'flat',
+      charge_value: '',
+      is_active: true
+    });
+    setPayoutError(null);
+    setIsPayoutModalOpen(true);
+  };
+
+  const handleOpenEditPayoutSlab = (slab: PayoutSlab) => {
+    setEditingPayoutSlab(slab);
+    setPayoutSlabForm({
+      min_amount: String(slab.min_amount),
+      max_amount: String(slab.max_amount),
+      charge_type: slab.charge_type,
+      charge_value: String(slab.charge_value),
+      is_active: slab.is_active
+    });
+    setPayoutError(null);
+    setIsPayoutModalOpen(true);
+  };
+
+  const handleSavePayoutSlab = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const min = Number(payoutSlabForm.min_amount);
+    const max = Number(payoutSlabForm.max_amount);
+    const val = Number(payoutSlabForm.charge_value);
+
+    if (isNaN(min) || isNaN(max) || isNaN(val)) {
+      setPayoutError('Please enter valid numeric amounts');
+      return;
+    }
+
+    if (min >= max) {
+      setPayoutError('Maximum amount must be greater than minimum amount');
+      return;
+    }
+
+    try {
+      setSavingPayoutSlab(true);
+      setPayoutError(null);
+      const url = editingPayoutSlab 
+        ? `/api/nixasoft-payout/admin/slabs/${editingPayoutSlab.id}`
+        : '/api/nixasoft-payout/admin/slabs';
+      const method = editingPayoutSlab ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          min_amount: min,
+          max_amount: max,
+          charge_type: payoutSlabForm.charge_type,
+          charge_value: val,
+          is_active: payoutSlabForm.is_active
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPayoutSlabs(data.slabs || []);
+        setIsPayoutModalOpen(false);
+        setPayoutSuccess(editingPayoutSlab ? 'Payout slab updated successfully' : 'New payout slab added successfully');
+        setTimeout(() => setPayoutSuccess(null), 3500);
+      } else {
+        setPayoutError(data.message || 'Failed to save payout slab');
+      }
+    } catch (err: any) {
+      setPayoutError(err.message || 'Error saving payout slab');
+    } finally {
+      setSavingPayoutSlab(false);
+    }
+  };
+
+  const handleDeletePayoutSlab = async () => {
+    if (!payoutDeleteConfirm) return;
+    try {
+      setIsDeletingPayoutSlab(true);
+      const res = await fetch(`/api/nixasoft-payout/admin/slabs/${payoutDeleteConfirm}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPayoutSlabs(data.slabs || []);
+        setPayoutDeleteConfirm(null);
+        setPayoutSuccess('Payout slab deleted successfully');
+        setTimeout(() => setPayoutSuccess(null), 3500);
+      } else {
+        setPayoutError(data.message || 'Failed to delete payout slab');
+      }
+    } catch (err: any) {
+      setPayoutError(err.message || 'Error deleting payout slab');
+    } finally {
+      setIsDeletingPayoutSlab(false);
+    }
+  };
+
+  const handleTogglePayoutSlab = async (slab: PayoutSlab) => {
+    try {
+      const res = await fetch(`/api/nixasoft-payout/admin/slabs/${slab.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !slab.is_active })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPayoutSlabs(data.slabs || []);
+      }
+    } catch (err) {
+      console.error('Error toggling payout slab status:', err);
+    }
+  };
+
+  // Fee calculation logic for simulator
+  const testPayoutNum = Number(payoutCalcAmount) || 0;
+  const matchedPayoutSlab = payoutSlabs.find(
+    s => s.is_active && testPayoutNum >= s.min_amount && testPayoutNum <= s.max_amount
+  );
+  let calcPayoutCharge = 0;
+  if (matchedPayoutSlab) {
+    calcPayoutCharge = matchedPayoutSlab.charge_type === 'percentage'
+      ? Math.round(((testPayoutNum * matchedPayoutSlab.charge_value) / 100) * 100) / 100
+      : matchedPayoutSlab.charge_value;
+  } else if (payoutSlabs.length > 0) {
+    const highest = payoutSlabs[payoutSlabs.length - 1];
+    if (testPayoutNum > highest.max_amount && highest.is_active) {
+      calcPayoutCharge = highest.charge_type === 'percentage'
+        ? Math.round(((testPayoutNum * highest.charge_value) / 100) * 100) / 100
+        : highest.charge_value;
+    }
+  }
+  const calcPayoutTotal = testPayoutNum + calcPayoutCharge;
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-6">
+      {/* Top Header & Tab Navigation */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-slate-900">Service Charge Slabs</h2>
-          <p className="text-slate-500 mt-1">Configure service charge amounts based on transaction value ranges.</p>
+          <h2 className="text-2xl font-bold text-slate-900">
+            {activeTab === 'service' ? 'Service Charge Slabs & Limits' : 'Dynamic Payout Charge Slabs'}
+          </h2>
+          <p className="text-slate-500 mt-1">
+            {activeTab === 'service' 
+              ? 'Configure service charge amounts based on transaction value ranges.'
+              : 'Configure tier-based fees (e.g. ₹100-50,000 = ₹25) applied atomically during instant bank payouts.'}
+          </p>
         </div>
-        <div className="flex items-center flex-wrap gap-4">
+
+        {/* Tab Buttons */}
+        <div className="flex items-center gap-2 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/60 shadow-inner shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('service');
+              setSearchParams({});
+            }}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 ${
+              activeTab === 'service'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Layers size={16} />
+            Service Slabs & Limits
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+              {slabs.length}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setActiveTab('payout');
+              setSearchParams({ tab: 'payout' });
+            }}
+            className={`px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center gap-2 ${
+              activeTab === 'payout'
+                ? 'bg-white text-indigo-600 shadow-sm'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Receipt size={16} />
+            Payout Slabs (Dynamic)
+            <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100">
+              {payoutSlabs.length}
+            </span>
+          </button>
+        </div>
+      </div>
+
+      {activeTab === 'service' && (
+        <div className="space-y-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-4">
+            <div className="flex items-center flex-wrap gap-4">
           {isFullAdmin && (
             <div className="flex items-center gap-3 bg-white border border-slate-100 shadow-sm rounded-2xl px-4 py-2.5">
               <span className="text-sm font-extrabold text-slate-600">Fund Transfer:</span>
@@ -603,163 +858,537 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           ))}
         </div>
       )}
-
-      {/* Add/Edit Modal */}
-      <AnimatePresence>
-        {isAdding && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <h3 className="text-xl font-bold text-slate-900">{editingSlab ? 'Edit Slab' : 'New Service Slab'}</h3>
-                <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-                  <X size={20} className="text-slate-400" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {error && (
-                  <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-sm font-bold">
-                    <AlertCircle size={18} />
-                    {error}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Min Amount (₹)</label>
-                    <input 
-                      required
-                      type="number" 
-                      value={formData.min_amount}
-                      onChange={e => setFormData({...formData, min_amount: e.target.value})}
-                      placeholder="0"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Max Amount (₹)</label>
-                    <input 
-                      required
-                      type="number" 
-                      value={formData.max_amount}
-                      onChange={e => setFormData({...formData, max_amount: e.target.value})}
-                      placeholder="1000"
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Charge Amount</label>
-                  <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                      {formData.is_percentage ? <Percent size={16} /> : <IndianRupee size={16} />}
-                    </div>
-                    <input 
-                      required
-                      type="number" 
-                      step="0.01"
-                      value={formData.charge_amount}
-                      onChange={e => setFormData({...formData, charge_amount: e.target.value})}
-                      placeholder="0.00"
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                  <div>
-                    <p className="text-sm font-bold text-slate-900">Charge Type</p>
-                    <p className="text-xs text-slate-500">Is this a percentage or flat fee?</p>
-                  </div>
-                  <div className="flex bg-white p-1 rounded-xl border border-slate-200">
-                    <button 
-                      type="button"
-                      onClick={() => setFormData({...formData, is_percentage: false})}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${!formData.is_percentage ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                      Flat
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setFormData({...formData, is_percentage: true})}
-                      className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${formData.is_percentage ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
-                    >
-                      %
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-4">
-                  <button 
-                    type="button"
-                    onClick={() => setIsAdding(false)}
-                    className="flex-1 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit"
-                    disabled={saving}
-                    className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
-                    {editingSlab ? 'Update Slab' : 'Save Slab'}
-                  </button>
-                </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {deleteConfirm && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
-            >
-              <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-6">
-                <AlertCircle size={32} />
-              </div>
-              <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Delete Slab</h3>
-              <p className="text-slate-500 text-center mb-8">
-                Are you sure you want to delete this service charge slab? This action cannot be undone.
-              </p>
-              {error && (
-                <div className="mb-6 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold text-center">
-                  {error}
-                </div>
-              )}
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => { setDeleteConfirm(null); setError(null); }}
-                  className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isDeleting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
-                  {isDeleting ? 'Deleting...' : 'Yes, Delete'}
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
-  );
+  )}
+
+  {activeTab === 'payout' && (
+    <div className="space-y-6">
+      {payoutSuccess && (
+        <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center gap-2 text-emerald-700 text-sm font-bold animate-in fade-in">
+          <CheckCircle2 size={18} />
+          {payoutSuccess}
+        </div>
+      )}
+      {payoutError && (
+        <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-2 text-rose-700 text-sm font-bold animate-in fade-in">
+          <AlertCircle size={18} />
+          {payoutError}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Dynamic Charge Slabs Table (8 cols) */}
+        <div className="lg:col-span-8 bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                Dynamic Charge Slabs
+                <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-full border border-indigo-100">
+                  {payoutSlabs.length} Slabs
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Configure tier-based fees (e.g. ₹100-50,000 = ₹25, ₹50,001-1,00,000 = ₹50) applied atomically during bank payouts
+              </p>
+            </div>
+
+            {isFullAdmin && (
+              <button
+                onClick={handleOpenAddPayoutSlab}
+                className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-indigo-100 transition-all active:scale-95"
+              >
+                <Plus size={16} />
+                Add New Slab
+              </button>
+            )}
+          </div>
+
+          {loadingPayoutSlabs ? (
+            <div className="flex flex-col items-center justify-center py-16 text-slate-400 gap-3">
+              <LogoLoader size="md" className="mx-auto" />
+              <p className="text-xs font-bold">Loading payout slabs...</p>
+            </div>
+          ) : payoutSlabs.length === 0 ? (
+            <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-2xl space-y-3">
+              <Layers className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-bold text-slate-700">No Payout Slabs Configured</p>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                Click the "Add New Slab" button above to create tier-based payout charges.
+              </p>
+              {isFullAdmin && (
+                <button
+                  onClick={handleOpenAddPayoutSlab}
+                  className="px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
+                >
+                  Create First Slab
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <th className="pb-3 px-3">Range (From - To)</th>
+                    <th className="pb-3 px-3">Charge Type</th>
+                    <th className="pb-3 px-3">Charge Amount</th>
+                    <th className="pb-3 px-3 text-center">Status</th>
+                    {isFullAdmin && <th className="pb-3 px-3 text-right">Actions</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-sm">
+                  {payoutSlabs.map((slab) => (
+                    <tr key={slab.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-4 px-3 font-bold text-slate-900">
+                        <span className="text-indigo-600">₹{slab.min_amount.toLocaleString()}</span>
+                        <span className="text-slate-400 mx-1.5">→</span>
+                        <span>₹{slab.max_amount.toLocaleString()}</span>
+                      </td>
+                      <td className="py-4 px-3">
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${
+                          slab.charge_type === 'percentage'
+                            ? 'bg-purple-50 text-purple-700 border border-purple-100'
+                            : 'bg-blue-50 text-blue-700 border border-blue-100'
+                        }`}>
+                          {slab.charge_type === 'percentage' ? 'Percentage (%)' : 'Flat Fee (₹)'}
+                        </span>
+                      </td>
+                      <td className="py-4 px-3 font-black text-rose-600">
+                        {slab.charge_type === 'percentage' ? `${slab.charge_value}%` : `₹${slab.charge_value}`}
+                      </td>
+                      <td className="py-4 px-3 text-center">
+                        <button
+                          onClick={() => isFullAdmin && handleTogglePayoutSlab(slab)}
+                          disabled={!isFullAdmin}
+                          className={`px-3 py-1 rounded-full text-[11px] font-bold uppercase transition-all ${
+                            slab.is_active
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-500 border border-slate-200'
+                          } ${!isFullAdmin ? 'cursor-default' : 'cursor-pointer hover:shadow-sm'}`}
+                        >
+                          {slab.is_active ? 'Active' : 'Disabled'}
+                        </button>
+                      </td>
+                      {isFullAdmin && (
+                        <td className="py-4 px-3 text-right space-x-2">
+                          <button
+                            onClick={() => handleOpenEditPayoutSlab(slab)}
+                            className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="Edit Slab"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => setPayoutDeleteConfirm(slab.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                            title="Delete Slab"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* Fee Simulator / Slab Tester (4 cols) */}
+        <div className="lg:col-span-4 bg-gradient-to-br from-indigo-50/70 via-slate-50/50 to-white rounded-3xl p-6 border border-indigo-100/70 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 border-b border-indigo-100/60 pb-3">
+            <Calculator className="w-5 h-5 text-indigo-600" />
+            <h4 className="font-bold text-slate-900 text-sm">Fee Simulator / Slab Tester</h4>
+          </div>
+
+          <p className="text-xs text-slate-500">
+            Type an amount to verify which slab applies and the exact fee deducted from the user's wallet.
+          </p>
+
+          <div>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-1">
+              Test Amount (₹)
+            </label>
+            <input
+              type="number"
+              value={payoutCalcAmount}
+              onChange={(e) => setPayoutCalcAmount(e.target.value)}
+              placeholder="5000"
+              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-base font-bold text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+            />
+          </div>
+
+          <div className="p-4 bg-white rounded-2xl border border-indigo-100 space-y-2 text-xs">
+            <div className="flex justify-between text-slate-600">
+              <span>Transfer Amount:</span>
+              <span className="font-bold text-slate-900">₹{testPayoutNum.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-slate-600">
+              <span>Matched Slab:</span>
+              <span className="font-bold text-indigo-600 text-right">
+                {matchedPayoutSlab 
+                  ? `₹${matchedPayoutSlab.min_amount.toLocaleString()} - ₹${matchedPayoutSlab.max_amount.toLocaleString()}` 
+                  : 'Default / Out of range'}
+              </span>
+            </div>
+            <div className="flex justify-between text-rose-600">
+              <span>Payout Fee:</span>
+              <span className="font-black">+ ₹{calcPayoutCharge.toFixed(2)}</span>
+            </div>
+            <div className="pt-2 border-t border-slate-100 flex justify-between text-sm font-black text-slate-900">
+              <span>Total Wallet Debit:</span>
+              <span className="text-indigo-600">₹{calcPayoutTotal.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )}
+
+  {/* Service Slab Add/Edit Modal */}
+  <AnimatePresence>
+    {isAdding && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
+        >
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-xl font-bold text-slate-900">{editingSlab ? 'Edit Slab' : 'New Service Slab'}</h3>
+            <button onClick={() => setIsAdding(false)} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+              <X size={20} className="text-slate-400" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {error && (
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-sm font-bold">
+                <AlertCircle size={18} />
+                {error}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Min Amount (₹)</label>
+                <input 
+                  required
+                  type="number" 
+                  value={formData.min_amount}
+                  onChange={e => setFormData({...formData, min_amount: e.target.value})}
+                  placeholder="0"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Max Amount (₹)</label>
+                <input 
+                  required
+                  type="number" 
+                  value={formData.max_amount}
+                  onChange={e => setFormData({...formData, max_amount: e.target.value})}
+                  placeholder="1000"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest">Charge Amount</label>
+              <div className="relative">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  {formData.is_percentage ? <Percent size={16} /> : <IndianRupee size={16} />}
+                </div>
+                <input 
+                  required
+                  type="number" 
+                  step="0.01"
+                  value={formData.charge_amount}
+                  onChange={e => setFormData({...formData, charge_amount: e.target.value})}
+                  placeholder="0.00"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+              <div>
+                <p className="text-sm font-bold text-slate-900">Charge Type</p>
+                <p className="text-xs text-slate-500">Is this a percentage or flat fee?</p>
+              </div>
+              <div className="flex bg-white p-1 rounded-xl border border-slate-200">
+                <button 
+                  type="button"
+                  onClick={() => setFormData({...formData, is_percentage: false})}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${!formData.is_percentage ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  Flat
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setFormData({...formData, is_percentage: true})}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${formData.is_percentage ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600'}`}
+                >
+                  %
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-4 pt-4">
+              <button 
+                type="button"
+                onClick={() => setIsAdding(false)}
+                className="flex-1 py-4 rounded-2xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit"
+                disabled={saving}
+                className="flex-1 py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold transition-all shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="animate-spin" size={20} /> : <CheckCircle2 size={20} />}
+                {editingSlab ? 'Update Slab' : 'Save Slab'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+
+  {/* Service Slab Delete Confirmation Modal */}
+  <AnimatePresence>
+    {deleteConfirm && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100"
+        >
+          <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto mb-6">
+            <AlertCircle size={32} />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 text-center mb-2">Delete Slab</h3>
+          <p className="text-slate-500 text-center mb-8">
+            Are you sure you want to delete this service charge slab? This action cannot be undone.
+          </p>
+          {error && (
+            <div className="mb-6 p-3 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold text-center">
+              {error}
+            </div>
+          )}
+          <div className="flex gap-4">
+            <button 
+              onClick={() => { setDeleteConfirm(null); setError(null); }}
+              className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isDeleting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+              {isDeleting ? 'Deleting...' : 'Yes, Delete'}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+
+  {/* Payout Slab Add/Edit Modal */}
+  <AnimatePresence>
+    {isPayoutModalOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-6"
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2">
+              <Receipt className="w-5 h-5 text-indigo-600" />
+              <h3 className="text-xl font-bold text-slate-900">
+                {editingPayoutSlab ? 'Edit Payout Slab' : 'Add New Payout Slab'}
+              </h3>
+            </div>
+            <button
+              onClick={() => setIsPayoutModalOpen(false)}
+              className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          <form onSubmit={handleSavePayoutSlab} className="space-y-4">
+            {payoutError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold flex items-center gap-2">
+                <AlertCircle size={15} />
+                {payoutError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Min Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={payoutSlabForm.min_amount}
+                  onChange={(e) => setPayoutSlabForm({ ...payoutSlabForm, min_amount: e.target.value })}
+                  placeholder="e.g. 100"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:bg-white focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  Max Amount (₹)
+                </label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  value={payoutSlabForm.max_amount}
+                  onChange={(e) => setPayoutSlabForm({ ...payoutSlabForm, max_amount: e.target.value })}
+                  placeholder="e.g. 50000"
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:bg-white focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Charge Type
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPayoutSlabForm({ ...payoutSlabForm, charge_type: 'flat' })}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                    payoutSlabForm.charge_type === 'flat'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Flat Fee (₹)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPayoutSlabForm({ ...payoutSlabForm, charge_type: 'percentage' })}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all ${
+                    payoutSlabForm.charge_type === 'percentage'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Percentage (%)
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                {payoutSlabForm.charge_type === 'percentage' ? 'Charge Percentage (%)' : 'Charge Amount (₹)'}
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                min="0"
+                value={payoutSlabForm.charge_value}
+                onChange={(e) => setPayoutSlabForm({ ...payoutSlabForm, charge_value: e.target.value })}
+                placeholder={payoutSlabForm.charge_type === 'percentage' ? 'e.g. 0.5' : 'e.g. 25'}
+                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:bg-white focus:border-indigo-500"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-xs font-bold text-slate-700">Slab Status</span>
+              <button
+                type="button"
+                onClick={() => setPayoutSlabForm({ ...payoutSlabForm, is_active: !payoutSlabForm.is_active })}
+                className={`px-3 py-1 rounded-full text-xs font-bold uppercase transition-all ${
+                  payoutSlabForm.is_active
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-slate-300 text-slate-700'
+                }`}
+              >
+                {payoutSlabForm.is_active ? 'Active' : 'Disabled'}
+              </button>
+            </div>
+
+            <div className="pt-2 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsPayoutModalOpen(false)}
+                className="flex-1 py-3 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={savingPayoutSlab}
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {savingPayoutSlab ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {editingPayoutSlab ? 'Update Slab' : 'Save Slab'}
+              </button>
+            </div>
+          </form>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+
+  {/* Payout Slab Delete Confirmation Modal */}
+  <AnimatePresence>
+    {payoutDeleteConfirm && (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.95 }}
+          className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border border-slate-100 space-y-4"
+        >
+          <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center text-rose-500 mx-auto">
+            <AlertCircle size={32} />
+          </div>
+          <h3 className="text-xl font-bold text-slate-900 text-center">Delete Payout Slab</h3>
+          <p className="text-slate-500 text-center text-xs leading-relaxed">
+            Are you sure you want to delete this payout charge slab? Transactions in this range will fall back to default fees.
+          </p>
+          <div className="flex gap-3 pt-2">
+            <button 
+              onClick={() => setPayoutDeleteConfirm(null)}
+              className="flex-1 py-3 rounded-xl font-bold text-xs text-slate-500 hover:bg-slate-100 transition-colors border border-slate-200"
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleDeletePayoutSlab}
+              disabled={isDeletingPayoutSlab}
+              className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs transition-all shadow-lg shadow-rose-200 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {isDeletingPayoutSlab ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+              {isDeletingPayoutSlab ? 'Deleting...' : 'Yes, Delete'}
+            </button>
+          </div>
+        </motion.div>
+      </div>
+    )}
+  </AnimatePresence>
+</div>
+);
 }
