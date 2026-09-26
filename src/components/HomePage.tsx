@@ -704,40 +704,6 @@ export default function HomePage({ isAdmin, isUser }: HomePageProps) {
         </div>
       </section>
 
-      {/* --- FINANCIAL NETWORK & BANKING PARTNERS TRUST BANNER --- */}
-      <section className="bg-white py-12 px-6 border-y border-slate-200/80">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-center text-xs font-black text-slate-400 uppercase tracking-[0.25em] mb-8">
-            POWERING TRANSACTIONS THROUGH TRUSTED FINANCIAL INFRASTRUCTURE
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-8 md:gap-14 opacity-80 hover:opacity-100 transition-opacity">
-            <div className="flex items-center gap-2 font-black text-slate-700 text-sm tracking-wide">
-              <img src="/bharat_connect.png" alt="Bharat Connect" className="h-8 w-auto object-contain" />
-              <span>BHARAT CONNECT</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-slate-700 text-sm tracking-wide">
-              <img src="/bbps_logo.png" alt="BBPS" className="h-8 w-auto object-contain" />
-              <span>BHARAT BILLPAY</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-slate-700 text-sm tracking-wide">
-              <img src="/axis_logo.png" alt="Axis Bank" className="h-7 w-auto object-contain" />
-              <span>AXIS BANK</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-slate-700 text-sm tracking-wide">
-              <img src="/kotak_logo.png" alt="Kotak Bank" className="h-7 w-auto object-contain" />
-              <span>KOTAK BANK</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-slate-700 text-sm tracking-wide">
-              <img src="/bob_logo.png" alt="Bank of Baroda" className="h-7 w-auto object-contain" />
-              <span>BANK OF BARODA</span>
-            </div>
-            <div className="flex items-center gap-2 font-black text-slate-700 text-sm tracking-wide">
-              <img src="/pnb_logo.png" alt="Punjab National Bank" className="h-7 w-auto object-contain" />
-              <span>PNB</span>
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* --- CORE RETAIL & BUSINESS SERVICES (BENTO GRID) --- */}
       <section id="services" className="py-24 md:py-32 px-6">
