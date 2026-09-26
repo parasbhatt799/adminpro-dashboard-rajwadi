@@ -1,6 +1,5 @@
 import fs from 'fs-extra';
 import path from 'path';
-import axios from 'axios';
 import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -162,7 +161,7 @@ export interface NixasoftPayoutResponse {
   };
 }
 
-// Call Nixasoft Payout API
+// Call Nixasoft Payout API using native fetch
 export async function executeNixasoftPayout(
   payload: NixasoftPayoutRequest,
   apiTokenOverride?: string
@@ -175,21 +174,26 @@ export async function executeNixasoftPayout(
   console.log(`[Nixasoft Payout] Sending request to ${url} for reqId: ${payload.requestId}, amount: ${payload.amount}`);
 
   try {
-    const response = await axios.post<NixasoftPayoutResponse>(url, payload, {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const response = await fetch(url, {
+      method: 'POST',
       headers: {
         'apiToken': token,
         'Content-Type': 'application/json'
       },
-      timeout: 30000 // 30 sec timeout
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
 
-    console.log('[Nixasoft Payout] Response received:', JSON.stringify(response.data));
-    return response.data;
+    clearTimeout(timeoutId);
+
+    const resJson = await response.json() as NixasoftPayoutResponse;
+    console.log('[Nixasoft Payout] Response received:', JSON.stringify(resJson));
+    return resJson;
   } catch (error: any) {
-    console.error('[Nixasoft Payout] Error from API:', error?.response?.data || error.message);
-    if (error?.response?.data) {
-      return error.response.data as NixasoftPayoutResponse;
-    }
+    console.error('[Nixasoft Payout] Error from API:', error.message);
     return {
       statuscode: 'TXF',
       message: error.message || 'Network / Server timeout from Nixasoft',
@@ -201,7 +205,7 @@ export async function executeNixasoftPayout(
   }
 }
 
-// Call Nixasoft Report Status API
+// Call Nixasoft Report Status API using native fetch
 export async function checkNixasoftStatus(
   requestId: string,
   apiTokenOverride?: string,
@@ -223,17 +227,22 @@ export async function checkNixasoftStatus(
   }
 
   try {
-    const response = await axios.post<NixasoftPayoutResponse>(
-      url,
-      { requestId },
-      { headers, timeout: 15000 }
-    );
-    return response.data;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ requestId }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    const resJson = await response.json() as NixasoftPayoutResponse;
+    return resJson;
   } catch (error: any) {
-    console.error('[Nixasoft Status] Error querying status:', error?.response?.data || error.message);
-    if (error?.response?.data) {
-      return error.response.data as NixasoftPayoutResponse;
-    }
+    console.error('[Nixasoft Status] Error querying status:', error.message);
     return {
       statuscode: 'TXP',
       message: error.message || 'Failed to fetch status',

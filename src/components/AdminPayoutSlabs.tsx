@@ -45,7 +45,13 @@ interface NixasoftSettings {
 }
 
 export default function AdminPayoutSlabs() {
-  const { showToast } = useToast();
+  const toast = useToast();
+  const showToast = (type: 'success' | 'error' | 'warning' | 'info', msg: string) => {
+    if (type === 'success') toast.success(msg);
+    else if (type === 'error') toast.error(msg);
+    else if (type === 'warning') toast.warning(msg);
+    else toast.info(msg);
+  };
   const [loading, setLoading] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settings, setSettings] = useState<NixasoftSettings>({

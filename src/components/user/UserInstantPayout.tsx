@@ -49,7 +49,13 @@ interface SlabInfo {
 }
 
 export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
-  const { showToast } = useToast();
+  const toast = useToast();
+  const showToast = (type: 'success' | 'error' | 'warning' | 'info', msg: string) => {
+    if (type === 'success') toast.success(msg);
+    else if (type === 'error') toast.error(msg);
+    else if (type === 'warning') toast.warning(msg);
+    else toast.info(msg);
+  };
 
   // Loading states
   const [initialLoading, setInitialLoading] = useState(true);
