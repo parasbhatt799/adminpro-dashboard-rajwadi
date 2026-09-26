@@ -478,13 +478,12 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
         </div>
       </div>
 
-      {/* Main Grid: Left Beneficiaries & Amount, Right Fee Breakdown */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Section (7 cols) */}
-        <div className="lg:col-span-7 space-y-6">
-          {/* Beneficiary Selection Card */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-5">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+      {/* Main Grid: Left Beneficiaries & Right Fee Breakdown */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        {/* Left Section: Beneficiary Selection Card (7 cols) */}
+        <div className="lg:col-span-7 flex flex-col">
+          <div className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm flex flex-col justify-between flex-1 h-full space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3.5 shrink-0">
               <div>
                 <h3 className="font-bold text-slate-900 text-base flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-indigo-600" />
@@ -505,7 +504,7 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
             </div>
 
             {beneficiaries.length === 0 ? (
-              <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl space-y-3">
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center border-2 border-dashed border-slate-200 rounded-2xl space-y-3 my-auto">
                 <CreditCard className="w-10 h-10 text-slate-300 mx-auto" />
                 <p className="text-sm font-bold text-slate-700">No Saved Bank Accounts</p>
                 <p className="text-xs text-slate-400 max-w-xs mx-auto">
@@ -520,15 +519,15 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                 </button>
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1">
+              <div className="flex-1 flex flex-col justify-between overflow-hidden">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-y-auto max-h-[440px] pr-1">
                   {beneficiaries.map((ben) => {
                     const isSelected = selectedBeneficiary?.id === ben.id;
                     return (
                       <div
                         key={ben.id}
                         onClick={() => setSelectedBeneficiary(ben)}
-                        className={`relative p-4 rounded-2xl border cursor-pointer transition-all ${
+                        className={`relative p-3.5 rounded-2xl border cursor-pointer transition-all ${
                           isSelected
                             ? 'bg-indigo-50/70 border-indigo-500 shadow-md shadow-indigo-50'
                             : 'bg-slate-50 hover:bg-slate-100/80 border-slate-200'
@@ -541,8 +540,8 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                               <Building2 size={13} className="text-slate-400" />
                               {ben.bank_name}
                             </p>
-                            <p className="text-xs font-mono text-slate-500">
-                              A/c: •••• {ben.account_number.slice(-4)}
+                            <p className="text-xs font-mono font-bold text-slate-800">
+                              A/c: {ben.account_number}
                             </p>
                             <p className="text-[10px] font-mono text-slate-400">
                               IFSC: {ben.ifsc_code}
@@ -568,7 +567,7 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                   })}
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs mt-3 shrink-0">
                   <span className="text-slate-400">Saved Beneficiaries: {beneficiaries.length}</span>
                   <Link
                     to="/user/payout-history"
@@ -584,8 +583,8 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
         </div>
 
         {/* Right Section: Transfer Summary & Fee Breakdown Form (5 cols) */}
-        <div className="lg:col-span-5 space-y-6">
-          <form onSubmit={handleInitiatePayout} className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+        <div className="lg:col-span-5 flex flex-col">
+          <form onSubmit={handleInitiatePayout} className="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4 flex flex-col justify-between flex-1 h-full">
             <h3 className="font-bold text-slate-900 text-base border-b border-slate-100 pb-3 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-indigo-600" />
               Transfer Summary & Fee Breakdown
@@ -657,8 +656,8 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
 
               <div className="flex justify-between text-slate-600">
                 <span>Bank & A/c:</span>
-                <span className="font-medium text-slate-700 text-right">
-                  {selectedBeneficiary ? `${selectedBeneficiary.bank_name} (••${selectedBeneficiary.account_number.slice(-4)})` : '-'}
+                <span className="font-medium text-slate-700 text-right font-mono text-xs">
+                  {selectedBeneficiary ? `${selectedBeneficiary.bank_name} (${selectedBeneficiary.account_number})` : '-'}
                 </span>
               </div>
 
