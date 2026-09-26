@@ -952,7 +952,7 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                     : 'Payout Failed & Refunded'}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  {receiptData.message || 'Transaction processed via Nixasoft'}
+                  {receiptData.message || 'Transaction processed via InstaPay'}
                 </p>
               </div>
 

@@ -332,8 +332,11 @@ export default function UserPayoutHistory({ userId }: UserPayoutHistoryProps) {
       }
     }
 
-    // Replace any IndiaTek branding with UsePayout
-    trimmed = trimmed.replace(/indiatek/gi, 'UsePayout');
+    // Replace any IndiaTek branding with UsePayout and Nixasoft with InstaPay
+    trimmed = trimmed
+      .replace(/indiatek/gi, 'UsePayout')
+      .replace(/nixasoft/gi, 'InstaPay')
+      .replace(/nixapay/gi, 'InstaPay');
 
     const lower = trimmed.toLowerCase();
     const isApproved = ['approved', 'success', 'completed'].includes(String(item.status).toLowerCase());

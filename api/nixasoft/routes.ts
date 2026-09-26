@@ -22,6 +22,12 @@ const supabaseAdmin = createClient(
 
 const router = Router();
 
+// Helper to sanitize any provider branding (Nixasoft/nixapay -> InstaPay)
+const sanitizeText = (txt?: string): string => {
+  if (!txt) return '';
+  return txt.replace(/nixasoft/gi, 'InstaPay').replace(/nixapay/gi, 'InstaPay');
+};
+
 // 1. Get Public Config & User Access Info
 router.get('/config', async (req, res) => {
   try {
@@ -124,7 +130,7 @@ router.post('/admin/settings', async (req, res) => {
 
     res.json({
       success: true,
-      message: 'Nixasoft payout settings saved successfully',
+      message: 'Payout settings saved successfully',
       settings: updated
     });
   } catch (err: any) {
@@ -369,6 +375,7 @@ router.post('/send', async (req, res) => {
       // SUCCESS
       const utr = apiResponse.data?.utr || apiResponse.data?.apiTxnId || '';
       const apiTxnId = apiResponse.data?.apiTxnId || '';
+      const cleanMsg = sanitizeText(apiResponse.message || 'Transaction was Successful');
 
       await supabaseAdmin
         .from('payout_submissions')
@@ -376,7 +383,7 @@ router.post('/send', async (req, res) => {
           status: 'approved',
           utr_number: utr,
           bank_ref: apiTxnId || utr,
-          remark: apiResponse.message || 'Transaction was Successful'
+          remark: cleanMsg
         })
         .eq('id', payoutId);
 
@@ -384,7 +391,7 @@ router.post('/send', async (req, res) => {
         success: true,
         status: 'approved',
         statuscode: 'TXN',
-        message: apiResponse.message || 'Transaction was Successful!',
+        message: cleanMsg,
         data: {
           payoutId,
           requestId: clientRequestId,
@@ -404,6 +411,7 @@ router.post('/send', async (req, res) => {
       // PENDING
       const apiTxnId = apiResponse.data?.apiTxnId || '';
       const utr = apiResponse.data?.utr || '';
+      const cleanMsg = sanitizeText(apiResponse.message || 'Transaction is Pending with Bank');
 
       await supabaseAdmin
         .from('payout_submissions')
@@ -411,7 +419,7 @@ router.post('/send', async (req, res) => {
           status: 'pending',
           bank_ref: apiTxnId,
           utr_number: utr,
-          remark: apiResponse.message || 'Transaction is Pending with bank'
+          remark: cleanMsg
         })
         .eq('id', payoutId);
 
@@ -419,7 +427,7 @@ router.post('/send', async (req, res) => {
         success: true,
         status: 'pending',
         statuscode: 'TXP',
-        message: apiResponse.message || 'Transaction is Pending with Bank. Status will update shortly.',
+        message: cleanMsg,
         data: {
           payoutId,
           requestId: clientRequestId,
@@ -437,9 +445,10 @@ router.post('/send', async (req, res) => {
       });
     } else {
       // FAILED & REFUNDED (TXF or API error)
-      const failReason = apiResponse.message || apiResponse.data?.description || 'Transaction Failed & Refunded';
+      const rawReason = apiResponse.message || apiResponse.data?.description || 'Transaction Failed & Refunded';
+      const failReason = sanitizeText(rawReason);
 
-      console.warn(`[Nixasoft Send] Payout failed. Executing immediate refund of ₹${totalDeduction} to user ${userId}`);
+      console.warn(`[Payout Send] Payout failed. Executing immediate refund of ₹${totalDeduction} to user ${userId}`);
 
       // Auto-Refund wallet balance
       await supabaseAdmin
@@ -454,7 +463,7 @@ router.post('/send', async (req, res) => {
         .from('payout_submissions')
         .update({
           status: 'rejected',
-          remark: `Nixasoft: ${failReason} (Refunded)`
+          remark: `InstaPay: ${failReason} (Refunded)`
         })
         .eq('id', payoutId);
 
@@ -525,11 +534,12 @@ router.post('/check-status', async (req, res) => {
               .eq('id', record.user_id);
           }
 
+          const cleanStatus = sanitizeText(apiStatus.message || 'Transaction Failed & Refunded');
           await supabaseAdmin
             .from('payout_submissions')
             .update({
               status: 'rejected',
-              remark: `Nixasoft: ${apiStatus.message || 'Transaction Failed & Refunded'}`
+              remark: `InstaPay: ${cleanStatus}`
             })
             .eq('id', payoutId);
         }
@@ -570,12 +580,13 @@ router.post('/callback', async (req, res) => {
     const normStatus = String(status).toUpperCase();
 
     if (normStatus === 'SUCCESS') {
+      const cleanDesc = sanitizeText(description || 'Bank Transfer Successful');
       await supabaseAdmin
         .from('payout_submissions')
         .update({
           status: 'approved',
           utr_number: utr || record.utr_number,
-          remark: description || 'Bank Transfer Successful'
+          remark: cleanDesc
         })
         .eq('id', record.id);
     } else if (normStatus === 'FAILED') {
@@ -597,11 +608,12 @@ router.post('/callback', async (req, res) => {
             .eq('id', record.user_id);
         }
 
+        const cleanFail = sanitizeText(description || 'Transaction Failed & Refunded');
         await supabaseAdmin
           .from('payout_submissions')
           .update({
             status: 'rejected',
-            remark: `Callback: ${description || 'Transaction Failed & Refunded'}`
+            remark: `Callback: ${cleanFail}`
           })
           .eq('id', record.id);
       }

@@ -196,7 +196,7 @@ export async function executeNixasoftPayout(
     console.error('[Nixasoft Payout] Error from API:', error.message);
     return {
       statuscode: 'TXF',
-      message: error.message || 'Network / Server timeout from Nixasoft',
+      message: error.message || 'Network / Server timeout from payment provider',
       data: {
         requestId: payload.requestId,
         description: error.message || 'Unknown network error'

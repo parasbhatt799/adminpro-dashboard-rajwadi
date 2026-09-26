@@ -160,9 +160,9 @@ export default function AdminCamlenioPayoutHistory() {
           // ignore parse error
         }
       }
-      return trimmed;
+      return trimmed.replace(/nixasoft/gi, 'InstaPay').replace(/nixapay/gi, 'InstaPay');
     }
-    return String(remark);
+    return String(remark).replace(/nixasoft/gi, 'InstaPay').replace(/nixapay/gi, 'InstaPay');
   };
 
   const [selectedTx, setSelectedTx] = useState<any | null>(null);

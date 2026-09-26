@@ -691,7 +691,7 @@ export default function StatementReport() {
                         <div className="bg-emerald-50 border border-emerald-100 p-2 rounded">
                           <div className="font-bold text-emerald-700 uppercase text-[11px]">Wallet Refund</div>
                           <div className="text-[10px] text-emerald-600">Refund for {r.raw_data?.bank_name || r.raw_data?.card_bank || (r.raw_data?.is_bbps ? r.raw_data?.provider : 'Bill/Payout')} (#{r.numericId})</div>
-                          <div className="text-[10px] text-emerald-500 font-medium">Reason: {r.raw_data?.remark || r.raw_data?.rejection_reason || 'Manual Refund'}</div>
+                          <div className="text-[10px] text-emerald-500 font-medium">Reason: {String(r.raw_data?.remark || r.raw_data?.rejection_reason || 'Manual Refund').replace(/nixasoft/gi, 'InstaPay').replace(/nixapay/gi, 'InstaPay')}</div>
                         </div>
                       ) : (
                         <>
