@@ -249,26 +249,61 @@ export default function B2BAgentDashboard() {
                 </div>
 
                 <div className="border-t border-slate-700/50 pt-6">
-                  <label className="block text-sm font-semibold text-slate-400 mb-2">Webhook URL</label>
-                  <p className="text-slate-500 text-xs mb-3">
-                    We will send a POST request to this URL when a pending payment becomes SUCCESS or FAILED.
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <label className="text-sm font-semibold text-white flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-purple-400" />
+                      Webhook Notifications URL
+                    </label>
+
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                        ⚡ Instant Payout
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        🏛️ Bill Payment
+                      </span>
+                    </div>
+                  </div>
+
+                  <p className="text-slate-400 text-xs mb-3 leading-relaxed">
+                    Set your server's HTTPS webhook URL below. Our system will dispatch automated real-time HTTP POST notifications for <strong>Instant Payout Status Updates</strong> (<code>PAYOUT_STATUS_UPDATE</code>) and <strong>BBPS Bill Payment Updates</strong> (<code>PAYMENT_STATUS_UPDATE</code>) whenever a transaction is completed, failed, or refunded.
                   </p>
-                  <div className="flex gap-2">
+
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input 
                       type="url"
-                      placeholder="https://yourdomain.com/webhook"
+                      placeholder="https://api.yourdomain.com/webhook"
                       value={webhookUrl}
                       onChange={(e) => setWebhookUrl(e.target.value)}
-                      className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                      className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-mono"
                     />
                     <button 
                       onClick={handleUpdateWebhook}
                       disabled={isUpdatingWebhook}
-                      className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-5 py-2.5 rounded-xl text-sm font-semibold transition-all shadow-md disabled:opacity-50 flex items-center justify-center gap-2 shrink-0 cursor-pointer"
                     >
-                      {isUpdatingWebhook ? 'Saving...' : 'Save URL'}
+                      {isUpdatingWebhook ? (
+                        <>
+                          <LoadingSpinner size="sm" />
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <span>Save Webhook URL</span>
+                      )}
                     </button>
                   </div>
+
+                  {credentials.webhook_url ? (
+                    <div className="mt-2.5 flex items-center gap-2 text-xs text-emerald-400">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>Webhook active and configured for Payout & BBPS updates</span>
+                    </div>
+                  ) : (
+                    <div className="mt-2.5 flex items-center gap-2 text-xs text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-slate-600" />
+                      <span>No webhook URL configured yet. Enter your endpoint above.</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
