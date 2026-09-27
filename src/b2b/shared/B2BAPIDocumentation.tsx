@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Book, Code, Key, Server, AlertCircle, Copy, CheckCircle2, 
   Activity, ShieldAlert, DollarSign, Layers, Globe, 
@@ -10,6 +11,7 @@ import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
 export default function B2BAPIDocumentation() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [activeLang, setActiveLang] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
   const [exportingPdf, setExportingPdf] = useState(false);
@@ -20,8 +22,7 @@ export default function B2BAPIDocumentation() {
   const [agentName, setAgentName] = useState<string>('B2B Partner');
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const [isPayoutEnabled, setIsPayoutEnabled] = useState(false);
-  const [selectedServiceTab, setSelectedServiceTab] = useState<'all' | 'bbps' | 'payout'>('all');
-  const [codeServiceTab, setCodeServiceTab] = useState<'bbps' | 'payout'>('bbps');
+  const [activeService, setActiveService] = useState<'bbps' | 'payout'>('bbps');
 
   const copyToClipboard = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -37,12 +38,16 @@ export default function B2BAPIDocumentation() {
     setIsAdmin(adminCheck);
 
     const agentId = typeof window !== 'undefined' ? localStorage.getItem('b2bAgentId') : null;
+    const urlService = searchParams.get('service');
 
     if (adminCheck) {
       setIsBbpsEnabled(true);
       setIsPayoutEnabled(true);
-      setSelectedServiceTab('all');
-      setCodeServiceTab('bbps');
+      if (urlService === 'payout') {
+        setActiveService('payout');
+      } else {
+        setActiveService('bbps');
+      }
       setLoadingPermissions(false);
     } else if (agentId) {
       const fetchPermissions = async () => {
@@ -63,15 +68,20 @@ export default function B2BAPIDocumentation() {
             setIsBbpsEnabled(bbps);
             setIsPayoutEnabled(payout);
 
-            if (bbps && !payout) {
-              setSelectedServiceTab('bbps');
-              setCodeServiceTab('bbps');
-            } else if (!bbps && payout) {
-              setSelectedServiceTab('payout');
-              setCodeServiceTab('payout');
-            } else {
-              setSelectedServiceTab('all');
-              setCodeServiceTab('bbps');
+            // Determine strict active service
+            if (payout && !bbps) {
+              setActiveService('payout');
+              setSearchParams({ service: 'payout' }, { replace: true });
+            } else if (bbps && !payout) {
+              setActiveService('bbps');
+              setSearchParams({ service: 'bbps' }, { replace: true });
+            } else if (bbps && payout) {
+              // Agent has both services enabled -> respect URL param if present
+              if (urlService === 'payout') {
+                setActiveService('payout');
+              } else {
+                setActiveService('bbps');
+              }
             }
           }
         } catch (err) {
@@ -87,12 +97,14 @@ export default function B2BAPIDocumentation() {
     }
   }, []);
 
-  // Determine active view mode based on permissions and selection
-  const showBbpsSection = isBbpsEnabled && (selectedServiceTab === 'all' || selectedServiceTab === 'bbps');
-  const showPayoutSection = isPayoutEnabled && (selectedServiceTab === 'all' || selectedServiceTab === 'payout');
+  const handleSelectService = (service: 'bbps' | 'payout') => {
+    setActiveService(service);
+    setSearchParams({ service });
+  };
+
   const hasMultipleServices = (isBbpsEnabled && isPayoutEnabled) || isAdmin;
 
-  // PDF Export Function
+  // Dedicated PDF Export Function for the active service
   const handleExportPDF = async () => {
     setExportingPdf(true);
     try {
@@ -107,15 +119,9 @@ export default function B2BAPIDocumentation() {
         format: 'a4'
       });
 
-      const effectiveDocType = !hasMultipleServices 
-        ? (isPayoutEnabled ? 'payout' : 'bbps') 
-        : selectedServiceTab;
-
-      const docTitle = effectiveDocType === 'payout' 
+      const docTitle = activeService === 'payout' 
         ? 'B2B Instant Payout API Reference' 
-        : effectiveDocType === 'bbps' 
-        ? 'B2B Bill Payment API Reference' 
-        : 'B2B Full API Reference (BBPS & Payout)';
+        : 'B2B Bill Payment API Reference';
 
       const drawHeader = (titleText: string) => {
         doc.setFillColor(15, 23, 42); // slate-900
@@ -204,38 +210,41 @@ export default function B2BAPIDocumentation() {
       y += 4;
 
       const endpointRows: string[][] = [
-        ['GET', '/balance', 'Fetch current available agent wallet balance in Rupees']
+        ['GET', '/balance', `Fetch current available agent ${activeService === 'payout' ? 'Payout' : 'BBPS'} wallet balance in Rupees`]
       ];
 
-      if (showBbpsSection) {
+      if (activeService === 'bbps') {
         endpointRows.push(
           ['GET', '/categories', 'Fetch supported biller categories (Electricity, Fastag, Water, etc.)'],
           ['GET', '/billers', 'Fetch billers list and required customer input parameters'],
           ['POST', '/fetch-bill', 'Fetch customer bill amount, due date, and biller details'],
-          ['POST', '/pay-bill', 'Process bill payment and deduct funds from agent wallet'],
-          ['GET', '/status/:transaction_id', 'Check real-time live status & auto-refund of a bill payment']
+          ['POST', '/pay-bill', 'Process bill payment and deduct funds from agent BBPS wallet'],
+          ['GET', '/status/:transaction_id', 'Check real-time live status & auto-refund of a bill payment'],
+          ['GET', '/admin-bank-accounts', 'Fetch company bank accounts for wallet fund top-up'],
+          ['POST', '/fund-request', 'Submit electronic fund request (wallet_type: "bbps")'],
+          ['GET', '/fund-request/status/:request_id', 'Check real-time approval status of submitted fund request']
         );
-      }
-
-      if (showPayoutSection) {
+      } else {
         endpointRows.push(
           ['POST', '/payout/transfer', 'Execute 24x7 instant bank transfer via IMPS or NEFT'],
-          ['GET', '/payout/status/:order_id', 'Check real-time live payout transfer status & bank UTR']
+          ['GET', '/payout/status/:order_id', 'Check real-time live payout transfer status & bank UTR'],
+          ['GET', '/admin-bank-accounts', 'Fetch company bank accounts for payout wallet top-up'],
+          ['POST', '/fund-request', 'Submit electronic fund request (wallet_type: "payout")'],
+          ['GET', '/fund-request/status/:request_id', 'Check real-time approval status of submitted fund request']
         );
       }
-
-      endpointRows.push(
-        ['GET', '/admin-bank-accounts', 'Fetch company bank accounts for wallet fund top-up'],
-        ['POST', '/fund-request', 'Submit electronic fund request (bbps or payout wallet)'],
-        ['GET', '/fund-request/status/:request_id', 'Check real-time approval status of submitted fund request']
-      );
 
       autoTable(doc, {
         startY: y,
         head: [['Method', 'Endpoint Path', 'Description']],
         body: endpointRows,
         theme: 'grid',
-        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
+        headStyles: { 
+          fillColor: activeService === 'payout' ? [147, 51, 234] : [16, 185, 129], 
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold', 
+          fontSize: 8.5 
+        },
         bodyStyles: { fontSize: 8 },
         margin: { left: 14, right: 14 }
       });
@@ -250,8 +259,8 @@ export default function B2BAPIDocumentation() {
       y += 4;
       y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "balance": 25450.75,\n    "bbps_wallet_balance": 15450.75,\n    "payout_wallet_balance": 10000.00,\n    "is_bbps_enabled": ${isBbpsEnabled},\n    "is_payout_enabled": ${isPayoutEnabled}\n  }\n}`, y);
 
-      // BBPS SPECIFIC SECTIONS IN PDF
-      if (showBbpsSection) {
+      // PURE BBPS SECTIONS IN PDF
+      if (activeService === 'bbps') {
         y = checkPageBreak(y, 65);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
@@ -285,15 +294,21 @@ export default function B2BAPIDocumentation() {
         doc.text('2.5 GET /status/:transaction_id - Live Status & Auto-Refund', 14, y);
         y += 4;
         y = drawCodeBlock('Sample Status Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "CC016226CBAF13851712",\n    "current_status": "success",\n    "bbps_status": "SUCCESS"\n  }\n}`, y);
-      }
 
-      // PAYOUT SPECIFIC SECTIONS IN PDF
-      if (showPayoutSection) {
+        y = checkPageBreak(y, 85);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(79, 70, 229);
+        doc.text('2.6 POST /fund-request - Submit BBPS Wallet Top-up', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "amount": 50000,\n  "utr_number": "UTR9876543210",\n  "wallet_type": "bbps",\n  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567"\n}`, y);
+      } else {
+        // PURE PAYOUT SECTIONS IN PDF
         y = checkPageBreak(y, 110);
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.setTextColor(147, 51, 234);
-        doc.text('2.6 POST /payout/transfer - 24x7 Instant Bank Transfer', 14, y);
+        doc.text('2.2 POST /payout/transfer - 24x7 Instant Bank Transfer', 14, y);
         y += 4;
         y = drawCodeBlock('Sample Request Body', `{\n  "amount": 2500.00,\n  "account_number": "91234567890123",\n  "ifsc_code": "HDFC0001234",\n  "beneficiary_name": "Ramesh Kumar",\n  "transfer_mode": "IMPS",\n  "client_order_id": "ORD_PAYOUT_1001"\n}`, y);
         y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Payout transfer completed successfully",\n  "data": {\n    "order_id": "B2BPO1727443912001",\n    "client_order_id": "ORD_PAYOUT_1001",\n    "utr": "426812831122",\n    "amount": 2500.00,\n    "fee": 25.00,\n    "total_deducted": 2525.00,\n    "status": "success"\n  }\n}`, y);
@@ -302,20 +317,18 @@ export default function B2BAPIDocumentation() {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.setTextColor(147, 51, 234);
-        doc.text('2.7 GET /payout/status/:order_id - Live Payout Status & UTR', 14, y);
+        doc.text('2.3 GET /payout/status/:order_id - Live Payout Status & UTR', 14, y);
         y += 4;
         y = drawCodeBlock('Sample Status Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "order_id": "B2BPO1727443912001",\n    "client_order_id": "ORD_PAYOUT_1001",\n    "utr": "426812831122",\n    "beneficiary_name": "Ramesh Kumar",\n    "status": "success"\n  }\n}`, y);
-      }
 
-      // FUND MANAGEMENT SECTIONS IN PDF
-      y = checkPageBreak(y, 85);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(79, 70, 229);
-      doc.text('2.8 POST /fund-request - Submit Wallet Top-up Request', 14, y);
-      y += 4;
-      const sampleWalletType = showPayoutSection && !showBbpsSection ? 'payout' : 'bbps';
-      y = drawCodeBlock('Sample Request Body', `{\n  "amount": 50000,\n  "utr_number": "UTR9876543210",\n  "wallet_type": "${sampleWalletType}",\n  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567"\n}`, y);
+        y = checkPageBreak(y, 85);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(147, 51, 234);
+        doc.text('2.4 POST /fund-request - Submit Payout Wallet Top-up', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "amount": 50000,\n  "utr_number": "UTR9876543210",\n  "wallet_type": "payout",\n  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567"\n}`, y);
+      }
 
       // Error Codes Matrix
       y = checkPageBreak(y, 80);
@@ -325,17 +338,31 @@ export default function B2BAPIDocumentation() {
       doc.text('3. Error Codes & Troubleshooting Matrix', 14, y);
       y += 4;
 
+      const errorRows: string[][] = [
+        ['200 OK', 'success', 'Request processed successfully', 'Parse response data payload'],
+        ['400 Bad Request', 'error', `Insufficient ${activeService === 'payout' ? 'Payout' : 'BBPS'} Wallet Balance`, `Submit /fund-request with wallet_type: "${activeService}"`]
+      ];
+
+      if (activeService === 'payout') {
+        errorRows.push(
+          ['400 Bad Request', 'failed', 'Invalid IFSC / Beneficiary Account Inactive', 'Verify bank details. Auto-refunded to payout wallet']
+        );
+      } else {
+        errorRows.push(
+          ['400 Bad Request', 'error', 'Payment mode Cash disabled by biller', 'Pass paymentMode: "UPI" or "Internet Banking"']
+        );
+      }
+
+      errorRows.push(
+        ['401 Unauthorized', 'error', 'Invalid API Keys or IP Not Whitelisted', 'Whitelist server IP in Settings'],
+        ['429 Too Many Requests', 'error', 'Rate limit exceeded', 'Implement caching & rate-limiting'],
+        ['500 Server Error', 'error', 'Upstream Bank/Gateway Timeout', 'Wallet auto-refunded. Query status']
+      );
+
       autoTable(doc, {
         startY: y,
         head: [['HTTP Code', 'Status', 'Description', 'Resolution Action']],
-        body: [
-          ['200 OK', 'success', 'Request processed successfully', 'Parse response data payload'],
-          ['400 Bad Request', 'error', 'Insufficient Wallet Balance', 'Load funds via /fund-request'],
-          ['400 Bad Request', 'error', 'Invalid IFSC / Account Inactive', 'Verify beneficiary bank details'],
-          ['401 Unauthorized', 'error', 'Invalid API Keys or IP Not Whitelisted', 'Whitelist server IP in Settings'],
-          ['429 Too Many Requests', 'error', 'Rate limit exceeded', 'Implement caching & rate-limiting'],
-          ['500 Server Error', 'error', 'Upstream Bank/Gateway Timeout', 'Wallet auto-refunded. Query status']
-        ],
+        body: errorRows,
         theme: 'grid',
         headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
         bodyStyles: { fontSize: 7.5 },
@@ -436,26 +463,65 @@ export default function B2BAPIDocumentation() {
     );
   }
 
-  // Dynamic header titles
-  const pageTitle = !hasMultipleServices
-    ? (isPayoutEnabled ? 'B2B Instant Payout API Reference' : 'B2B Bill Payment API Reference')
-    : (selectedServiceTab === 'payout' 
-        ? 'B2B Instant Payout API Reference' 
-        : selectedServiceTab === 'bbps' 
-        ? 'B2B Bill Payment API Reference' 
-        : 'B2B Master API Reference');
+  // Dynamic header titles based on the active service
+  const isPayout = activeService === 'payout';
 
-  const pageDescription = !hasMultipleServices
-    ? (isPayoutEnabled 
-        ? 'High-speed, 24x7 automated IMPS/NEFT bank transfer API with dedicated payout wallet, instant transaction status tracking, and automated failure refunds.'
-        : 'High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated refunds.')
-    : 'Unified RESTful API documentation for processing utility bill payments (BBPS) and 24x7 instant bank transfers (Payout) with real-time tracking and automated webhook updates.';
+  const pageTitle = isPayout 
+    ? 'B2B Instant Payout API Reference' 
+    : 'B2B Bill Payment API Reference';
+
+  const pageDescription = isPayout 
+    ? '24x7 Real-time automated bank account transfer API via IMPS / NEFT with dedicated payout wallet, live status checking, and automatic refunds on banking failure.' 
+    : 'High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated webhook updates.';
 
   return (
     <div id="b2b-api-doc-container" className="space-y-8 w-full text-slate-200 p-4 md:p-6 bg-slate-900 rounded-3xl">
+      {/* SEPARATE SERVICE SWITCHER TABS (Shown if agent has both services, or admin) */}
+      {hasMultipleServices && (
+        <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-2.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => handleSelectService('bbps')}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+                activeService === 'bbps' 
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/30' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+              }`}
+            >
+              <Landmark className="h-4 w-4" />
+              Bill Payment (BBPS) API
+            </button>
+
+            <button
+              onClick={() => handleSelectService('payout')}
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+                activeService === 'payout' 
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 ring-2 ring-purple-400/30' 
+                  : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+              }`}
+            >
+              <Zap className="h-4 w-4" />
+              Instant Payout API
+            </button>
+          </div>
+
+          <div className="text-xs text-slate-400 flex items-center gap-2 self-end sm:self-center">
+            <Eye className="h-4 w-4 text-indigo-400" />
+            <span>Active Documentation: <strong className={isPayout ? 'text-purple-400' : 'text-emerald-400'}>{isPayout ? 'Instant Payout API' : 'Bill Payment (BBPS)'}</strong></span>
+          </div>
+        </div>
+      )}
+
       {/* Header Banner */}
-      <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-40 bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className={`border rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden transition-all ${
+        isPayout 
+          ? 'bg-slate-800/90 border-purple-500/30' 
+          : 'bg-slate-800/90 border-slate-700'
+      }`}>
+        <div className={`absolute top-0 right-0 p-40 blur-[120px] rounded-full pointer-events-none ${
+          isPayout ? 'bg-purple-600/15' : 'bg-emerald-600/10'
+        }`} />
+        
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -465,19 +531,17 @@ export default function B2BAPIDocumentation() {
 
               {isAdmin && (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
-                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" /> Admin Full Suite Access
+                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" /> Admin Mode
                 </span>
               )}
 
-              {!isAdmin && isBbpsEnabled && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Bill Payment Active
+              {isPayout ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-semibold">
+                  <Zap className="h-3.5 w-3.5 text-purple-400" /> Service: Instant Payout API
                 </span>
-              )}
-
-              {!isAdmin && isPayoutEnabled && (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold">
-                  <Zap className="h-3.5 w-3.5 text-purple-400" /> Payout API Active
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Service: Utility Bill Payment (BBPS)
                 </span>
               )}
             </div>
@@ -495,7 +559,11 @@ export default function B2BAPIDocumentation() {
               data-html2canvas-ignore="true"
               onClick={handleExportPDF}
               disabled={exportingPdf}
-              className="inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-xs md:text-sm shadow-xl border border-indigo-400/30 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50"
+              className={`inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl text-white font-bold text-xs md:text-sm shadow-xl border transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 ${
+                isPayout 
+                  ? 'bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 border-purple-400/30' 
+                  : 'bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 border-indigo-400/30'
+              }`}
             >
               {exportingPdf ? (
                 <>
@@ -505,60 +573,12 @@ export default function B2BAPIDocumentation() {
               ) : (
                 <>
                   <Download className="h-4 w-4 text-white" />
-                  <span>Export PDF Doc</span>
+                  <span>Export {isPayout ? 'Payout' : 'BBPS'} PDF Doc</span>
                 </>
               )}
             </button>
           </div>
         </div>
-
-        {/* Multi-Service Switcher Tabs (Shown only if Partner has both services or Admin) */}
-        {hasMultipleServices && (
-          <div className="mt-6 pt-6 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-700/80">
-              <button
-                onClick={() => setSelectedServiceTab('all')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  selectedServiceTab === 'all' 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Layers className="h-3.5 w-3.5" />
-                All APIs
-              </button>
-
-              <button
-                onClick={() => setSelectedServiceTab('bbps')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  selectedServiceTab === 'bbps' 
-                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Landmark className="h-3.5 w-3.5" />
-                Bill Payment (BBPS)
-              </button>
-
-              <button
-                onClick={() => setSelectedServiceTab('payout')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  selectedServiceTab === 'payout' 
-                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' 
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                <Zap className="h-3.5 w-3.5" />
-                Instant Payout API
-              </button>
-            </div>
-
-            <div className="text-xs text-slate-400 flex items-center gap-2">
-              <Eye className="h-4 w-4 text-indigo-400" />
-              <span>Showing: <strong className="text-white capitalize">{selectedServiceTab === 'all' ? 'All Enabled APIs' : selectedServiceTab}</strong> documentation</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Section 1: Authentication & Base URL */}
@@ -625,7 +645,7 @@ export default function B2BAPIDocumentation() {
           2. API Endpoints Reference
         </h2>
 
-        {/* 2.1 GET /balance (Common to all agents) */}
+        {/* 2.1 GET /balance */}
         <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -636,7 +656,7 @@ export default function B2BAPIDocumentation() {
           </div>
 
           <p className="text-xs text-slate-300">
-            Retrieve real-time available wallet balance for your active services (BBPS Utility Bill Payment and Instant Payout).
+            Retrieve real-time available wallet balance for your {isPayout ? 'dedicated Payout Wallet' : 'BBPS Utility Bill Payment Wallet'}.
           </p>
 
           <CodeBlock 
@@ -666,16 +686,11 @@ export default function B2BAPIDocumentation() {
           ]} />
         </div>
 
-        {/* BBPS ENDPOINTS GROUP (Shown only if BBPS is enabled and active in tab) */}
-        {showBbpsSection && (
-          <div className="space-y-8">
-            <div className="flex items-center gap-2 pt-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">
-                Utility Bill Payment Endpoints (BBPS)
-              </h3>
-            </div>
-
+        {/* ========================================================================= */}
+        {/* CASE A: BILL PAYMENT (BBPS) ENDPOINTS ONLY                                */}
+        {/* ========================================================================= */}
+        {!isPayout && (
+          <>
             {/* 2.2 GET /categories */}
             <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
@@ -847,8 +862,7 @@ export default function B2BAPIDocumentation() {
                   { name: "client_transaction_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency & tracing." },
                   { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } matching required biller parameters." },
                   { name: "customerPan", type: "String", required: false, desc: "Customer 10-digit PAN Card (MANDATORY for Cash payments >= ₹50,000)." },
-                  { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact billerResponse object returned by /fetch-bill." },
-                  { name: "additionalInfo", type: "Array of Objects", required: false, desc: "Optional metadata array like [{ infoName: 'Remark', infoValue: 'Payment' }]." }
+                  { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact billerResponse object returned by /fetch-bill." }
                 ]} />
               </div>
 
@@ -892,7 +906,7 @@ export default function B2BAPIDocumentation() {
                 section="pay_res_insufficient"
                 code={`{
   "status": "error",
-  "message": "Insufficient Wallet Balance. Required: ₹1510.00, Current Balance: ₹450.00"
+  "message": "Insufficient BBPS Wallet Balance. Required: ₹1510.00, Current Balance: ₹450.00"
 }`}
               />
             </div>
@@ -908,7 +922,7 @@ export default function B2BAPIDocumentation() {
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed relative z-10">
-                Check real-time live transaction status. Query using any of the 4 identifiers: <code>BBPSU...</code>, <code>client_transaction_id</code>, <code>fetchRequestId</code>, or <code>CC01...</code>.
+                Check real-time live transaction status. Query using any identifier: <code>BBPSU...</code>, <code>client_transaction_id</code>, <code>fetchRequestId</code>, or <code>CC01...</code>.
               </p>
 
               <CodeBlock 
@@ -928,7 +942,7 @@ export default function B2BAPIDocumentation() {
               />
 
               <CodeBlock 
-                title="Sample Gateway Failure & Auto-Refund Response (200 OK - No CC01 Generated)"
+                title="Sample Gateway Failure & Auto-Refund Response (200 OK)"
                 section="status_res_auto_refund"
                 code={`{
   "status": "success",
@@ -940,26 +954,20 @@ export default function B2BAPIDocumentation() {
     "bbps_status": "FAILED_GATEWAY_ERROR",
     "message": "Bill payment failed to connect to biller gateway. BBPS wallet automatically refunded.",
     "refund_status": "REFUNDED",
-    "refunded_amount": 1500.00,
-    "polled_at": "2026-08-14T03:15:00.000Z"
+    "refunded_amount": 1500.00
   }
 }`}
               />
             </div>
-          </div>
+          </>
         )}
 
-        {/* PAYOUT ENDPOINTS GROUP (Shown only if Payout is enabled and active in tab) */}
-        {showPayoutSection && (
-          <div className="space-y-8">
-            <div className="flex items-center gap-2 pt-2">
-              <span className="h-2.5 w-2.5 rounded-full bg-purple-400 animate-pulse" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400">
-                Instant Bank Payout Endpoints (24x7 IMPS / NEFT)
-              </h3>
-            </div>
-
-            {/* 2.7 POST /payout/transfer */}
+        {/* ========================================================================= */}
+        {/* CASE B: INSTANT PAYOUT ENDPOINTS ONLY                                      */}
+        {/* ========================================================================= */}
+        {isPayout && (
+          <>
+            {/* 2.2 POST /payout/transfer */}
             <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -1036,7 +1044,7 @@ export default function B2BAPIDocumentation() {
               />
             </div>
 
-            {/* 2.8 GET /payout/status/:order_id */}
+            {/* 2.3 GET /payout/status/:order_id */}
             <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
               <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
                 <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -1067,25 +1075,26 @@ export default function B2BAPIDocumentation() {
     "fee": 25.00,
     "total_deducted": 2525.00,
     "status": "success",
-    "created_at": "2026-09-27T08:15:00.000Z",
-    "updated_at": "2026-09-27T08:15:02.000Z"
+    "created_at": "2026-09-27T08:15:00.000Z"
   }
 }`}
               />
             </div>
-          </div>
+          </>
         )}
 
-        {/* FUND MANAGEMENT & BANK ACCOUNTS (Common to all active partners) */}
+        {/* ========================================================================= */}
+        {/* FUND MANAGEMENT & BANK ACCOUNTS (TAILORED TO ACTIVE SERVICE)              */}
+        {/* ========================================================================= */}
         <div className="space-y-8">
           <div className="flex items-center gap-2 pt-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-indigo-400 animate-pulse" />
-            <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-400">
-              Wallet Fund Management & Deposit APIs
+            <span className={`h-2.5 w-2.5 rounded-full animate-pulse ${isPayout ? 'bg-purple-400' : 'bg-emerald-400'}`} />
+            <h3 className={`text-sm font-bold uppercase tracking-wider ${isPayout ? 'text-purple-400' : 'text-emerald-400'}`}>
+              {isPayout ? 'Payout Wallet Fund Deposit APIs' : 'BBPS Wallet Fund Deposit APIs'}
             </h3>
           </div>
 
-          {/* 2.9 GET /admin-bank-accounts */}
+          {/* GET /admin-bank-accounts */}
           <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -1119,7 +1128,7 @@ export default function B2BAPIDocumentation() {
             />
           </div>
 
-          {/* 2.10 POST /fund-request */}
+          {/* POST /fund-request */}
           <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -1130,7 +1139,7 @@ export default function B2BAPIDocumentation() {
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Submit a wallet fund request electronically. Select target destination using <code>wallet_type: "bbps"</code> or <code>"payout"</code> based on your enabled service. Your request will be queued in <code>pending</code> status for B2B Admin verification and approval.
+              Submit a wallet fund request electronically to credit funds into your <strong>{isPayout ? 'Payout Wallet' : 'BBPS Wallet'}</strong> (pass <code>wallet_type: "{isPayout ? 'payout' : 'bbps'}"</code>). Your request will be queued in <code>pending</code> status for B2B Admin verification and approval.
             </p>
 
             <CodeBlock 
@@ -1139,7 +1148,7 @@ export default function B2BAPIDocumentation() {
               code={`{
   "amount": 50000,
   "utr_number": "UTR9876543210",
-  "wallet_type": "${showPayoutSection && !showBbpsSection ? 'payout' : 'bbps'}",
+  "wallet_type": "${isPayout ? 'payout' : 'bbps'}",
   "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567",
   "proof_url": "https://example.com/payment_receipt.jpg"
 }`}
@@ -1155,7 +1164,7 @@ export default function B2BAPIDocumentation() {
     "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
     "amount": 50000,
     "utr_number": "UTR9876543210",
-    "wallet_type": "${showPayoutSection && !showBbpsSection ? 'payout' : 'bbps'}",
+    "wallet_type": "${isPayout ? 'payout' : 'bbps'}",
     "status": "pending",
     "submitted_at": "2026-08-15T00:33:00.000Z"
   }
@@ -1165,13 +1174,13 @@ export default function B2BAPIDocumentation() {
             <ParamTable params={[
               { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to credit to your account." },
               { name: "utr_number", type: "String", required: true, desc: "Unique Bank Transaction Reference / UTR Number." },
-              { name: "wallet_type", type: "String", required: false, desc: "Target wallet destination: 'bbps' (Utility Bill Payment) or 'payout' (Instant Payout). Default: 'bbps'." },
+              { name: "wallet_type", type: "String", required: false, desc: `Target wallet destination: '${isPayout ? 'payout' : 'bbps'}'.` },
               { name: "admin_bank_account_id", type: "String", required: false, desc: "Optional ID of the Admin Bank Account where money was deposited." },
               { name: "proof_url", type: "String", required: false, desc: "Optional URL linking to payment receipt or transaction screenshot." }
             ]} />
           </div>
 
-          {/* 2.11 GET /fund-request/status/:request_id */}
+          {/* GET /fund-request/status/:request_id */}
           <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
             <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
               <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -1194,11 +1203,9 @@ export default function B2BAPIDocumentation() {
     "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
     "amount": 50000,
     "utr_number": "UTR9876543210",
-    "wallet_type": "${showPayoutSection && !showBbpsSection ? 'payout' : 'bbps'}",
+    "wallet_type": "${isPayout ? 'payout' : 'bbps'}",
     "status": "approved",
-    "proof_url": null,
-    "created_at": "2026-08-15T00:33:00.000Z",
-    "updated_at": "2026-08-15T00:35:00.000Z"
+    "created_at": "2026-08-15T00:33:00.000Z"
   }
 }`}
             />
@@ -1206,35 +1213,16 @@ export default function B2BAPIDocumentation() {
         </div>
       </section>
 
-      {/* Section 3: Multi-Language Code Integration Examples */}
+      {/* Section 3: Multi-Language Code Integration Examples (Dedicated to active service) */}
       <section className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700/80 pb-4">
+        <div className="border-b border-slate-700/80 pb-4">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Code className="h-5 w-5 text-indigo-400" />
-            3. Code Integration Examples
+            3. Code Integration Examples: {isPayout ? 'Instant Payout (/payout/transfer)' : 'Bill Payment (/pay-bill)'}
           </h2>
-
-          {/* Service Toggle for Code Examples (if both available) */}
-          {hasMultipleServices && (
-            <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-700">
-              <button
-                onClick={() => setCodeServiceTab('bbps')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  codeServiceTab === 'bbps' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Bill Payment (/pay-bill)
-              </button>
-              <button
-                onClick={() => setCodeServiceTab('payout')}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                  codeServiceTab === 'payout' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                Payout Transfer (/payout/transfer)
-              </button>
-            </div>
-          )}
+          <p className="text-xs text-slate-400 mt-1">
+            Production-ready code templates in multiple languages for executing {isPayout ? '24x7 instant payouts' : 'instant bill payments'}.
+          </p>
         </div>
 
         {/* Language Tabs */}
@@ -1273,20 +1261,13 @@ export default function B2BAPIDocumentation() {
           </button>
         </div>
 
-        {/* Effective code service to show */}
-        {(() => {
-          const effectiveCodeService = !hasMultipleServices 
-            ? (isPayoutEnabled ? 'payout' : 'bbps') 
-            : codeServiceTab;
-
-          if (effectiveCodeService === 'payout') {
-            return (
-              <>
-                {activeLang === 'curl' && (
-                  <CodeBlock 
-                    title="cURL Request Example (/payout/transfer)"
-                    section="code_curl_payout"
-                    code={`curl -X POST "${baseUrl}/api/v1/b2b/payout/transfer" \\
+        {isPayout ? (
+          <>
+            {activeLang === 'curl' && (
+              <CodeBlock 
+                title="cURL Request Example (/payout/transfer)"
+                section="code_curl_payout"
+                code={`curl -X POST "${baseUrl}/api/v1/b2b/payout/transfer" \\
   -H "x-api-key: pub_live_your_key_here" \\
   -H "x-secret-key: sec_live_your_secret_here" \\
   -H "Content-Type: application/json" \\
@@ -1299,14 +1280,14 @@ export default function B2BAPIDocumentation() {
     "client_order_id": "ORD_PAYOUT_1001",
     "bank_name": "HDFC Bank"
   }'`}
-                  />
-                )}
+              />
+            )}
 
-                {activeLang === 'nodejs' && (
-                  <CodeBlock 
-                    title="Node.js Integration Example (Axios - Instant Payout)"
-                    section="code_nodejs_payout"
-                    code={`const axios = require('axios');
+            {activeLang === 'nodejs' && (
+              <CodeBlock 
+                title="Node.js Integration Example (Axios - Instant Payout)"
+                section="code_nodejs_payout"
+                code={`const axios = require('axios');
 
 async function sendPayout() {
   try {
@@ -1335,14 +1316,14 @@ async function sendPayout() {
 }
 
 sendPayout();`}
-                  />
-                )}
+              />
+            )}
 
-                {activeLang === 'python' && (
-                  <CodeBlock 
-                    title="Python Integration Example (Requests - Instant Payout)"
-                    section="code_python_payout"
-                    code={`import requests
+            {activeLang === 'python' && (
+              <CodeBlock 
+                title="Python Integration Example (Requests - Instant Payout)"
+                section="code_python_payout"
+                code={`import requests
 
 url = "${baseUrl}/api/v1/b2b/payout/transfer"
 headers = {
@@ -1363,14 +1344,14 @@ payload = {
 
 response = requests.post(url, json=payload, headers=headers)
 print("Payout Result:", response.json())`}
-                  />
-                )}
+              />
+            )}
 
-                {activeLang === 'php' && (
-                  <CodeBlock 
-                    title="PHP Integration Example (cURL - Instant Payout)"
-                    section="code_php_payout"
-                    code={`<?php
+            {activeLang === 'php' && (
+              <CodeBlock 
+                title="PHP Integration Example (cURL - Instant Payout)"
+                section="code_php_payout"
+                code={`<?php
 $ch = curl_init("${baseUrl}/api/v1/b2b/payout/transfer");
 
 $payload = json_encode([
@@ -1398,20 +1379,16 @@ curl_close($ch);
 $result = json_decode($response, true);
 var_dump($result);
 ?>`}
-                  />
-                )}
-              </>
-            );
-          }
-
-          // Default: BBPS Code Examples
-          return (
-            <>
-              {activeLang === 'curl' && (
-                <CodeBlock 
-                  title="cURL Request Example (/pay-bill)"
-                  section="code_curl"
-                  code={`curl -X POST "${baseUrl}/api/v1/b2b/pay-bill" \\
+              />
+            )}
+          </>
+        ) : (
+          <>
+            {activeLang === 'curl' && (
+              <CodeBlock 
+                title="cURL Request Example (/pay-bill)"
+                section="code_curl"
+                code={`curl -X POST "${baseUrl}/api/v1/b2b/pay-bill" \\
   -H "x-api-key: pub_live_your_key_here" \\
   -H "x-secret-key: sec_live_your_secret_here" \\
   -H "Content-Type: application/json" \\
@@ -1425,14 +1402,14 @@ var_dump($result);
       { "name": "Consumer Number", "value": "12345678901" }
     ]
   }'`}
-                />
-              )}
+              />
+            )}
 
-              {activeLang === 'nodejs' && (
-                <CodeBlock 
-                  title="Node.js Integration Example (Axios - Bill Payment)"
-                  section="code_nodejs"
-                  code={`const axios = require('axios');
+            {activeLang === 'nodejs' && (
+              <CodeBlock 
+                title="Node.js Integration Example (Axios - Bill Payment)"
+                section="code_nodejs"
+                code={`const axios = require('axios');
 
 async function payBill() {
   try {
@@ -1461,14 +1438,14 @@ async function payBill() {
 }
 
 payBill();`}
-                />
-              )}
+              />
+            )}
 
-              {activeLang === 'python' && (
-                <CodeBlock 
-                  title="Python Integration Example (Requests - Bill Payment)"
-                  section="code_python"
-                  code={`import requests
+            {activeLang === 'python' && (
+              <CodeBlock 
+                title="Python Integration Example (Requests - Bill Payment)"
+                section="code_python"
+                code={`import requests
 
 url = "${baseUrl}/api/v1/b2b/pay-bill"
 headers = {
@@ -1490,14 +1467,14 @@ payload = {
 
 response = requests.post(url, json=payload, headers=headers)
 print("Payment Result:", response.json())`}
-                />
-              )}
+              />
+            )}
 
-              {activeLang === 'php' && (
-                <CodeBlock 
-                  title="PHP Integration Example (cURL - Bill Payment)"
-                  section="code_php"
-                  code={`<?php
+            {activeLang === 'php' && (
+              <CodeBlock 
+                title="PHP Integration Example (cURL - Bill Payment)"
+                section="code_php"
+                code={`<?php
 $ch = curl_init("${baseUrl}/api/v1/b2b/pay-bill");
 
 $payload = json_encode([
@@ -1526,31 +1503,25 @@ curl_close($ch);
 $result = json_decode($response, true);
 var_dump($result);
 ?>`}
-                />
-              )}
-            </>
-          );
-        })()}
+              />
+            )}
+          </>
+        )}
       </section>
 
       {/* Section 4: Webhooks Section */}
       <section className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2 border-b border-slate-700/80 pb-3">
           <Activity className="h-5 w-5 text-indigo-400" />
-          4. Webhook Notifications (Asynchronous Callbacks)
+          4. Webhook Notifications: {isPayout ? 'Instant Payout Status Updates' : 'BBPS Payment Updates'}
         </h2>
 
         <p className="text-xs text-slate-300">
-          When transactions are initiated and return a <code>pending</code> status, our background engine continuously verifies status. Once confirmed as <strong>Success</strong> or <strong>Failed</strong>, an HTTP POST callback is dispatched to your configured Webhook URL.
+          When transactions are initiated and return a <code>pending</code> status, our background engine continuously verifies status with {isPayout ? 'the banking network' : 'BBPS'}. Once confirmed as <strong>Success</strong> or <strong>Failed</strong>, an HTTP POST callback is dispatched to your configured Webhook URL.
         </p>
 
-        {/* Payout Webhook Example */}
-        {showPayoutSection && (
+        {isPayout ? (
           <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
-              <Zap className="h-4 w-4" /> Instant Payout Webhook Payloads
-            </h4>
-
             <CodeBlock 
               title="Payout Webhook Payload (Transfer Success)"
               section="webhook_payout_success"
@@ -1570,7 +1541,7 @@ var_dump($result);
             />
 
             <CodeBlock 
-              title="Payout Webhook Payload (Transfer Failed & Auto-Refunded)"
+              title="Payout Webhook Payload (Transfer Failed & Auto-Refunded to Payout Wallet)"
               section="webhook_payout_failed"
               code={`{
   "event": "PAYOUT_STATUS_UPDATE",
@@ -1585,15 +1556,8 @@ var_dump($result);
 }`}
             />
           </div>
-        )}
-
-        {/* BBPS Webhook Example */}
-        {showBbpsSection && (
+        ) : (
           <div className="space-y-3 pt-2">
-            <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
-              <Landmark className="h-4 w-4" /> Utility Bill Payment Webhook Payloads
-            </h4>
-
             <CodeBlock 
               title="BBPS Webhook Payload Example (Transaction Success)"
               section="webhook_success_payload"
@@ -1635,7 +1599,7 @@ var_dump($result);
           <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
           <div>
             <strong className="block mb-1 text-emerald-300">Automated Wallet Refund Guarantee:</strong>
-            If any transaction is marked as <code>FAILED</code> by the upstream banking network or biller gateway, the system automatically refunds 100% of the principal amount and applicable charges back to your respective wallet instantly.
+            If any transaction is marked as <code>FAILED</code> by the upstream banking network or biller gateway, the system automatically refunds 100% of the principal amount and applicable charges back to your {isPayout ? 'Payout Wallet' : 'BBPS Wallet'} instantly.
           </div>
         </div>
       </section>
@@ -1661,18 +1625,21 @@ var_dump($result);
               <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
                 <td className="px-4 py-3 font-mono text-rose-300">error</td>
-                <td className="px-4 py-3 text-slate-300">Insufficient Wallet Balance (BBPS or Payout wallet).</td>
-                <td className="px-4 py-3 text-slate-300">Submit /fund-request for target wallet and retry.</td>
+                <td className="px-4 py-3 text-slate-300">
+                  Insufficient {isPayout ? 'Payout' : 'BBPS'} Wallet Balance to cover requested transaction.
+                </td>
+                <td className="px-4 py-3 text-slate-300">
+                  Submit <code>/fund-request</code> with <code>wallet_type: "{isPayout ? 'payout' : 'bbps'}"</code>.
+                </td>
               </tr>
-              {showPayoutSection && (
+              {isPayout ? (
                 <tr className="hover:bg-slate-800/40">
                   <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
                   <td className="px-4 py-3 font-mono text-rose-300">failed</td>
                   <td className="px-4 py-3 text-slate-300">Invalid IFSC code or beneficiary bank account inactive.</td>
                   <td className="px-4 py-3 text-slate-300">Check bank account and IFSC details. Auto-refunded.</td>
                 </tr>
-              )}
-              {showBbpsSection && (
+              ) : (
                 <tr className="hover:bg-slate-800/40">
                   <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
                   <td className="px-4 py-3 font-mono text-rose-300">error</td>
@@ -1690,7 +1657,7 @@ var_dump($result);
                 <td className="px-4 py-3 font-mono font-bold text-amber-400">429 Rate Limit</td>
                 <td className="px-4 py-3 font-mono text-amber-300">error</td>
                 <td className="px-4 py-3 text-slate-300">Daily sync limit reached for directory endpoints.</td>
-                <td className="px-4 py-3 text-slate-300">Cache biller / bank data locally and query as needed.</td>
+                <td className="px-4 py-3 text-slate-300">Cache directory data locally and query as needed.</td>
               </tr>
               <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-rose-400">500 Server Error</td>

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation, Link } from 'react-router-dom';
-import { Terminal, LogOut, Wallet, Book, LayoutDashboard, Activity, User, Receipt } from 'lucide-react';
+import { Terminal, LogOut, Wallet, Book, LayoutDashboard, Activity, User, Receipt, Zap, Landmark } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
@@ -11,7 +11,10 @@ export default function B2BAgentLayout() {
   const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [payoutWalletBalance, setPayoutWalletBalance] = useState<number>(0);
   const [fixedDepositAmount, setFixedDepositAmount] = useState<number>(0);
+  const [isBbpsEnabled, setIsBbpsEnabled] = useState<boolean>(true);
+  const [isPayoutEnabled, setIsPayoutEnabled] = useState<boolean>(false);
   const [agentProfile, setAgentProfile] = useState<{ first_name?: string; last_name?: string; profile_photo_url?: string } | null>(null);
 
   useEffect(() => {
@@ -21,7 +24,7 @@ export default function B2BAgentLayout() {
       return;
     }
 
-    // Subscribe to real-time wallet changes
+    // Subscribe to real-time wallet and permission changes
     const channel = supabase
       .channel('agent_wallet_channel')
       .on(
@@ -34,7 +37,10 @@ export default function B2BAgentLayout() {
         },
         (payload: any) => {
           setWalletBalance(payload.new.wallet_balance || 0);
+          setPayoutWalletBalance(payload.new.payout_wallet_balance || 0);
           setFixedDepositAmount(payload.new.fixed_deposit_amount || 0);
+          if (payload.new.is_bbps_enabled !== undefined) setIsBbpsEnabled(payload.new.is_bbps_enabled !== false);
+          if (payload.new.is_payout_enabled !== undefined) setIsPayoutEnabled(!!payload.new.is_payout_enabled);
           setAgentProfile({
             first_name: payload.new.first_name,
             last_name: payload.new.last_name,
@@ -55,13 +61,16 @@ export default function B2BAgentLayout() {
     try {
       const { data, error } = await supabase
         .from('b2b_api_credentials')
-        .select('wallet_balance, fixed_deposit_amount, first_name, last_name, profile_photo_url')
+        .select('wallet_balance, payout_wallet_balance, fixed_deposit_amount, first_name, last_name, profile_photo_url, is_bbps_enabled, is_payout_enabled')
         .eq('id', agentId)
         .single();
 
       if (!error && data) {
         setWalletBalance(data.wallet_balance || 0);
+        setPayoutWalletBalance(data.payout_wallet_balance || 0);
         setFixedDepositAmount(data.fixed_deposit_amount || 0);
+        setIsBbpsEnabled(data.is_bbps_enabled !== false);
+        setIsPayoutEnabled(!!data.is_payout_enabled);
         setAgentProfile({
           first_name: data.first_name,
           last_name: data.last_name,
@@ -92,6 +101,8 @@ export default function B2BAgentLayout() {
     );
   }
 
+  const isBothServices = isBbpsEnabled && isPayoutEnabled;
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
       {/* Top Navbar */}
@@ -112,30 +123,62 @@ export default function B2BAgentLayout() {
                 >
                   <LayoutDashboard className="h-4 w-4" /> Dashboard
                 </Link>
+
                 <Link 
                   to="/b2b/agent/fund-request" 
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('fund-request') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
                 >
                   <Wallet className="h-4 w-4" /> Fund Request
                 </Link>
+
                 <Link 
                   to="/b2b/agent/statement" 
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('statement') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
                 >
                   <Receipt className="h-4 w-4" /> Statement
                 </Link>
-                <Link 
-                  to="/b2b/agent/api-docs" 
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                >
-                  <Book className="h-4 w-4" /> API Docs
-                </Link>
-                <Link 
-                  to="/b2b/agent/bill-history" 
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                >
-                  <Activity className="h-4 w-4" /> Bill History
-                </Link>
+
+                {/* Completely Separate Documentation Links */}
+                {isBothServices ? (
+                  <>
+                    <Link 
+                      to="/b2b/agent/api-docs?service=bbps" 
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') && (location.search.includes('service=bbps') || !location.search.includes('service=payout')) ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                    >
+                      <Landmark className="h-4 w-4 text-emerald-400" /> BBPS Docs
+                    </Link>
+                    <Link 
+                      to="/b2b/agent/api-docs?service=payout" 
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') && location.search.includes('service=payout') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                    >
+                      <Zap className="h-4 w-4 text-purple-400" /> Payout Docs
+                    </Link>
+                  </>
+                ) : isBbpsEnabled ? (
+                  <Link 
+                    to="/b2b/agent/api-docs?service=bbps" 
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                  >
+                    <Book className="h-4 w-4 text-emerald-400" /> Bill Payment Docs
+                  </Link>
+                ) : isPayoutEnabled ? (
+                  <Link 
+                    to="/b2b/agent/api-docs?service=payout" 
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                  >
+                    <Zap className="h-4 w-4 text-purple-400" /> Payout API Docs
+                  </Link>
+                ) : null}
+
+                {/* Bill History (Only shown if BBPS service is enabled) */}
+                {isBbpsEnabled && (
+                  <Link 
+                    to="/b2b/agent/bill-history" 
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                  >
+                    <Activity className="h-4 w-4" /> Bill History
+                  </Link>
+                )}
               </nav>
             </div>
 
@@ -143,24 +186,32 @@ export default function B2BAgentLayout() {
               {/* B2B PWA Install Button */}
               <B2BPWAInstallButton variant="header" />
 
-              {/* Wallet Balance Display */}
-              <div className="flex items-center gap-3 bg-slate-900/80 px-4 py-2 rounded-xl border border-slate-700">
-                <Wallet className="h-4 w-4 text-emerald-400" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-400 font-semibold uppercase leading-none mb-1">
-                    {fixedDepositAmount > 0 ? 'Total Wallet' : 'Wallet Balance'}
-                  </span>
-                  <span className="text-emerald-400 font-bold leading-none tracking-tight">₹ {walletBalance.toFixed(2)}</span>
-                </div>
-                {fixedDepositAmount > 0 && (
-                  <div className="flex items-center gap-2 pl-3 border-l border-slate-700 text-xs">
+              {/* Dedicated Wallet Balance Displays */}
+              <div className="flex items-center gap-2">
+                {isBbpsEnabled && (
+                  <div className="flex items-center gap-2.5 bg-slate-900/80 px-3.5 py-1.5 rounded-xl border border-slate-700 shadow-sm">
+                    <Wallet className="h-4 w-4 text-emerald-400 shrink-0" />
                     <div className="flex flex-col">
-                      <span className="text-[10px] text-amber-400 font-semibold uppercase leading-none mb-1">Deposit</span>
-                      <span className="text-amber-400 font-bold leading-none tracking-tight">₹ {fixedDepositAmount.toFixed(2)}</span>
+                      <span className="text-[9px] text-slate-400 font-semibold uppercase leading-none mb-0.5">
+                        {isBothServices ? 'BBPS Wallet' : (fixedDepositAmount > 0 ? 'Total BBPS' : 'Wallet Balance')}
+                      </span>
+                      <span className="text-emerald-400 font-bold text-xs sm:text-sm leading-none">
+                        ₹ {walletBalance.toFixed(2)}
+                      </span>
                     </div>
-                    <div className="flex flex-col pl-2 border-l border-slate-700/60">
-                      <span className="text-[10px] text-cyan-400 font-semibold uppercase leading-none mb-1">Usable</span>
-                      <span className="text-cyan-400 font-bold leading-none tracking-tight">₹ {Math.max(0, walletBalance - fixedDepositAmount).toFixed(2)}</span>
+                  </div>
+                )}
+
+                {isPayoutEnabled && (
+                  <div className="flex items-center gap-2.5 bg-slate-900/80 px-3.5 py-1.5 rounded-xl border border-purple-500/30 shadow-sm">
+                    <Zap className="h-4 w-4 text-purple-400 shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-purple-300 font-semibold uppercase leading-none mb-0.5">
+                        Payout Wallet
+                      </span>
+                      <span className="text-purple-400 font-bold text-xs sm:text-sm leading-none">
+                        ₹ {payoutWalletBalance.toFixed(2)}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -202,21 +253,41 @@ export default function B2BAgentLayout() {
         {/* Mobile Nav */}
         <div className="md:hidden border-t border-slate-700 bg-slate-800 px-4 py-2 flex items-center overflow-x-auto gap-2">
           <B2BPWAInstallButton variant="badge" className="flex-shrink-0" />
-           <Link to="/b2b/agent/dashboard" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('dashboard') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
-              <LayoutDashboard className="h-4 w-4" /> Dashboard
+          <Link to="/b2b/agent/dashboard" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('dashboard') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
+            <LayoutDashboard className="h-3.5 w-3.5" /> Dashboard
+          </Link>
+          <Link to="/b2b/agent/fund-request" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('fund-request') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
+            <Wallet className="h-3.5 w-3.5" /> Funds
+          </Link>
+          <Link to="/b2b/agent/statement" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('statement') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
+            <Receipt className="h-3.5 w-3.5" /> Statement
+          </Link>
+
+          {/* Mobile docs links */}
+          {isBothServices ? (
+            <>
+              <Link to="/b2b/agent/api-docs?service=bbps" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') && (location.search.includes('service=bbps') || !location.search.includes('service=payout')) ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400'}`}>
+                <Landmark className="h-3.5 w-3.5 text-emerald-400" /> BBPS Docs
+              </Link>
+              <Link to="/b2b/agent/api-docs?service=payout" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') && location.search.includes('service=payout') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400'}`}>
+                <Zap className="h-3.5 w-3.5 text-purple-400" /> Payout Docs
+              </Link>
+            </>
+          ) : isBbpsEnabled ? (
+            <Link to="/b2b/agent/api-docs?service=bbps" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400'}`}>
+              <Book className="h-3.5 w-3.5 text-emerald-400" /> BBPS Docs
             </Link>
-            <Link to="/b2b/agent/fund-request" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('fund-request') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
-              <Wallet className="h-4 w-4" /> Funds
+          ) : isPayoutEnabled ? (
+            <Link to="/b2b/agent/api-docs?service=payout" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400'}`}>
+              <Zap className="h-3.5 w-3.5 text-purple-400" /> Payout Docs
             </Link>
-            <Link to="/b2b/agent/statement" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('statement') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
-              <Receipt className="h-4 w-4" /> Statement
+          ) : null}
+
+          {isBbpsEnabled && (
+            <Link to="/b2b/agent/bill-history" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
+              <Activity className="h-3.5 w-3.5" /> Bill History
             </Link>
-            <Link to="/b2b/agent/api-docs" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('api-docs') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
-              <Book className="h-4 w-4" /> Docs
-            </Link>
-            <Link to="/b2b/agent/bill-history" className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
-              <Activity className="h-4 w-4" /> Bill History
-            </Link>
+          )}
         </div>
       </header>
 
