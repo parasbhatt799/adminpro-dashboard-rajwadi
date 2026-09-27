@@ -631,32 +631,44 @@ export default function CreateB2BAgent() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-slate-900/60 border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider font-bold">
-                <th className="py-4 px-6">Agent Name</th>
-                <th className="py-4 px-6">Login ID</th>
-                <th className="py-4 px-6">Agent Tag / Portal</th>
-                <th className="py-4 px-6">Mobile</th>
-                <th className="py-4 px-6 text-right">Charge (₹)</th>
-                <th className="py-4 px-6 text-right">Wallet Balance</th>
-                <th className="py-4 px-6 text-center">Actions</th>
+                <th className="py-4 px-5">Agent Name</th>
+                <th className="py-4 px-5">Login ID</th>
+                <th className="py-4 px-4">Tag / Portal</th>
+                <th className="py-4 px-4">Mobile</th>
+                <th className="py-4 px-5 text-right">Charge (₹)</th>
+                <th className="py-4 px-5 text-right whitespace-nowrap">
+                  <span className="text-emerald-400 flex items-center justify-end gap-1 font-bold">
+                    <Zap size={13} /> BBPS Wallet
+                  </span>
+                </th>
+                <th className="py-4 px-5 text-right whitespace-nowrap">
+                  <span className="text-purple-400 flex items-center justify-end gap-1 font-bold">
+                    <Layers size={13} /> Payout Wallet
+                  </span>
+                </th>
+                <th className="py-4 px-5 text-right whitespace-nowrap">
+                  <span className="text-amber-400 font-bold">Fixed Deposit</span>
+                </th>
+                <th className="py-4 px-5 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     Loading agents...
                   </td>
                 </tr>
               ) : filteredAgents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     {agentSearchTerm ? 'No agents match your search criteria.' : 'No agents found. Click "Create Agent" to onboard one.'}
                   </td>
                 </tr>
               ) : (
                 filteredAgents.map((agent) => (
                   <tr key={agent.id} className="hover:bg-slate-700/20 transition-colors">
-                    <td className="py-4 px-6 font-bold text-white">
+                    <td className="py-4 px-5 font-bold text-white">
                       <div className="flex items-center gap-3">
                         {agent.profile_photo_url ? (
                           <img
@@ -695,8 +707,8 @@ export default function CreateB2BAgent() {
                         </div>
                       </div>
                     </td>
-                    <td className="py-4 px-6 text-indigo-300 font-mono text-xs">{agent.b2b_login_id}</td>
-                    <td className="py-4 px-6">
+                    <td className="py-4 px-5 text-indigo-300 font-mono text-xs">{agent.b2b_login_id}</td>
+                    <td className="py-4 px-4">
                       {agent.agent_tag ? (
                         <span className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-lg text-xs font-bold font-mono">
                           {agent.agent_tag}
@@ -705,8 +717,8 @@ export default function CreateB2BAgent() {
                         <span className="text-slate-500 text-xs">-</span>
                       )}
                     </td>
-                    <td className="py-4 px-6 text-slate-400 font-mono text-xs">{agent.mobile}</td>
-                    <td className="py-4 px-6 text-right font-medium text-amber-400">
+                    <td className="py-4 px-4 text-slate-400 font-mono text-xs">{agent.mobile}</td>
+                    <td className="py-4 px-5 text-right font-medium text-amber-400">
                       {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? (
                         <div className="flex flex-col items-end gap-1">
                           <span className="font-bold text-amber-400">₹{parseFloat(agent.charge_per_bill.toString()).toFixed(2)}</span>
@@ -723,24 +735,41 @@ export default function CreateB2BAgent() {
                         <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">Global</span>
                       )}
                     </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center justify-end gap-1.5 text-xs font-semibold">
-                          <span className="text-emerald-400/80 text-[11px]">BBPS:</span>
-                          <span className="text-emerald-400 font-bold font-mono">₹{parseFloat(agent.wallet_balance?.toString() || '0').toFixed(2)}</span>
-                        </div>
-                        <div className="flex items-center justify-end gap-1.5 text-xs font-semibold">
-                          <span className="text-purple-400/80 text-[11px]">Payout:</span>
-                          <span className="text-purple-400 font-bold font-mono">₹{parseFloat(agent.payout_wallet_balance?.toString() || '0').toFixed(2)}</span>
-                        </div>
-                        {agent.fixed_deposit_amount && parseFloat(agent.fixed_deposit_amount.toString()) > 0 ? (
-                          <span className="text-[10px] text-amber-400 font-mono font-semibold bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded mt-0.5" title="Frozen Security Deposit Balance">
-                            🔒 Deposit: ₹{parseFloat(agent.fixed_deposit_amount.toString()).toFixed(2)}
-                          </span>
-                        ) : null}
+                    {/* Separate Column 1: BBPS Wallet */}
+                    <td className="py-4 px-5 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-emerald-400 font-bold font-mono text-sm">
+                          ₹{parseFloat(agent.wallet_balance?.toString() || '0').toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        {agent.is_bbps_enabled === false && (
+                          <span className="text-[10px] text-slate-500 font-medium">Inactive</span>
+                        )}
                       </div>
                     </td>
-                    <td className="py-4 px-6">
+                    {/* Separate Column 2: Payout Wallet */}
+                    <td className="py-4 px-5 text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="text-purple-400 font-bold font-mono text-sm">
+                          ₹{parseFloat(agent.payout_wallet_balance?.toString() || '0').toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        {!agent.is_payout_enabled && (
+                          <span className="text-[10px] text-slate-500 font-medium">Inactive</span>
+                        )}
+                      </div>
+                    </td>
+                    {/* Separate Column 3: Fixed Deposit */}
+                    <td className="py-4 px-5 text-right">
+                      <div className="flex flex-col items-end">
+                        {agent.fixed_deposit_amount && parseFloat(agent.fixed_deposit_amount.toString()) > 0 ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md" title="Frozen Security Deposit Balance">
+                            🔒 ₹{parseFloat(agent.fixed_deposit_amount.toString()).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <span className="text-slate-500 font-mono text-xs">₹0.00</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-4 px-5 text-center">
                       <div className="flex items-center justify-center gap-2">
                         {agent.is_payout_enabled && (
                           <button
