@@ -1,12 +1,27 @@
-import React, { useState } from 'react';
-import { Book, Code, Key, Server, AlertCircle, Copy, CheckCircle2, Activity, Terminal, ShieldAlert, DollarSign, Layers, Globe, RefreshCw, FileText, ChevronRight, Check, Download } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  Book, Code, Key, Server, AlertCircle, Copy, CheckCircle2, 
+  Activity, ShieldAlert, DollarSign, Layers, Globe, 
+  FileText, ChevronRight, Check, Download, Zap, ArrowRightLeft, 
+  Landmark, UserCheck, Eye, ShieldCheck, Sparkles 
+} from 'lucide-react';
 import { format } from 'date-fns';
+import { supabase } from '../../lib/supabase';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 
 export default function B2BAPIDocumentation() {
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [activeLang, setActiveLang] = useState<'curl' | 'nodejs' | 'python' | 'php'>('curl');
   const [exportingPdf, setExportingPdf] = useState(false);
+
+  // Dynamic Service Permissions & Filtering
+  const [loadingPermissions, setLoadingPermissions] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [agentName, setAgentName] = useState<string>('B2B Partner');
+  const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
+  const [isPayoutEnabled, setIsPayoutEnabled] = useState(false);
+  const [selectedServiceTab, setSelectedServiceTab] = useState<'all' | 'bbps' | 'payout'>('all');
+  const [codeServiceTab, setCodeServiceTab] = useState<'bbps' | 'payout'>('bbps');
 
   const copyToClipboard = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -16,6 +31,68 @@ export default function B2BAPIDocumentation() {
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://api.usepay.in';
 
+  // Load Agent Permissions or Admin Status
+  useEffect(() => {
+    const adminCheck = typeof window !== 'undefined' && window.location.pathname.startsWith('/b2b/admin');
+    setIsAdmin(adminCheck);
+
+    const agentId = typeof window !== 'undefined' ? localStorage.getItem('b2bAgentId') : null;
+
+    if (adminCheck) {
+      setIsBbpsEnabled(true);
+      setIsPayoutEnabled(true);
+      setSelectedServiceTab('all');
+      setCodeServiceTab('bbps');
+      setLoadingPermissions(false);
+    } else if (agentId) {
+      const fetchPermissions = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('b2b_api_credentials')
+            .select('first_name, last_name, company_name, b2b_login_id, client_id, is_bbps_enabled, is_payout_enabled')
+            .eq('id', agentId)
+            .maybeSingle();
+
+          if (data) {
+            const fullName = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
+            const resolvedName = fullName || data.company_name || data.b2b_login_id || data.client_id || 'B2B Partner';
+            setAgentName(resolvedName);
+
+            const bbps = data.is_bbps_enabled !== false;
+            const payout = !!data.is_payout_enabled;
+            setIsBbpsEnabled(bbps);
+            setIsPayoutEnabled(payout);
+
+            if (bbps && !payout) {
+              setSelectedServiceTab('bbps');
+              setCodeServiceTab('bbps');
+            } else if (!bbps && payout) {
+              setSelectedServiceTab('payout');
+              setCodeServiceTab('payout');
+            } else {
+              setSelectedServiceTab('all');
+              setCodeServiceTab('bbps');
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching agent API credentials:', err);
+        } finally {
+          setLoadingPermissions(false);
+        }
+      };
+
+      fetchPermissions();
+    } else {
+      setLoadingPermissions(false);
+    }
+  }, []);
+
+  // Determine active view mode based on permissions and selection
+  const showBbpsSection = isBbpsEnabled && (selectedServiceTab === 'all' || selectedServiceTab === 'bbps');
+  const showPayoutSection = isPayoutEnabled && (selectedServiceTab === 'all' || selectedServiceTab === 'payout');
+  const hasMultipleServices = (isBbpsEnabled && isPayoutEnabled) || isAdmin;
+
+  // PDF Export Function
   const handleExportPDF = async () => {
     setExportingPdf(true);
     try {
@@ -29,6 +106,16 @@ export default function B2BAPIDocumentation() {
         unit: 'mm',
         format: 'a4'
       });
+
+      const effectiveDocType = !hasMultipleServices 
+        ? (isPayoutEnabled ? 'payout' : 'bbps') 
+        : selectedServiceTab;
+
+      const docTitle = effectiveDocType === 'payout' 
+        ? 'B2B Instant Payout API Reference' 
+        : effectiveDocType === 'bbps' 
+        ? 'B2B Bill Payment API Reference' 
+        : 'B2B Full API Reference (BBPS & Payout)';
 
       const drawHeader = (titleText: string) => {
         doc.setFillColor(15, 23, 42); // slate-900
@@ -47,7 +134,7 @@ export default function B2BAPIDocumentation() {
       const checkPageBreak = (currentY: number, neededSpace: number) => {
         if (currentY + neededSpace > 272) {
           doc.addPage();
-          drawHeader('B2B Bill Payment API Reference (Contd.)');
+          drawHeader(`${docTitle} (Contd.)`);
           return 32;
         }
         return currentY;
@@ -84,7 +171,7 @@ export default function B2BAPIDocumentation() {
       };
 
       // Page 1 Header
-      drawHeader('B2B Bill Payment API Reference');
+      drawHeader(docTitle);
       let y = 32;
 
       // Section 1: Authentication & Headers
@@ -109,24 +196,44 @@ export default function B2BAPIDocumentation() {
       });
       y = (doc as any).lastAutoTable.finalY + 8;
 
-      // Section 2: API Endpoints Overview
+      // Section 2: Endpoints Overview Table
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
       doc.setTextColor(30, 41, 59);
-      doc.text('2. API Endpoints Overview', 14, y);
+      doc.text('2. Enabled API Endpoints Overview', 14, y);
       y += 4;
 
-      autoTable(doc, {
-        startY: y,
-        head: [['Method', 'Endpoint Path', 'Description']],
-        body: [
-          ['GET', '/balance', 'Fetch current available agent wallet balance in Rupees'],
+      const endpointRows: string[][] = [
+        ['GET', '/balance', 'Fetch current available agent wallet balance in Rupees']
+      ];
+
+      if (showBbpsSection) {
+        endpointRows.push(
           ['GET', '/categories', 'Fetch supported biller categories (Electricity, Fastag, Water, etc.)'],
           ['GET', '/billers', 'Fetch billers list and required customer input parameters'],
           ['POST', '/fetch-bill', 'Fetch customer bill amount, due date, and biller details'],
           ['POST', '/pay-bill', 'Process bill payment and deduct funds from agent wallet'],
-          ['GET', '/status/:transaction_id', 'Check real-time live status of a transaction']
-        ],
+          ['GET', '/status/:transaction_id', 'Check real-time live status & auto-refund of a bill payment']
+        );
+      }
+
+      if (showPayoutSection) {
+        endpointRows.push(
+          ['POST', '/payout/transfer', 'Execute 24x7 instant bank transfer via IMPS or NEFT'],
+          ['GET', '/payout/status/:order_id', 'Check real-time live payout transfer status & bank UTR']
+        );
+      }
+
+      endpointRows.push(
+        ['GET', '/admin-bank-accounts', 'Fetch company bank accounts for wallet fund top-up'],
+        ['POST', '/fund-request', 'Submit electronic fund request (bbps or payout wallet)'],
+        ['GET', '/fund-request/status/:request_id', 'Check real-time approval status of submitted fund request']
+      );
+
+      autoTable(doc, {
+        startY: y,
+        head: [['Method', 'Endpoint Path', 'Description']],
+        body: endpointRows,
         theme: 'grid',
         headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8.5 },
         bodyStyles: { fontSize: 8 },
@@ -134,109 +241,100 @@ export default function B2BAPIDocumentation() {
       });
       y = (doc as any).lastAutoTable.finalY + 10;
 
-      // Section 2.1 GET /balance
+      // 2.1 GET /balance
       y = checkPageBreak(y, 45);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(79, 70, 229);
       doc.text('2.1 GET /balance - Check Agent Wallet Balance', 14, y);
       y += 4;
-      y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "balance": 15450.75,\n    "currency": "INR"\n  }\n}`, y);
+      y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "balance": 25450.75,\n    "bbps_wallet_balance": 15450.75,\n    "payout_wallet_balance": 10000.00,\n    "is_bbps_enabled": ${isBbpsEnabled},\n    "is_payout_enabled": ${isPayoutEnabled}\n  }\n}`, y);
 
-      // Section 2.2 GET /categories
-      y = checkPageBreak(y, 65);
+      // BBPS SPECIFIC SECTIONS IN PDF
+      if (showBbpsSection) {
+        y = checkPageBreak(y, 65);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(79, 70, 229);
+        doc.text('2.2 GET /categories - Fetch Biller Categories', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": [\n    { "category_name": "Electricity", "code": "ELECTRICITY" },\n    { "category_name": "Fastag", "code": "FASTAG" },\n    { "category_name": "Credit Card", "code": "CREDIT_CARD" }\n  ]\n}`, y);
+
+        y = checkPageBreak(y, 90);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(79, 70, 229);
+        doc.text('2.3 POST /fetch-bill - Fetch Customer Bill Details', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "mobile": "9898971274",\n  "customerParams": [{ "name": "Consumer Number", "value": "12345678901" }]\n}`, y);
+        y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "responseCode": "000",\n    "billerResponse": { "customerName": "AJAY KALATHIYA", "amount": "1500.00", "dueDate": "2026-08-30" }\n  }\n}`, y);
+
+        y = checkPageBreak(y, 110);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(79, 70, 229);
+        doc.text('2.4 POST /pay-bill - Execute Bill Payment', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "amount": 1500.00,\n  "mobile": "9898971274",\n  "paymentMode": "UPI",\n  "client_transaction_id": "TXN_ORD_20260814_001",\n  "customerParams": [{ "name": "Consumer Number", "value": "12345678901" }]\n}`, y);
+        y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Bill Paid successfully",\n  "transaction_id": "BBPSU1283118228",\n  "payment_status": "success",\n  "charge_deducted": 10.00\n}`, y);
+
+        y = checkPageBreak(y, 75);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(16, 185, 129);
+        doc.text('2.5 GET /status/:transaction_id - Live Status & Auto-Refund', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Status Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "CC016226CBAF13851712",\n    "current_status": "success",\n    "bbps_status": "SUCCESS"\n  }\n}`, y);
+      }
+
+      // PAYOUT SPECIFIC SECTIONS IN PDF
+      if (showPayoutSection) {
+        y = checkPageBreak(y, 110);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(147, 51, 234);
+        doc.text('2.6 POST /payout/transfer - 24x7 Instant Bank Transfer', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "amount": 2500.00,\n  "account_number": "91234567890123",\n  "ifsc_code": "HDFC0001234",\n  "beneficiary_name": "Ramesh Kumar",\n  "transfer_mode": "IMPS",\n  "client_order_id": "ORD_PAYOUT_1001"\n}`, y);
+        y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Payout transfer completed successfully",\n  "data": {\n    "order_id": "B2BPO1727443912001",\n    "client_order_id": "ORD_PAYOUT_1001",\n    "utr": "426812831122",\n    "amount": 2500.00,\n    "fee": 25.00,\n    "total_deducted": 2525.00,\n    "status": "success"\n  }\n}`, y);
+
+        y = checkPageBreak(y, 75);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(147, 51, 234);
+        doc.text('2.7 GET /payout/status/:order_id - Live Payout Status & UTR', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Status Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "order_id": "B2BPO1727443912001",\n    "client_order_id": "ORD_PAYOUT_1001",\n    "utr": "426812831122",\n    "beneficiary_name": "Ramesh Kumar",\n    "status": "success"\n  }\n}`, y);
+      }
+
+      // FUND MANAGEMENT SECTIONS IN PDF
+      y = checkPageBreak(y, 85);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(79, 70, 229);
-      doc.text('2.2 GET /categories - Fetch Biller Categories', 14, y);
+      doc.text('2.8 POST /fund-request - Submit Wallet Top-up Request', 14, y);
       y += 4;
-      y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": [\n    { "category_name": "Electricity", "code": "ELECTRICITY" },\n    { "category_name": "Credit Card", "code": "CREDIT_CARD" },\n    { "category_name": "Fastag", "code": "FASTAG" },\n    { "category_name": "Water", "code": "WATER" }\n  ]\n}`, y);
+      const sampleWalletType = showPayoutSection && !showBbpsSection ? 'payout' : 'bbps';
+      y = drawCodeBlock('Sample Request Body', `{\n  "amount": 50000,\n  "utr_number": "UTR9876543210",\n  "wallet_type": "${sampleWalletType}",\n  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567"\n}`, y);
 
-      // Section 2.3 GET /billers
-      y = checkPageBreak(y, 75);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(79, 70, 229);
-      doc.text('2.3 GET /billers - Fetch Biller Directory', 14, y);
-      y += 4;
-      y = drawCodeBlock('Sample Response (200 OK)', `{\n  "status": "success",\n  "data": [\n    {\n      "billerId": "DGVCL0000GUJ01",\n      "billerName": "Dakshin Gujarat Vij Company Ltd (DGVCL)",\n      "category": "Electricity",\n      "customerParams": [{ "name": "Consumer Number", "type": "NUMERIC" }]\n    }\n  ]\n}`, y);
-
-      // Section 2.4 POST /fetch-bill
-      y = checkPageBreak(y, 110);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(79, 70, 229);
-      doc.text('2.4 POST /fetch-bill - Fetch Customer Bill Details', 14, y);
-      y += 4;
-      y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "mobile": "9898971274",\n  "customerParams": [\n    { "name": "Consumer Number", "value": "12345678901" }\n  ]\n}`, y);
-      y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Bill fetched successfully",\n  "data": {\n    "responseCode": "000",\n    "responseReason": "Successful",\n    "fetchRequestId": "FETCH_REQ_987654321",\n    "billerResponse": {\n      "customerName": "AJAY KALATHIYA",\n      "amount": "1500.00",\n      "dueDate": "2026-08-30"\n    }\n  }\n}`, y);
-
-      // Section 2.5 POST /pay-bill
-      y = checkPageBreak(y, 140);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(79, 70, 229);
-      doc.text('2.5 POST /pay-bill - Execute Bill Payment', 14, y);
-      y += 4;
-
-      autoTable(doc, {
-        startY: y,
-        head: [['Parameter', 'Type', 'Required', 'Description']],
-        body: [
-          ['billerId', 'String', 'REQUIRED', 'Target Biller ID (e.g. DGVCL0000GUJ01)'],
-          ['amount', 'Number', 'REQUIRED', 'Amount to be paid in Rupees (e.g. 1500.00)'],
-          ['mobile', 'String', 'REQUIRED', '10-digit customer mobile number'],
-          ['paymentMode', 'String', 'OPTIONAL', 'UPI, Internet Banking, Debit Card, Credit Card (Default: Cash)'],
-          ['client_transaction_id', 'String', 'OPTIONAL', 'Custom transaction ID for idempotency and tracking'],
-          ['customerParams', 'Array', 'REQUIRED', 'Array of { name, value } matching biller requirement'],
-          ['billerResponseInfo', 'Object', 'OPTIONAL', 'Exact billerResponse object returned from /fetch-bill']
-        ],
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
-        bodyStyles: { fontSize: 7.5 },
-        margin: { left: 14, right: 14 }
-      });
-      y = (doc as any).lastAutoTable.finalY + 6;
-
-      y = drawCodeBlock('Sample Request Body (/pay-bill)', `{\n  "billerId": "DGVCL0000GUJ01",\n  "amount": 1500.00,\n  "mobile": "9898971274",\n  "paymentMode": "UPI",\n  "client_transaction_id": "TXN_ORD_20260814_001",\n  "customerParams": [\n    { "name": "Consumer Number", "value": "12345678901" }\n  ]\n}`, y);
-      y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Bill Paid successfully",\n  "transaction_id": "BBPSU1283118228",\n  "client_transaction_id": "TXN_ORD_20260814_001",\n  "bbps_txn_ref_id": "CC016226CBAF13851712",\n  "payment_status": "success",\n  "charge_deducted": 10.00\n}`, y);
-
-      // Section 2.6 GET /status/:transaction_id
-      y = checkPageBreak(y, 130);
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(10);
-      doc.setTextColor(16, 185, 129);
-      doc.text('2.6 GET /status/:transaction_id - Check Live Status & Auto-Refund', 14, y);
-      y += 4;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(71, 85, 105);
-      doc.text('Supports: BBPSU..., client_transaction_id, fetchRequestId (from /fetch-bill), or CC01... ID. Queries BillAvenue live via TRANS_REF_ID or REQUEST_ID.', 14, y);
-      y += 5;
-
-      y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "CC016226CBAF13851712",\n    "current_status": "success",\n    "bbps_status": "SUCCESS",\n    "polled_at": "2026-08-14T03:15:00.000Z"\n  }\n}`, y);
-
-      y = drawCodeBlock('Sample Gateway Failure & Auto-Refund Response (No CC01 Generated)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "N/A",\n    "current_status": "failed",\n    "bbps_status": "FAILED_GATEWAY_ERROR",\n    "message": "Bill payment failed to connect to gateway. Wallet automatically refunded.",\n    "refund_status": "REFUNDED",\n    "refunded_amount": 1500.00\n  }\n}`, y);
-
-      // Section 3: Error Codes Matrix Table
+      // Error Codes Matrix
       y = checkPageBreak(y, 80);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(10);
       doc.setTextColor(225, 29, 72);
-      doc.text('3. HTTP Error Codes & Troubleshooting Matrix', 14, y);
+      doc.text('3. Error Codes & Troubleshooting Matrix', 14, y);
       y += 4;
 
       autoTable(doc, {
         startY: y,
         head: [['HTTP Code', 'Status', 'Description', 'Resolution Action']],
         body: [
-          ['200 OK', 'success', 'Transaction / Request executed successfully', 'Process order response'],
-          ['400 Bad Request', 'error', 'Insufficient Wallet Balance', 'Load funds into B2B wallet'],
-          ['400 Bad Request', 'error', 'Payment mode Cash disabled for biller', 'Pass paymentMode: "UPI" or "Internet Banking"'],
-          ['401 Unauthorized', 'error', 'Invalid API Keys or IP Not Whitelisted', 'Whitelist server IP in B2B Settings'],
-          ['429 Too Many Requests', 'error', 'Daily sync limit reached (50 reqs/day)', 'Cache biller list locally'],
-          ['500 Internal Error', 'error', 'Upstream Biller/Gateway Error', 'Wallet auto-refunded. Retry later']
+          ['200 OK', 'success', 'Request processed successfully', 'Parse response data payload'],
+          ['400 Bad Request', 'error', 'Insufficient Wallet Balance', 'Load funds via /fund-request'],
+          ['400 Bad Request', 'error', 'Invalid IFSC / Account Inactive', 'Verify beneficiary bank details'],
+          ['401 Unauthorized', 'error', 'Invalid API Keys or IP Not Whitelisted', 'Whitelist server IP in Settings'],
+          ['429 Too Many Requests', 'error', 'Rate limit exceeded', 'Implement caching & rate-limiting'],
+          ['500 Server Error', 'error', 'Upstream Bank/Gateway Timeout', 'Wallet auto-refunded. Query status']
         ],
         theme: 'grid',
         headStyles: { fillColor: [225, 29, 72], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 8 },
@@ -244,7 +342,8 @@ export default function B2BAPIDocumentation() {
         margin: { left: 14, right: 14 }
       });
 
-      doc.save(`B2B_Bill_Payment_API_Documentation_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+      const sanitizedFilename = docTitle.replace(/[^a-zA-Z0-9]/g, '_');
+      doc.save(`${sanitizedFilename}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     } catch (err) {
       console.error('Failed to generate API PDF:', err);
       alert('Failed to generate PDF documentation');
@@ -313,49 +412,160 @@ export default function B2BAPIDocumentation() {
     </div>
   );
 
+  if (loadingPermissions) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-slate-300 gap-3">
+        <LoadingSpinner size="lg" />
+        <p className="text-sm">Loading API Documentation and service permissions...</p>
+      </div>
+    );
+  }
+
+  // Edge case: No services enabled
+  if (!isBbpsEnabled && !isPayoutEnabled && !isAdmin) {
+    return (
+      <div className="bg-slate-900 rounded-3xl p-8 border border-slate-800 text-center space-y-4">
+        <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl max-w-md mx-auto">
+          <AlertCircle className="h-8 w-8 text-rose-400 mx-auto mb-2" />
+          <h2 className="text-lg font-bold text-white">No Services Currently Active</h2>
+          <p className="text-xs text-slate-400 mt-2">
+            Neither Bill Payment (BBPS) nor Instant Payout API is currently enabled for your account. Please contact your B2B administrator to activate services.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Dynamic header titles
+  const pageTitle = !hasMultipleServices
+    ? (isPayoutEnabled ? 'B2B Instant Payout API Reference' : 'B2B Bill Payment API Reference')
+    : (selectedServiceTab === 'payout' 
+        ? 'B2B Instant Payout API Reference' 
+        : selectedServiceTab === 'bbps' 
+        ? 'B2B Bill Payment API Reference' 
+        : 'B2B Master API Reference');
+
+  const pageDescription = !hasMultipleServices
+    ? (isPayoutEnabled 
+        ? 'High-speed, 24x7 automated IMPS/NEFT bank transfer API with dedicated payout wallet, instant transaction status tracking, and automated failure refunds.'
+        : 'High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated refunds.')
+    : 'Unified RESTful API documentation for processing utility bill payments (BBPS) and 24x7 instant bank transfers (Payout) with real-time tracking and automated webhook updates.';
+
   return (
-    <div id="b2b-api-doc-container" className="space-y-10 w-full text-slate-200 p-6 bg-slate-900 rounded-3xl">
+    <div id="b2b-api-doc-container" className="space-y-8 w-full text-slate-200 p-4 md:p-6 bg-slate-900 rounded-3xl">
       {/* Header Banner */}
-      <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+      <div className="bg-slate-800/90 border border-slate-700 rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-40 bg-indigo-600/10 blur-[120px] rounded-full pointer-events-none" />
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold uppercase tracking-wider mb-3">
-              <Activity className="h-3.5 w-3.5 text-indigo-400" /> API v1.0 Documentation
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-semibold uppercase tracking-wider">
+                <Activity className="h-3.5 w-3.5 text-indigo-400" /> API v1.0 Live
+              </span>
+
+              {isAdmin && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
+                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" /> Admin Full Suite Access
+                </span>
+              )}
+
+              {!isAdmin && isBbpsEnabled && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" /> Bill Payment Active
+                </span>
+              )}
+
+              {!isAdmin && isPayoutEnabled && (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 text-xs font-semibold">
+                  <Zap className="h-3.5 w-3.5 text-purple-400" /> Payout API Active
+                </span>
+              )}
             </div>
-            <h1 className="text-3xl font-black text-white tracking-tight mb-2">
-              B2B Bill Payment API Reference
+
+            <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight mb-2">
+              {pageTitle}
             </h1>
-            <p className="text-slate-400 text-sm max-w-2xl leading-relaxed">
-              High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated webhook updates.
+            <p className="text-slate-400 text-xs md:text-sm max-w-2xl leading-relaxed">
+              {pageDescription}
             </p>
           </div>
-          <button
-            data-html2canvas-ignore="true"
-            onClick={handleExportPDF}
-            disabled={exportingPdf}
-            className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-sm shadow-xl border border-indigo-400/30 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 shrink-0 self-start md:self-center"
-          >
-            {exportingPdf ? (
-              <>
-                <LoadingSpinner size="sm" />
-                <span>Generating PDF...</span>
-              </>
-            ) : (
-              <>
-                <Download className="h-4 w-4 text-white" />
-                <span>Export PDF Doc</span>
-              </>
-            )}
-          </button>
+
+          <div className="flex flex-col sm:flex-row gap-3 shrink-0 self-start md:self-center">
+            <button
+              data-html2canvas-ignore="true"
+              onClick={handleExportPDF}
+              disabled={exportingPdf}
+              className="inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white font-bold text-xs md:text-sm shadow-xl border border-indigo-400/30 transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+              {exportingPdf ? (
+                <>
+                  <LoadingSpinner size="sm" />
+                  <span>Generating PDF...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="h-4 w-4 text-white" />
+                  <span>Export PDF Doc</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
+
+        {/* Multi-Service Switcher Tabs (Shown only if Partner has both services or Admin) */}
+        {hasMultipleServices && (
+          <div className="mt-6 pt-6 border-t border-slate-700/80 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-2 bg-slate-900/80 p-1.5 rounded-2xl border border-slate-700/80">
+              <button
+                onClick={() => setSelectedServiceTab('all')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  selectedServiceTab === 'all' 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                All APIs
+              </button>
+
+              <button
+                onClick={() => setSelectedServiceTab('bbps')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  selectedServiceTab === 'bbps' 
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Landmark className="h-3.5 w-3.5" />
+                Bill Payment (BBPS)
+              </button>
+
+              <button
+                onClick={() => setSelectedServiceTab('payout')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  selectedServiceTab === 'payout' 
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                }`}
+              >
+                <Zap className="h-3.5 w-3.5" />
+                Instant Payout API
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-400 flex items-center gap-2">
+              <Eye className="h-4 w-4 text-indigo-400" />
+              <span>Showing: <strong className="text-white capitalize">{selectedServiceTab === 'all' ? 'All Enabled APIs' : selectedServiceTab}</strong> documentation</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Section 1: Authentication & Base URL */}
       <section className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2 border-b border-slate-700/80 pb-3">
           <Key className="h-5 w-5 text-indigo-400" />
-          1. Authentication & Headers
+          1. Authentication & Mandatory HTTP Headers
         </h2>
 
         <p className="text-sm text-slate-300">
@@ -415,17 +625,19 @@ export default function B2BAPIDocumentation() {
           2. API Endpoints Reference
         </h2>
 
-        {/* 2.1 GET /balance */}
+        {/* 2.1 GET /balance (Common to all agents) */}
         <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
               <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
               /balance
             </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Check Agent Wallet Balance</span>
+            <span className="text-xs text-slate-400 font-mono font-semibold">Check Agent Wallet Balances</span>
           </div>
 
-          <p className="text-xs text-slate-300">Retrieve real-time available wallet balance for BBPS Bill Payment and Payout transfer services.</p>
+          <p className="text-xs text-slate-300">
+            Retrieve real-time available wallet balance for your active services (BBPS Utility Bill Payment and Instant Payout).
+          </p>
 
           <CodeBlock 
             title="Sample Response (200 OK)"
@@ -438,8 +650,8 @@ export default function B2BAPIDocumentation() {
     "payout_wallet_balance": 10000.00,
     "usable_bbps_balance": 15450.75,
     "fixed_deposit_amount": 0,
-    "is_bbps_enabled": true,
-    "is_payout_enabled": true
+    "is_bbps_enabled": ${isBbpsEnabled},
+    "is_payout_enabled": ${isPayoutEnabled}
   }
 }`}
           />
@@ -454,22 +666,32 @@ export default function B2BAPIDocumentation() {
           ]} />
         </div>
 
-        {/* 2.2 GET /categories */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
-              /categories
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">List Biller Categories</span>
-          </div>
+        {/* BBPS ENDPOINTS GROUP (Shown only if BBPS is enabled and active in tab) */}
+        {showBbpsSection && (
+          <div className="space-y-8">
+            <div className="flex items-center gap-2 pt-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-400">
+                Utility Bill Payment Endpoints (BBPS)
+              </h3>
+            </div>
 
-          <p className="text-xs text-slate-300">Fetch all supported BBPS biller categories (Electricity, Water, Credit Card, Fastag, Gas, etc.).</p>
+            {/* 2.2 GET /categories */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+                  /categories
+                </h3>
+                <span className="text-xs text-slate-400 font-mono font-semibold">List Biller Categories</span>
+              </div>
 
-          <CodeBlock 
-            title="Sample Response (200 OK)"
-            section="cat_res"
-            code={`{
+              <p className="text-xs text-slate-300">Fetch all supported BBPS biller categories (Electricity, Water, Credit Card, Fastag, Gas, etc.).</p>
+
+              <CodeBlock 
+                title="Sample Response (200 OK)"
+                section="cat_res"
+                code={`{
   "status": "success",
   "data": [
     { "category_id": 1, "category_name": "Electricity" },
@@ -482,31 +704,31 @@ export default function B2BAPIDocumentation() {
     { "category_id": 8, "category_name": "Fastag" }
   ]
 }`}
-          />
-        </div>
+              />
+            </div>
 
-        {/* 2.3 GET /billers */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
-              /billers
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Fetch Billers Directory</span>
-          </div>
+            {/* 2.3 GET /billers */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+                  /billers
+                </h3>
+                <span className="text-xs text-slate-400 font-mono font-semibold">Fetch Billers Directory</span>
+              </div>
 
-          <p className="text-xs text-slate-300">Fetch supported billers with required customer input parameters and validation metadata.</p>
+              <p className="text-xs text-slate-300">Fetch supported billers with required customer input parameters and validation metadata.</p>
 
-          <ParamTable params={[
-            { name: "category_id", type: "Number", required: false, desc: "Filter billers by category ID (e.g., 1 for Electricity)." },
-            { name: "page", type: "Number", required: false, desc: "Page index for pagination (Default: 1)." },
-            { name: "limit", type: "Number", required: false, desc: "Records per page (Max limit allowed: 500)." }
-          ]} />
+              <ParamTable params={[
+                { name: "category_id", type: "Number", required: false, desc: "Filter billers by category ID (e.g., 1 for Electricity)." },
+                { name: "page", type: "Number", required: false, desc: "Page index for pagination (Default: 1)." },
+                { name: "limit", type: "Number", required: false, desc: "Records per page (Max limit allowed: 500)." }
+              ]} />
 
-          <CodeBlock 
-            title="Sample Response (200 OK)"
-            section="billers_res"
-            code={`{
+              <CodeBlock 
+                title="Sample Response (200 OK)"
+                section="billers_res"
+                code={`{
   "status": "success",
   "data": [
     { 
@@ -536,45 +758,45 @@ export default function B2BAPIDocumentation() {
     "total_pages": 13
   }
 }`}
-          />
-        </div>
+              />
+            </div>
 
-        {/* 2.4 POST /fetch-bill */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
-              /fetch-bill
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Fetch Customer Bill Amount</span>
-          </div>
+            {/* 2.4 POST /fetch-bill */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+                  /fetch-bill
+                </h3>
+                <span className="text-xs text-slate-400 font-mono font-semibold">Fetch Customer Bill Amount</span>
+              </div>
 
-          <p className="text-xs text-slate-300">
-            Query the biller's server in real time to fetch customer bill details, due date, customer name, and bill amount.
-          </p>
+              <p className="text-xs text-slate-300">
+                Query the biller's server in real time to fetch customer bill details, due date, customer name, and bill amount.
+              </p>
 
-          <ParamTable params={[
-            { name: "billerId", type: "String", required: true, desc: "Exact Biller ID retrieved from the /billers API." },
-            { name: "mobile", type: "String", required: true, desc: "10-digit customer mobile number." },
-            { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } objects matching the biller's required input parameters." }
-          ]} />
+              <ParamTable params={[
+                { name: "billerId", type: "String", required: true, desc: "Exact Biller ID retrieved from the /billers API." },
+                { name: "mobile", type: "String", required: true, desc: "10-digit customer mobile number." },
+                { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } objects matching the biller's required input parameters." }
+              ]} />
 
-          <CodeBlock 
-            title="Sample Request Body"
-            section="fetch_req_code"
-            code={`{
+              <CodeBlock 
+                title="Sample Request Body"
+                section="fetch_req_code"
+                code={`{
   "billerId": "DGVCL0000GUJ01",
   "mobile": "9898971274",
   "customerParams": [
     { "name": "Consumer Number", "value": "12345678901" }
   ]
 }`}
-          />
+              />
 
-          <CodeBlock 
-            title="Sample Success Response (200 OK)"
-            section="fetch_res_code"
-            code={`{
+              <CodeBlock 
+                title="Sample Success Response (200 OK)"
+                section="fetch_res_code"
+                code={`{
   "status": "success",
   "message": "Bill fetched successfully",
   "data": {
@@ -596,44 +818,44 @@ export default function B2BAPIDocumentation() {
     ]
   }
 }`}
-          />
-        </div>
+              />
+            </div>
 
-        {/* 2.5 POST /pay-bill */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-36 bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
-          
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3 relative z-10">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
-              /pay-bill
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Execute Bill Payment</span>
-          </div>
+            {/* 2.5 POST /pay-bill */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-36 bg-indigo-500/5 blur-[120px] rounded-full pointer-events-none" />
+              
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3 relative z-10">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+                  /pay-bill
+                </h3>
+                <span className="text-xs text-slate-400 font-mono font-semibold">Execute Bill Payment</span>
+              </div>
 
-          <p className="text-xs text-slate-300 relative z-10">
-            Execute the bill payment. Validates agent wallet balance, checks single-transaction maximum limit set by admin, applies dynamic fee charge multiplier (1x for &lt; ₹50k, 2x for ₹50k–₹99.9k, 3x for ₹100k–₹149.9k, etc.), deducts funds, and processes payment via BBPS gateway.
-          </p>
+              <p className="text-xs text-slate-300 relative z-10">
+                Execute the bill payment. Validates agent BBPS wallet balance, deducts funds, and processes payment via BBPS gateway.
+              </p>
 
-          <div className="relative z-10">
-            <h4 className="font-semibold text-white text-xs mb-2">Request Payload Parameters:</h4>
-            <ParamTable params={[
-              { name: "billerId", type: "String", required: true, desc: "Target Biller ID (e.g., 'DGVCL0000GUJ01', 'SBIC00000NATDN')." },
-              { name: "amount", type: "Number", required: true, desc: "Amount to be paid in Rupees (e.g. 1500.00). Pass full bill amount or custom partial amount." },
-              { name: "mobile", type: "String", required: true, desc: "10-digit customer mobile number." },
-              { name: "paymentMode", type: "String", required: false, desc: "Payment mode: 'Cash', 'UPI', 'Internet Banking', 'Debit Card', 'Credit Card'. Default: 'Cash'. (Note: Electricity billers have 'Cash' disabled in BillAvenue, pass 'UPI' or 'Internet Banking')." },
-              { name: "client_transaction_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency & tracing. If omitted, a BBPSU... ID is auto-generated." },
-              { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } matching required biller parameters." },
-              { name: "customerPan", type: "String", required: false, desc: "Customer 10-digit PAN Card (e.g. 'ABCDE1234F'). MANDATORY for Cash payments of ₹50,000 or above as per RBI guidelines." },
-              { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact billerResponse object returned by /fetch-bill (customerName, billAmount, dueDate, billDate)." },
-              { name: "additionalInfo", type: "Array of Objects", required: false, desc: "Optional metadata array like [{ infoName: 'Remark', infoValue: 'Payment' }]." }
-            ]} />
-          </div>
+              <div className="relative z-10">
+                <h4 className="font-semibold text-white text-xs mb-2">Request Payload Parameters:</h4>
+                <ParamTable params={[
+                  { name: "billerId", type: "String", required: true, desc: "Target Biller ID (e.g., 'DGVCL0000GUJ01', 'SBIC00000NATDN')." },
+                  { name: "amount", type: "Number", required: true, desc: "Amount to be paid in Rupees (e.g. 1500.00). Pass full bill amount or custom partial amount." },
+                  { name: "mobile", type: "String", required: true, desc: "10-digit customer mobile number." },
+                  { name: "paymentMode", type: "String", required: false, desc: "Payment mode: 'Cash', 'UPI', 'Internet Banking', 'Debit Card', 'Credit Card'. Default: 'Cash'." },
+                  { name: "client_transaction_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency & tracing." },
+                  { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } matching required biller parameters." },
+                  { name: "customerPan", type: "String", required: false, desc: "Customer 10-digit PAN Card (MANDATORY for Cash payments >= ₹50,000)." },
+                  { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact billerResponse object returned by /fetch-bill." },
+                  { name: "additionalInfo", type: "Array of Objects", required: false, desc: "Optional metadata array like [{ infoName: 'Remark', infoValue: 'Payment' }]." }
+                ]} />
+              </div>
 
-          <CodeBlock 
-            title="Complete Request Payload Example"
-            section="pay_req_full"
-            code={`{
+              <CodeBlock 
+                title="Complete Request Payload Example"
+                section="pay_req_full"
+                code={`{
   "billerId": "DGVCL0000GUJ01",
   "amount": 1500.00,
   "mobile": "9898971274",
@@ -647,128 +869,52 @@ export default function B2BAPIDocumentation() {
     "billAmount": "150000",
     "billDate": "2026-08-10",
     "dueDate": "2026-08-30"
-  },
-  "additionalInfo": [
-    { "infoName": "Remark", "infoValue": "Monthly Electricity Bill Payment" }
-  ]
+  }
 }`}
-          />
+              />
 
-          <CodeBlock 
-            title="Success Response (200 OK - Payment Processed Successfully)"
-            section="pay_res_success"
-            code={`{
+              <CodeBlock 
+                title="Success Response (200 OK - Payment Processed Successfully)"
+                section="pay_res_success"
+                code={`{
   "status": "success",
   "message": "Bill Paid successfully",
   "transaction_id": "BBPSU1283118228",
   "client_transaction_id": "TXN_ORD_20260814_001",
+  "bbps_txn_ref_id": "CC016226CBAF13851712",
   "payment_status": "success",
-  "charge_deducted": 10.00,
-  "data": {
-    "responseCode": "000",
-    "responseReason": "Successful",
-    "ExtBillPayResponse": {
-      "txnRefId": "CC016226CBAF13851712",
-      "approvalRefNumber": "AB1234567890",
-      "responseCode": "000",
-      "responseReason": "Successful",
-      "RespCustomerName": "AJAY KALATHIYA",
-      "RespAmount": "150000",
-      "txnStatus": "SUCCESS"
-    }
-  }
+  "charge_deducted": 10.00
 }`}
-          />
+              />
 
-          <CodeBlock 
-            title="Pending Response (200 OK - Pending Confirmation at Biller End)"
-            section="pay_res_pending"
-            code={`{
-  "status": "success",
-  "message": "Transaction initiated, currently pending at biller",
-  "transaction_id": "BBPSU9553347160",
-  "client_transaction_id": "TXN_ORD_20260814_001",
-  "payment_status": "pending",
-  "charge_deducted": 10.00,
-  "data": {
-    "responseCode": "001",
-    "responseReason": "Pending at Biller",
-    "ExtBillPayResponse": {
-      "txnRefId": "CC016226CBAF13848716",
-      "txnStatus": "PENDING"
-    }
-  }
-}`}
-          />
-
-          <CodeBlock 
-            title="Error Response (400 Bad Request - Insufficient Wallet Balance)"
-            section="pay_res_insufficient"
-            code={`{
+              <CodeBlock 
+                title="Error Response (400 Bad Request - Insufficient Wallet Balance)"
+                section="pay_res_insufficient"
+                code={`{
   "status": "error",
   "message": "Insufficient Wallet Balance. Required: ₹1510.00, Current Balance: ₹450.00"
 }`}
-          />
-
-          <CodeBlock 
-            title="Error Response (400 Bad Request - Disabled Payment Mode)"
-            section="pay_res_disabled_mode"
-            code={`{
-  "status": "error",
-  "message": "Payment mode Cash is disabled for this biller. Please pass paymentMode as 'UPI' or 'Internet Banking'."
-}`}
-          />
-        </div>
-
-        {/* 2.6 GET /status/:transaction_id */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-36 bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none" />
-
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3 relative z-10">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
-              /status/:transaction_id
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Check Live Status</span>
-          </div>
-
-          <p className="text-xs text-slate-300 leading-relaxed relative z-10">
-            Check real-time live transaction status. You can query using any of the following 4 identifiers in the URL parameter:
-          </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-slate-300 relative z-10">
-            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
-              <span className="text-indigo-400 font-semibold block text-[11px]">1. API Transaction ID</span>
-              <code className="text-emerald-400 text-[11px]">BBPSU1283118228</code>
+              />
             </div>
-            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
-              <span className="text-indigo-400 font-semibold block text-[11px]">2. Custom Client Order ID (Recommended)</span>
-              <code className="text-amber-400 text-[11px]">TXN_ORD_20260814_001</code>
-            </div>
-            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
-              <span className="text-indigo-400 font-semibold block text-[11px]">3. Fetch Request ID (From /fetch-bill)</span>
-              <code className="text-cyan-400 text-[11px]">8ngUMf5Jrb83C8KY0RhjOQjlaNK62510835</code>
-            </div>
-            <div className="bg-slate-900/60 p-2.5 rounded-lg border border-slate-700/60">
-              <span className="text-indigo-400 font-semibold block text-[11px]">4. BillAvenue Reference ID</span>
-              <code className="text-purple-400 text-[11px]">CC016226CBAF13851712</code>
-            </div>
-          </div>
 
-          <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-4 space-y-2 relative z-10">
-            <div className="flex items-center gap-2 text-indigo-300 font-bold text-xs">
-              <ShieldAlert className="h-4 w-4 text-indigo-400" />
-              <span>Smart Status Tracking & Timeout Protection</span>
-            </div>
-            <p className="text-[11px] text-slate-300 leading-normal">
-              Even if a network timeout occurred during payment and no <code>CC01</code> Reference ID was initially received by your client application, calling <code>/status/:transaction_id</code> with your <code>client_transaction_id</code> or <code>fetchRequestId</code> queries BillAvenue live via <code>REQUEST_ID</code>. If the payment succeeded upstream, it updates to <code>success</code> and returns the new <code>CC01</code> reference number. If the transaction was never processed by the gateway, it safely marks as <code>failed</code> and performs an <strong>Immediate Automatic Refund</strong> back to your B2B Agent Wallet.
-            </p>
-          </div>
+            {/* 2.6 GET /status/:transaction_id */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4 relative overflow-hidden">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3 relative z-10">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+                  /status/:transaction_id
+                </h3>
+                <span className="text-xs text-slate-400 font-mono font-semibold">Check Live Status & Auto-Refund</span>
+              </div>
 
-          <CodeBlock 
-            title="Sample Success Response (200 OK)"
-            section="status_res_code"
-            code={`{
+              <p className="text-xs text-slate-300 leading-relaxed relative z-10">
+                Check real-time live transaction status. Query using any of the 4 identifiers: <code>BBPSU...</code>, <code>client_transaction_id</code>, <code>fetchRequestId</code>, or <code>CC01...</code>.
+              </p>
+
+              <CodeBlock 
+                title="Sample Success Response (200 OK)"
+                section="status_res_code"
+                code={`{
   "status": "success",
   "data": {
     "transaction_id": "BBPSU1283118228",
@@ -779,12 +925,12 @@ export default function B2BAPIDocumentation() {
     "polled_at": "2026-08-14T03:15:00.000Z"
   }
 }`}
-          />
+              />
 
-          <CodeBlock 
-            title="Sample Gateway Failure & Auto-Refund Response (200 OK - No CC01 Generated)"
-            section="status_res_auto_refund"
-            code={`{
+              <CodeBlock 
+                title="Sample Gateway Failure & Auto-Refund Response (200 OK - No CC01 Generated)"
+                section="status_res_auto_refund"
+                code={`{
   "status": "success",
   "data": {
     "transaction_id": "BBPSU1283118228",
@@ -792,43 +938,55 @@ export default function B2BAPIDocumentation() {
     "bbps_txn_ref_id": "N/A",
     "current_status": "failed",
     "bbps_status": "FAILED_GATEWAY_ERROR",
-    "message": "Bill payment failed to connect to biller gateway (No CC01 Ref generated). Agent wallet has been automatically refunded.",
+    "message": "Bill payment failed to connect to biller gateway. BBPS wallet automatically refunded.",
     "refund_status": "REFUNDED",
     "refunded_amount": 1500.00,
     "polled_at": "2026-08-14T03:15:00.000Z"
   }
 }`}
-          />
-        </div>
-
-        {/* 2.7 POST /payout/transfer */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
-              /payout/transfer
-            </h3>
-            <span className="text-xs text-purple-300 font-mono font-semibold">24x7 Instant Bank Transfer</span>
+              />
+            </div>
           </div>
+        )}
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Execute 24x7 real-time bank account transfer via IMPS or NEFT. Deducts <code>Amount + Slab Fee</code> strictly from your dedicated <strong>Payout Wallet</strong>. If the upstream bank transfer fails, funds are automatically refunded to your Payout Wallet.
-          </p>
+        {/* PAYOUT ENDPOINTS GROUP (Shown only if Payout is enabled and active in tab) */}
+        {showPayoutSection && (
+          <div className="space-y-8">
+            <div className="flex items-center gap-2 pt-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-purple-400 animate-pulse" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-purple-400">
+                Instant Bank Payout Endpoints (24x7 IMPS / NEFT)
+              </h3>
+            </div>
 
-          <ParamTable params={[
-            { name: "amount", type: "Number", required: true, desc: "Transfer amount in INR (₹100 to ₹2,00,000)." },
-            { name: "account_number", type: "String", required: true, desc: "Beneficiary bank account number (8 to 22 digits)." },
-            { name: "ifsc_code", type: "String", required: true, desc: "Beneficiary bank IFSC Code (11 alphanumeric characters)." },
-            { name: "beneficiary_name", type: "String", required: true, desc: "Name of the bank account holder." },
-            { name: "transfer_mode", type: "String", required: false, desc: "Transfer mode: 'IMPS' (default, 24x7 instant) or 'NEFT'." },
-            { name: "client_order_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency and status query." },
-            { name: "bank_name", type: "String", required: false, desc: "Optional name of the beneficiary bank." }
-          ]} />
+            {/* 2.7 POST /payout/transfer */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+                  /payout/transfer
+                </h3>
+                <span className="text-xs text-purple-300 font-mono font-semibold">24x7 Instant Bank Transfer</span>
+              </div>
 
-          <CodeBlock 
-            title="Sample Request Body"
-            section="payout_req_body"
-            code={`{
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Execute 24x7 real-time bank account transfer via IMPS or NEFT. Deducts <code>Amount + Slab Fee</code> strictly from your dedicated <strong>Payout Wallet</strong>. If the upstream bank transfer fails, funds are automatically refunded to your Payout Wallet.
+              </p>
+
+              <ParamTable params={[
+                { name: "amount", type: "Number", required: true, desc: "Transfer amount in INR (₹100 to ₹2,00,000)." },
+                { name: "account_number", type: "String", required: true, desc: "Beneficiary bank account number (8 to 22 digits)." },
+                { name: "ifsc_code", type: "String", required: true, desc: "Beneficiary bank IFSC Code (11 alphanumeric characters)." },
+                { name: "beneficiary_name", type: "String", required: true, desc: "Name of the bank account holder." },
+                { name: "transfer_mode", type: "String", required: false, desc: "Transfer mode: 'IMPS' (default, 24x7 instant) or 'NEFT'." },
+                { name: "client_order_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency and status query." },
+                { name: "bank_name", type: "String", required: false, desc: "Optional name of the beneficiary bank." }
+              ]} />
+
+              <CodeBlock 
+                title="Sample Request Body"
+                section="payout_req_body"
+                code={`{
   "amount": 2500.00,
   "account_number": "91234567890123",
   "ifsc_code": "HDFC0001234",
@@ -837,12 +995,12 @@ export default function B2BAPIDocumentation() {
   "client_order_id": "ORD_PAYOUT_1001",
   "bank_name": "HDFC Bank"
 }`}
-          />
+              />
 
-          <CodeBlock 
-            title="Sample Success Response (200 OK)"
-            section="payout_res_success"
-            code={`{
+              <CodeBlock 
+                title="Sample Success Response (200 OK)"
+                section="payout_res_success"
+                code={`{
   "status": "success",
   "message": "Payout transfer completed successfully",
   "data": {
@@ -858,12 +1016,12 @@ export default function B2BAPIDocumentation() {
     "status": "success"
   }
 }`}
-          />
+              />
 
-          <CodeBlock 
-            title="Sample Failed & Refunded Response (400 Bad Request)"
-            section="payout_res_failed"
-            code={`{
+              <CodeBlock 
+                title="Sample Failed & Refunded Response (400 Bad Request)"
+                section="payout_res_failed"
+                code={`{
   "status": "failed",
   "message": "Beneficiary account inactive or invalid IFSC. Funds refunded to payout wallet.",
   "data": {
@@ -875,27 +1033,27 @@ export default function B2BAPIDocumentation() {
     "status": "failed"
   }
 }`}
-          />
-        </div>
+              />
+            </div>
 
-        {/* 2.8 GET /payout/status/:order_id */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
-              /payout/status/:order_id
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Check Payout Status</span>
-          </div>
+            {/* 2.8 GET /payout/status/:order_id */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+                  /payout/status/:order_id
+                </h3>
+                <span className="text-xs text-slate-400 font-mono font-semibold">Check Payout Status & Bank UTR</span>
+              </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Query the real-time status of a payout transfer using either the system <code>order_id</code> or your own <code>client_order_id</code>.
-          </p>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Query the real-time status of a payout transfer using either the system <code>order_id</code> or your own <code>client_order_id</code>.
+              </p>
 
-          <CodeBlock 
-            title="Sample Response (200 OK)"
-            section="payout_status_res"
-            code={`{
+              <CodeBlock 
+                title="Sample Response (200 OK)"
+                section="payout_status_res"
+                code={`{
   "status": "success",
   "data": {
     "order_id": "B2BPO1727443912001",
@@ -913,27 +1071,38 @@ export default function B2BAPIDocumentation() {
     "updated_at": "2026-09-27T08:15:02.000Z"
   }
 }`}
-          />
-        </div>
+              />
+            </div>
+          </div>
+        )}
 
-        {/* 2.9 GET /admin-bank-accounts */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
-              /admin-bank-accounts
+        {/* FUND MANAGEMENT & BANK ACCOUNTS (Common to all active partners) */}
+        <div className="space-y-8">
+          <div className="flex items-center gap-2 pt-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-indigo-400 animate-pulse" />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-indigo-400">
+              Wallet Fund Management & Deposit APIs
             </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Get Admin Bank Accounts List</span>
           </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Retrieve active company bank accounts configured by B2B Admin. External portals (Zenot Portal) can render these accounts in a dropdown list for the agent to select their deposit destination.
-          </p>
+          {/* 2.9 GET /admin-bank-accounts */}
+          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+                /admin-bank-accounts
+              </h3>
+              <span className="text-xs text-slate-400 font-mono font-semibold">Get Admin Bank Accounts List</span>
+            </div>
 
-          <CodeBlock 
-            title="Sample Response (200 OK)"
-            section="admin_banks_res"
-            code={`{
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Retrieve active company bank accounts configured by B2B Admin for wallet fund top-up. Render these accounts in a dropdown list for the agent to select their deposit destination.
+            </p>
+
+            <CodeBlock 
+              title="Sample Response (200 OK)"
+              section="admin_banks_res"
+              code={`{
   "status": "success",
   "data": [
     {
@@ -947,102 +1116,128 @@ export default function B2BAPIDocumentation() {
     }
   ]
 }`}
-          />
-        </div>
-
-        {/* 2.10 POST /fund-request */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
-              /fund-request
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Submit B2B Fund Request</span>
+            />
           </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Submit a wallet fund request electronically from third-party client portals (e.g. Zenot Portal). Select target destination using <code>wallet_type: "bbps"</code> or <code>"payout"</code>. Your request will be queued in <code>pending</code> status for B2B Admin verification and approval.
-          </p>
+          {/* 2.10 POST /fund-request */}
+          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                <span className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+                /fund-request
+              </h3>
+              <span className="text-xs text-slate-400 font-mono font-semibold">Submit B2B Fund Request</span>
+            </div>
 
-          <CodeBlock 
-            title="Sample Request Body"
-            section="fund_req_body"
-            code={`{
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Submit a wallet fund request electronically. Select target destination using <code>wallet_type: "bbps"</code> or <code>"payout"</code> based on your enabled service. Your request will be queued in <code>pending</code> status for B2B Admin verification and approval.
+            </p>
+
+            <CodeBlock 
+              title="Sample Request Body"
+              section="fund_req_body"
+              code={`{
   "amount": 50000,
   "utr_number": "UTR9876543210",
-  "wallet_type": "payout",
+  "wallet_type": "${showPayoutSection && !showBbpsSection ? 'payout' : 'bbps'}",
   "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567",
   "proof_url": "https://example.com/payment_receipt.jpg"
 }`}
-          />
+            />
 
-          <CodeBlock 
-            title="Sample Success Response (201 Created)"
-            section="fund_req_res"
-            code={`{
+            <CodeBlock 
+              title="Sample Success Response (201 Created)"
+              section="fund_req_res"
+              code={`{
   "status": "success",
   "message": "Fund request submitted successfully and pending approval",
   "data": {
     "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
     "amount": 50000,
     "utr_number": "UTR9876543210",
-    "wallet_type": "payout",
+    "wallet_type": "${showPayoutSection && !showBbpsSection ? 'payout' : 'bbps'}",
     "status": "pending",
     "submitted_at": "2026-08-15T00:33:00.000Z"
   }
 }`}
-          />
+            />
 
-          <ParamTable params={[
-            { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to credit to your account." },
-            { name: "utr_number", type: "String", required: true, desc: "Unique Bank Transaction Reference / UTR Number (also accepts 'transaction_ref_no')." },
-            { name: "wallet_type", type: "String", required: false, desc: "Target wallet destination: 'bbps' (Utility Bill Payment Wallet) or 'payout' (Instant Payout Wallet). Default: 'bbps'." },
-            { name: "admin_bank_account_id", type: "String", required: false, desc: "Optional ID of the Admin Bank Account where money was deposited (obtained from GET /admin-bank-accounts)." },
-            { name: "proof_url", type: "String", required: false, desc: "Optional URL linking to payment receipt or transaction screenshot." }
-          ]} />
-        </div>
-
-        {/* 2.11 GET /fund-request/status/:request_id */}
-        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-            <h3 className="text-lg font-bold text-white flex items-center gap-3">
-              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
-              /fund-request/status/:request_id
-            </h3>
-            <span className="text-xs text-slate-400 font-mono font-semibold">Check Fund Request Status</span>
+            <ParamTable params={[
+              { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to credit to your account." },
+              { name: "utr_number", type: "String", required: true, desc: "Unique Bank Transaction Reference / UTR Number." },
+              { name: "wallet_type", type: "String", required: false, desc: "Target wallet destination: 'bbps' (Utility Bill Payment) or 'payout' (Instant Payout). Default: 'bbps'." },
+              { name: "admin_bank_account_id", type: "String", required: false, desc: "Optional ID of the Admin Bank Account where money was deposited." },
+              { name: "proof_url", type: "String", required: false, desc: "Optional URL linking to payment receipt or transaction screenshot." }
+            ]} />
           </div>
 
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Check the live approval status (<code>pending</code>, <code>approved</code>, <code>rejected</code>) of a submitted fund request.
-          </p>
+          {/* 2.11 GET /fund-request/status/:request_id */}
+          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+              <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+                /fund-request/status/:request_id
+              </h3>
+              <span className="text-xs text-slate-400 font-mono font-semibold">Check Fund Request Status</span>
+            </div>
 
-          <CodeBlock 
-            title="Sample Response (200 OK)"
-            section="fund_req_status_res"
-            code={`{
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Check the live approval status (<code>pending</code>, <code>approved</code>, <code>rejected</code>) of a submitted fund request.
+            </p>
+
+            <CodeBlock 
+              title="Sample Response (200 OK)"
+              section="fund_req_status_res"
+              code={`{
   "status": "success",
   "data": {
     "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
     "amount": 50000,
     "utr_number": "UTR9876543210",
+    "wallet_type": "${showPayoutSection && !showBbpsSection ? 'payout' : 'bbps'}",
     "status": "approved",
     "proof_url": null,
     "created_at": "2026-08-15T00:33:00.000Z",
     "updated_at": "2026-08-15T00:35:00.000Z"
   }
 }`}
-          />
+            />
+          </div>
         </div>
-
       </section>
 
-      {/* Section 3: Multi-Language Code Snippets */}
+      {/* Section 3: Multi-Language Code Integration Examples */}
       <section className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2 border-b border-slate-700/80 pb-3">
-          <Code className="h-5 w-5 text-indigo-400" />
-          3. Code Integration Examples
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700/80 pb-4">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+            <Code className="h-5 w-5 text-indigo-400" />
+            3. Code Integration Examples
+          </h2>
 
+          {/* Service Toggle for Code Examples (if both available) */}
+          {hasMultipleServices && (
+            <div className="flex items-center gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-700">
+              <button
+                onClick={() => setCodeServiceTab('bbps')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  codeServiceTab === 'bbps' ? 'bg-emerald-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Bill Payment (/pay-bill)
+              </button>
+              <button
+                onClick={() => setCodeServiceTab('payout')}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                  codeServiceTab === 'payout' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                Payout Transfer (/payout/transfer)
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Language Tabs */}
         <div className="flex items-center gap-2 bg-slate-900/60 p-1.5 rounded-xl border border-slate-700/70 w-fit">
           <button
             onClick={() => setActiveLang('curl')}
@@ -1078,11 +1273,145 @@ export default function B2BAPIDocumentation() {
           </button>
         </div>
 
-        {activeLang === 'curl' && (
-          <CodeBlock 
-            title="cURL Request Example (/pay-bill)"
-            section="code_curl"
-            code={`curl -X POST "${baseUrl}/api/v1/b2b/pay-bill" \\
+        {/* Effective code service to show */}
+        {(() => {
+          const effectiveCodeService = !hasMultipleServices 
+            ? (isPayoutEnabled ? 'payout' : 'bbps') 
+            : codeServiceTab;
+
+          if (effectiveCodeService === 'payout') {
+            return (
+              <>
+                {activeLang === 'curl' && (
+                  <CodeBlock 
+                    title="cURL Request Example (/payout/transfer)"
+                    section="code_curl_payout"
+                    code={`curl -X POST "${baseUrl}/api/v1/b2b/payout/transfer" \\
+  -H "x-api-key: pub_live_your_key_here" \\
+  -H "x-secret-key: sec_live_your_secret_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "amount": 2500.00,
+    "account_number": "91234567890123",
+    "ifsc_code": "HDFC0001234",
+    "beneficiary_name": "Ramesh Kumar",
+    "transfer_mode": "IMPS",
+    "client_order_id": "ORD_PAYOUT_1001",
+    "bank_name": "HDFC Bank"
+  }'`}
+                  />
+                )}
+
+                {activeLang === 'nodejs' && (
+                  <CodeBlock 
+                    title="Node.js Integration Example (Axios - Instant Payout)"
+                    section="code_nodejs_payout"
+                    code={`const axios = require('axios');
+
+async function sendPayout() {
+  try {
+    const response = await axios.post('${baseUrl}/api/v1/b2b/payout/transfer', {
+      amount: 2500.00,
+      account_number: '91234567890123',
+      ifsc_code: 'HDFC0001234',
+      beneficiary_name: 'Ramesh Kumar',
+      transfer_mode: 'IMPS',
+      client_order_id: 'ORD_PAYOUT_1001',
+      bank_name: 'HDFC Bank'
+    }, {
+      headers: {
+        'x-api-key': 'pub_live_your_key_here',
+        'x-secret-key': 'sec_live_your_secret_here',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Payout Status:', response.data.status);
+    console.log('Bank UTR:', response.data.data?.utr);
+    console.log('Order ID:', response.data.data?.order_id);
+  } catch (error) {
+    console.error('Payout Error:', error.response?.data || error.message);
+  }
+}
+
+sendPayout();`}
+                  />
+                )}
+
+                {activeLang === 'python' && (
+                  <CodeBlock 
+                    title="Python Integration Example (Requests - Instant Payout)"
+                    section="code_python_payout"
+                    code={`import requests
+
+url = "${baseUrl}/api/v1/b2b/payout/transfer"
+headers = {
+    "x-api-key": "pub_live_your_key_here",
+    "x-secret-key": "sec_live_your_secret_here",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "amount": 2500.00,
+    "account_number": "91234567890123",
+    "ifsc_code": "HDFC0001234",
+    "beneficiary_name": "Ramesh Kumar",
+    "transfer_mode": "IMPS",
+    "client_order_id": "ORD_PAYOUT_1001",
+    "bank_name": "HDFC Bank"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print("Payout Result:", response.json())`}
+                  />
+                )}
+
+                {activeLang === 'php' && (
+                  <CodeBlock 
+                    title="PHP Integration Example (cURL - Instant Payout)"
+                    section="code_php_payout"
+                    code={`<?php
+$ch = curl_init("${baseUrl}/api/v1/b2b/payout/transfer");
+
+$payload = json_encode([
+    "amount" => 2500.00,
+    "account_number" => "91234567890123",
+    "ifsc_code" => "HDFC0001234",
+    "beneficiary_name" => "Ramesh Kumar",
+    "transfer_mode" => "IMPS",
+    "client_order_id" => "ORD_PAYOUT_1001",
+    "bank_name" => "HDFC Bank"
+]);
+
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'x-api-key: pub_live_your_key_here',
+    'x-secret-key: sec_live_your_secret_here',
+    'Content-Type: application/json'
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$result = json_decode($response, true);
+var_dump($result);
+?>`}
+                  />
+                )}
+              </>
+            );
+          }
+
+          // Default: BBPS Code Examples
+          return (
+            <>
+              {activeLang === 'curl' && (
+                <CodeBlock 
+                  title="cURL Request Example (/pay-bill)"
+                  section="code_curl"
+                  code={`curl -X POST "${baseUrl}/api/v1/b2b/pay-bill" \\
   -H "x-api-key: pub_live_your_key_here" \\
   -H "x-secret-key: sec_live_your_secret_here" \\
   -H "Content-Type: application/json" \\
@@ -1096,14 +1425,14 @@ export default function B2BAPIDocumentation() {
       { "name": "Consumer Number", "value": "12345678901" }
     ]
   }'`}
-          />
-        )}
+                />
+              )}
 
-        {activeLang === 'nodejs' && (
-          <CodeBlock 
-            title="Node.js Integration Example (Axios)"
-            section="code_nodejs"
-            code={`const axios = require('axios');
+              {activeLang === 'nodejs' && (
+                <CodeBlock 
+                  title="Node.js Integration Example (Axios - Bill Payment)"
+                  section="code_nodejs"
+                  code={`const axios = require('axios');
 
 async function payBill() {
   try {
@@ -1132,14 +1461,14 @@ async function payBill() {
 }
 
 payBill();`}
-          />
-        )}
+                />
+              )}
 
-        {activeLang === 'python' && (
-          <CodeBlock 
-            title="Python Integration Example (Requests)"
-            section="code_python"
-            code={`import requests
+              {activeLang === 'python' && (
+                <CodeBlock 
+                  title="Python Integration Example (Requests - Bill Payment)"
+                  section="code_python"
+                  code={`import requests
 
 url = "${baseUrl}/api/v1/b2b/pay-bill"
 headers = {
@@ -1160,16 +1489,15 @@ payload = {
 }
 
 response = requests.post(url, json=payload, headers=headers)
-data = response.json()
-print("Payment Result:", data)`}
-          />
-        )}
+print("Payment Result:", response.json())`}
+                />
+              )}
 
-        {activeLang === 'php' && (
-          <CodeBlock 
-            title="PHP Integration Example (cURL)"
-            section="code_php"
-            code={`<?php
+              {activeLang === 'php' && (
+                <CodeBlock 
+                  title="PHP Integration Example (cURL - Bill Payment)"
+                  section="code_php"
+                  code={`<?php
 $ch = curl_init("${baseUrl}/api/v1/b2b/pay-bill");
 
 $payload = json_encode([
@@ -1198,8 +1526,11 @@ curl_close($ch);
 $result = json_decode($response, true);
 var_dump($result);
 ?>`}
-          />
-        )}
+                />
+              )}
+            </>
+          );
+        })()}
       </section>
 
       {/* Section 4: Webhooks Section */}
@@ -1210,13 +1541,63 @@ var_dump($result);
         </h2>
 
         <p className="text-xs text-slate-300">
-          When a transaction is initiated and returns a <code>pending</code> status, our background engine continuously polls BBPS. Once confirmed by the biller as <strong>Success</strong> or <strong>Failed</strong>, a HTTP POST callback is dispatched to your configured Webhook URL.
+          When transactions are initiated and return a <code>pending</code> status, our background engine continuously verifies status. Once confirmed as <strong>Success</strong> or <strong>Failed</strong>, an HTTP POST callback is dispatched to your configured Webhook URL.
         </p>
 
-        <CodeBlock 
-          title="Webhook Payload Example (Transaction Success)"
-          section="webhook_success_payload"
-          code={`{
+        {/* Payout Webhook Example */}
+        {showPayoutSection && (
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
+              <Zap className="h-4 w-4" /> Instant Payout Webhook Payloads
+            </h4>
+
+            <CodeBlock 
+              title="Payout Webhook Payload (Transfer Success)"
+              section="webhook_payout_success"
+              code={`{
+  "event": "PAYOUT_STATUS_UPDATE",
+  "order_id": "B2BPO1727443912001",
+  "client_order_id": "ORD_PAYOUT_1001",
+  "utr": "426812831122",
+  "status": "success",
+  "amount": 2500.00,
+  "fee": 25.00,
+  "beneficiary_name": "Ramesh Kumar",
+  "account_number": "91234567890123",
+  "ifsc_code": "HDFC0001234",
+  "timestamp": "2026-09-27T08:15:02.000Z"
+}`}
+            />
+
+            <CodeBlock 
+              title="Payout Webhook Payload (Transfer Failed & Auto-Refunded)"
+              section="webhook_payout_failed"
+              code={`{
+  "event": "PAYOUT_STATUS_UPDATE",
+  "order_id": "B2BPO1727443912001",
+  "client_order_id": "ORD_PAYOUT_1001",
+  "status": "failed",
+  "amount": 2500.00,
+  "fee": 25.00,
+  "refunded_to_payout_wallet": true,
+  "message": "Beneficiary account inactive or invalid IFSC. Funds refunded to payout wallet.",
+  "timestamp": "2026-09-27T08:15:02.000Z"
+}`}
+            />
+          </div>
+        )}
+
+        {/* BBPS Webhook Example */}
+        {showBbpsSection && (
+          <div className="space-y-3 pt-2">
+            <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+              <Landmark className="h-4 w-4" /> Utility Bill Payment Webhook Payloads
+            </h4>
+
+            <CodeBlock 
+              title="BBPS Webhook Payload Example (Transaction Success)"
+              section="webhook_success_payload"
+              code={`{
   "event": "PAYMENT_STATUS_UPDATE",
   "transaction_id": "BBPSU9553347160",
   "client_transaction_id": "TXN_ORD_20260814_001",
@@ -1228,12 +1609,12 @@ var_dump($result);
   "refunded": false,
   "timestamp": "2026-08-14T02:25:00.000Z"
 }`}
-        />
+            />
 
-        <CodeBlock 
-          title="Webhook Payload Example (Transaction Failed & Instant Refunded)"
-          section="webhook_failed_payload"
-          code={`{
+            <CodeBlock 
+              title="BBPS Webhook Payload Example (Transaction Failed & Instant Refunded)"
+              section="webhook_failed_payload"
+              code={`{
   "event": "PAYMENT_STATUS_UPDATE",
   "transaction_id": "BBPSU9553347160",
   "client_transaction_id": "TXN_ORD_20260814_001",
@@ -1246,13 +1627,15 @@ var_dump($result);
   "refund_amount": 1510.00,
   "timestamp": "2026-08-14T02:25:00.000Z"
 }`}
-        />
+            />
+          </div>
+        )}
 
         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-xs text-emerald-200 flex items-start gap-3">
           <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
           <div>
             <strong className="block mb-1 text-emerald-300">Automated Wallet Refund Guarantee:</strong>
-            If a pending transaction is subsequently marked as <code>FAILED</code> by BBPS, the system automatically refunds 100% of the principal bill amount AND charge fee back to your agent wallet instantly.
+            If any transaction is marked as <code>FAILED</code> by the upstream banking network or biller gateway, the system automatically refunds 100% of the principal amount and applicable charges back to your respective wallet instantly.
           </div>
         </div>
       </section>
@@ -1278,15 +1661,25 @@ var_dump($result);
               <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
                 <td className="px-4 py-3 font-mono text-rose-300">error</td>
-                <td className="px-4 py-3 text-slate-300">Insufficient Wallet Balance to cover bill amount + fee.</td>
-                <td className="px-4 py-3 text-slate-300">Load funds into your B2B Agent wallet and retry.</td>
+                <td className="px-4 py-3 text-slate-300">Insufficient Wallet Balance (BBPS or Payout wallet).</td>
+                <td className="px-4 py-3 text-slate-300">Submit /fund-request for target wallet and retry.</td>
               </tr>
-              <tr className="hover:bg-slate-800/40">
-                <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
-                <td className="px-4 py-3 font-mono text-rose-300">error</td>
-                <td className="px-4 py-3 text-slate-300">Payment mode 'Cash' disabled by biller.</td>
-                <td className="px-4 py-3 text-slate-300">Pass <code>paymentMode: "UPI"</code> or <code>"Internet Banking"</code>.</td>
-              </tr>
+              {showPayoutSection && (
+                <tr className="hover:bg-slate-800/40">
+                  <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
+                  <td className="px-4 py-3 font-mono text-rose-300">failed</td>
+                  <td className="px-4 py-3 text-slate-300">Invalid IFSC code or beneficiary bank account inactive.</td>
+                  <td className="px-4 py-3 text-slate-300">Check bank account and IFSC details. Auto-refunded.</td>
+                </tr>
+              )}
+              {showBbpsSection && (
+                <tr className="hover:bg-slate-800/40">
+                  <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
+                  <td className="px-4 py-3 font-mono text-rose-300">error</td>
+                  <td className="px-4 py-3 text-slate-300">Payment mode 'Cash' disabled by biller.</td>
+                  <td className="px-4 py-3 text-slate-300">Pass <code>paymentMode: "UPI"</code> or <code>"Internet Banking"</code>.</td>
+                </tr>
+              )}
               <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-amber-400">401 Unauthorized</td>
                 <td className="px-4 py-3 font-mono text-amber-300">error</td>
@@ -1296,13 +1689,13 @@ var_dump($result);
               <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-amber-400">429 Rate Limit</td>
                 <td className="px-4 py-3 font-mono text-amber-300">error</td>
-                <td className="px-4 py-3 text-slate-300">Daily limit of 50 sync requests reached for /billers endpoint.</td>
-                <td className="px-4 py-3 text-slate-300">Cache biller directory locally and sync once daily.</td>
+                <td className="px-4 py-3 text-slate-300">Daily sync limit reached for directory endpoints.</td>
+                <td className="px-4 py-3 text-slate-300">Cache biller / bank data locally and query as needed.</td>
               </tr>
               <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-rose-400">500 Server Error</td>
                 <td className="px-4 py-3 font-mono text-rose-300">error</td>
-                <td className="px-4 py-3 text-slate-300">Upstream Biller or Gateway Timeout / System Down.</td>
+                <td className="px-4 py-3 text-slate-300">Upstream Biller or Bank Gateway Timeout / System Down.</td>
                 <td className="px-4 py-3 text-slate-300">Wallet is auto-refunded. Retry after a few minutes.</td>
               </tr>
             </tbody>
@@ -1312,4 +1705,3 @@ var_dump($result);
     </div>
   );
 }
-
