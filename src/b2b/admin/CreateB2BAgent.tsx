@@ -587,20 +587,20 @@ export default function CreateB2BAgent() {
   });
 
   const renderList = () => (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+    <div className="w-full space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         <div>
           <h2 className="text-2xl font-bold text-white">B2B Agents</h2>
           <p className="text-slate-400 mt-1">Manage your onboarded B2B agents and their balances & charges.</p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="relative flex-1 sm:w-64">
+          <div className="relative flex-1 sm:w-80">
             <input
               type="text"
               placeholder="Search agent, login ID, charge..."
               value={agentSearchTerm}
               onChange={(e) => setAgentSearchTerm(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2 pl-9 pr-8 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl py-2.5 pl-9 pr-8 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
             />
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             {agentSearchTerm && (
@@ -618,7 +618,7 @@ export default function CreateB2BAgent() {
               setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '', isBbpsEnabled: true, isPayoutEnabled: false });
               setView('create');
             }}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
+            className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap cursor-pointer active:scale-95"
           >
             <UserPlus size={18} />
             Create Agent
@@ -626,18 +626,18 @@ export default function CreateB2BAgent() {
         </div>
       </div>
 
-      <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden w-full">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-900/50 border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider font-bold">
-                <th className="p-4">Agent Name</th>
-                <th className="p-4">Login ID</th>
-                <th className="p-4">Agent Tag / Portal</th>
-                <th className="p-4">Mobile</th>
-                <th className="p-4 text-right">Charge (₹)</th>
-                <th className="p-4 text-right">Wallet Balance</th>
-                <th className="p-4 text-center">Actions</th>
+              <tr className="bg-slate-900/60 border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider font-bold">
+                <th className="py-4 px-6">Agent Name</th>
+                <th className="py-4 px-6">Login ID</th>
+                <th className="py-4 px-6">Agent Tag / Portal</th>
+                <th className="py-4 px-6">Mobile</th>
+                <th className="py-4 px-6 text-right">Charge (₹)</th>
+                <th className="py-4 px-6 text-right">Wallet Balance</th>
+                <th className="py-4 px-6 text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
@@ -656,16 +656,16 @@ export default function CreateB2BAgent() {
               ) : (
                 filteredAgents.map((agent) => (
                   <tr key={agent.id} className="hover:bg-slate-700/20 transition-colors">
-                    <td className="p-4 font-bold text-white">
+                    <td className="py-4 px-6 font-bold text-white">
                       <div className="flex items-center gap-3">
                         {agent.profile_photo_url ? (
                           <img
                             src={agent.profile_photo_url}
                             alt={`${agent.first_name} ${agent.last_name}`}
-                            className="w-9 h-9 rounded-full object-cover border border-slate-700 shadow-sm shrink-0"
+                            className="w-10 h-10 rounded-full object-cover border border-slate-700 shadow-sm shrink-0"
                           />
                         ) : (
-                          <div className="w-9 h-9 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xs font-bold shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-xs font-bold shrink-0">
                             {agent.first_name?.[0]?.toUpperCase() || ''}{agent.last_name?.[0]?.toUpperCase() || <User size={16} />}
                           </div>
                         )}
@@ -695,8 +695,8 @@ export default function CreateB2BAgent() {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-indigo-300 font-mono text-xs">{agent.b2b_login_id}</td>
-                    <td className="p-4">
+                    <td className="py-4 px-6 text-indigo-300 font-mono text-xs">{agent.b2b_login_id}</td>
+                    <td className="py-4 px-6">
                       {agent.agent_tag ? (
                         <span className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-lg text-xs font-bold font-mono">
                           {agent.agent_tag}
@@ -705,8 +705,8 @@ export default function CreateB2BAgent() {
                         <span className="text-slate-500 text-xs">-</span>
                       )}
                     </td>
-                    <td className="p-4 text-slate-400 font-mono text-xs">{agent.mobile}</td>
-                    <td className="p-4 text-right font-medium text-amber-400">
+                    <td className="py-4 px-6 text-slate-400 font-mono text-xs">{agent.mobile}</td>
+                    <td className="py-4 px-6 text-right font-medium text-amber-400">
                       {agent.charge_per_bill !== null && agent.charge_per_bill !== undefined ? (
                         <div className="flex flex-col items-end gap-1">
                           <span className="font-bold text-amber-400">₹{parseFloat(agent.charge_per_bill.toString()).toFixed(2)}</span>
@@ -723,7 +723,7 @@ export default function CreateB2BAgent() {
                         <span className="text-xs bg-amber-500/10 text-amber-400 border border-amber-500/20 px-2 py-0.5 rounded">Global</span>
                       )}
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="py-4 px-6 text-right">
                       <div className="flex flex-col items-end gap-1">
                         <div className="flex items-center justify-end gap-1.5 text-xs font-semibold">
                           <span className="text-emerald-400/80 text-[11px]">BBPS:</span>
@@ -740,7 +740,7 @@ export default function CreateB2BAgent() {
                         ) : null}
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="py-4 px-6">
                       <div className="flex items-center justify-center gap-2">
                         {agent.is_payout_enabled && (
                           <button
@@ -1300,7 +1300,7 @@ export default function CreateB2BAgent() {
   );
 
   const renderForm = () => (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => setView('list')}
