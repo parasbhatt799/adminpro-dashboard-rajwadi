@@ -1047,18 +1047,18 @@ export default function CreateB2BAgent() {
                   {/* BillAvenue Mapping */}
                   <div className="bg-sky-950/20 border border-sky-500/20 rounded-xl p-4 flex items-center justify-between gap-3 shadow-sm">
                     <div className="min-w-0 flex-1">
-                      <span className="text-xs font-bold text-sky-400 uppercase tracking-widest block mb-0.5">
+                      <span className="text-xs font-bold text-sky-400 uppercase tracking-widest block mb-2">
                         BillAvenue Agent ID Mapping
                       </span>
-                      <p className="text-xs text-slate-300 font-mono mt-0.5">
+                      <div className="text-xs text-slate-300 font-mono">
                         {selectedAgentForApi.billavenue_agent_id ? (
-                          <span className="text-sky-300 font-bold bg-slate-900 px-2.5 py-1 rounded border border-sky-500/30">
+                          <span className="inline-block text-sky-300 font-bold bg-slate-900 px-3 py-1 rounded-md border border-sky-500/30">
                             {selectedAgentForApi.billavenue_agent_id}
                           </span>
                         ) : (
                           <span className="text-slate-400 italic">Not mapped yet (Needed for BBPS)</span>
                         )}
-                      </p>
+                      </div>
                     </div>
                     <button 
                       onClick={() => openAgentIdModal(selectedAgentForApi)} 
