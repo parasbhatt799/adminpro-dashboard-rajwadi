@@ -630,25 +630,27 @@ export default function CreateB2BAgent() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-slate-900/60 border-b border-slate-700 text-slate-400 text-xs uppercase tracking-wider font-bold">
-                <th className="py-4 px-5 text-left">Agent Name</th>
-                <th className="py-4 px-5 text-center whitespace-nowrap">Login ID & Mobile</th>
-                <th className="py-4 px-4 text-center whitespace-nowrap">Tag / Portal</th>
-                <th className="py-4 px-5 text-center whitespace-nowrap">Charge (₹)</th>
-                <th className="py-4 px-5 text-center whitespace-nowrap">
-                  <span className="text-emerald-400 inline-flex items-center gap-1 font-bold">
+              <tr className="bg-slate-900/60 border-b border-slate-700 text-xs uppercase tracking-wider font-bold">
+                <th className="py-4 px-5 text-left text-slate-200">Agent Name</th>
+                <th className="py-4 px-5 text-center whitespace-nowrap text-indigo-400">Login ID & Mobile</th>
+                <th className="py-4 px-4 text-center whitespace-nowrap text-indigo-300">Tag / Portal</th>
+                <th className="py-4 px-5 text-center whitespace-nowrap text-amber-400">Charge (₹)</th>
+                <th className="py-4 px-5 text-center whitespace-nowrap text-emerald-400">
+                  <span className="inline-flex items-center gap-1 font-bold">
                     <Zap size={13} /> BBPS Wallet
                   </span>
                 </th>
-                <th className="py-4 px-5 text-center whitespace-nowrap">
-                  <span className="text-purple-400 inline-flex items-center gap-1 font-bold">
+                <th className="py-4 px-5 text-center whitespace-nowrap text-purple-400">
+                  <span className="inline-flex items-center gap-1 font-bold">
                     <Layers size={13} /> Payout Wallet
                   </span>
                 </th>
-                <th className="py-4 px-5 text-center whitespace-nowrap">
-                  <span className="text-amber-400 font-bold">Fixed Deposit</span>
+                <th className="py-4 px-5 text-center whitespace-nowrap text-amber-400">
+                  <span className="inline-flex items-center gap-1 font-bold">
+                    Fixed Deposit
+                  </span>
                 </th>
-                <th className="py-4 px-5 text-center">Actions</th>
+                <th className="py-4 px-5 text-center text-slate-300">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/50">
