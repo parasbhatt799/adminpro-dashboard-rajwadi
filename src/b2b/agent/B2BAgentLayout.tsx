@@ -179,6 +179,16 @@ export default function B2BAgentLayout() {
                     <Activity className="h-4 w-4" /> Bill History
                   </Link>
                 )}
+
+                {/* Payout History (Only shown if Payout service is enabled) */}
+                {isPayoutEnabled && (
+                  <Link 
+                    to="/b2b/agent/payout-history" 
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('payout-history') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                  >
+                    <Zap className="h-4 w-4" /> Payout History
+                  </Link>
+                )}
               </nav>
             </div>
 
@@ -288,6 +298,13 @@ export default function B2BAgentLayout() {
               <Activity className="h-3.5 w-3.5" /> Bill History
             </Link>
           )}
+
+          {isPayoutEnabled && (
+            <Link to="/b2b/agent/payout-history" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('payout-history') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400'}`}>
+              <Zap className="h-3.5 w-3.5" /> Payout History
+            </Link>
+          )}
+
         </div>
       </header>
 

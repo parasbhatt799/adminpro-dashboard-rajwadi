@@ -17,6 +17,7 @@ const B2BAdminBankAccounts = lazy(() => import('./b2b/admin/B2BAdminBankAccounts
 const B2BAdminWithdrawals = lazy(() => import('./b2b/admin/B2BAdminWithdrawals'));
 const B2BAPIDocumentation = lazy(() => import('./b2b/shared/B2BAPIDocumentation'));
 const B2BAdminBillHistory = lazy(() => import('./b2b/admin/B2BAdminBillHistory'));
+const B2BAdminPayoutHistory = lazy(() => import('./b2b/admin/B2BAdminPayoutHistory'));
 const B2BWhatsAppManager = lazy(() => import('./b2b/admin/B2BWhatsAppManager'));
 const B2BAdminUserHisab = lazy(() => import('./b2b/admin/B2BAdminUserHisab'));
 
@@ -24,6 +25,7 @@ const B2BAgentLayout = lazy(() => import('./b2b/agent/B2BAgentLayout'));
 const B2BAgentDashboard = lazy(() => import('./b2b/agent/B2BAgentDashboard'));
 const B2BAgentFundRequest = lazy(() => import('./b2b/agent/B2BAgentFundRequest'));
 const B2BAgentBillHistory = lazy(() => import('./b2b/agent/B2BAgentBillHistory'));
+const B2BAgentPayoutHistory = lazy(() => import('./b2b/agent/B2BAgentPayoutHistory'));
 const B2BAgentStatement = lazy(() => import('./b2b/agent/B2BAgentStatement'));
 
 const Sidebar = lazy(() => import('./components/Sidebar'));
@@ -1393,6 +1395,7 @@ export default function App() {
           <Route path="bank-accounts" element={<B2BAdminBankAccounts />} />
           <Route path="api-docs" element={<B2BAPIDocumentation />} />
           <Route path="bill-history" element={<B2BAdminBillHistory />} />
+          <Route path="payout-history" element={<B2BAdminPayoutHistory />} />
           <Route path="whatsapp" element={<B2BWhatsAppManager />} />
         </Route>
         
@@ -1404,6 +1407,7 @@ export default function App() {
           <Route path="statement" element={<B2BAgentStatement />} />
           <Route path="api-docs" element={<B2BAPIDocumentation />} />
           <Route path="bill-history" element={<B2BAgentBillHistory />} />
+          <Route path="payout-history" element={<B2BAgentPayoutHistory />} />
         </Route>
       </Routes>
     </Router>

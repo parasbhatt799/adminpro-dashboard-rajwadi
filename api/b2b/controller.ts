@@ -1983,3 +1983,97 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
     return res.status(500).json({ status: 'error', message: err.message || 'Failed to check payout status' });
   }
 };
+
+/**
+ * Admin / Global Check Payout Status
+ * Endpoint: GET /api/b2b/admin/payout/status/:order_id
+ */
+export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promise<any> => {
+  const { order_id } = req.params;
+
+  if (!order_id) {
+    return res.status(400).json({ status: 'error', message: 'order_id parameter is required' });
+  }
+
+  try {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order_id);
+    const { data: tx, error: txErr } = await supabaseAdmin
+      .from('b2b_payout_transactions')
+      .select('*')
+      .or(`${isUuid ? `id.eq.${order_id},` : ''}order_id.eq.${order_id},client_order_id.eq.${order_id}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (txErr || !tx) {
+      return res.status(404).json({ status: 'error', message: 'Payout transaction not found' });
+    }
+
+    // If pending, query gateway
+    if (tx.status === 'pending') {
+      try {
+        const liveStatus = await checkNixasoftStatus(tx.order_id);
+        if (liveStatus.statuscode === 'TXN') {
+          const utr = liveStatus.data?.utr || tx.utr;
+          await supabaseAdmin
+            .from('b2b_payout_transactions')
+            .update({
+              status: 'success',
+              utr,
+              api_txn_id: liveStatus.data?.apiTxnId || tx.api_txn_id,
+              provider_response: liveStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', tx.id);
+          tx.status = 'success';
+          tx.utr = utr;
+        } else if (liveStatus.statuscode === 'TXF') {
+          await supabaseAdmin.rpc('add_b2b_payout_wallet', {
+            p_agent_id: tx.agent_id,
+            p_amount: tx.total_deducted
+          });
+
+          await supabaseAdmin
+            .from('b2b_payout_transactions')
+            .update({
+              status: 'failed',
+              failure_reason: liveStatus.message || 'Transaction failed after status inquiry',
+              provider_response: liveStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', tx.id);
+          tx.status = 'failed';
+          tx.failure_reason = liveStatus.message;
+        }
+      } catch (checkErr) {
+        console.warn('[B2B checkPayoutStatusAdmin] Upstream status check failed:', checkErr);
+      }
+    }
+
+    return res.json({
+      status: 'success',
+      data: {
+        id: tx.id,
+        order_id: tx.order_id,
+        client_order_id: tx.client_order_id || null,
+        utr: tx.utr || null,
+        beneficiary_name: tx.beneficiary_name,
+        account_number: tx.account_number,
+        ifsc_code: tx.ifsc_code,
+        bank_name: tx.bank_name,
+        transfer_mode: tx.transfer_mode,
+        amount: Number(tx.amount),
+        fee: Number(tx.fee),
+        total_deducted: Number(tx.total_deducted),
+        status: tx.status,
+        failure_reason: tx.failure_reason || null,
+        created_at: tx.created_at,
+        updated_at: tx.updated_at
+      }
+    });
+  } catch (err: any) {
+    console.error('[B2B checkPayoutStatusAdmin Error]', err);
+    return res.status(500).json({ status: 'error', message: err.message || 'Failed to check payout status' });
+  }
+};
+
