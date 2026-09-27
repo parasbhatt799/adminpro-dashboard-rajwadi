@@ -1782,6 +1782,22 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
     const orderId = 'B2BPO' + Date.now() + Math.floor(1000 + Math.random() * 9000);
     const cleanMode = String(transfer_mode).toUpperCase() === 'NEFT' ? 'NEFT' : 'IMPS';
 
+    const resolvedMobile = String(
+      mobile_number || 
+      req.body.mobile || 
+      req.body.mobileNumber || 
+      req.body.phone || 
+      agent.mobile || 
+      '9999999999'
+    ).trim().replace(/\D/g, '').slice(-10) || '9999999999';
+
+    const resolvedEmail = String(
+      email || 
+      req.body.emailId || 
+      req.body.email_id || 
+      'b2b@usepay.in'
+    ).trim();
+
     // 7. Insert Initial Transaction
     const baseTxRecord: any = {
       agent_id: agentId,
@@ -1797,8 +1813,8 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
       status: 'pending',
       request_payload: {
         client_order_id: cleanClientOrderId || null,
-        mobile_number: mobile_number || agent.mobile || null,
-        email: email || null
+        mobile_number: resolvedMobile,
+        email: resolvedEmail
       }
     };
 
@@ -1834,14 +1850,14 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
     // 8. Execute Upstream Transfer via InstaPay
     const payoutResult = await executeNixasoftPayout({
       amount: String(parsedAmount),
-      mobileNumber: mobile_number || agent.mobile || '9999999999',
+      mobileNumber: resolvedMobile,
       requestId: orderId,
       accountNumber: cleanAccount,
       ifscCode: cleanIfsc,
       beneficiaryName: cleanName,
       bankName: bank_name || 'Bank',
       transferMode: cleanMode,
-      emailId: email || 'b2b@instapay.in',
+      emailId: resolvedEmail,
       latitude: '23.0225',
       longitude: '72.5714'
     });

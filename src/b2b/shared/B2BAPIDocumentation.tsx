@@ -999,9 +999,11 @@ export default function B2BAPIDocumentation() {
                 { name: "account_number", type: "String", required: true, desc: "Beneficiary bank account number (8 to 22 digits)." },
                 { name: "ifsc_code", type: "String", required: true, desc: "Beneficiary bank IFSC Code (11 alphanumeric characters)." },
                 { name: "beneficiary_name", type: "String", required: true, desc: "Name of the bank account holder." },
+                { name: "mobile_number", type: "String", required: false, desc: "Beneficiary / customer 10-digit mobile number. If omitted, your agent account registered mobile is used automatically." },
                 { name: "transfer_mode", type: "String", required: false, desc: "Transfer mode: 'IMPS' (default, 24x7 instant) or 'NEFT'." },
                 { name: "client_order_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency and status query." },
-                { name: "bank_name", type: "String", required: false, desc: "Optional name of the beneficiary bank." }
+                { name: "bank_name", type: "String", required: false, desc: "Optional name of the beneficiary bank." },
+                { name: "email", type: "String", required: false, desc: "Optional customer or sender email address." }
               ]} />
 
               <CodeBlock 
@@ -1012,6 +1014,7 @@ export default function B2BAPIDocumentation() {
   "account_number": "91234567890123",
   "ifsc_code": "HDFC0001234",
   "beneficiary_name": "Ramesh Kumar",
+  "mobile_number": "9876543210",
   "transfer_mode": "IMPS",
   "client_order_id": "ORD_PAYOUT_1001",
   "bank_name": "HDFC Bank"
