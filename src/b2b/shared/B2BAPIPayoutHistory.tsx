@@ -151,14 +151,17 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
   const handleLiveStatusCheck = async (orderId: string) => {
     try {
       setCheckingOrderId(orderId);
-      const res = await fetch(`/api/b2b/admin/payout/status/${encodeURIComponent(orderId)}`);
+      let res = await fetch(`/api/v1/b2b/admin/payout/status/${encodeURIComponent(orderId)}`);
+      if (!res.ok && res.status === 404) {
+        res = await fetch(`/api/b2b/admin/payout/status/${encodeURIComponent(orderId)}`);
+      }
       const result = await res.json();
 
       if (res.ok && result.status === 'success') {
-        alert(`Status Checked Successfully!\nStatus: ${result.data?.status?.toUpperCase()}\nUTR: ${result.data?.utr || 'N/A'}`);
+        alert(`Status Checked Successfully!\nStatus: ${result.data?.status?.toUpperCase() || 'UNKNOWN'}\nUTR: ${result.data?.utr || 'N/A'}`);
         fetchPayouts(true);
       } else {
-        alert(result.message || 'Status check returned an error');
+        alert(result.message || result.error || 'Status check returned an error');
       }
     } catch (e: any) {
       console.error('Failed to check live payout status:', e);

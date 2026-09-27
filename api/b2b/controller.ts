@@ -2217,10 +2217,10 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
         bank_name: tx.bank_name,
         transfer_mode: tx.transfer_mode,
         amount: Number(tx.amount),
-        fee: Number(tx.fee),
+        fee: Number(tx.charge ?? tx.fee ?? 0),
         total_deducted: Number(tx.total_deducted),
         status: tx.status,
-        failure_reason: tx.failure_reason || null,
+        failure_reason: tx.error_message || tx.failure_reason || null,
         created_at: tx.created_at,
         updated_at: tx.updated_at
       }

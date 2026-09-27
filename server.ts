@@ -346,6 +346,7 @@ async function startServer() {
 
   // Mount B2B API Routes
   app.use("/api/v1/b2b", b2bRoutes);
+  app.use("/api/b2b", b2bRoutes);
 
   // Mount DMT (Direct Money Transfer) API Routes (BillAvenue v1.9.3 UAT & Live)
   app.use("/api/dmt", dmtRoutes);
