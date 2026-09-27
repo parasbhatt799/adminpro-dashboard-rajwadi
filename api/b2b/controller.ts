@@ -1783,28 +1783,52 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
     const cleanMode = String(transfer_mode).toUpperCase() === 'NEFT' ? 'NEFT' : 'IMPS';
 
     // 7. Insert Initial Transaction
-    const { error: insertTxErr } = await supabaseAdmin
+    const baseTxRecord: any = {
+      agent_id: agentId,
+      order_id: orderId,
+      account_number: cleanAccount,
+      ifsc_code: cleanIfsc,
+      beneficiary_name: cleanName,
+      bank_name: bank_name || 'Bank',
+      transfer_mode: cleanMode,
+      amount: parsedAmount,
+      charge: fee,
+      total_deducted: totalDeduction,
+      status: 'pending',
+      request_payload: {
+        client_order_id: cleanClientOrderId || null,
+        mobile_number: mobile_number || agent.mobile || null,
+        email: email || null
+      }
+    };
+
+    let insertTxErr: any = null;
+    const primaryInsert = await supabaseAdmin
       .from('b2b_payout_transactions')
       .insert({
-        agent_id: agentId,
-        client_order_id: cleanClientOrderId || null,
-        order_id: orderId,
-        account_number: cleanAccount,
-        ifsc_code: cleanIfsc,
-        beneficiary_name: cleanName,
-        bank_name: bank_name || 'Bank',
-        transfer_mode: cleanMode,
-        amount: parsedAmount,
-        fee,
-        total_deducted: totalDeduction,
-        status: 'pending'
+        ...baseTxRecord,
+        client_order_id: cleanClientOrderId || null
       });
+
+    insertTxErr = primaryInsert.error;
+
+    // Fallback if client_order_id column does not exist in DB schema cache
+    if (insertTxErr && (insertTxErr.message?.includes('client_order_id') || insertTxErr.code === 'PGRST204')) {
+      const fallbackInsert = await supabaseAdmin
+        .from('b2b_payout_transactions')
+        .insert(baseTxRecord);
+      insertTxErr = fallbackInsert.error;
+    }
 
     if (insertTxErr) {
       console.error('[B2B Payout] Failed to insert initial transaction record:', insertTxErr);
       // Auto-refund immediately
       await supabaseAdmin.rpc('add_b2b_payout_wallet', { p_agent_id: agentId, p_amount: totalDeduction });
-      return res.status(500).json({ status: 'error', message: 'Failed to initialize payout transaction record' });
+      return res.status(500).json({ 
+        status: 'error', 
+        message: 'Failed to initialize payout transaction record',
+        detail: insertTxErr.message || insertTxErr 
+      });
     }
 
     // 8. Execute Upstream Transfer via InstaPay
@@ -1834,7 +1858,7 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
           status: 'success',
           utr,
           api_txn_id: apiTxnId,
-          provider_response: payoutResult,
+          response_payload: payoutResult,
           updated_at: new Date().toISOString()
         })
         .eq('order_id', orderId);
@@ -1880,7 +1904,7 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         .update({
           status: 'pending',
           api_txn_id: apiTxnId,
-          provider_response: payoutResult,
+          response_payload: payoutResult,
           updated_at: new Date().toISOString()
         })
         .eq('order_id', orderId);
@@ -1910,8 +1934,8 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         .from('b2b_payout_transactions')
         .update({
           status: 'failed',
-          failure_reason: failReason,
-          provider_response: payoutResult,
+          error_message: failReason,
+          response_payload: payoutResult,
           updated_at: new Date().toISOString()
         })
         .eq('order_id', orderId);
@@ -1966,13 +1990,26 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
   }
 
   try {
-    // 1. Find transaction by order_id or client_order_id
-    const { data: tx, error: txErr } = await supabaseAdmin
+    // 1. Find transaction by order_id or client_order_id safely
+    let tx: any = null;
+    let { data: primaryTx, error: txErr } = await supabaseAdmin
       .from('b2b_payout_transactions')
       .select('*')
       .eq('agent_id', agentId)
       .or(`order_id.eq.${order_id},client_order_id.eq.${order_id}`)
       .maybeSingle();
+
+    if (txErr && (txErr.message?.includes('client_order_id') || txErr.code === 'PGRST204')) {
+      const fallbackQuery = await supabaseAdmin
+        .from('b2b_payout_transactions')
+        .select('*')
+        .eq('agent_id', agentId)
+        .eq('order_id', order_id)
+        .maybeSingle();
+      primaryTx = fallbackQuery.data;
+      txErr = fallbackQuery.error;
+    }
+    tx = primaryTx;
 
     if (txErr || !tx) {
       return res.status(404).json({ status: 'error', message: 'Payout transaction not found' });
@@ -1996,7 +2033,7 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
                 status: 'success',
                 utr,
                 api_txn_id: liveStatus.data?.apiTxnId || tx.api_txn_id,
-                provider_response: liveStatus,
+                response_payload: liveStatus,
                 updated_at: new Date().toISOString()
               })
               .eq('id', tx.id);
@@ -2007,11 +2044,11 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
               firePayoutWebhook(cred.webhook_url, agentId, {
                 event: 'PAYOUT_STATUS_UPDATE',
                 order_id: tx.order_id,
-                client_order_id: tx.client_order_id || null,
+                client_order_id: tx.client_order_id || tx.request_payload?.client_order_id || null,
                 utr,
                 status: 'success',
                 amount: Number(tx.amount),
-                fee: Number(tx.fee),
+                fee: Number(tx.charge || tx.fee || 0),
                 total_deducted: Number(tx.total_deducted),
                 beneficiary_name: tx.beneficiary_name,
                 account_number: tx.account_number,
@@ -2030,24 +2067,24 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
               .from('b2b_payout_transactions')
               .update({
                 status: 'failed',
-                failure_reason: liveStatus.message || 'Transaction failed after status inquiry',
-                provider_response: liveStatus,
+                error_message: liveStatus.message || 'Transaction failed after status inquiry',
+                response_payload: liveStatus,
                 updated_at: new Date().toISOString()
               })
               .eq('id', tx.id);
             tx.status = 'failed';
-            tx.failure_reason = liveStatus.message;
+            tx.error_message = liveStatus.message;
 
             if (cred?.webhook_url) {
               firePayoutWebhook(cred.webhook_url, agentId, {
                 event: 'PAYOUT_STATUS_UPDATE',
                 order_id: tx.order_id,
-                client_order_id: tx.client_order_id || null,
+                client_order_id: tx.client_order_id || tx.request_payload?.client_order_id || null,
                 utr: null,
                 status: 'failed',
                 failure_reason: liveStatus.message || 'Transaction failed after status inquiry',
                 amount: Number(tx.amount),
-                fee: Number(tx.fee),
+                fee: Number(tx.charge || tx.fee || 0),
                 refunded_to_payout_wallet: true,
                 beneficiary_name: tx.beneficiary_name,
                 account_number: tx.account_number,
@@ -2065,17 +2102,17 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
       status: 'success',
       data: {
         order_id: tx.order_id,
-        client_order_id: tx.client_order_id || null,
+        client_order_id: tx.client_order_id || tx.request_payload?.client_order_id || null,
         utr: tx.utr || null,
         beneficiary_name: tx.beneficiary_name,
         account_number: tx.account_number,
         ifsc_code: tx.ifsc_code,
         transfer_mode: tx.transfer_mode,
         amount: Number(tx.amount),
-        fee: Number(tx.fee),
+        fee: Number(tx.charge || tx.fee || 0),
         total_deducted: Number(tx.total_deducted),
         status: tx.status,
-        failure_reason: tx.failure_reason || null,
+        failure_reason: tx.error_message || tx.failure_reason || null,
         created_at: tx.created_at,
         updated_at: tx.updated_at
       }
@@ -2100,13 +2137,27 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(order_id);
-    const { data: tx, error: txErr } = await supabaseAdmin
+    let tx: any = null;
+    let { data: primaryTx, error: txErr } = await supabaseAdmin
       .from('b2b_payout_transactions')
       .select('*')
       .or(`${isUuid ? `id.eq.${order_id},` : ''}order_id.eq.${order_id},client_order_id.eq.${order_id}`)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (txErr && (txErr.message?.includes('client_order_id') || txErr.code === 'PGRST204')) {
+      const fallbackQuery = await supabaseAdmin
+        .from('b2b_payout_transactions')
+        .select('*')
+        .or(`${isUuid ? `id.eq.${order_id},` : ''}order_id.eq.${order_id}`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      primaryTx = fallbackQuery.data;
+      txErr = fallbackQuery.error;
+    }
+    tx = primaryTx;
 
     if (txErr || !tx) {
       return res.status(404).json({ status: 'error', message: 'Payout transaction not found' });
@@ -2124,7 +2175,7 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
               status: 'success',
               utr,
               api_txn_id: liveStatus.data?.apiTxnId || tx.api_txn_id,
-              provider_response: liveStatus,
+              response_payload: liveStatus,
               updated_at: new Date().toISOString()
             })
             .eq('id', tx.id);
@@ -2140,13 +2191,13 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
             .from('b2b_payout_transactions')
             .update({
               status: 'failed',
-              failure_reason: liveStatus.message || 'Transaction failed after status inquiry',
-              provider_response: liveStatus,
+              error_message: liveStatus.message || 'Transaction failed after status inquiry',
+              response_payload: liveStatus,
               updated_at: new Date().toISOString()
             })
             .eq('id', tx.id);
           tx.status = 'failed';
-          tx.failure_reason = liveStatus.message;
+          tx.error_message = liveStatus.message;
         }
       } catch (checkErr) {
         console.warn('[B2B checkPayoutStatusAdmin] Upstream status check failed:', checkErr);

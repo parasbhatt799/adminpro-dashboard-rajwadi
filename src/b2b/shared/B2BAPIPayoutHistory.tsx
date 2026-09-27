@@ -107,13 +107,19 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
 
       const { data, error } = await query;
       if (error) throw error;
-      setPayouts(data || []);
+      const normalizedData = (data || []).map((item: any) => ({
+        ...item,
+        fee: item.fee !== undefined ? Number(item.fee) : (item.charge !== undefined ? Number(item.charge) : 0),
+        failure_reason: item.failure_reason || item.error_message || '',
+        client_order_id: item.client_order_id || item.request_payload?.client_order_id || ''
+      }));
+      setPayouts(normalizedData);
 
       // If Admin, load agent metadata map
       if (isAdmin) {
         const { data: agents } = await supabase
           .from('b2b_api_credentials')
-          .select('id, b2b_login_id, company_name, first_name, last_name, client_id');
+          .select('id, b2b_login_id, first_name, last_name');
 
         if (agents) {
           const map: Record<string, { b2b_login_id?: string; company_name?: string; name?: string }> = {};
@@ -121,13 +127,13 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
 
           agents.forEach((ag) => {
             const fullName = [ag.first_name, ag.last_name].filter(Boolean).join(' ').trim();
-            const displayName = fullName || ag.company_name || ag.b2b_login_id || ag.client_id || 'B2B Partner';
+            const displayName = fullName || ag.b2b_login_id || 'B2B Partner';
             map[ag.id] = {
-              b2b_login_id: ag.b2b_login_id || ag.client_id || 'N/A',
-              company_name: ag.company_name || displayName,
+              b2b_login_id: ag.b2b_login_id || 'N/A',
+              company_name: displayName,
               name: displayName
             };
-            list.push({ id: ag.id, name: displayName, b2b_login_id: ag.b2b_login_id || ag.client_id });
+            list.push({ id: ag.id, name: displayName, b2b_login_id: ag.b2b_login_id });
           });
 
           setAgentMap(map);
