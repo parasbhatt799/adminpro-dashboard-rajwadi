@@ -825,21 +825,22 @@ export default function CreateB2BAgent() {
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto text-slate-200"
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[94vh] overflow-y-auto text-slate-200"
           >
-            <div className="p-6 border-b border-slate-700 bg-slate-900/80 flex justify-between items-center sticky top-0 z-10">
+            {/* Modal Header */}
+            <div className="py-3.5 px-6 border-b border-slate-700 bg-slate-900/90 flex justify-between items-center sticky top-0 z-10">
               <div>
-                <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                  <Settings className="h-6 w-6 text-indigo-400" /> API Settings
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-indigo-400" /> API Settings
                 </h3>
-                <p className="text-sm text-slate-400 mt-1">
+                <p className="text-xs text-slate-400 mt-0.5">
                   Manage API configuration for <span className="font-semibold text-white">{selectedAgentForApi.first_name} {selectedAgentForApi.last_name}</span> (Login ID: <span className="font-mono text-indigo-300">{selectedAgentForApi.b2b_login_id}</span>)
                 </p>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
                 {/* Toggle switch for enable/disable */}
-                <div className="flex items-center gap-2 mr-4 border-r border-slate-700 pr-4">
-                  <span className="text-sm font-semibold text-slate-300">API Access:</span>
+                <div className="flex items-center gap-2 border-r border-slate-700 pr-3">
+                  <span className="text-xs font-semibold text-slate-300">API Access:</span>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input 
                       type="checkbox" 
@@ -847,7 +848,7 @@ export default function CreateB2BAgent() {
                       checked={!!selectedAgentForApi.is_active}
                       onChange={() => toggleStatus(selectedAgentForApi)}
                     />
-                    <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    <div className="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
                   <span className={`text-xs font-bold ${selectedAgentForApi.is_active ? 'text-emerald-400' : 'text-slate-400'}`}>
                     {selectedAgentForApi.is_active ? 'Enabled' : 'Disabled'}
@@ -855,58 +856,60 @@ export default function CreateB2BAgent() {
                 </div>
                 <button 
                   onClick={() => setSelectedAgentForApi(null)} 
-                  className="p-2 bg-slate-900 rounded-full border border-slate-700 text-slate-400 hover:text-white transition-colors shadow-sm"
+                  className="p-1.5 bg-slate-900 rounded-full border border-slate-700 text-slate-400 hover:text-white transition-colors shadow-sm"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
             
-            <div className="p-6 space-y-8">
+            <div className="p-4 sm:p-5 space-y-3">
               {/* Credentials Section */}
-              <div>
-                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest mb-3 flex items-center gap-2">
-                  <KeyRound className="h-5 w-5 text-indigo-400" /> API Credentials
-                </h4>
+              <div className="bg-slate-900/60 p-3.5 rounded-xl border border-slate-700">
+                <div className="flex justify-between items-center mb-2">
+                  <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4 text-indigo-400" /> API Credentials
+                  </h4>
+                  {selectedAgentForApi.api_key && selectedAgentForApi.secret_key && (
+                    <button 
+                      onClick={() => handleGenerateKeys(selectedAgentForApi)}
+                      className="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 bg-rose-500/10 px-2.5 py-1 rounded-md border border-rose-500/20 transition-colors"
+                    >
+                      <RefreshCw className="h-3 w-3" /> Regenerate Keys
+                    </button>
+                  )}
+                </div>
                 {selectedAgentForApi.api_key && selectedAgentForApi.secret_key ? (
-                  <div className="space-y-4 bg-slate-900/60 p-5 rounded-xl border border-slate-700">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">API Key</span>
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm text-indigo-300 font-mono font-medium truncate block flex-1 bg-slate-900 px-3 py-2 rounded border border-slate-700">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">API Key</span>
+                      <div className="flex items-center gap-1.5">
+                        <code className="text-xs text-indigo-300 font-mono font-medium truncate block flex-1 bg-slate-900 px-3 py-1.5 rounded border border-slate-700">
                           {selectedAgentForApi.api_key}
                         </code>
-                        <button onClick={() => handleCopy(selectedAgentForApi.api_key!)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors bg-slate-900 border border-slate-700">
-                          <Copy className="h-5 w-5" />
+                        <button onClick={() => handleCopy(selectedAgentForApi.api_key!)} title="Copy API Key" className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors bg-slate-900 border border-slate-700 shrink-0">
+                          <Copy className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
                     <div>
-                      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">Secret Key</span>
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm text-indigo-300 font-mono font-medium truncate block flex-1 bg-slate-900 px-3 py-2 rounded border border-slate-700">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Secret Key</span>
+                      <div className="flex items-center gap-1.5">
+                        <code className="text-xs text-indigo-300 font-mono font-medium truncate block flex-1 bg-slate-900 px-3 py-1.5 rounded border border-slate-700">
                           ••••••••••••••••••••••••••••
                         </code>
-                        <button onClick={() => handleCopy(selectedAgentForApi.secret_key!)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors bg-slate-900 border border-slate-700">
-                          <Copy className="h-5 w-5" />
+                        <button onClick={() => handleCopy(selectedAgentForApi.secret_key!)} title="Copy Secret Key" className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700 rounded transition-colors bg-slate-900 border border-slate-700 shrink-0">
+                          <Copy className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                    </div>
-                    <div className="pt-2 flex justify-end">
-                      <button 
-                        onClick={() => handleGenerateKeys(selectedAgentForApi)}
-                        className="text-sm font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1 bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20"
-                      >
-                        <RefreshCw className="h-4 w-4" /> Regenerate Keys
-                      </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-amber-950/30 border border-amber-500/20 rounded-xl p-6 flex flex-col items-center justify-center gap-3">
-                    <p className="text-sm text-amber-300 font-medium text-center">API Keys have not been generated for this agent yet.</p>
+                  <div className="bg-amber-950/30 border border-amber-500/20 rounded-lg p-3 flex items-center justify-between gap-3">
+                    <p className="text-xs text-amber-300 font-medium">API Keys have not been generated for this agent yet.</p>
                     <button
                       onClick={() => handleGenerateKeys(selectedAgentForApi)}
-                      className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-sm shadow-sm transition-colors"
+                      className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg text-xs shadow-sm transition-colors shrink-0"
                     >
                       Generate API Keys Now
                     </button>
@@ -914,72 +917,70 @@ export default function CreateB2BAgent() {
                 )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* IP & Domain Whitelist */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* IP Whitelist */}
-                <div className="border border-slate-700 rounded-xl p-5 flex flex-col h-full bg-slate-900/40 shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                      <ShieldCheck className="h-5 w-5 text-indigo-400" /> IPs
+                <div className="border border-slate-700 rounded-xl p-3 bg-slate-900/40 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-indigo-400" /> Whitelisted IPs
                     </h4>
-                    <button onClick={() => openIpModal(selectedAgentForApi)} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1.5 rounded-md border border-indigo-500/20">
-                      <Edit3 className="h-3.5 w-3.5" /> Manage
+                    <button onClick={() => openIpModal(selectedAgentForApi)} className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      <Edit3 className="h-3 w-3" /> Manage
                     </button>
                   </div>
-                  <div className="flex-1 flex flex-col gap-2">
+                  <div className="min-h-[28px] flex items-center">
                     {selectedAgentForApi.ip_whitelist && selectedAgentForApi.ip_whitelist.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5 max-h-14 overflow-y-auto pr-1">
                         {selectedAgentForApi.ip_whitelist.map((ip: string) => (
-                          <span key={ip} className="px-2.5 py-1 bg-slate-900 text-slate-300 rounded-md text-xs font-mono border border-slate-700">
+                          <span key={ip} className="px-2 py-0.5 bg-slate-900 text-slate-300 rounded text-[11px] font-mono border border-slate-700">
                             {ip}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-rose-400 font-medium bg-rose-500/10 p-3 rounded-lg text-center flex-1 flex items-center justify-center border border-rose-500/20">No IPs Whitelisted</p>
+                      <span className="text-xs text-rose-400/90 font-medium">No IPs Whitelisted</span>
                     )}
                   </div>
                 </div>
 
                 {/* Domain Whitelist */}
-                <div className="border border-slate-700 rounded-xl p-5 flex flex-col h-full bg-slate-900/40 shadow-sm">
-                  <div className="flex justify-between items-center mb-4">
-                    <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                      <Globe className="h-5 w-5 text-indigo-400" /> Domains
+                <div className="border border-slate-700 rounded-xl p-3 bg-slate-900/40 shadow-sm flex flex-col justify-between">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                      <Globe className="h-4 w-4 text-indigo-400" /> Whitelisted Domains
                     </h4>
-                    <button onClick={() => openDomainModal(selectedAgentForApi)} className="text-xs font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2.5 py-1.5 rounded-md border border-indigo-500/20">
-                      <Edit3 className="h-3.5 w-3.5" /> Manage
+                    <button onClick={() => openDomainModal(selectedAgentForApi)} className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
+                      <Edit3 className="h-3 w-3" /> Manage
                     </button>
                   </div>
-                  <div className="flex-1 flex flex-col gap-2">
+                  <div className="min-h-[28px] flex items-center">
                     {selectedAgentForApi.domain_whitelist && selectedAgentForApi.domain_whitelist.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-1.5 max-h-14 overflow-y-auto pr-1">
                         {selectedAgentForApi.domain_whitelist.map((domain: string) => (
-                          <span key={domain} className="px-2.5 py-1 bg-slate-900 text-slate-300 rounded-md text-xs font-mono border border-slate-700">
+                          <span key={domain} className="px-2 py-0.5 bg-slate-900 text-slate-300 rounded text-[11px] font-mono border border-slate-700">
                             {domain}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <p className="text-sm text-rose-400 font-medium bg-rose-500/10 p-3 rounded-lg text-center flex-1 flex items-center justify-center border border-rose-500/20">No Domains Whitelisted</p>
+                      <span className="text-xs text-rose-400/90 font-medium">No Domains Whitelisted</span>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Services & Payout Slabs Access */}
-              <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-5 shadow-sm space-y-4">
-                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-indigo-400" /> Services & Slabs Control
-                </h4>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Services, Custom Slabs & BillAvenue in 2-column balanced grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Left: Services Toggles */}
+                <div className="space-y-2.5">
                   {/* BBPS Toggle */}
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-700/80 flex items-center justify-between">
+                  <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-white flex items-center gap-1.5">
-                        <Zap size={16} className="text-emerald-400" /> Bill Payment (BBPS)
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Zap size={14} className="text-emerald-400" /> Bill Payment (BBPS)
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">Allow agent to fetch & pay bills</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Allow agent to fetch & pay bills</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
@@ -988,17 +989,17 @@ export default function CreateB2BAgent() {
                         checked={selectedAgentForApi.is_bbps_enabled !== false}
                         onChange={() => toggleBbps(selectedAgentForApi)}
                       />
-                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                      <div className="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                     </label>
                   </div>
 
                   {/* Payout Toggle */}
-                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-700/80 flex items-center justify-between">
+                  <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-700 flex items-center justify-between">
                     <div>
-                      <div className="text-sm font-bold text-white flex items-center gap-1.5">
-                        <Layers size={16} className="text-purple-400" /> Instant Payout API
+                      <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Layers size={14} className="text-purple-400" /> Instant Payout API
                       </div>
-                      <p className="text-xs text-slate-400 mt-0.5">Allow 24x7 IMPS/NEFT bank transfers</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">Allow 24x7 IMPS/NEFT bank transfers</p>
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input 
@@ -1007,51 +1008,55 @@ export default function CreateB2BAgent() {
                         checked={!!selectedAgentForApi.is_payout_enabled}
                         onChange={() => togglePayout(selectedAgentForApi)}
                       />
-                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                      <div className="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
                     </label>
                   </div>
                 </div>
 
-                {/* Custom Payout Slabs Config */}
-                <div className="bg-purple-950/20 border border-purple-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-xs font-bold text-purple-300 uppercase tracking-widest block mb-0.5">
-                      Partner Custom Payout Slabs
-                    </span>
-                    <p className="text-xs text-slate-300">
-                      {selectedAgentForApi.payout_slabs && Array.isArray(selectedAgentForApi.payout_slabs) && selectedAgentForApi.payout_slabs.length > 0
-                        ? `${selectedAgentForApi.payout_slabs.length} custom slab(s) configured for this agent`
-                        : 'Using Default Global Payout Slabs (No custom override)'}
-                    </p>
+                {/* Right: Custom Slabs & BillAvenue */}
+                <div className="space-y-2.5">
+                  {/* Custom Payout Slabs Config */}
+                  <div className="bg-purple-950/20 border border-purple-500/20 rounded-xl p-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[11px] font-bold text-purple-300 uppercase tracking-wider block">
+                        Partner Custom Payout Slabs
+                      </span>
+                      <p className="text-[11px] text-slate-300 truncate">
+                        {selectedAgentForApi.payout_slabs && Array.isArray(selectedAgentForApi.payout_slabs) && selectedAgentForApi.payout_slabs.length > 0
+                          ? `${selectedAgentForApi.payout_slabs.length} custom slab(s) configured`
+                          : 'Using Default Global Slabs'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => openSlabsModal(selectedAgentForApi)}
+                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shrink-0 shadow-sm"
+                    >
+                      <Layers size={13} /> Slabs
+                    </button>
                   </div>
-                  <button
-                    onClick={() => openSlabsModal(selectedAgentForApi)}
-                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 shadow-sm"
-                  >
-                    <Layers size={14} /> Configure Custom Slabs
-                  </button>
-                </div>
-              </div>
 
-              {/* BillAvenue Mapping */}
-              <div className="bg-sky-950/30 border border-sky-500/20 rounded-xl p-5 shadow-sm">
-                <div className="flex justify-between items-center mb-3">
-                  <h4 className="text-sm font-bold text-sky-400 uppercase tracking-widest flex items-center gap-2">
-                    <Building2 className="h-5 w-5" /> BillAvenue Mapping
-                  </h4>
-                  <button onClick={() => openAgentIdModal(selectedAgentForApi)} className="text-xs font-bold text-sky-300 hover:text-white flex items-center gap-1 bg-slate-900 px-3 py-1.5 rounded shadow-sm border border-sky-500/30">
-                    <Edit3 className="h-3.5 w-3.5" /> Edit Agent ID
-                  </button>
-                </div>
-                {selectedAgentForApi.billavenue_agent_id ? (
-                  <div className="flex items-center gap-2 mt-2 bg-slate-900 p-3 rounded-lg border border-sky-500/30">
-                    <CheckCircle2 className="h-5 w-5 text-sky-400" />
-                    <span className="text-sm font-bold text-slate-300">Agent ID:</span>
-                    <code className="text-sm text-sky-400 font-mono font-bold">{selectedAgentForApi.billavenue_agent_id}</code>
+                  {/* BillAvenue Mapping */}
+                  <div className="bg-sky-950/20 border border-sky-500/20 rounded-xl p-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-[11px] font-bold text-sky-400 uppercase tracking-wider block">
+                        BillAvenue Agent ID
+                      </span>
+                      <p className="text-[11px] text-slate-300 truncate font-mono">
+                        {selectedAgentForApi.billavenue_agent_id ? (
+                          <span className="text-sky-300 font-bold">{selectedAgentForApi.billavenue_agent_id}</span>
+                        ) : (
+                          <span className="text-slate-400 italic">Not mapped yet</span>
+                        )}
+                      </p>
+                    </div>
+                    <button 
+                      onClick={() => openAgentIdModal(selectedAgentForApi)} 
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1 shrink-0 shadow-sm"
+                    >
+                      <Edit3 size={13} /> Mapping
+                    </button>
                   </div>
-                ) : (
-                  <p className="text-sm text-sky-400 font-medium mt-2 bg-slate-900 p-3 rounded-lg border border-sky-500/20">BillAvenue Agent ID not mapped yet. Needed for BBPS transactions.</p>
-                )}
+                </div>
               </div>
             </div>
           </motion.div>
