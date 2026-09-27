@@ -138,37 +138,13 @@ export default function B2BAgentLayout() {
                   <Receipt className="h-4 w-4" /> Statement
                 </Link>
 
-                {/* Completely Separate Documentation Links */}
-                {isBothServices ? (
-                  <>
-                    <Link 
-                      to="/b2b/agent/api-docs?service=bbps" 
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') && (location.search.includes('service=bbps') || !location.search.includes('service=payout')) ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                    >
-                      <Landmark className="h-4 w-4 text-emerald-400" /> BBPS Docs
-                    </Link>
-                    <Link 
-                      to="/b2b/agent/api-docs?service=payout" 
-                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') && location.search.includes('service=payout') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                    >
-                      <Zap className="h-4 w-4 text-purple-400" /> Payout Docs
-                    </Link>
-                  </>
-                ) : isBbpsEnabled ? (
-                  <Link 
-                    to="/b2b/agent/api-docs?service=bbps" 
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                  >
-                    <Book className="h-4 w-4 text-emerald-400" /> Bill Payment Docs
-                  </Link>
-                ) : isPayoutEnabled ? (
-                  <Link 
-                    to="/b2b/agent/api-docs?service=payout" 
-                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
-                  >
-                    <Zap className="h-4 w-4 text-purple-400" /> Payout API Docs
-                  </Link>
-                ) : null}
+                {/* Single API Documentation Menu Item */}
+                <Link 
+                  to="/b2b/agent/api-docs" 
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('api-docs') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                >
+                  <Book className="h-4 w-4" /> Documentation
+                </Link>
 
                 {/* Bill History (Only shown if BBPS service is enabled) */}
                 {isBbpsEnabled && (
@@ -273,25 +249,10 @@ export default function B2BAgentLayout() {
             <Receipt className="h-3.5 w-3.5" /> Statement
           </Link>
 
-          {/* Mobile docs links */}
-          {isBothServices ? (
-            <>
-              <Link to="/b2b/agent/api-docs?service=bbps" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') && (location.search.includes('service=bbps') || !location.search.includes('service=payout')) ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400'}`}>
-                <Landmark className="h-3.5 w-3.5 text-emerald-400" /> BBPS Docs
-              </Link>
-              <Link to="/b2b/agent/api-docs?service=payout" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') && location.search.includes('service=payout') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400'}`}>
-                <Zap className="h-3.5 w-3.5 text-purple-400" /> Payout Docs
-              </Link>
-            </>
-          ) : isBbpsEnabled ? (
-            <Link to="/b2b/agent/api-docs?service=bbps" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') ? 'bg-emerald-500/20 text-emerald-400' : 'text-slate-400'}`}>
-              <Book className="h-3.5 w-3.5 text-emerald-400" /> BBPS Docs
-            </Link>
-          ) : isPayoutEnabled ? (
-            <Link to="/b2b/agent/api-docs?service=payout" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') ? 'bg-purple-500/20 text-purple-400' : 'text-slate-400'}`}>
-              <Zap className="h-3.5 w-3.5 text-purple-400" /> Payout Docs
-            </Link>
-          ) : null}
+          {/* Mobile Single Documentation Link */}
+          <Link to="/b2b/agent/api-docs" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('api-docs') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
+            <Book className="h-3.5 w-3.5" /> Documentation
+          </Link>
 
           {isBbpsEnabled && (
             <Link to="/b2b/agent/bill-history" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>

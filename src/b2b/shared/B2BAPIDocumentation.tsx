@@ -54,13 +54,15 @@ export default function B2BAPIDocumentation() {
         try {
           const { data, error } = await supabase
             .from('b2b_api_credentials')
-            .select('first_name, last_name, company_name, b2b_login_id, client_id, is_bbps_enabled, is_payout_enabled')
+            .select('first_name, last_name, b2b_login_id, is_bbps_enabled, is_payout_enabled')
             .eq('id', agentId)
             .maybeSingle();
 
-          if (data) {
+          if (error) {
+            console.error('Error fetching agent API credentials:', error);
+          } else if (data) {
             const fullName = [data.first_name, data.last_name].filter(Boolean).join(' ').trim();
-            const resolvedName = fullName || data.company_name || data.b2b_login_id || data.client_id || 'B2B Partner';
+            const resolvedName = fullName || data.b2b_login_id || 'B2B Partner';
             setAgentName(resolvedName);
 
             const bbps = data.is_bbps_enabled !== false;
@@ -68,7 +70,7 @@ export default function B2BAPIDocumentation() {
             setIsBbpsEnabled(bbps);
             setIsPayoutEnabled(payout);
 
-            // Determine strict active service
+            // Determine initial active service
             if (payout && !bbps) {
               setActiveService('payout');
               setSearchParams({ service: 'payout' }, { replace: true });
@@ -76,7 +78,6 @@ export default function B2BAPIDocumentation() {
               setActiveService('bbps');
               setSearchParams({ service: 'bbps' }, { replace: true });
             } else if (bbps && payout) {
-              // Agent has both services enabled -> respect URL param if present
               if (urlService === 'payout') {
                 setActiveService('payout');
               } else {
@@ -97,9 +98,19 @@ export default function B2BAPIDocumentation() {
     }
   }, []);
 
+  // Sync activeService if URL search params change
+  useEffect(() => {
+    const urlService = searchParams.get('service');
+    if (urlService === 'payout' && (isPayoutEnabled || isAdmin)) {
+      setActiveService('payout');
+    } else if (urlService === 'bbps' && (isBbpsEnabled || isAdmin)) {
+      setActiveService('bbps');
+    }
+  }, [searchParams, isBbpsEnabled, isPayoutEnabled, isAdmin]);
+
   const handleSelectService = (service: 'bbps' | 'payout') => {
     setActiveService(service);
-    setSearchParams({ service });
+    setSearchParams({ service }, { replace: true });
   };
 
   const hasMultipleServices = (isBbpsEnabled && isPayoutEnabled) || isAdmin;
@@ -481,6 +492,7 @@ export default function B2BAPIDocumentation() {
         <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-2.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
+              type="button"
               onClick={() => handleSelectService('bbps')}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
                 activeService === 'bbps' 
@@ -493,6 +505,7 @@ export default function B2BAPIDocumentation() {
             </button>
 
             <button
+              type="button"
               onClick={() => handleSelectService('payout')}
               className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
                 activeService === 'payout' 
