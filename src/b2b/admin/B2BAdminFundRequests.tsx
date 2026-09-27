@@ -13,6 +13,7 @@ export default function B2BAdminFundRequests() {
   const [requests, setRequests] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [walletFilter, setWalletFilter] = useState<'all' | 'bbps' | 'payout'>('all');
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [selectedProofReq, setSelectedProofReq] = useState<any | null>(null);
@@ -143,7 +144,7 @@ export default function B2BAdminFundRequests() {
           .from('b2b_fund_requests')
           .select(`
             *,
-            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance, agent_tag),
+            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance, payout_wallet_balance, is_bbps_enabled, is_payout_enabled, agent_tag),
             b2b_admin_bank_accounts(bank_name, account_name, account_number, ifsc_code, branch_name, upi_id)
           `)
           .order('created_at', { ascending: false })
@@ -182,7 +183,8 @@ export default function B2BAdminFundRequests() {
     agentId: string,
     amount: number,
     action: 'approve' | 'reject' | 'revert_approved',
-    currentBalance?: number
+    currentBalance?: number,
+    walletType: 'bbps' | 'payout' = 'bbps'
   ) => {
     // 1. Guard against double-clicks and concurrent actions on the same request
     if (processingIds.includes(requestId)) {
@@ -190,13 +192,15 @@ export default function B2BAdminFundRequests() {
       return;
     }
 
+    const targetWalletName = walletType === 'payout' ? 'Payout Wallet' : 'BBPS Wallet';
+
     if (action === 'revert_approved') {
       let warning = '';
       if (typeof currentBalance === 'number' && currentBalance < amount) {
-        warning = `\n\n⚠️ WARNING: Agent's current balance (₹${currentBalance.toLocaleString('en-IN')}) is less than the request amount (₹${amount.toLocaleString('en-IN')}). Reverting will result in a negative balance of ₹${(currentBalance - amount).toLocaleString('en-IN')}.`;
+        warning = `\n\n⚠️ WARNING: Agent's current ${targetWalletName} balance (₹${currentBalance.toLocaleString('en-IN')}) is less than the request amount (₹${amount.toLocaleString('en-IN')}). Reverting will result in a negative balance of ₹${(currentBalance - amount).toLocaleString('en-IN')}.`;
       }
 
-      if (!window.confirm(`Are you sure you want to REJECT this previously approved request of ₹${amount.toLocaleString('en-IN')}?\n\nThis action will DEDUCT / REVERT ₹${amount.toLocaleString('en-IN')} from the agent's wallet balance.${warning}`)) {
+      if (!window.confirm(`Are you sure you want to REJECT this previously approved request of ₹${amount.toLocaleString('en-IN')}?\n\nThis action will DEDUCT / REVERT ₹${amount.toLocaleString('en-IN')} from the agent's ${targetWalletName}.${warning}`)) {
         return;
       }
 
@@ -235,7 +239,8 @@ export default function B2BAdminFundRequests() {
           }
 
           // Deduct/revert balance atomically (-amount)
-          const { data: success, error: balErr } = await supabase.rpc('add_b2b_wallet_balance', {
+          const balRpc = walletType === 'payout' ? 'add_b2b_payout_wallet' : 'add_b2b_wallet_balance';
+          const { data: success, error: balErr } = await supabase.rpc(balRpc, {
             p_agent_id: agentId,
             p_amount: -amount
           });
@@ -259,15 +264,16 @@ export default function B2BAdminFundRequests() {
             body: JSON.stringify({
               agentId,
               amount,
+              walletType: targetWalletName,
               utr: reqItem?.utr_number || '',
-              reason: 'Reverted & Rejected by Admin'
+              reason: `Reverted & Rejected from ${targetWalletName} by Admin`
             })
           }).catch(err => console.error('[WhatsApp Agent Revert Notify Error]', err));
         } catch (wsErr) {
           console.error('[WhatsApp Call Error]', wsErr);
         }
 
-        toast.success(`Fund request rejected & ₹${amount.toLocaleString('en-IN')} balance reverted successfully!`);
+        toast.success(`Fund request rejected & ₹${amount.toLocaleString('en-IN')} balance reverted from ${targetWalletName} successfully!`);
         fetchRequests();
       } catch (err: any) {
         console.error('Error reverting request:', err);
@@ -279,7 +285,7 @@ export default function B2BAdminFundRequests() {
       return;
     }
 
-    if (!window.confirm(`Are you sure you want to ${action} this fund request of ₹${amount.toLocaleString('en-IN')}?`)) return;
+    if (!window.confirm(`Are you sure you want to ${action} this fund request of ₹${amount.toLocaleString('en-IN')} for ${targetWalletName}?`)) return;
 
     try {
       setProcessingIds(prev => [...prev, requestId]);
@@ -317,7 +323,8 @@ export default function B2BAdminFundRequests() {
           }
 
           // Credit balance atomically (+amount) only after status was successfully updated
-          const { data: success, error: balErr } = await supabase.rpc('add_b2b_wallet_balance', {
+          const balRpc = walletType === 'payout' ? 'add_b2b_payout_wallet' : 'add_b2b_wallet_balance';
+          const { data: success, error: balErr } = await supabase.rpc(balRpc, {
             p_agent_id: agentId,
             p_amount: amount
           });
@@ -341,6 +348,7 @@ export default function B2BAdminFundRequests() {
             body: JSON.stringify({
               agentId,
               amount,
+              walletType: targetWalletName,
               utr: reqItem?.utr_number || ''
             })
           }).catch(err => console.error('[WhatsApp Agent Notify Error]', err));
@@ -348,7 +356,7 @@ export default function B2BAdminFundRequests() {
           console.error('[WhatsApp Call Error]', wsErr);
         }
 
-        toast.success(`Fund request of ₹${amount.toLocaleString('en-IN')} approved successfully!`);
+        toast.success(`Fund request of ₹${amount.toLocaleString('en-IN')} approved & credited to ${targetWalletName} successfully!`);
       } else {
         // Handle REJECT: Conditional update only if status is still 'pending'
         const { data: updatedReq, error: updateErr } = await supabase
@@ -455,8 +463,9 @@ export default function B2BAdminFundRequests() {
     );
 
     const matchesDate = checkDateFilter(req.created_at, dateFilter);
+    const matchesWallet = walletFilter === 'all' || (req.wallet_type || 'bbps') === walletFilter;
 
-    return matchesSearch && matchesDate;
+    return matchesSearch && matchesDate && matchesWallet;
   });
 
   // Calculate summary metrics
@@ -507,6 +516,7 @@ export default function B2BAdminFundRequests() {
           'S.No': idx + 1,
           'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
           'Agent Name / ID': agentName,
+          'Target Wallet': req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
           'Agent Tag / Portal': cred?.agent_tag || 'N/A',
           'Mobile': cred?.mobile || '',
           'Amount (₹)': Number(req.amount || 0),
@@ -521,6 +531,7 @@ export default function B2BAdminFundRequests() {
         'S.No': 'TOTAL',
         'Date & Time': `${filteredRequests.length} Requests`,
         'Agent Name / ID': '',
+        'Target Wallet': '',
         'Agent Tag / Portal': '',
         'Mobile': '',
         'Amount (₹)': Number(stats.totalAmount.toFixed(2)),
@@ -531,7 +542,7 @@ export default function B2BAdminFundRequests() {
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       ws['!cols'] = [
-        { wch: 8 }, { wch: 22 }, { wch: 25 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
+        { wch: 8 }, { wch: 22 }, { wch: 25 }, { wch: 16 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
       ];
 
       const wb = XLSX.utils.book_new();
@@ -564,6 +575,7 @@ export default function B2BAdminFundRequests() {
           (idx + 1).toString(),
           format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
           agentName,
+          req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
           cred?.agent_tag || 'N/A',
           `₹ ${Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           req.utr_number || 'N/A',
@@ -571,12 +583,12 @@ export default function B2BAdminFundRequests() {
         ];
       });
 
-      const headers = ['#', 'Date / Time', 'Agent', 'Agent Tag', 'Amount', 'UTR', 'Status'];
-
       const footer = [
         [
           'TOTAL',
           `${filteredRequests.length} Requests`,
+          '',
+          '',
           '',
           `₹ ${stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           '',
@@ -591,7 +603,7 @@ export default function B2BAdminFundRequests() {
       doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy, hh:mm a')}`, 14, 21);
 
       autoTable(doc, {
-        head: [['#', 'Date & Time', 'Agent', 'Amount', 'UTR Number', 'Status']],
+        head: [['#', 'Date & Time', 'Agent', 'Target Wallet', 'Agent Tag', 'Amount', 'UTR Number', 'Status']],
         body: tableData,
         foot: footer,
         theme: 'grid',
@@ -766,6 +778,17 @@ export default function B2BAdminFundRequests() {
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
             </select>
+
+            {/* Target Wallet Filter */}
+            <select
+              value={walletFilter}
+              onChange={(e) => setWalletFilter(e.target.value as any)}
+              className="w-full sm:w-auto border border-slate-700 rounded-xl px-4 py-2 focus:ring-2 focus:ring-indigo-500 bg-slate-900 text-sm font-medium text-slate-200 cursor-pointer"
+            >
+              <option value="all">All Wallets</option>
+              <option value="bbps">BBPS Wallet</option>
+              <option value="payout">Payout Wallet</option>
+            </select>
           </div>
 
           {/* Custom Date Range Inputs */}
@@ -809,6 +832,7 @@ export default function B2BAdminFundRequests() {
                   <th className="px-6 py-3">Agent</th>
                   <th className="px-6 py-3 text-indigo-400">Agent Tag / Portal</th>
                   <th className="px-6 py-3">Amount</th>
+                  <th className="px-6 py-3 text-cyan-400">Target Wallet</th>
                   <th className="px-6 py-3">Deposit Admin Bank</th>
                   <th className="px-6 py-3">UTR Details</th>
                   <th className="px-6 py-3">Date</th>
@@ -829,7 +853,10 @@ export default function B2BAdminFundRequests() {
                             {req.b2b_api_credentials?.first_name} {req.b2b_api_credentials?.last_name}
                           </div>
                           <div className="text-xs text-indigo-300 font-mono">{req.b2b_api_credentials?.b2b_login_id}</div>
-                          <div className="text-xs text-emerald-400 font-medium">Bal: ₹{req.b2b_api_credentials?.wallet_balance?.toFixed(2)}</div>
+                          <div className="flex items-center gap-2 mt-0.5 text-[11px] font-mono">
+                            <span className="text-emerald-400 font-medium">BBPS: ₹{parseFloat(req.b2b_api_credentials?.wallet_balance?.toString() || '0').toFixed(2)}</span>
+                            <span className="text-purple-400 font-medium">Payout: ₹{parseFloat(req.b2b_api_credentials?.payout_wallet_balance?.toString() || '0').toFixed(2)}</span>
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -844,6 +871,19 @@ export default function B2BAdminFundRequests() {
                     </td>
                     <td className="px-6 py-4">
                       <span className="font-bold text-white text-base">₹{req.amount.toLocaleString()}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {req.wallet_type === 'payout' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                          Payout Wallet
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                          BBPS Wallet
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       {(() => {
@@ -895,7 +935,14 @@ export default function B2BAdminFundRequests() {
                         <>
                           <button
                             disabled={actionLoading || processingIds.includes(req.id)}
-                            onClick={() => handleAction(req.id, req.agent_id, req.amount, 'approve')}
+                            onClick={() => handleAction(
+                              req.id, 
+                              req.agent_id, 
+                              req.amount, 
+                              'approve', 
+                              req.wallet_type === 'payout' ? req.b2b_api_credentials?.payout_wallet_balance : req.b2b_api_credentials?.wallet_balance, 
+                              req.wallet_type || 'bbps'
+                            )}
                             className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                           >
                             {processingIds.includes(req.id) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -903,7 +950,14 @@ export default function B2BAdminFundRequests() {
                           </button>
                           <button
                             disabled={actionLoading || processingIds.includes(req.id)}
-                            onClick={() => handleAction(req.id, req.agent_id, req.amount, 'reject')}
+                            onClick={() => handleAction(
+                              req.id, 
+                              req.agent_id, 
+                              req.amount, 
+                              'reject', 
+                              req.wallet_type === 'payout' ? req.b2b_api_credentials?.payout_wallet_balance : req.b2b_api_credentials?.wallet_balance, 
+                              req.wallet_type || 'bbps'
+                            )}
                             className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
                           >
                             {processingIds.includes(req.id) && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -914,7 +968,14 @@ export default function B2BAdminFundRequests() {
                       {req.status === 'approved' && (
                         <button
                           disabled={actionLoading || processingIds.includes(req.id)}
-                          onClick={() => handleAction(req.id, req.agent_id, req.amount, 'revert_approved', req.b2b_api_credentials?.wallet_balance)}
+                          onClick={() => handleAction(
+                            req.id, 
+                            req.agent_id, 
+                            req.amount, 
+                            'revert_approved', 
+                            req.wallet_type === 'payout' ? req.b2b_api_credentials?.payout_wallet_balance : req.b2b_api_credentials?.wallet_balance, 
+                            req.wallet_type || 'bbps'
+                          )}
                           className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center justify-center"
                           title="Reject & Revert Balance"
                         >
@@ -947,13 +1008,25 @@ export default function B2BAdminFundRequests() {
             {/* LEFT COLUMN: Request Info, Bank Details, OCR & Actions */}
             <div className="lg:col-span-6 space-y-3.5">
               {/* Details Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-700 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5 bg-slate-900/60 p-3.5 rounded-2xl border border-slate-700 text-xs">
                 <div>
                   <span className="text-slate-400 font-semibold uppercase block text-[10px]">Agent Name</span>
                   <span className="font-bold text-white text-sm block mt-0.5">
                     {selectedProofReq.b2b_api_credentials?.first_name} {selectedProofReq.b2b_api_credentials?.last_name}
                   </span>
                   <span className="block text-[11px] text-indigo-300 font-mono mt-0.5">{selectedProofReq.b2b_api_credentials?.b2b_login_id}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 font-semibold uppercase block text-[10px]">Target Wallet</span>
+                  {selectedProofReq.wallet_type === 'payout' ? (
+                    <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 inline-block mt-0.5">
+                      🟣 Payout Wallet
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 inline-block mt-0.5">
+                      🟢 BBPS Wallet
+                    </span>
+                  )}
                 </div>
                 <div>
                   <span className="text-slate-400 font-semibold uppercase block text-[10px]">Agent Tag / Portal</span>
@@ -1152,13 +1225,20 @@ export default function B2BAdminFundRequests() {
                   Requested On: {format(new Date(selectedProofReq.created_at), 'dd MMM yyyy, hh:mm a')}
                 </div>
 
-                <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
                   {selectedProofReq.status === 'pending' ? (
                     <>
                       <button
                         disabled={actionLoading || processingIds.includes(selectedProofReq.id)}
                         onClick={async () => {
-                          await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'reject');
+                          await handleAction(
+                            selectedProofReq.id, 
+                            selectedProofReq.agent_id, 
+                            selectedProofReq.amount, 
+                            'reject',
+                            selectedProofReq.wallet_type === 'payout' ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance : selectedProofReq.b2b_api_credentials?.wallet_balance,
+                            selectedProofReq.wallet_type || 'bbps'
+                          );
                           setSelectedProofReq(null);
                         }}
                         className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 active:scale-95"
@@ -1173,7 +1253,14 @@ export default function B2BAdminFundRequests() {
                           <button
                             disabled={actionLoading || isProcessing || ocrState === 'loading' || !isOcrPassed}
                             onClick={async () => {
-                              await handleAction(selectedProofReq.id, selectedProofReq.agent_id, selectedProofReq.amount, 'approve');
+                              await handleAction(
+                                selectedProofReq.id, 
+                                selectedProofReq.agent_id, 
+                                selectedProofReq.amount, 
+                                'approve',
+                                selectedProofReq.wallet_type === 'payout' ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance : selectedProofReq.b2b_api_credentials?.wallet_balance,
+                                selectedProofReq.wallet_type || 'bbps'
+                              );
                               setSelectedProofReq(null);
                             }}
                             title={!isOcrPassed ? 'OCR Verification failed or pending. Check Bypass OCR box to enable.' : ''}
@@ -1194,7 +1281,8 @@ export default function B2BAdminFundRequests() {
                             selectedProofReq.agent_id,
                             selectedProofReq.amount,
                             'revert_approved',
-                            selectedProofReq.b2b_api_credentials?.wallet_balance
+                            selectedProofReq.wallet_type === 'payout' ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance : selectedProofReq.b2b_api_credentials?.wallet_balance,
+                            selectedProofReq.wallet_type || 'bbps'
                           );
                           setSelectedProofReq(null);
                         }}

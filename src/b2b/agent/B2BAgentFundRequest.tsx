@@ -18,7 +18,22 @@ export default function B2BAgentFundRequest() {
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
+  const [walletFilter, setWalletFilter] = useState<'all' | 'bbps' | 'payout'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Agent Service Configuration & Selected Wallet
+  const [agentDetails, setAgentDetails] = useState<{
+    is_bbps_enabled: boolean;
+    is_payout_enabled: boolean;
+    wallet_balance: number;
+    payout_wallet_balance: number;
+  }>({
+    is_bbps_enabled: true,
+    is_payout_enabled: false,
+    wallet_balance: 0,
+    payout_wallet_balance: 0
+  });
+  const [selectedWalletType, setSelectedWalletType] = useState<'bbps' | 'payout'>('bbps');
 
   const [formData, setFormData] = useState({
     amount: '',
@@ -119,6 +134,27 @@ export default function B2BAgentFundRequest() {
         const resolvedPhone = agentRes.data.mobile || agentRes.data.phone || '';
         setAgentName(resolvedName);
         setAgentPhone(resolvedPhone);
+
+        const isBbps = agentRes.data.is_bbps_enabled !== false;
+        const isPayout = !!agentRes.data.is_payout_enabled;
+        const bbpsBal = parseFloat(agentRes.data.wallet_balance?.toString() || '0');
+        const payoutBal = parseFloat(agentRes.data.payout_wallet_balance?.toString() || '0');
+
+        setAgentDetails({
+          is_bbps_enabled: isBbps,
+          is_payout_enabled: isPayout,
+          wallet_balance: bbpsBal,
+          payout_wallet_balance: payoutBal
+        });
+
+        // Determine default wallet selection based on available services
+        if (isBbps && !isPayout) {
+          setSelectedWalletType('bbps');
+        } else if (!isBbps && isPayout) {
+          setSelectedWalletType('payout');
+        } else if (isBbps && isPayout) {
+          setSelectedWalletType(prev => prev || 'bbps');
+        }
       }
     } catch (err) {
       console.error('Error fetching fund requests:', err);
@@ -195,9 +231,12 @@ export default function B2BAgentFundRequest() {
         matchesSearch = utrStr.includes(searchTrim) || amtStr.includes(searchTrim);
       }
 
-      return matchesDate && matchesStatus && matchesSearch;
+      // Wallet Filter
+      const matchesWallet = walletFilter === 'all' || (req.wallet_type || 'bbps') === walletFilter;
+
+      return matchesDate && matchesStatus && matchesSearch && matchesWallet;
     });
-  }, [requests, dateFilter, customRange, statusFilter, searchTerm]);
+  }, [requests, dateFilter, customRange, statusFilter, walletFilter, searchTerm]);
 
   const stats = useMemo(() => {
     let approvedCount = 0;
@@ -243,7 +282,7 @@ export default function B2BAgentFundRequest() {
   // Reset page to 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [dateFilter, customRange, statusFilter, searchTerm]);
+  }, [dateFilter, customRange, statusFilter, walletFilter, searchTerm]);
 
   const totalPages = useMemo(() => Math.ceil(filteredRequests.length / pageSize) || 1, [filteredRequests.length, pageSize]);
 
@@ -259,6 +298,7 @@ export default function B2BAgentFundRequest() {
       const exportData: Record<string, any>[] = filteredRequests.map((req, idx) => ({
         'S.No': idx + 1,
         'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
+        'Target Wallet': req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
         'Amount (₹)': Number(req.amount || 0),
         'UTR / Reference Number': req.utr_number || '',
         'Status': req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending',
@@ -269,6 +309,7 @@ export default function B2BAgentFundRequest() {
       exportData.push({
         'S.No': 'TOTAL',
         'Date & Time': `${filteredRequests.length} Requests`,
+        'Target Wallet': '',
         'Amount (₹)': Number(stats.totalAmount.toFixed(2)),
         'UTR / Reference Number': '',
         'Status': '',
@@ -277,7 +318,7 @@ export default function B2BAgentFundRequest() {
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       ws['!cols'] = [
-        { wch: 8 }, { wch: 22 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
+        { wch: 8 }, { wch: 22 }, { wch: 16 }, { wch: 15 }, { wch: 22 }, { wch: 15 }, { wch: 45 }
       ];
 
       const wb = XLSX.utils.book_new();
@@ -306,6 +347,7 @@ export default function B2BAgentFundRequest() {
       const tableData = filteredRequests.map((req, idx) => [
         (idx + 1).toString(),
         format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
+        req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
         `₹ ${Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
         req.utr_number || 'N/A',
         req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending'
@@ -315,6 +357,7 @@ export default function B2BAgentFundRequest() {
         [
           'TOTAL',
           `${filteredRequests.length} Requests`,
+          '',
           `₹ ${stats.totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           '',
           ''
@@ -328,7 +371,7 @@ export default function B2BAgentFundRequest() {
       doc.text(`Generated on: ${format(new Date(), 'dd MMM yyyy, hh:mm a')} | Agent: ${agentName}`, 14, 21);
 
       autoTable(doc, {
-        head: [['#', 'Date & Time', 'Amount', 'UTR / Ref Number', 'Status']],
+        head: [['#', 'Date & Time', 'Target Wallet', 'Amount', 'UTR / Ref Number', 'Status']],
         body: tableData,
         foot: footer,
         theme: 'grid',
@@ -410,8 +453,11 @@ export default function B2BAgentFundRequest() {
         return;
       }
 
+      const targetWalletLabel = selectedWalletType === 'payout' ? 'Payout Wallet' : 'BBPS Wallet';
+
       const insertPayload: any = {
         agent_id: agentId,
+        wallet_type: selectedWalletType,
         amount: parseFloat(formData.amount),
         utr_number: trimmedUtr,
         proof_url: formData.proofUrl,
@@ -438,7 +484,7 @@ export default function B2BAgentFundRequest() {
       // 🔔 Send OneSignal Push Notification to Admins
       sendAdminPushNotification(
         '💰 New B2B Fund Request',
-        `${agentName} requested wallet top-up of ₹${formData.amount} (UTR: ${formData.utrNumber})`,
+        `${agentName} requested ${targetWalletLabel} top-up of ₹${formData.amount} (UTR: ${formData.utrNumber})`,
         '/b2b/admin/fund-requests'
       );
 
@@ -451,9 +497,10 @@ export default function B2BAgentFundRequest() {
             agentId,
             agentName: agentName || 'B2B Agent',
             agentPhone: agentPhone || 'N/A',
+            walletType: targetWalletLabel,
             amount: formData.amount,
             utr: formData.utrNumber,
-            mode: selectedBank?.bank_name || 'Bank Transfer',
+            mode: `${selectedBank?.bank_name || 'Bank Transfer'} (${targetWalletLabel})`,
             proofUrl: formData.proofUrl || ''
           })
         }).catch(err => console.error('[WhatsApp Admin Notify Error]', err));
@@ -461,7 +508,7 @@ export default function B2BAgentFundRequest() {
         console.error('[WhatsApp Call Error]', wsErr);
       }
 
-      toast.success('Fund request submitted successfully');
+      toast.success(`Fund request for ${targetWalletLabel} submitted successfully`);
       setFormData({ amount: '', utrNumber: '', proofUrl: '' });
       if (agentId) fetchRequests(agentId);
     } catch (error) {
@@ -587,7 +634,7 @@ export default function B2BAgentFundRequest() {
 
       {/* Filter Control Bar */}
       <div className="bg-slate-800/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-700 space-y-3 shadow-xl">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
           {/* Date Filter Dropdown */}
           <div className="space-y-1">
             <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
@@ -627,8 +674,25 @@ export default function B2BAgentFundRequest() {
             </select>
           </div>
 
+          {/* Target Wallet Filter */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Wallet className="w-3.5 h-3.5 text-indigo-400" />
+              Target Wallet
+            </label>
+            <select
+              value={walletFilter}
+              onChange={(e) => setWalletFilter(e.target.value as any)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all cursor-pointer outline-none"
+            >
+              <option value="all">All Wallets</option>
+              <option value="bbps">BBPS Wallet</option>
+              <option value="payout">Payout Wallet</option>
+            </select>
+          </div>
+
           {/* Search Filter (UTR or Amount) */}
-          <div className="space-y-1 sm:col-span-2">
+          <div className="space-y-1">
             <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <Search className="w-3.5 h-3.5 text-indigo-400" />
               Search UTR / Amount
@@ -636,7 +700,7 @@ export default function B2BAgentFundRequest() {
             <div className="relative">
               <input
                 type="text"
-                placeholder="Search UTR Number or Amount..."
+                placeholder="Search UTR or Amount..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-3 pr-8 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all placeholder:text-slate-500 outline-none"
@@ -689,6 +753,116 @@ export default function B2BAgentFundRequest() {
             </h3>
             
             <form onSubmit={handleSubmit} className="space-y-5 relative z-10">
+              {/* Dynamic Target Wallet Selection based on active services */}
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-slate-300 flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <Wallet className="w-4 h-4 text-indigo-400" />
+                    Target Wallet
+                  </span>
+                  <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-700">
+                    {agentDetails.is_bbps_enabled && agentDetails.is_payout_enabled ? 'Dual Services' : 'Single Service'}
+                  </span>
+                </label>
+
+                {agentDetails.is_bbps_enabled && agentDetails.is_payout_enabled ? (
+                  /* Both Services Enabled: Show 2 interactive selection cards */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* BBPS Wallet Card */}
+                    <div
+                      onClick={() => setSelectedWalletType('bbps')}
+                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                        selectedWalletType === 'bbps'
+                          ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/10'
+                          : 'bg-slate-900/60 border-slate-700 hover:border-slate-600 opacity-70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="target_wallet_type"
+                            checked={selectedWalletType === 'bbps'}
+                            onChange={() => setSelectedWalletType('bbps')}
+                            className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
+                          />
+                          <span className="text-xs font-bold text-white tracking-wide">BBPS Wallet</span>
+                        </div>
+                        <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                          Utility
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1">Bill Payments & Utilities</p>
+                      <div className="mt-2 text-xs font-mono font-bold text-emerald-400">
+                        Bal: ₹{agentDetails.wallet_balance.toFixed(2)}
+                      </div>
+                    </div>
+
+                    {/* Payout Wallet Card */}
+                    <div
+                      onClick={() => setSelectedWalletType('payout')}
+                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                        selectedWalletType === 'payout'
+                          ? 'bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30 shadow-lg shadow-purple-500/10'
+                          : 'bg-slate-900/60 border-slate-700 hover:border-slate-600 opacity-70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="radio"
+                            name="target_wallet_type"
+                            checked={selectedWalletType === 'payout'}
+                            onChange={() => setSelectedWalletType('payout')}
+                            className="w-4 h-4 text-purple-500 focus:ring-purple-500 bg-slate-900 border-slate-700 cursor-pointer"
+                          />
+                          <span className="text-xs font-bold text-white tracking-wide">Payout Wallet</span>
+                        </div>
+                        <span className="text-[9px] bg-purple-500/15 text-purple-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                          Transfer
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 line-clamp-1">Bank Payout API & Transfer</p>
+                      <div className="mt-2 text-xs font-mono font-bold text-purple-400">
+                        Bal: ₹{agentDetails.payout_wallet_balance.toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                ) : agentDetails.is_payout_enabled ? (
+                  /* Only Payout Service Enabled */
+                  <div className="p-3.5 rounded-xl border bg-purple-950/30 border-purple-500/40 shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse" />
+                      <div>
+                        <div className="text-xs font-bold text-purple-300">Payout Wallet (Only Service Active)</div>
+                        <div className="text-[11px] text-slate-400">Funds will be credited to Payout Wallet</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-mono font-bold text-purple-400">
+                        ₹{agentDetails.payout_wallet_balance.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  /* Only BBPS Service Enabled (Default) */
+                  <div className="p-3.5 rounded-xl border bg-emerald-950/30 border-emerald-500/40 shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                      <div>
+                        <div className="text-xs font-bold text-emerald-300">BBPS Wallet (Only Service Active)</div>
+                        <div className="text-[11px] text-slate-400">Funds will be credited to Utility / BBPS Wallet</div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-mono font-bold text-emerald-400">
+                        ₹{agentDetails.wallet_balance.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Admin Bank Account Dropdown */}
               {adminBankAccounts.length > 0 && (
                 <div>
@@ -879,6 +1053,7 @@ export default function B2BAgentFundRequest() {
                 <thead className="bg-slate-900/50 text-slate-400">
                   <tr>
                     <th className="px-6 py-4 font-semibold">Date & Time</th>
+                    <th className="px-6 py-4 font-semibold">Target Wallet</th>
                     <th className="px-6 py-4 font-semibold">Amount</th>
                     <th className="px-6 py-4 font-semibold">UTR Number</th>
                     <th className="px-6 py-4 font-semibold">Status</th>
@@ -887,13 +1062,13 @@ export default function B2BAgentFundRequest() {
                 <tbody className="divide-y divide-slate-700/50">
                   {fetchingRequests ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-400">
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400">
                         Loading requests...
                       </td>
                     </tr>
                   ) : filteredRequests.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-400 flex flex-col items-center">
+                      <td colSpan={5} className="px-6 py-8 text-center text-slate-400 flex flex-col items-center">
                         <Wallet className="h-8 w-8 mb-2 opacity-50" />
                         No fund requests found matching your filters
                       </td>
@@ -903,6 +1078,19 @@ export default function B2BAgentFundRequest() {
                       <tr key={req.id} className="hover:bg-slate-700/20 transition-colors">
                         <td className="px-6 py-4 text-slate-300">
                           {format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a')}
+                        </td>
+                        <td className="px-6 py-4">
+                          {req.wallet_type === 'payout' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                              Payout Wallet
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                              BBPS Wallet
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <span className="font-semibold text-white">₹{req.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>

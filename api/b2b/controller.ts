@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { supabaseAdmin } from '../../server';
 import * as billAvenue from '../../services/billavenue';
 import { notifyAdminNewB2BFundRequest } from '../../services/whatsapp_service.js';
+import { executeNixasoftPayout, checkNixasoftStatus, calculateSlabCharge, PayoutSlab } from '../../services/nixasoft_payout.js';
 
 export const getCategories = async (req: Request, res: Response) => {
   try {
@@ -223,12 +224,23 @@ export const getBalance = async (req: Request, res: Response) => {
     const agentId = (req as any).agentId;
     const { data, error } = await supabaseAdmin
       .from('b2b_api_credentials')
-      .select('wallet_balance')
+      .select('wallet_balance, payout_wallet_balance, is_bbps_enabled, is_payout_enabled, fixed_deposit_amount')
       .eq('id', agentId)
       .single();
 
     if (error) throw error;
-    res.json({ status: 'success', data: { balance: data.wallet_balance } });
+    res.json({
+      status: 'success',
+      data: {
+        balance: data.wallet_balance || 0,
+        bbps_wallet_balance: data.wallet_balance || 0,
+        payout_wallet_balance: data.payout_wallet_balance || 0,
+        usable_bbps_balance: Math.max(0, (data.wallet_balance || 0) - (data.fixed_deposit_amount || 0)),
+        fixed_deposit_amount: data.fixed_deposit_amount || 0,
+        is_bbps_enabled: data.is_bbps_enabled !== false,
+        is_payout_enabled: !!data.is_payout_enabled
+      }
+    });
   } catch (err: any) {
     console.error('[B2B getBalance Error]', err);
     res.status(500).json({ status: 'error', message: 'Failed to fetch balance' });
@@ -1252,11 +1264,12 @@ export const payBill = async (req: Request, res: Response) => {
 export const createFundRequest = async (req: Request, res: Response): Promise<any> => {
   try {
     const agentId = (req as any).agentId;
-    const { amount, utr_number, transaction_ref_no, proof_url, admin_bank_account_id, bank_account_id } = req.body;
+    const { amount, utr_number, transaction_ref_no, proof_url, admin_bank_account_id, bank_account_id, wallet_type } = req.body;
 
     const reqUtr = String(utr_number || transaction_ref_no || '').trim();
     const reqAmount = Number(amount);
     const bankId = String(admin_bank_account_id || bank_account_id || '').trim();
+    const targetWalletType = String(wallet_type || 'bbps').toLowerCase() === 'payout' ? 'payout' : 'bbps';
 
     if (!reqAmount || isNaN(reqAmount) || reqAmount <= 0) {
       return res.status(400).json({ status: 'error', message: 'Valid amount is required' });
@@ -1264,6 +1277,22 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
 
     if (!reqUtr) {
       return res.status(400).json({ status: 'error', message: 'utr_number or transaction_ref_no is required' });
+    }
+
+    // If requesting payout wallet, verify agent has Payout service enabled
+    if (targetWalletType === 'payout') {
+      const { data: credCheck } = await supabaseAdmin
+        .from('b2b_api_credentials')
+        .select('is_payout_enabled')
+        .eq('id', agentId)
+        .single();
+
+      if (credCheck && credCheck.is_payout_enabled === false) {
+        return res.status(403).json({
+          status: 'error',
+          message: 'Payout API service is not enabled for your account. Cannot request funds for Payout Wallet.'
+        });
+      }
     }
 
     // Check if a fund request with this UTR already exists in pending or approved status
@@ -1337,6 +1366,7 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
         proof_url: proof_url || null,
         admin_bank_account_id: targetBankId,
         admin_bank_details: targetBankDetails,
+        wallet_type: targetWalletType,
         status: 'pending'
       })
       .select('*')
@@ -1427,6 +1457,7 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
         request_id: requestData.id,
         amount: Number(requestData.amount),
         utr_number: requestData.utr_number,
+        wallet_type: requestData.wallet_type || targetWalletType,
         admin_bank_details: targetBankDetails,
         status: requestData.status,
         submitted_at: requestData.created_at
@@ -1468,6 +1499,7 @@ export const getFundRequestStatus = async (req: Request, res: Response): Promise
         request_id: requestData.id,
         amount: Number(requestData.amount),
         utr_number: requestData.utr_number,
+        wallet_type: requestData.wallet_type || 'bbps',
         status: requestData.status,
         proof_url: requestData.proof_url || null,
         created_at: requestData.created_at,
@@ -1517,6 +1549,7 @@ export const getFundRequests = async (req: Request, res: Response): Promise<any>
         request_id: r.id,
         amount: Number(r.amount),
         utr_number: r.utr_number,
+        wallet_type: r.wallet_type || 'bbps',
         status: r.status,
         proof_url: r.proof_url || null,
         created_at: r.created_at
@@ -1564,5 +1597,389 @@ export const getAdminBankAccounts = async (req: Request, res: Response): Promise
   } catch (err: any) {
     console.error('[B2B getAdminBankAccounts Error]', err);
     return res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch admin bank accounts' });
+  }
+};
+
+/**
+ * Helper to calculate partner payout fee from custom slabs or global default slabs
+ */
+const calculatePartnerPayoutFee = (amount: number, customSlabs?: any[]): { fee: number; slab: any } => {
+  if (customSlabs && Array.isArray(customSlabs) && customSlabs.length > 0) {
+    const activeSlabs = customSlabs.filter(s => s.is_active !== false);
+    if (activeSlabs.length > 0) {
+      const sorted = [...activeSlabs].sort((a, b) => a.min_amount - b.min_amount);
+      for (const slab of sorted) {
+        if (amount >= slab.min_amount && amount <= slab.max_amount) {
+          const fee = slab.charge_type === 'percentage'
+            ? Math.round(((amount * slab.charge_value) / 100) * 100) / 100
+            : slab.charge_value;
+          return { fee: Math.max(0, fee), slab };
+        }
+      }
+      const highest = sorted[sorted.length - 1];
+      if (amount > highest.max_amount) {
+        const fee = highest.charge_type === 'percentage'
+          ? Math.round(((amount * highest.charge_value) / 100) * 100) / 100
+          : highest.charge_value;
+        return { fee: Math.max(0, fee), slab: highest };
+      }
+    }
+  }
+  const fallback = calculateSlabCharge(amount);
+  return { fee: fallback.charge, slab: fallback.slab };
+};
+
+/**
+ * Execute B2B Instant Payout Transfer
+ * Endpoint: POST /api/b2b/payout/transfer
+ */
+export const transferPayout = async (req: Request, res: Response): Promise<any> => {
+  const agentId = (req as any).agentId;
+  const {
+    amount,
+    account_number,
+    ifsc_code,
+    beneficiary_name,
+    bank_name,
+    transfer_mode = 'IMPS',
+    client_order_id,
+    mobile_number,
+    email
+  } = req.body;
+
+  try {
+    // 1. Verify agent and check is_payout_enabled
+    const { data: agent, error: agentErr } = await supabaseAdmin
+      .from('b2b_api_credentials')
+      .select('id, first_name, last_name, mobile, is_payout_enabled, payout_wallet_balance, payout_slabs')
+      .eq('id', agentId)
+      .single();
+
+    if (agentErr || !agent) {
+      return res.status(401).json({ status: 'error', message: 'Unauthorized agent credentials' });
+    }
+
+    if (agent.is_payout_enabled === false) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Payout API service is currently not enabled for your account. Please contact Administrator.'
+      });
+    }
+
+    // 2. Validate parameters
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount < 100 || parsedAmount > 200000) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid amount. Payout transfer amount must be between ₹100 and ₹2,00,000.'
+      });
+    }
+
+    const cleanAccount = String(account_number || '').trim();
+    if (!cleanAccount || cleanAccount.length < 8 || cleanAccount.length > 22) {
+      return res.status(400).json({ status: 'error', message: 'Valid account_number is required (8-22 digits)' });
+    }
+
+    const cleanIfsc = String(ifsc_code || '').trim().toUpperCase();
+    if (!cleanIfsc || cleanIfsc.length !== 11) {
+      return res.status(400).json({ status: 'error', message: 'Valid 11-character ifsc_code is required' });
+    }
+
+    const cleanName = String(beneficiary_name || '').trim();
+    if (!cleanName || cleanName.length < 2) {
+      return res.status(400).json({ status: 'error', message: 'Valid beneficiary_name is required' });
+    }
+
+    const cleanClientOrderId = String(client_order_id || '').trim();
+
+    // 3. Idempotency Check
+    if (cleanClientOrderId) {
+      const { data: existingTx } = await supabaseAdmin
+        .from('b2b_payout_transactions')
+        .select('*')
+        .eq('agent_id', agentId)
+        .eq('client_order_id', cleanClientOrderId)
+        .maybeSingle();
+
+      if (existingTx) {
+        return res.status(200).json({
+          status: existingTx.status,
+          message: `Transaction already processed with client_order_id: ${cleanClientOrderId}`,
+          data: {
+            order_id: existingTx.order_id,
+            client_order_id: existingTx.client_order_id,
+            utr: existingTx.utr || null,
+            amount: Number(existingTx.amount),
+            fee: Number(existingTx.fee),
+            status: existingTx.status,
+            created_at: existingTx.created_at
+          }
+        });
+      }
+    }
+
+    // 4. Calculate Slabs Fee
+    const { fee } = calculatePartnerPayoutFee(parsedAmount, agent.payout_slabs);
+    const totalDeduction = parsedAmount + fee;
+    const currentPayoutBalance = Number(agent.payout_wallet_balance || 0);
+
+    if (currentPayoutBalance < totalDeduction) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Insufficient Payout Wallet balance. Required: ₹${totalDeduction.toFixed(2)} (Amount: ₹${parsedAmount.toFixed(2)} + Fee: ₹${fee.toFixed(2)}), Available in Payout Wallet: ₹${currentPayoutBalance.toFixed(2)}. Please submit a fund request for your Payout Wallet.`,
+        data: {
+          required_balance: totalDeduction,
+          current_payout_balance: currentPayoutBalance,
+          transfer_amount: parsedAmount,
+          fee
+        }
+      });
+    }
+
+    // 5. Deduct from Payout Wallet atomically
+    const { data: deductOk, error: deductErr } = await supabaseAdmin.rpc('deduct_b2b_payout_wallet', {
+      p_agent_id: agentId,
+      p_amount: totalDeduction
+    });
+
+    if (deductErr || !deductOk) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Could not deduct funds from Payout Wallet. Transaction cancelled.'
+      });
+    }
+
+    // 6. Generate unique Order ID
+    const orderId = 'B2BPO' + Date.now() + Math.floor(1000 + Math.random() * 9000);
+    const cleanMode = String(transfer_mode).toUpperCase() === 'NEFT' ? 'NEFT' : 'IMPS';
+
+    // 7. Insert Initial Transaction
+    const { error: insertTxErr } = await supabaseAdmin
+      .from('b2b_payout_transactions')
+      .insert({
+        agent_id: agentId,
+        client_order_id: cleanClientOrderId || null,
+        order_id: orderId,
+        account_number: cleanAccount,
+        ifsc_code: cleanIfsc,
+        beneficiary_name: cleanName,
+        bank_name: bank_name || 'Bank',
+        transfer_mode: cleanMode,
+        amount: parsedAmount,
+        fee,
+        total_deducted: totalDeduction,
+        status: 'pending'
+      });
+
+    if (insertTxErr) {
+      console.error('[B2B Payout] Failed to insert initial transaction record:', insertTxErr);
+      // Auto-refund immediately
+      await supabaseAdmin.rpc('add_b2b_payout_wallet', { p_agent_id: agentId, p_amount: totalDeduction });
+      return res.status(500).json({ status: 'error', message: 'Failed to initialize payout transaction record' });
+    }
+
+    // 8. Execute Upstream Transfer via InstaPay
+    const payoutResult = await executeNixasoftPayout({
+      amount: String(parsedAmount),
+      mobileNumber: mobile_number || agent.mobile || '9999999999',
+      requestId: orderId,
+      accountNumber: cleanAccount,
+      ifscCode: cleanIfsc,
+      beneficiaryName: cleanName,
+      bankName: bank_name || 'Bank',
+      transferMode: cleanMode,
+      emailId: email || 'b2b@instapay.in',
+      latitude: '23.0225',
+      longitude: '72.5714'
+    });
+
+    // 9. Update Transaction and Handle Results
+    if (payoutResult.statuscode === 'TXN') {
+      // SUCCESS
+      const utr = payoutResult.data?.utr || null;
+      const apiTxnId = payoutResult.data?.apiTxnId || null;
+
+      await supabaseAdmin
+        .from('b2b_payout_transactions')
+        .update({
+          status: 'success',
+          utr,
+          api_txn_id: apiTxnId,
+          provider_response: payoutResult,
+          updated_at: new Date().toISOString()
+        })
+        .eq('order_id', orderId);
+
+      return res.json({
+        status: 'success',
+        message: 'Payout transfer completed successfully',
+        data: {
+          order_id: orderId,
+          client_order_id: cleanClientOrderId || null,
+          utr,
+          amount: parsedAmount,
+          fee,
+          total_deducted: totalDeduction,
+          beneficiary_name: cleanName,
+          account_number: cleanAccount,
+          ifsc_code: cleanIfsc,
+          status: 'success'
+        }
+      });
+    } else if (payoutResult.statuscode === 'TXP') {
+      // PROCESSING / PENDING
+      const apiTxnId = payoutResult.data?.apiTxnId || null;
+
+      await supabaseAdmin
+        .from('b2b_payout_transactions')
+        .update({
+          status: 'pending',
+          api_txn_id: apiTxnId,
+          provider_response: payoutResult,
+          updated_at: new Date().toISOString()
+        })
+        .eq('order_id', orderId);
+
+      return res.status(202).json({
+        status: 'pending',
+        message: 'Payout transfer is currently being processed by the bank. Please query status using order_id.',
+        data: {
+          order_id: orderId,
+          client_order_id: cleanClientOrderId || null,
+          amount: parsedAmount,
+          fee,
+          total_deducted: totalDeduction,
+          status: 'pending'
+        }
+      });
+    } else {
+      // FAILED -> AUTO REFUND!
+      const failReason = payoutResult.message || 'Bank transaction declined';
+
+      await supabaseAdmin.rpc('add_b2b_payout_wallet', {
+        p_agent_id: agentId,
+        p_amount: totalDeduction
+      });
+
+      await supabaseAdmin
+        .from('b2b_payout_transactions')
+        .update({
+          status: 'failed',
+          failure_reason: failReason,
+          provider_response: payoutResult,
+          updated_at: new Date().toISOString()
+        })
+        .eq('order_id', orderId);
+
+      return res.status(400).json({
+        status: 'failed',
+        message: failReason,
+        data: {
+          order_id: orderId,
+          client_order_id: cleanClientOrderId || null,
+          amount: parsedAmount,
+          fee,
+          refunded_to_payout_wallet: true,
+          status: 'failed'
+        }
+      });
+    }
+
+  } catch (err: any) {
+    console.error('[B2B transferPayout Fatal Error]', err);
+    return res.status(500).json({ status: 'error', message: err.message || 'Internal server error during payout' });
+  }
+};
+
+/**
+ * Check B2B Payout Transaction Status
+ * Endpoint: GET /api/b2b/payout/status/:order_id
+ */
+export const getPayoutStatus = async (req: Request, res: Response): Promise<any> => {
+  const agentId = (req as any).agentId;
+  const { order_id } = req.params;
+
+  if (!order_id) {
+    return res.status(400).json({ status: 'error', message: 'order_id parameter is required' });
+  }
+
+  try {
+    // 1. Find transaction by order_id or client_order_id
+    const { data: tx, error: txErr } = await supabaseAdmin
+      .from('b2b_payout_transactions')
+      .select('*')
+      .eq('agent_id', agentId)
+      .or(`order_id.eq.${order_id},client_order_id.eq.${order_id}`)
+      .maybeSingle();
+
+    if (txErr || !tx) {
+      return res.status(404).json({ status: 'error', message: 'Payout transaction not found' });
+    }
+
+    // 2. If status is pending, re-check upstream status
+    if (tx.status === 'pending') {
+      try {
+        const liveStatus = await checkNixasoftStatus(tx.order_id);
+        if (liveStatus.statuscode === 'TXN') {
+          const utr = liveStatus.data?.utr || tx.utr;
+          await supabaseAdmin
+            .from('b2b_payout_transactions')
+            .update({
+              status: 'success',
+              utr,
+              api_txn_id: liveStatus.data?.apiTxnId || tx.api_txn_id,
+              provider_response: liveStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', tx.id);
+          tx.status = 'success';
+          tx.utr = utr;
+        } else if (liveStatus.statuscode === 'TXF') {
+          // Auto refund if failed
+          await supabaseAdmin.rpc('add_b2b_payout_wallet', {
+            p_agent_id: agentId,
+            p_amount: tx.total_deducted
+          });
+
+          await supabaseAdmin
+            .from('b2b_payout_transactions')
+            .update({
+              status: 'failed',
+              failure_reason: liveStatus.message || 'Transaction failed after status inquiry',
+              provider_response: liveStatus,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', tx.id);
+          tx.status = 'failed';
+          tx.failure_reason = liveStatus.message;
+        }
+      } catch (checkErr) {
+        console.warn('[B2B getPayoutStatus] Upstream status check failed, returning DB status:', checkErr);
+      }
+    }
+
+    return res.json({
+      status: 'success',
+      data: {
+        order_id: tx.order_id,
+        client_order_id: tx.client_order_id || null,
+        utr: tx.utr || null,
+        beneficiary_name: tx.beneficiary_name,
+        account_number: tx.account_number,
+        ifsc_code: tx.ifsc_code,
+        transfer_mode: tx.transfer_mode,
+        amount: Number(tx.amount),
+        fee: Number(tx.fee),
+        total_deducted: Number(tx.total_deducted),
+        status: tx.status,
+        failure_reason: tx.failure_reason || null,
+        created_at: tx.created_at,
+        updated_at: tx.updated_at
+      }
+    });
+
+  } catch (err: any) {
+    console.error('[B2B getPayoutStatus Error]', err);
+    return res.status(500).json({ status: 'error', message: err.message || 'Failed to check payout status' });
   }
 };

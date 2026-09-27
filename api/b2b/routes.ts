@@ -1,6 +1,20 @@
 import { Router } from 'express';
 import { b2bAuthMiddleware } from './middleware';
-import { getCategories, getBillers, fetchBill, payBill, getBalance, checkStatus, checkStatusAdmin, createFundRequest, getFundRequestStatus, getFundRequests, getAdminBankAccounts } from './controller';
+import { 
+  getCategories, 
+  getBillers, 
+  fetchBill, 
+  payBill, 
+  getBalance, 
+  checkStatus, 
+  checkStatusAdmin, 
+  createFundRequest, 
+  getFundRequestStatus, 
+  getFundRequests, 
+  getAdminBankAccounts,
+  transferPayout,
+  getPayoutStatus
+} from './controller';
 
 const router = Router();
 
@@ -27,7 +41,7 @@ router.use('/admin/whatsapp', (req, res, next) => {
 // Apply B2B Auth Middleware to all B2B routes
 router.use(b2bAuthMiddleware);
 
-// Get Wallet Balance
+// Get Wallet Balance (Returns BBPS and Payout balances)
 router.get('/balance', getBalance);
 
 // Get BillAvenue Categories (from our DB)
@@ -45,6 +59,10 @@ router.post('/pay-bill', payBill);
 // Check Status of a transaction
 router.get('/status/:transaction_id', checkStatus);
 
+// Payout API (Instant 24x7 IMPS / NEFT Bank Transfer)
+router.post('/payout/transfer', transferPayout);
+router.get('/payout/status/:order_id', getPayoutStatus);
+
 // Get Active Admin Bank Accounts List via API
 router.get('/admin-bank-accounts', getAdminBankAccounts);
 
@@ -58,3 +76,4 @@ router.get('/fund-request/status/:request_id', getFundRequestStatus);
 router.get('/fund-requests', getFundRequests);
 
 export default router;
+

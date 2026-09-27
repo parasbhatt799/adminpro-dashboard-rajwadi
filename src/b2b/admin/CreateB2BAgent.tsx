@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X, Search, Camera, User } from 'lucide-react';
+import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X, Search, Camera, User, Zap, Layers, Plus } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { motion } from 'motion/react';
 
@@ -15,6 +15,10 @@ interface Agent {
   address: string;
   b2b_login_id: string;
   wallet_balance: number;
+  payout_wallet_balance?: number;
+  is_bbps_enabled?: boolean;
+  is_payout_enabled?: boolean;
+  payout_slabs?: any[];
   charge_per_bill: number;
   developer_charge?: number;
   owner_charge?: number;
@@ -49,6 +53,11 @@ export default function CreateB2BAgent() {
   const [billAvenueAgentId, setBillAvenueAgentId] = useState('');
   const [agentSearchTerm, setAgentSearchTerm] = useState('');
 
+  // Custom Payout Slabs Modal State
+  const [showSlabsModal, setShowSlabsModal] = useState(false);
+  const [customSlabs, setCustomSlabs] = useState<any[]>([]);
+  const [selectedAgentForSlabs, setSelectedAgentForSlabs] = useState<Agent | null>(null);
+
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
@@ -63,7 +72,9 @@ export default function CreateB2BAgent() {
     developerCharge: '0',
     ownerCharge: '0',
     fixedDepositAmount: '0',
-    agentTag: ''
+    agentTag: '',
+    isBbpsEnabled: true,
+    isPayoutEnabled: false
   });
 
   const handleDeveloperChargeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -173,7 +184,9 @@ export default function CreateB2BAgent() {
       developerCharge: agent.developer_charge !== null && agent.developer_charge !== undefined ? agent.developer_charge.toString() : '0',
       ownerCharge: agent.owner_charge !== null && agent.owner_charge !== undefined ? agent.owner_charge.toString() : '0',
       fixedDepositAmount: agent.fixed_deposit_amount !== null && agent.fixed_deposit_amount !== undefined ? agent.fixed_deposit_amount.toString() : '0',
-      agentTag: agent.agent_tag || ''
+      agentTag: agent.agent_tag || '',
+      isBbpsEnabled: agent.is_bbps_enabled !== false,
+      isPayoutEnabled: !!agent.is_payout_enabled
     });
     setView('edit');
   };
@@ -203,7 +216,6 @@ export default function CreateB2BAgent() {
     }));
   };
 
-
   const toggleStatus = async (agent: Agent) => {
     const newStatus = !agent.is_active;
     const { error } = await supabase
@@ -219,6 +231,101 @@ export default function CreateB2BAgent() {
       }
     } else {
       toast.error('Failed to change status');
+    }
+  };
+
+  const toggleBbps = async (agent: Agent) => {
+    const newStatus = !(agent.is_bbps_enabled !== false);
+    const { error } = await supabase
+      .from('b2b_api_credentials')
+      .update({ is_bbps_enabled: newStatus })
+      .eq('id', agent.id);
+
+    if (!error) {
+      toast.success(`BBPS Service ${newStatus ? 'enabled' : 'disabled'}`);
+      setAgents(agents.map(a => a.id === agent.id ? { ...a, is_bbps_enabled: newStatus } : a));
+      if (selectedAgentForApi?.id === agent.id) {
+        setSelectedAgentForApi({ ...selectedAgentForApi, is_bbps_enabled: newStatus });
+      }
+    } else {
+      toast.error('Failed to change BBPS status');
+    }
+  };
+
+  const togglePayout = async (agent: Agent) => {
+    const newStatus = !agent.is_payout_enabled;
+    const { error } = await supabase
+      .from('b2b_api_credentials')
+      .update({ is_payout_enabled: newStatus })
+      .eq('id', agent.id);
+
+    if (!error) {
+      toast.success(`Payout Service ${newStatus ? 'enabled' : 'disabled'}`);
+      setAgents(agents.map(a => a.id === agent.id ? { ...a, is_payout_enabled: newStatus } : a));
+      if (selectedAgentForApi?.id === agent.id) {
+        setSelectedAgentForApi({ ...selectedAgentForApi, is_payout_enabled: newStatus });
+      }
+    } else {
+      toast.error('Failed to change Payout status');
+    }
+  };
+
+  const openSlabsModal = (agent: Agent) => {
+    setSelectedAgentForSlabs(agent);
+    const defaultSlabs = [
+      { id: 'slab-1', min_amount: 100, max_amount: 50000, charge_type: 'flat', charge_value: 25, is_active: true },
+      { id: 'slab-2', min_amount: 50001, max_amount: 100000, charge_type: 'flat', charge_value: 50, is_active: true },
+      { id: 'slab-3', min_amount: 100001, max_amount: 200000, charge_type: 'flat', charge_value: 75, is_active: true }
+    ];
+    setCustomSlabs(agent.payout_slabs && Array.isArray(agent.payout_slabs) && agent.payout_slabs.length > 0 
+      ? JSON.parse(JSON.stringify(agent.payout_slabs)) 
+      : defaultSlabs);
+    setShowSlabsModal(true);
+  };
+
+  const handleAddSlab = () => {
+    const newId = `slab-${Date.now()}`;
+    setCustomSlabs([...customSlabs, {
+      id: newId,
+      min_amount: 1,
+      max_amount: 10000,
+      charge_type: 'flat',
+      charge_value: 10,
+      is_active: true
+    }]);
+  };
+
+  const handleRemoveSlab = (id: string) => {
+    setCustomSlabs(customSlabs.filter(s => s.id !== id));
+  };
+
+  const handleSlabChange = (index: number, field: string, val: any) => {
+    const updated = [...customSlabs];
+    updated[index] = { ...updated[index], [field]: val };
+    setCustomSlabs(updated);
+  };
+
+  const saveCustomSlabs = async () => {
+    if (!selectedAgentForSlabs) return;
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('b2b_api_credentials')
+        .update({ payout_slabs: customSlabs })
+        .eq('id', selectedAgentForSlabs.id);
+
+      if (error) throw error;
+      toast.success('Custom Payout Slabs saved successfully!');
+      setAgents(agents.map(a => a.id === selectedAgentForSlabs.id ? { ...a, payout_slabs: customSlabs } : a));
+      if (selectedAgentForApi?.id === selectedAgentForSlabs.id) {
+        setSelectedAgentForApi({ ...selectedAgentForApi, payout_slabs: customSlabs });
+      }
+      setShowSlabsModal(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Failed to save payout slabs');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -396,7 +503,10 @@ export default function CreateB2BAgent() {
             fixed_deposit_amount: parseFloat(formData.fixedDepositAmount) || 0,
             agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
             profile_photo_url: uploadedPhotoUrl || null,
-            is_active: true
+            is_active: true,
+            is_bbps_enabled: formData.isBbpsEnabled,
+            is_payout_enabled: formData.isPayoutEnabled,
+            payout_wallet_balance: 0
           });
 
         if (b2bError) {
@@ -421,7 +531,9 @@ export default function CreateB2BAgent() {
           owner_charge: parseFloat(formData.ownerCharge) || 0,
           fixed_deposit_amount: parseFloat(formData.fixedDepositAmount) || 0,
           agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
-          profile_photo_url: uploadedPhotoUrl || null
+          profile_photo_url: uploadedPhotoUrl || null,
+          is_bbps_enabled: formData.isBbpsEnabled,
+          is_payout_enabled: formData.isPayoutEnabled
         };
         
         if (formData.b2bPassword) {
@@ -446,7 +558,7 @@ export default function CreateB2BAgent() {
       }
 
       setFormData({
-        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: ''
+        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '', isBbpsEnabled: true, isPayoutEnabled: false
       });
       setProfilePhoto(null);
       setPhotoPreview(null);
@@ -503,7 +615,7 @@ export default function CreateB2BAgent() {
 
           <button
             onClick={() => {
-              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '' });
+              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '', isBbpsEnabled: true, isPayoutEnabled: false });
               setView('create');
             }}
             className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap"
@@ -559,17 +671,27 @@ export default function CreateB2BAgent() {
                         )}
                         <div>
                           <div className="font-bold text-white text-sm">{agent.first_name} {agent.last_name}</div>
-                          {agent.billavenue_agent_id ? (
-                            <div className="flex items-center gap-1 mt-0.5">
+                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                            {agent.billavenue_agent_id ? (
                               <span className="text-[10px] text-emerald-400 font-mono font-semibold bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded" title="BillAvenue Mapping Agent ID">
                                 {agent.billavenue_agent_id}
                               </span>
-                            </div>
-                          ) : (
-                            <div className="text-[10px] text-slate-500 font-mono italic mt-0.5">
-                              No BillAvenue ID
-                            </div>
-                          )}
+                            ) : null}
+                            {agent.is_bbps_enabled !== false ? (
+                              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="BBPS Bill Payment Active">
+                                <Zap size={9} /> BBPS
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 bg-slate-900 border border-slate-700 px-1.5 py-0.5 rounded">
+                                No BBPS
+                              </span>
+                            )}
+                            {agent.is_payout_enabled ? (
+                              <span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Instant Payout API Active">
+                                <Layers size={9} /> Payout
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -603,12 +725,16 @@ export default function CreateB2BAgent() {
                     </td>
                     <td className="p-4 text-right">
                       <div className="flex flex-col items-end gap-1">
-                        <div className="flex items-center justify-end gap-1 font-bold text-emerald-400">
-                          <span>₹</span>
-                          <span>{parseFloat(agent.wallet_balance?.toString() || '0').toFixed(2)}</span>
+                        <div className="flex items-center justify-end gap-1.5 text-xs font-semibold">
+                          <span className="text-emerald-400/80 text-[11px]">BBPS:</span>
+                          <span className="text-emerald-400 font-bold font-mono">₹{parseFloat(agent.wallet_balance?.toString() || '0').toFixed(2)}</span>
+                        </div>
+                        <div className="flex items-center justify-end gap-1.5 text-xs font-semibold">
+                          <span className="text-purple-400/80 text-[11px]">Payout:</span>
+                          <span className="text-purple-400 font-bold font-mono">₹{parseFloat(agent.payout_wallet_balance?.toString() || '0').toFixed(2)}</span>
                         </div>
                         {agent.fixed_deposit_amount && parseFloat(agent.fixed_deposit_amount.toString()) > 0 ? (
-                          <span className="text-[10px] text-amber-400 font-mono font-semibold bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded" title="Frozen Security Deposit Balance">
+                          <span className="text-[10px] text-amber-400 font-mono font-semibold bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded mt-0.5" title="Frozen Security Deposit Balance">
                             🔒 Deposit: ₹{parseFloat(agent.fixed_deposit_amount.toString()).toFixed(2)}
                           </span>
                         ) : null}
@@ -616,6 +742,15 @@ export default function CreateB2BAgent() {
                     </td>
                     <td className="p-4">
                       <div className="flex items-center justify-center gap-2">
+                        {agent.is_payout_enabled && (
+                          <button
+                            onClick={() => openSlabsModal(agent)}
+                            className="p-2 text-purple-400 hover:bg-purple-500/10 rounded-lg transition-colors"
+                            title="Configure Custom Payout Slabs"
+                          >
+                            <Layers size={18} />
+                          </button>
+                        )}
                         <button
                           onClick={() => setSelectedAgentForApi(agent)}
                           className="p-2 text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"
@@ -794,6 +929,73 @@ export default function CreateB2BAgent() {
                 </div>
               </div>
 
+              {/* Services & Payout Slabs Access */}
+              <div className="bg-slate-900/60 border border-slate-700 rounded-xl p-5 shadow-sm space-y-4">
+                <h4 className="text-sm font-bold text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-indigo-400" /> Services & Slabs Control
+                </h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* BBPS Toggle */}
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-700/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-white flex items-center gap-1.5">
+                        <Zap size={16} className="text-emerald-400" /> Bill Payment (BBPS)
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Allow agent to fetch & pay bills</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={selectedAgentForApi.is_bbps_enabled !== false}
+                        onChange={() => toggleBbps(selectedAgentForApi)}
+                      />
+                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                  </div>
+
+                  {/* Payout Toggle */}
+                  <div className="bg-slate-900 p-4 rounded-xl border border-slate-700/80 flex items-center justify-between">
+                    <div>
+                      <div className="text-sm font-bold text-white flex items-center gap-1.5">
+                        <Layers size={16} className="text-purple-400" /> Instant Payout API
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5">Allow 24x7 IMPS/NEFT bank transfers</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={!!selectedAgentForApi.is_payout_enabled}
+                        onChange={() => togglePayout(selectedAgentForApi)}
+                      />
+                      <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Custom Payout Slabs Config */}
+                <div className="bg-purple-950/20 border border-purple-500/20 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-xs font-bold text-purple-300 uppercase tracking-widest block mb-0.5">
+                      Partner Custom Payout Slabs
+                    </span>
+                    <p className="text-xs text-slate-300">
+                      {selectedAgentForApi.payout_slabs && Array.isArray(selectedAgentForApi.payout_slabs) && selectedAgentForApi.payout_slabs.length > 0
+                        ? `${selectedAgentForApi.payout_slabs.length} custom slab(s) configured for this agent`
+                        : 'Using Default Global Payout Slabs (No custom override)'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => openSlabsModal(selectedAgentForApi)}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 shadow-sm"
+                  >
+                    <Layers size={14} /> Configure Custom Slabs
+                  </button>
+                </div>
+              </div>
+
               {/* BillAvenue Mapping */}
               <div className="bg-sky-950/30 border border-sky-500/20 rounded-xl p-5 shadow-sm">
                 <div className="flex justify-between items-center mb-3">
@@ -959,6 +1161,136 @@ export default function CreateB2BAgent() {
                   {isSaving ? <RefreshCw className="h-5 w-5 animate-spin" /> : 'Save Agent ID'}
                 </button>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Custom Payout Slabs Modal */}
+      {showSlabsModal && selectedAgentForSlabs && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden text-slate-200"
+          >
+            <div className="p-6 border-b border-slate-700 bg-purple-950/40 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Layers className="text-purple-400 h-5 w-5" /> Custom Payout Slabs
+                </h3>
+                <p className="text-xs text-purple-300 mt-1">
+                  Configure custom partner fee slabs for <span className="font-bold text-white">{selectedAgentForSlabs.first_name} {selectedAgentForSlabs.last_name}</span> ({selectedAgentForSlabs.b2b_login_id})
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowSlabsModal(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white bg-slate-900 border border-slate-700"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Configured Slabs</span>
+                <button
+                  type="button"
+                  onClick={handleAddSlab}
+                  className="px-3 py-1.5 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 border border-purple-500/40 rounded-lg text-xs font-bold flex items-center gap-1 transition-colors"
+                >
+                  <Plus size={14} /> Add Slab
+                </button>
+              </div>
+
+              {customSlabs.length === 0 ? (
+                <div className="p-6 text-center text-slate-400 bg-slate-900/50 rounded-xl border border-slate-700/60">
+                  No custom slabs set. Agent will use system default slabs. Click "+ Add Slab" to create custom pricing.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {customSlabs.map((slab, index) => (
+                    <div key={slab.id || index} className="p-3 bg-slate-900/80 border border-slate-700 rounded-xl grid grid-cols-12 gap-2 items-center">
+                      <div className="col-span-3">
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Min Amount (₹)</label>
+                        <input
+                          type="number"
+                          value={slab.min_amount}
+                          onChange={(e) => handleSlabChange(index, 'min_amount', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Max Amount (₹)</label>
+                        <input
+                          type="number"
+                          value={slab.max_amount}
+                          onChange={(e) => handleSlabChange(index, 'max_amount', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Type</label>
+                        <select
+                          value={slab.charge_type || 'flat'}
+                          onChange={(e) => handleSlabChange(index, 'charge_type', e.target.value)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white"
+                        >
+                          <option value="flat">Flat (₹)</option>
+                          <option value="percentage">Percent (%)</option>
+                        </select>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Charge</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={slab.charge_value}
+                          onChange={(e) => handleSlabChange(index, 'charge_value', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-amber-400 font-bold font-mono"
+                        />
+                      </div>
+                      <div className="col-span-2 flex items-center justify-end gap-1 pt-3">
+                        <label className="relative inline-flex items-center cursor-pointer mr-1" title={slab.is_active ? 'Active' : 'Disabled'}>
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={slab.is_active !== false}
+                            onChange={(e) => handleSlabChange(index, 'is_active', e.target.checked)}
+                          />
+                          <div className="w-8 h-4 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSlab(slab.id)}
+                          className="p-1.5 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-colors"
+                          title="Remove Slab"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-slate-700 bg-slate-900/60 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowSlabsModal(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-300 bg-slate-800 border border-slate-700 hover:bg-slate-700 rounded-xl transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={saveCustomSlabs}
+                disabled={isSaving}
+                className="px-5 py-2 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-xl transition-colors flex items-center gap-1.5 disabled:opacity-50"
+              >
+                {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Save Custom Slabs'}
+              </button>
             </div>
           </motion.div>
         </div>
@@ -1208,6 +1540,53 @@ export default function CreateB2BAgent() {
                   required={view === 'create'}
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
                   placeholder={view === 'edit' ? "Enter new password" : "Enter a secure password"}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 border-b border-slate-700 pb-2">
+              3. Enabled Services & Permissions
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div 
+                onClick={() => setFormData(prev => ({ ...prev, isBbpsEnabled: !prev.isBbpsEnabled }))}
+                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                  formData.isBbpsEnabled ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-900 border-slate-700'
+                }`}
+              >
+                <div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <Zap size={16} className="text-emerald-400" /> Bill Payment (BBPS)
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Enables BBPS bill fetch & pay endpoints and wallet</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.isBbpsEnabled}
+                  onChange={(e) => setFormData(prev => ({ ...prev, isBbpsEnabled: e.target.checked }))}
+                  className="rounded text-emerald-600 focus:ring-emerald-500 w-5 h-5 bg-slate-800 border-slate-700"
+                />
+              </div>
+
+              <div 
+                onClick={() => setFormData(prev => ({ ...prev, isPayoutEnabled: !prev.isPayoutEnabled }))}
+                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                  formData.isPayoutEnabled ? 'bg-purple-500/10 border-purple-500/30' : 'bg-slate-900 border-slate-700'
+                }`}
+              >
+                <div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <Layers size={16} className="text-purple-400" /> Instant Payout API
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1">Enables 24x7 IMPS/NEFT bank payout API and wallet</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.isPayoutEnabled}
+                  onChange={(e) => setFormData(prev => ({ ...prev, isPayoutEnabled: e.target.checked }))}
+                  className="rounded text-purple-600 focus:ring-purple-500 w-5 h-5 bg-slate-800 border-slate-700"
                 />
               </div>
             </div>

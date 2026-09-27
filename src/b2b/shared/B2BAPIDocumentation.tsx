@@ -425,7 +425,7 @@ export default function B2BAPIDocumentation() {
             <span className="text-xs text-slate-400 font-mono font-semibold">Check Agent Wallet Balance</span>
           </div>
 
-          <p className="text-xs text-slate-300">Retrieve real-time available wallet balance for your API account.</p>
+          <p className="text-xs text-slate-300">Retrieve real-time available wallet balance for BBPS Bill Payment and Payout transfer services.</p>
 
           <CodeBlock 
             title="Sample Response (200 OK)"
@@ -433,19 +433,24 @@ export default function B2BAPIDocumentation() {
             code={`{
   "status": "success",
   "data": {
-    "agent_id": "b2b_agent_9843",
-    "b2b_login_id": "mahida_1212",
-    "company_name": "Mahida Enterprise",
     "balance": 25450.75,
-    "currency": "INR"
+    "bbps_wallet_balance": 15450.75,
+    "payout_wallet_balance": 10000.00,
+    "usable_bbps_balance": 15450.75,
+    "fixed_deposit_amount": 0,
+    "is_bbps_enabled": true,
+    "is_payout_enabled": true
   }
 }`}
           />
 
           <ParamTable params={[
             { name: "status", type: "String", required: true, desc: "Status of request execution ('success' or 'error')." },
-            { name: "data.balance", type: "Number", required: true, desc: "Current net available balance in Indian Rupees (₹)." },
-            { name: "data.b2b_login_id", type: "String", required: true, desc: "Your registered B2B Agent login identifier." }
+            { name: "data.balance", type: "Number", required: true, desc: "Legacy / default BBPS wallet balance (₹)." },
+            { name: "data.bbps_wallet_balance", type: "Number", required: true, desc: "Dedicated wallet balance for utility bill payments (₹)." },
+            { name: "data.payout_wallet_balance", type: "Number", required: true, desc: "Dedicated wallet balance for 24x7 instant bank payouts (₹)." },
+            { name: "data.is_bbps_enabled", type: "Boolean", required: true, desc: "Whether Bill Payment service is active for this agent." },
+            { name: "data.is_payout_enabled", type: "Boolean", required: true, desc: "Whether Instant Payout API service is active for this agent." }
           ]} />
         </div>
 
@@ -796,7 +801,122 @@ export default function B2BAPIDocumentation() {
           />
         </div>
 
-        {/* 2.7 GET /admin-bank-accounts */}
+        {/* 2.7 POST /payout/transfer */}
+        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+            <h3 className="text-lg font-bold text-white flex items-center gap-3">
+              <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+              /payout/transfer
+            </h3>
+            <span className="text-xs text-purple-300 font-mono font-semibold">24x7 Instant Bank Transfer</span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Execute 24x7 real-time bank account transfer via IMPS or NEFT. Deducts <code>Amount + Slab Fee</code> strictly from your dedicated <strong>Payout Wallet</strong>. If the upstream bank transfer fails, funds are automatically refunded to your Payout Wallet.
+          </p>
+
+          <ParamTable params={[
+            { name: "amount", type: "Number", required: true, desc: "Transfer amount in INR (₹100 to ₹2,00,000)." },
+            { name: "account_number", type: "String", required: true, desc: "Beneficiary bank account number (8 to 22 digits)." },
+            { name: "ifsc_code", type: "String", required: true, desc: "Beneficiary bank IFSC Code (11 alphanumeric characters)." },
+            { name: "beneficiary_name", type: "String", required: true, desc: "Name of the bank account holder." },
+            { name: "transfer_mode", type: "String", required: false, desc: "Transfer mode: 'IMPS' (default, 24x7 instant) or 'NEFT'." },
+            { name: "client_order_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency and status query." },
+            { name: "bank_name", type: "String", required: false, desc: "Optional name of the beneficiary bank." }
+          ]} />
+
+          <CodeBlock 
+            title="Sample Request Body"
+            section="payout_req_body"
+            code={`{
+  "amount": 2500.00,
+  "account_number": "91234567890123",
+  "ifsc_code": "HDFC0001234",
+  "beneficiary_name": "Ramesh Kumar",
+  "transfer_mode": "IMPS",
+  "client_order_id": "ORD_PAYOUT_1001",
+  "bank_name": "HDFC Bank"
+}`}
+          />
+
+          <CodeBlock 
+            title="Sample Success Response (200 OK)"
+            section="payout_res_success"
+            code={`{
+  "status": "success",
+  "message": "Payout transfer completed successfully",
+  "data": {
+    "order_id": "B2BPO1727443912001",
+    "client_order_id": "ORD_PAYOUT_1001",
+    "utr": "426812831122",
+    "amount": 2500.00,
+    "fee": 25.00,
+    "total_deducted": 2525.00,
+    "beneficiary_name": "Ramesh Kumar",
+    "account_number": "91234567890123",
+    "ifsc_code": "HDFC0001234",
+    "status": "success"
+  }
+}`}
+          />
+
+          <CodeBlock 
+            title="Sample Failed & Refunded Response (400 Bad Request)"
+            section="payout_res_failed"
+            code={`{
+  "status": "failed",
+  "message": "Beneficiary account inactive or invalid IFSC. Funds refunded to payout wallet.",
+  "data": {
+    "order_id": "B2BPO1727443912001",
+    "client_order_id": "ORD_PAYOUT_1001",
+    "amount": 2500.00,
+    "fee": 25.00,
+    "refunded_to_payout_wallet": true,
+    "status": "failed"
+  }
+}`}
+          />
+        </div>
+
+        {/* 2.8 GET /payout/status/:order_id */}
+        <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+            <h3 className="text-lg font-bold text-white flex items-center gap-3">
+              <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+              /payout/status/:order_id
+            </h3>
+            <span className="text-xs text-slate-400 font-mono font-semibold">Check Payout Status</span>
+          </div>
+
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Query the real-time status of a payout transfer using either the system <code>order_id</code> or your own <code>client_order_id</code>.
+          </p>
+
+          <CodeBlock 
+            title="Sample Response (200 OK)"
+            section="payout_status_res"
+            code={`{
+  "status": "success",
+  "data": {
+    "order_id": "B2BPO1727443912001",
+    "client_order_id": "ORD_PAYOUT_1001",
+    "utr": "426812831122",
+    "beneficiary_name": "Ramesh Kumar",
+    "account_number": "91234567890123",
+    "ifsc_code": "HDFC0001234",
+    "transfer_mode": "IMPS",
+    "amount": 2500.00,
+    "fee": 25.00,
+    "total_deducted": 2525.00,
+    "status": "success",
+    "created_at": "2026-09-27T08:15:00.000Z",
+    "updated_at": "2026-09-27T08:15:02.000Z"
+  }
+}`}
+          />
+        </div>
+
+        {/* 2.9 GET /admin-bank-accounts */}
         <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -830,7 +950,7 @@ export default function B2BAPIDocumentation() {
           />
         </div>
 
-        {/* 2.8 POST /fund-request */}
+        {/* 2.10 POST /fund-request */}
         <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
@@ -841,7 +961,7 @@ export default function B2BAPIDocumentation() {
           </div>
 
           <p className="text-xs text-slate-300 leading-relaxed">
-            Submit a wallet fund request electronically from third-party client portals (e.g. Zenot Portal). Your request will be queued in <code>pending</code> status for B2B Admin approval.
+            Submit a wallet fund request electronically from third-party client portals (e.g. Zenot Portal). Select target destination using <code>wallet_type: "bbps"</code> or <code>"payout"</code>. Your request will be queued in <code>pending</code> status for B2B Admin verification and approval.
           </p>
 
           <CodeBlock 
@@ -850,6 +970,7 @@ export default function B2BAPIDocumentation() {
             code={`{
   "amount": 50000,
   "utr_number": "UTR9876543210",
+  "wallet_type": "payout",
   "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567",
   "proof_url": "https://example.com/payment_receipt.jpg"
 }`}
@@ -865,6 +986,7 @@ export default function B2BAPIDocumentation() {
     "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
     "amount": 50000,
     "utr_number": "UTR9876543210",
+    "wallet_type": "payout",
     "status": "pending",
     "submitted_at": "2026-08-15T00:33:00.000Z"
   }
@@ -872,14 +994,15 @@ export default function B2BAPIDocumentation() {
           />
 
           <ParamTable params={[
-            { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to add to your B2B wallet." },
+            { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to credit to your account." },
             { name: "utr_number", type: "String", required: true, desc: "Unique Bank Transaction Reference / UTR Number (also accepts 'transaction_ref_no')." },
+            { name: "wallet_type", type: "String", required: false, desc: "Target wallet destination: 'bbps' (Utility Bill Payment Wallet) or 'payout' (Instant Payout Wallet). Default: 'bbps'." },
             { name: "admin_bank_account_id", type: "String", required: false, desc: "Optional ID of the Admin Bank Account where money was deposited (obtained from GET /admin-bank-accounts)." },
             { name: "proof_url", type: "String", required: false, desc: "Optional URL linking to payment receipt or transaction screenshot." }
           ]} />
         </div>
 
-        {/* 2.9 GET /fund-request/status/:request_id */}
+        {/* 2.11 GET /fund-request/status/:request_id */}
         <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
           <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
             <h3 className="text-lg font-bold text-white flex items-center gap-3">
