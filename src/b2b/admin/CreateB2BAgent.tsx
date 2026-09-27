@@ -632,8 +632,8 @@ export default function CreateB2BAgent() {
             <thead>
               <tr className="bg-slate-900/60 border-b border-slate-700 text-xs uppercase tracking-wider font-bold">
                 <th className="py-4 px-5 text-left text-slate-200">Agent Name</th>
-                <th className="py-4 px-5 text-center whitespace-nowrap text-indigo-400">Login ID & Mobile</th>
-                <th className="py-4 px-4 text-center whitespace-nowrap text-indigo-300">Tag / Portal</th>
+                <th className="py-4 px-5 text-center whitespace-nowrap text-sky-400">Login ID & Mobile</th>
+                <th className="py-4 px-4 text-center whitespace-nowrap text-fuchsia-400">Tag / Portal</th>
                 <th className="py-4 px-5 text-center whitespace-nowrap text-amber-400">Charge (₹)</th>
                 <th className="py-4 px-5 text-center whitespace-nowrap text-emerald-400">
                   <span className="inline-flex items-center gap-1 font-bold">
@@ -708,17 +708,17 @@ export default function CreateB2BAgent() {
                         </div>
                       </div>
                     </td>
-                    {/* Combined: Login ID (Top) & Mobile Number (Bottom) */}
+                    {/* Combined: Login ID (Top) & Mobile Number (Bottom) - Sky Blue */}
                     <td className="py-4 px-5 text-center">
                       <div className="flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-indigo-300 font-mono text-xs font-semibold">{agent.b2b_login_id}</span>
+                        <span className="text-sky-400 font-mono text-xs font-semibold">{agent.b2b_login_id}</span>
                         <span className="text-slate-400 font-mono text-[11px]">{agent.mobile}</span>
                       </div>
                     </td>
-                    {/* Tag / Portal */}
+                    {/* Tag / Portal - Fuchsia / Purple */}
                     <td className="py-4 px-4 text-center">
                       {agent.agent_tag ? (
-                        <span className="bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-lg text-xs font-bold font-mono">
+                        <span className="bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20 px-2.5 py-1 rounded-lg text-xs font-bold font-mono">
                           {agent.agent_tag}
                         </span>
                       ) : (
