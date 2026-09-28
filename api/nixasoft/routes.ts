@@ -684,8 +684,6 @@ router.post('/callback', async (req, res) => {
       return res.json({ success: true, message: 'Acknowledged, no matching record' });
     }
 
-    const normStatus = String(status).toUpperCase();
-
     if (normStatus === 'SUCCESS') {
       const cleanDesc = sanitizeText(description || 'Bank Transfer Successful');
       await supabaseAdmin
