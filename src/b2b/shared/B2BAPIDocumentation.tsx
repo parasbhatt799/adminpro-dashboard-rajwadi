@@ -322,7 +322,7 @@ export default function B2BAPIDocumentation() {
         doc.text('2.2 POST /payout/transfer - 24x7 Instant Bank Transfer', 14, y);
         y += 4;
         y = drawCodeBlock('Sample Request Body', `{\n  "amount": 2500.00,\n  "account_number": "91234567890123",\n  "ifsc_code": "HDFC0001234",\n  "beneficiary_name": "Ramesh Kumar",\n  "transfer_mode": "IMPS",\n  "client_order_id": "ORD_PAYOUT_1001"\n}`, y);
-        y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Payout transfer completed successfully",\n  "data": {\n    "order_id": "B2BPO1727443912001",\n    "client_order_id": "ORD_PAYOUT_1001",\n    "utr": "426812831122",\n    "amount": 2500.00,\n    "fee": 25.00,\n    "total_deducted": 2525.00,\n    "status": "success"\n  }\n}`, y);
+        y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Payout transfer completed successfully",\n  "data": {\n    "order_id": "B2BPO1727443912001",\n    "client_order_id": "ORD_PAYOUT_1001",\n    "utr": "426812831122",\n    "amount": 2500.00,\n    "base_fee": 25.00,\n    "gst": 4.50,\n    "fee": 29.50,\n    "total_deducted": 2529.50,\n    "status": "success"\n  }\n}`, y);
 
         y = checkPageBreak(y, 75);
         doc.setFont('helvetica', 'bold');
@@ -991,7 +991,7 @@ export default function B2BAPIDocumentation() {
               </div>
 
               <p className="text-xs text-slate-300 leading-relaxed">
-                Execute 24x7 real-time bank account transfer via IMPS or NEFT. Deducts <code>Amount + Slab Fee</code> strictly from your dedicated <strong>Payout Wallet</strong>. If the upstream bank transfer fails, funds are automatically refunded to your Payout Wallet.
+                Execute 24x7 real-time bank account transfer via IMPS or NEFT. Deducts <code>Amount + Total Fee (Base Slab Fee + 18% GST)</code> strictly from your dedicated <strong>Payout Wallet</strong>. If the upstream bank transfer fails, funds are automatically refunded to your Payout Wallet.
               </p>
 
               <ParamTable params={[
@@ -1032,8 +1032,10 @@ export default function B2BAPIDocumentation() {
     "client_order_id": "ORD_PAYOUT_1001",
     "utr": "426812831122",
     "amount": 2500.00,
-    "fee": 25.00,
-    "total_deducted": 2525.00,
+    "base_fee": 25.00,
+    "gst": 4.50,
+    "fee": 29.50,
+    "total_deducted": 2529.50,
     "beneficiary_name": "Ramesh Kumar",
     "account_number": "91234567890123",
     "ifsc_code": "HDFC0001234",

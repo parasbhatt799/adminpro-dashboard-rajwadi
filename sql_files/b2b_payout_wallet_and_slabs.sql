@@ -252,6 +252,9 @@ CREATE POLICY "b2b_payout_transactions_all" ON public.b2b_payout_transactions FO
 CREATE INDEX IF NOT EXISTS idx_b2b_payout_order_id ON public.b2b_payout_transactions(order_id);
 CREATE INDEX IF NOT EXISTS idx_b2b_payout_agent_id ON public.b2b_payout_transactions(agent_id);
 
--- Optional: Add client_order_id column and index if updating existing table
+-- Optional: Add client_order_id, gst_amount, base_charge columns and index if updating existing table
 ALTER TABLE public.b2b_payout_transactions ADD COLUMN IF NOT EXISTS client_order_id TEXT;
 CREATE INDEX IF NOT EXISTS idx_b2b_payout_client_order_id ON public.b2b_payout_transactions(client_order_id);
+
+ALTER TABLE public.b2b_payout_transactions ADD COLUMN IF NOT EXISTS gst_amount NUMERIC(15,2) DEFAULT 0.00;
+ALTER TABLE public.b2b_payout_transactions ADD COLUMN IF NOT EXISTS base_charge NUMERIC(15,2) DEFAULT 0.00;

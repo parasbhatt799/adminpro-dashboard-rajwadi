@@ -1747,20 +1747,26 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
       }
     }
 
-    // 4. Calculate Slabs Fee
-    const { fee } = calculatePartnerPayoutFee(parsedAmount, agent.payout_slabs);
-    const totalDeduction = parsedAmount + fee;
+    // 4. Calculate Slabs Fee + 18% GST (Applicable only for Payout)
+    const { fee: rawSlabFee } = calculatePartnerPayoutFee(parsedAmount, agent.payout_slabs);
+    const baseFee = Math.round(rawSlabFee * 100) / 100;
+    const gstRate = 0.18; // 18% GST on slab charge
+    const gstAmount = Math.round((baseFee * gstRate) * 100) / 100;
+    const totalFee = Math.round((baseFee + gstAmount) * 100) / 100;
+    const totalDeduction = Math.round((parsedAmount + totalFee) * 100) / 100;
     const currentPayoutBalance = Number(agent.payout_wallet_balance || 0);
 
     if (currentPayoutBalance < totalDeduction) {
       return res.status(400).json({
         status: 'error',
-        message: `Insufficient Payout Wallet balance. Required: ₹${totalDeduction.toFixed(2)} (Amount: ₹${parsedAmount.toFixed(2)} + Fee: ₹${fee.toFixed(2)}), Available in Payout Wallet: ₹${currentPayoutBalance.toFixed(2)}. Please submit a fund request for your Payout Wallet.`,
+        message: `Insufficient Payout Wallet balance. Required: ₹${totalDeduction.toFixed(2)} (Amount: ₹${parsedAmount.toFixed(2)} + Base Fee: ₹${baseFee.toFixed(2)} + 18% GST: ₹${gstAmount.toFixed(2)}), Available in Payout Wallet: ₹${currentPayoutBalance.toFixed(2)}. Please submit a fund request for your Payout Wallet.`,
         data: {
           required_balance: totalDeduction,
           current_payout_balance: currentPayoutBalance,
           transfer_amount: parsedAmount,
-          fee
+          base_fee: baseFee,
+          gst: gstAmount,
+          fee: totalFee
         }
       });
     }
@@ -1808,13 +1814,17 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
       bank_name: bank_name || 'Bank',
       transfer_mode: cleanMode,
       amount: parsedAmount,
-      charge: fee,
+      charge: totalFee,
       total_deducted: totalDeduction,
       status: 'pending',
       request_payload: {
         client_order_id: cleanClientOrderId || null,
         mobile_number: resolvedMobile,
-        email: resolvedEmail
+        email: resolvedEmail,
+        base_fee: baseFee,
+        gst_amount: gstAmount,
+        gst_rate: '18%',
+        total_fee: totalFee
       }
     };
 
@@ -1823,17 +1833,28 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
       .from('b2b_payout_transactions')
       .insert({
         ...baseTxRecord,
-        client_order_id: cleanClientOrderId || null
+        client_order_id: cleanClientOrderId || null,
+        gst_amount: gstAmount,
+        base_charge: baseFee
       });
 
     insertTxErr = primaryInsert.error;
 
-    // Fallback if client_order_id column does not exist in DB schema cache
-    if (insertTxErr && (insertTxErr.message?.includes('client_order_id') || insertTxErr.code === 'PGRST204')) {
-      const fallbackInsert = await supabaseAdmin
+    // Fallback if gst_amount, base_charge or client_order_id columns do not exist in DB schema cache
+    if (insertTxErr) {
+      const fallbackInsert1 = await supabaseAdmin
         .from('b2b_payout_transactions')
-        .insert(baseTxRecord);
-      insertTxErr = fallbackInsert.error;
+        .insert({
+          ...baseTxRecord,
+          client_order_id: cleanClientOrderId || null
+        });
+      insertTxErr = fallbackInsert1.error;
+      if (insertTxErr && (insertTxErr.message?.includes('client_order_id') || insertTxErr.code === 'PGRST204')) {
+        const fallbackInsert2 = await supabaseAdmin
+          .from('b2b_payout_transactions')
+          .insert(baseTxRecord);
+        insertTxErr = fallbackInsert2.error;
+      }
     }
 
     if (insertTxErr) {
@@ -1887,7 +1908,9 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         utr,
         status: 'success',
         amount: parsedAmount,
-        fee,
+        base_fee: baseFee,
+        gst: gstAmount,
+        fee: totalFee,
         total_deducted: totalDeduction,
         beneficiary_name: cleanName,
         account_number: cleanAccount,
@@ -1903,7 +1926,9 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
           client_order_id: cleanClientOrderId || null,
           utr,
           amount: parsedAmount,
-          fee,
+          base_fee: baseFee,
+          gst: gstAmount,
+          fee: totalFee,
           total_deducted: totalDeduction,
           beneficiary_name: cleanName,
           account_number: cleanAccount,
@@ -1932,7 +1957,9 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
           order_id: orderId,
           client_order_id: cleanClientOrderId || null,
           amount: parsedAmount,
-          fee,
+          base_fee: baseFee,
+          gst: gstAmount,
+          fee: totalFee,
           total_deducted: totalDeduction,
           status: 'pending'
         }
@@ -1965,7 +1992,9 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         status: 'failed',
         failure_reason: failReason,
         amount: parsedAmount,
-        fee,
+        base_fee: baseFee,
+        gst: gstAmount,
+        fee: totalFee,
         refunded_to_payout_wallet: true,
         beneficiary_name: cleanName,
         account_number: cleanAccount,
@@ -1980,7 +2009,10 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
           order_id: orderId,
           client_order_id: cleanClientOrderId || null,
           amount: parsedAmount,
-          fee,
+          base_fee: baseFee,
+          gst: gstAmount,
+          fee: totalFee,
+          total_deducted: totalDeduction,
           refunded_to_payout_wallet: true,
           status: 'failed'
         }
@@ -2125,6 +2157,8 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
         ifsc_code: tx.ifsc_code,
         transfer_mode: tx.transfer_mode,
         amount: Number(tx.amount),
+        base_fee: Number(tx.request_payload?.base_fee || tx.base_charge || Math.round((Number(tx.charge || tx.fee || 0) / 1.18) * 100) / 100),
+        gst: Number(tx.request_payload?.gst_amount || tx.gst_amount || Math.round((Number(tx.charge || tx.fee || 0) - (Number(tx.charge || tx.fee || 0) / 1.18)) * 100) / 100),
         fee: Number(tx.charge || tx.fee || 0),
         total_deducted: Number(tx.total_deducted),
         status: tx.status,
@@ -2233,6 +2267,8 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
         bank_name: tx.bank_name,
         transfer_mode: tx.transfer_mode,
         amount: Number(tx.amount),
+        base_fee: Number(tx.request_payload?.base_fee || tx.base_charge || Math.round((Number(tx.charge ?? tx.fee ?? 0) / 1.18) * 100) / 100),
+        gst: Number(tx.request_payload?.gst_amount || tx.gst_amount || Math.round((Number(tx.charge ?? tx.fee ?? 0) - (Number(tx.charge ?? tx.fee ?? 0) / 1.18)) * 100) / 100),
         fee: Number(tx.charge ?? tx.fee ?? 0),
         total_deducted: Number(tx.total_deducted),
         status: tx.status,

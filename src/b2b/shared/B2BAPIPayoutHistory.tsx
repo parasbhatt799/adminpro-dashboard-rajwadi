@@ -22,6 +22,8 @@ interface PayoutTransaction {
   client_order_id?: string;
   amount: number;
   fee: number;
+  base_fee?: number;
+  gst_amount?: number;
   total_deducted: number;
   beneficiary_name?: string;
   account_number?: string;
@@ -34,6 +36,7 @@ interface PayoutTransaction {
   failure_reason?: string;
   created_at: string;
   updated_at: string;
+  request_payload?: any;
 }
 
 export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHistoryProps) {
@@ -107,12 +110,25 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
 
       const { data, error } = await query;
       if (error) throw error;
-      const normalizedData = (data || []).map((item: any) => ({
-        ...item,
-        fee: item.fee !== undefined ? Number(item.fee) : (item.charge !== undefined ? Number(item.charge) : 0),
-        failure_reason: item.failure_reason || item.error_message || '',
-        client_order_id: item.client_order_id || item.request_payload?.client_order_id || ''
-      }));
+      const normalizedData = (data || []).map((item: any) => {
+        const reqPayload = item.request_payload || {};
+        const fee = item.fee !== undefined ? Number(item.fee) : (item.charge !== undefined ? Number(item.charge) : 0);
+        const gstAmount = reqPayload.gst_amount !== undefined 
+          ? Number(reqPayload.gst_amount) 
+          : (item.gst_amount !== undefined ? Number(item.gst_amount) : Math.round((fee - (fee / 1.18)) * 100) / 100);
+        const baseFee = reqPayload.base_fee !== undefined 
+          ? Number(reqPayload.base_fee) 
+          : (item.base_charge !== undefined ? Number(item.base_charge) : Math.round((fee / 1.18) * 100) / 100);
+
+        return {
+          ...item,
+          fee,
+          base_fee: baseFee,
+          gst_amount: gstAmount,
+          failure_reason: item.failure_reason || item.error_message || '',
+          client_order_id: item.client_order_id || reqPayload?.client_order_id || ''
+        };
+      });
       setPayouts(normalizedData);
 
       // If Admin, load agent metadata map
@@ -302,7 +318,9 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
         'Bank Name': p.bank_name || 'N/A',
         'Transfer Mode': p.transfer_mode || 'IMPS',
         'Amount (₹)': Number(p.amount).toFixed(2),
-        'Fee (₹)': Number(p.fee).toFixed(2),
+        'Base Fee (₹)': Number(p.base_fee || 0).toFixed(2),
+        'GST 18% (₹)': Number(p.gst_amount || 0).toFixed(2),
+        'Total Fee (₹)': Number(p.fee).toFixed(2),
         'Total Deducted (₹)': Number(p.total_deducted).toFixed(2),
         'Bank UTR': p.utr || 'N/A',
         'Status': (p.status || 'PENDING').toUpperCase(),
@@ -749,8 +767,15 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
                     </td>
 
                     {/* Fee */}
-                    <td className="px-4 py-3 text-right font-mono text-purple-300 whitespace-nowrap">
-                      ₹ {Number(tx.fee).toFixed(2)}
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="font-mono font-bold text-purple-300">
+                        ₹ {Number(tx.fee).toFixed(2)}
+                      </div>
+                      {(tx.gst_amount || 0) > 0 && (
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          ₹{(tx.base_fee || 0).toFixed(2)} + 18% GST
+                        </div>
+                      )}
                     </td>
 
                     {/* Total Deducted */}
@@ -945,6 +970,39 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
                   {selectedPayout.failure_reason}
                 </div>
               )}
+            </div>
+
+            {/* Fee & Tax Breakdown Box */}
+            <div className="bg-slate-900/90 rounded-xl p-4 border border-purple-500/30 space-y-2 text-xs">
+              <div className="font-bold text-white text-xs border-b border-slate-800 pb-1.5 flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-purple-300">
+                  <IndianRupee className="h-3.5 w-3.5 text-purple-400" />
+                  Deduction & Tax Breakdown
+                </span>
+                <span className="text-[10px] bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30 font-semibold">
+                  18% GST Included
+                </span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Payout Transfer Amount:</span>
+                <span className="font-mono font-bold text-white">₹ {Number(selectedPayout.amount).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Base Slab Charge:</span>
+                <span className="font-mono">₹ {Number(selectedPayout.base_fee || (selectedPayout.fee / 1.18)).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-purple-300">
+                <span>GST (18% on Slab Charge):</span>
+                <span className="font-mono font-bold">+₹ {Number(selectedPayout.gst_amount || (selectedPayout.fee - (selectedPayout.fee / 1.18))).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-slate-200 border-t border-slate-800 pt-1.5 font-bold">
+                <span>Total Fee (Base + 18% GST):</span>
+                <span className="font-mono text-purple-400">₹ {Number(selectedPayout.fee).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-white border-t border-slate-700/80 pt-2 font-black text-sm">
+                <span>Total Wallet Deducted:</span>
+                <span className="font-mono text-emerald-400">₹ {Number(selectedPayout.total_deducted).toFixed(2)}</span>
+              </div>
             </div>
 
             {/* Modal Actions */}

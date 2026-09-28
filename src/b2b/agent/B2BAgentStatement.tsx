@@ -51,6 +51,8 @@ export interface StatementTxn {
   orderId?: string;
   amount: number;
   charge: number;
+  baseFee?: number;
+  gstAmount?: number;
   netCredit: number;
   netDebit: number;
   runningBalance: number;
@@ -234,7 +236,7 @@ export default function B2BAgentStatement() {
       while (pHasMore) {
         const { data, error } = await supabase
           .from('b2b_payout_transactions')
-          .select('id, agent_id, order_id, client_order_id, amount, fee, total_deducted, beneficiary_name, account_number, ifsc_code, bank_name, transfer_mode, status, utr, created_at')
+          .select('id, agent_id, order_id, client_order_id, amount, fee, charge, total_deducted, beneficiary_name, account_number, ifsc_code, bank_name, transfer_mode, status, utr, created_at, request_payload')
           .eq('agent_id', id)
           .order('created_at', { ascending: true })
           .range(pFrom, pFrom + step - 1);
@@ -456,12 +458,20 @@ export default function B2BAgentStatement() {
       // 2. Process Payout Transactions
       allPayouts.forEach((p) => {
         const amt = Number(p.amount || 0);
-        const fee = Number(p.fee || 0);
+        const fee = Number(p.fee !== undefined ? p.fee : (p.charge !== undefined ? p.charge : 0));
         const totalDeducted = Number(p.total_deducted || (amt + fee));
         const beneficiary = p.beneficiary_name || 'Beneficiary';
         const maskedAc = p.account_number ? `••••${p.account_number.slice(-4)}` : 'N/A';
         const ref = p.utr || p.order_id || p.client_order_id || p.id;
-        const narration = `Beneficiary: ${beneficiary} | A/C: ${maskedAc} | IFSC: ${p.ifsc_code || 'N/A'}${p.bank_name ? ` (${p.bank_name})` : ''}${fee > 0 ? ` | Fee: ₹${fee.toFixed(2)}` : ''}`;
+        const reqPayload = p.request_payload || {};
+        const gstAmt = reqPayload.gst_amount !== undefined 
+          ? Number(reqPayload.gst_amount) 
+          : (fee > 0 ? Math.round((fee - (fee / 1.18)) * 100) / 100 : 0);
+        const baseAmt = reqPayload.base_fee !== undefined 
+          ? Number(reqPayload.base_fee) 
+          : (fee > 0 ? Math.round((fee / 1.18) * 100) / 100 : 0);
+        const feeStr = fee > 0 ? (gstAmt > 0 ? ` | Fee: ₹${baseAmt.toFixed(2)} + 18% GST: ₹${gstAmt.toFixed(2)}` : ` | Fee: ₹${fee.toFixed(2)}`) : '';
+        const narration = `Beneficiary: ${beneficiary} | A/C: ${maskedAc} | IFSC: ${p.ifsc_code || 'N/A'}${p.bank_name ? ` (${p.bank_name})` : ''}${feeStr}`;
 
         if (p.status === 'success' || p.status === 'pending') {
           list.push({
@@ -479,6 +489,8 @@ export default function B2BAgentStatement() {
             bankName: p.bank_name,
             amount: amt,
             charge: fee,
+            baseFee: baseAmt,
+            gstAmount: gstAmt,
             netCredit: 0,
             netDebit: totalDeducted,
             runningBalance: 0,
@@ -741,7 +753,9 @@ export default function B2BAgentStatement() {
             'Beneficiary': t.beneficiaryName || '',
             'Account No': t.accountNumber || '',
             'IFSC': t.ifscCode || '',
-            'Bank': t.bankName || ''
+            'Bank': t.bankName || '',
+            'Base Fee (₹)': t.baseFee ? t.baseFee : '',
+            'GST 18% (₹)': t.gstAmount ? t.gstAmount : ''
           } : {
             'Biller': t.billerName || '',
             'Consumer No': t.consumerNo || ''
@@ -765,7 +779,9 @@ export default function B2BAgentStatement() {
             'Beneficiary': '',
             'Account No': '',
             'IFSC': '',
-            'Bank': ''
+            'Bank': '',
+            'Base Fee (₹)': '',
+            'GST 18% (₹)': ''
           } : {
             'Biller': '',
             'Consumer No': ''
