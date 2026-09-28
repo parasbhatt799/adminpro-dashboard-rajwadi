@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { supabaseAdmin } from '../../server';
 import * as billAvenue from '../../services/billavenue';
 import { notifyAdminNewB2BFundRequest } from '../../services/whatsapp_service.js';
-import { executeNixasoftPayout, checkNixasoftStatus, calculateSlabCharge, PayoutSlab } from '../../services/nixasoft_payout.js';
+import { executeNixasoftPayout, checkNixasoftStatus, calculateSlabCharge, getNixasoftConfig, PayoutSlab } from '../../services/nixasoft_payout.js';
 
 export const getCategories = async (req: Request, res: Response) => {
   try {
