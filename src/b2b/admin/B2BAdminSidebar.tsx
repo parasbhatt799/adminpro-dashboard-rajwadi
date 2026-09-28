@@ -13,6 +13,7 @@ const menuItems = [
   { id: 'dashboard', label: 'B2B Dashboard', icon: LayoutDashboard, path: '/b2b/admin/dashboard' },
   { id: 'create-agent', label: 'B2B Agents', icon: UserPlus, path: '/b2b/admin/create-agent' },
   { id: 'fund-requests', label: 'Fund Requests', icon: Wallet, path: '/b2b/admin/fund-requests' },
+  { id: 'api-logs', label: 'Developer API Logs', icon: Terminal, path: '/b2b/admin/api-logs' },
   { id: 'bill-history', label: 'API Bill History', icon: Activity, path: '/b2b/admin/bill-history' },
   { id: 'payout-history', label: 'Payout History', icon: Zap, path: '/b2b/admin/payout-history' },
   { id: 'user-hisab', label: 'User Reconciliation', icon: Calculator, path: '/b2b/admin/user-hisab' },

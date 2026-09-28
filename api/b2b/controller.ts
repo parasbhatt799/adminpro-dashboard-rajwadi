@@ -79,6 +79,7 @@ export const getBillers = async (req: Request, res: Response) => {
       .insert({
         agent_id: agentId,
         endpoint: '/api/b2b/billers',
+        request_ip: (req as any).clientIp || req.ip,
         request_payload: req.query,
         status_code: 200,
         response_payload: { message: `Fetched page ${pageNum} with ${data?.length} billers` }
@@ -177,6 +178,7 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
+        request_ip: (req as any).clientIp || req.ip,
         request_payload: req.body,
         status_code: 200,
         response_payload: finalJsonResponse
@@ -211,6 +213,7 @@ export const fetchBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: (req as any).agentId,
         endpoint: '/api/b2b/fetch-bill',
+        request_ip: (req as any).clientIp || req.ip,
         request_payload: req.body,
         status_code: 500,
         response_payload: { error: err.message || 'Failed to fetch bill' }
@@ -229,6 +232,23 @@ export const getBalance = async (req: Request, res: Response) => {
       .single();
 
     if (error) throw error;
+
+    // Log balance check into b2b_api_logs for full developer observability
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/balance',
+        request_ip: (req as any).clientIp || req.ip,
+        request_payload: {},
+        status_code: 200,
+        response_payload: {
+          balance: data.wallet_balance || 0,
+          payout_wallet_balance: data.payout_wallet_balance || 0,
+          usable_bbps_balance: Math.max(0, (data.wallet_balance || 0) - (data.fixed_deposit_amount || 0))
+        }
+      });
+
     res.json({
       status: 'success',
       data: {
@@ -997,6 +1017,7 @@ export const payBill = async (req: Request, res: Response) => {
       .insert({
         agent_id: agentId,
         endpoint: '/api/b2b/pay-bill',
+        request_ip: (req as any).clientIp || req.ip,
         developer_charge: developerCharge,
         owner_charge: ownerCharge,
         request_payload: { 
@@ -1466,6 +1487,7 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
       .insert({
         agent_id: agentId,
         endpoint: '/api/v1/b2b/fund-request',
+        request_ip: (req as any).clientIp || req.ip,
         request_payload: req.body,
         status_code: 201,
         response_payload: { message: 'Fund request created', request_id: requestData.id, status: 'pending' }
@@ -1939,6 +1961,17 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         timestamp: new Date().toISOString()
       });
 
+      // Log to b2b_api_logs
+      await supabaseAdmin.from('b2b_api_logs').insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/payout/transfer',
+        request_ip: (req as any).clientIp || req.ip,
+        request_payload: { order_id: orderId, client_order_id: cleanClientOrderId, amount: parsedAmount, beneficiary_name: cleanName, account_number: cleanAccount, ifsc_code: cleanIfsc },
+        status_code: 200,
+        payment_status: 'success',
+        response_payload: payoutResult
+      });
+
       return res.json({
         status: 'success',
         message: 'Payout transfer completed successfully',
@@ -1970,6 +2003,17 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
           updated_at: new Date().toISOString()
         })
         .eq('order_id', orderId);
+
+      // Log to b2b_api_logs
+      await supabaseAdmin.from('b2b_api_logs').insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/payout/transfer',
+        request_ip: (req as any).clientIp || req.ip,
+        request_payload: { order_id: orderId, client_order_id: cleanClientOrderId, amount: parsedAmount, beneficiary_name: cleanName, account_number: cleanAccount, ifsc_code: cleanIfsc },
+        status_code: 202,
+        payment_status: 'pending',
+        response_payload: payoutResult
+      });
 
       return res.status(202).json({
         status: 'pending',
@@ -2003,6 +2047,17 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
           updated_at: new Date().toISOString()
         })
         .eq('order_id', orderId);
+
+      // Log to b2b_api_logs
+      await supabaseAdmin.from('b2b_api_logs').insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/payout/transfer',
+        request_ip: (req as any).clientIp || req.ip,
+        request_payload: { order_id: orderId, client_order_id: cleanClientOrderId, amount: parsedAmount, beneficiary_name: cleanName, account_number: cleanAccount, ifsc_code: cleanIfsc },
+        status_code: 400,
+        payment_status: 'failed',
+        response_payload: payoutResult
+      });
 
       // Fire failed payout webhook asynchronously
       firePayoutWebhook(agent.webhook_url, agentId, {
