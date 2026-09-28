@@ -1747,24 +1747,37 @@ const calculatePartnerPayoutFee = (amount: number, customSlabsRaw?: any): { fee:
 };
 
 const firePayoutWebhook = (webhookUrl: string | null | undefined, agentId: string, payload: any) => {
-  if (!webhookUrl || !webhookUrl.startsWith('http')) return;
+  if (!webhookUrl || !webhookUrl.startsWith('http')) {
+    console.log(`[B2B Payout Webhook Skipped] No valid webhook URL for agent ${agentId}`);
+    return;
+  }
+  console.log(`[B2B Payout Webhook] Dispatching to ${webhookUrl} for order ${payload.order_id}`);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
   fetch(webhookUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    signal: controller.signal
   })
   .then(async (res) => {
+    clearTimeout(timeoutId);
     const resText = await res.text();
+    console.log(`[B2B Payout Webhook Response] HTTP ${res.status} from ${webhookUrl}`);
     await supabaseAdmin.from('b2b_webhook_logs').insert({
       agent_id: agentId,
       transaction_id: payload.order_id,
       webhook_url: webhookUrl,
       payload,
       response_status: res.status,
-      response_body: resText
+      response_body: resText.substring(0, 1000)
     });
   })
   .catch(async (err: any) => {
+    clearTimeout(timeoutId);
+    console.error(`[B2B Payout Webhook Error] Failed to deliver to ${webhookUrl}:`, err.message);
     await supabaseAdmin.from('b2b_webhook_logs').insert({
       agent_id: agentId,
       transaction_id: payload.order_id,
@@ -1790,7 +1803,9 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
     transfer_mode = 'IMPS',
     client_order_id,
     mobile_number,
-    email
+    email,
+    webhook_url: reqWebhookUrl,
+    callback_url: reqCallbackUrl
   } = req.body;
 
   try {
@@ -1810,6 +1825,18 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         status: 'error',
         message: 'Payout API service is currently not enabled for your account. Please contact Administrator.'
       });
+    }
+
+    const targetWebhookUrl = String(reqWebhookUrl || reqCallbackUrl || agent.webhook_url || '').trim();
+
+    // Auto-save webhook URL to agent profile if passed in payload and not yet configured in DB
+    if ((reqWebhookUrl || reqCallbackUrl) && targetWebhookUrl && !agent.webhook_url) {
+      supabaseAdmin
+        .from('b2b_api_credentials')
+        .update({ webhook_url: targetWebhookUrl })
+        .eq('id', agentId)
+        .then(() => console.log(`[B2B Auto-Saved Webhook URL] ${targetWebhookUrl} for agent ${agentId}`))
+        .catch(err => console.error('[B2B Auto-Save Webhook URL Error]', err));
     }
 
     // 2. Validate parameters
@@ -2035,7 +2062,7 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         .eq('order_id', orderId);
 
       // Fire payout webhook asynchronously
-      firePayoutWebhook(agent.webhook_url, agentId, {
+      firePayoutWebhook(targetWebhookUrl, agentId, {
         event: 'PAYOUT_STATUS_UPDATE',
         order_id: orderId,
         client_order_id: cleanClientOrderId || null,
@@ -2095,6 +2122,24 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         })
         .eq('order_id', orderId);
 
+      // Fire pending payout webhook asynchronously
+      firePayoutWebhook(targetWebhookUrl, agentId, {
+        event: 'PAYOUT_STATUS_UPDATE',
+        order_id: orderId,
+        client_order_id: cleanClientOrderId || null,
+        utr: null,
+        status: 'pending',
+        amount: parsedAmount,
+        base_fee: baseFee,
+        gst: gstAmount,
+        fee: totalFee,
+        total_deducted: totalDeduction,
+        beneficiary_name: cleanName,
+        account_number: cleanAccount,
+        ifsc_code: cleanIfsc,
+        timestamp: new Date().toISOString()
+      });
+
       // Log to b2b_api_logs
       await supabaseAdmin.from('b2b_api_logs').insert({
         agent_id: agentId,
@@ -2151,7 +2196,7 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
       });
 
       // Fire failed payout webhook asynchronously
-      firePayoutWebhook(agent.webhook_url, agentId, {
+      firePayoutWebhook(targetWebhookUrl, agentId, {
         event: 'PAYOUT_STATUS_UPDATE',
         order_id: orderId,
         client_order_id: cleanClientOrderId || null,
@@ -2449,4 +2494,139 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
     return res.status(500).json({ status: 'error', message: err.message || 'Failed to check payout status' });
   }
 };
+
+/**
+ * Admin action to resend webhook notification for a payout transaction
+ */
+export const resendPayoutWebhookAdmin = async (req: Request, res: Response) => {
+  try {
+    const { order_id, webhook_url_override } = req.body;
+    if (!order_id) {
+      return res.status(400).json({ status: 'error', message: 'order_id is required' });
+    }
+
+    const { data: tx, error: txErr } = await supabaseAdmin
+      .from('b2b_payout_transactions')
+      .select('*, b2b_api_credentials(id, b2b_login_id, webhook_url)')
+      .eq('order_id', order_id)
+      .maybeSingle();
+
+    if (txErr || !tx) {
+      return res.status(404).json({ status: 'error', message: 'Payout transaction not found' });
+    }
+
+    const agentCreds = (tx as any).b2b_api_credentials;
+    const targetWebhookUrl = String(webhook_url_override || agentCreds?.webhook_url || '').trim();
+
+    if (!targetWebhookUrl || !targetWebhookUrl.startsWith('http')) {
+      return res.status(400).json({
+        status: 'error',
+        message: `No Webhook URL configured for agent "${agentCreds?.b2b_login_id || 'Agent'}". Please configure their Webhook URL in B2B Agents settings first.`
+      });
+    }
+
+    const payload = {
+      event: 'PAYOUT_STATUS_UPDATE',
+      order_id: tx.order_id,
+      client_order_id: tx.client_order_id || null,
+      utr: tx.utr || null,
+      status: tx.status,
+      amount: Number(tx.amount),
+      base_fee: Number(tx.base_fee || tx.base_charge || 0),
+      gst: Number(tx.gst_amount || 0),
+      fee: Number(tx.fee || tx.charge || 0),
+      total_deducted: Number(tx.total_deducted || (Number(tx.amount) + Number(tx.fee || 0))),
+      beneficiary_name: tx.beneficiary_name,
+      account_number: tx.account_number,
+      ifsc_code: tx.ifsc_code,
+      timestamp: new Date().toISOString()
+    };
+
+    console.log(`[Admin Resend Webhook] Dispatching to ${targetWebhookUrl} for order ${order_id}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    const webhookRes = await fetch(targetWebhookUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    const resText = await webhookRes.text();
+
+    await supabaseAdmin.from('b2b_webhook_logs').insert({
+      agent_id: tx.agent_id,
+      transaction_id: tx.order_id,
+      webhook_url: targetWebhookUrl,
+      payload,
+      response_status: webhookRes.status,
+      response_body: resText.substring(0, 1000)
+    });
+
+    if (webhookRes.ok) {
+      return res.json({
+        status: 'success',
+        message: `Webhook delivered successfully to ${targetWebhookUrl} (HTTP ${webhookRes.status})`,
+        response_status: webhookRes.status,
+        response_body: resText.substring(0, 500)
+      });
+    } else {
+      return res.json({
+        status: 'warning',
+        message: `Webhook sent to ${targetWebhookUrl}, but partner server returned HTTP ${webhookRes.status}`,
+        response_status: webhookRes.status,
+        response_body: resText.substring(0, 500)
+      });
+    }
+  } catch (err: any) {
+    console.error('[resendPayoutWebhookAdmin Error]', err);
+    return res.status(500).json({ status: 'error', message: 'Failed to send webhook: ' + (err.message || 'Unknown network error') });
+  }
+};
+
+/**
+ * Admin action to test an agent's webhook URL with a test ping
+ */
+export const testAgentWebhookAdmin = async (req: Request, res: Response) => {
+  try {
+    const { webhook_url, agent_id } = req.body;
+    const cleanUrl = String(webhook_url || '').trim();
+    if (!cleanUrl || !cleanUrl.startsWith('http')) {
+      return res.status(400).json({ status: 'error', message: 'Valid HTTP/HTTPS Webhook URL is required' });
+    }
+
+    const testPayload = {
+      event: 'WEBHOOK_TEST_PING',
+      message: 'This is a test notification from UsePay B2B Gateway.',
+      agent_id: agent_id || null,
+      timestamp: new Date().toISOString()
+    };
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const webhookRes = await fetch(cleanUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testPayload),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    const resText = await webhookRes.text();
+
+    return res.json({
+      status: webhookRes.ok ? 'success' : 'warning',
+      message: `Partner server responded with HTTP ${webhookRes.status}`,
+      response_status: webhookRes.status,
+      response_body: resText.substring(0, 500)
+    });
+  } catch (err: any) {
+    return res.status(500).json({ status: 'error', message: 'Connection failed: ' + (err.message || 'Server unreachable') });
+  }
+};
+
 

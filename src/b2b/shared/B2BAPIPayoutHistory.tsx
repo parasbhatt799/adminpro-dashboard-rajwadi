@@ -4,7 +4,7 @@ import {
   Zap, Clock, CheckCircle2, XCircle, Search, RefreshCw, 
   Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, 
   ChevronRight, User, Building2, Receipt, Copy, Download, 
-  FileSpreadsheet, FileText, ArrowRightLeft, AlertCircle, Eye, Printer, Check
+  FileSpreadsheet, FileText, ArrowRightLeft, AlertCircle, Eye, Printer, Check, Send
 } from 'lucide-react';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
@@ -163,6 +163,8 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
     }
   };
 
+  const [resendingWebhookOrderId, setResendingWebhookOrderId] = useState<string | null>(null);
+
   // Live Gateway Status Re-check
   const handleLiveStatusCheck = async (orderId: string) => {
     try {
@@ -184,6 +186,37 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
       alert('Network error while checking payout status: ' + (e.message || ''));
     } finally {
       setCheckingOrderId(null);
+    }
+  };
+
+  // Admin Resend Webhook to Partner
+  const handleResendWebhook = async (orderId: string) => {
+    try {
+      setResendingWebhookOrderId(orderId);
+      let res = await fetch('/api/v1/b2b/admin/payout/resend-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: orderId })
+      });
+      if (!res.ok && res.status === 404) {
+        res = await fetch('/api/b2b/admin/payout/resend-webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ order_id: orderId })
+        });
+      }
+      const result = await res.json();
+
+      if (res.ok && result.status === 'success') {
+        alert(`✅ Webhook Delivered!\n\nTarget URL: ${result.data?.webhook_url}\nHTTP Response Status: ${result.data?.http_status}\nResponse: ${typeof result.data?.response_body === 'object' ? JSON.stringify(result.data?.response_body) : (result.data?.response_body || 'OK')}`);
+      } else {
+        alert(result.message || result.error || 'Failed to resend webhook. Check if agent has configured a Webhook URL.');
+      }
+    } catch (e: any) {
+      console.error('Failed to resend webhook:', e);
+      alert('Network error while resending webhook: ' + (e.message || ''));
+    } finally {
+      setResendingWebhookOrderId(null);
     }
   };
 
@@ -827,6 +860,18 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
                         >
                           <RefreshCw className={`h-3.5 w-3.5 ${checkingOrderId === tx.order_id ? 'animate-spin' : ''}`} />
                         </button>
+
+                        {/* Admin Resend Webhook */}
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleResendWebhook(tx.order_id)}
+                            disabled={resendingWebhookOrderId === tx.order_id}
+                            className="p-1.5 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 hover:text-white transition-colors disabled:opacity-50"
+                            title="Resend Webhook to Agent"
+                          >
+                            <Send className={`h-3.5 w-3.5 ${resendingWebhookOrderId === tx.order_id ? 'animate-pulse' : ''}`} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1007,6 +1052,17 @@ export default function B2BAPIPayoutHistory({ isAdmin, agentId }: B2BAPIPayoutHi
 
             {/* Modal Actions */}
             <div className="flex justify-end gap-3 pt-2">
+              {isAdmin && (
+                <button
+                  onClick={() => handleResendWebhook(selectedPayout.order_id)}
+                  disabled={resendingWebhookOrderId === selectedPayout.order_id}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
+                  title="Deliver Webhook Payload to Agent Endpoint"
+                >
+                  <Send className={`h-4 w-4 ${resendingWebhookOrderId === selectedPayout.order_id ? 'animate-pulse' : ''}`} />
+                  {resendingWebhookOrderId === selectedPayout.order_id ? 'Sending Webhook...' : 'Resend Webhook'}
+                </button>
+              )}
               <button
                 onClick={() => window.print()}
                 className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold transition-colors cursor-pointer"

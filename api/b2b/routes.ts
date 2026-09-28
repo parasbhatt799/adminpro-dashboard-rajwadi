@@ -9,6 +9,8 @@ import {
   checkStatus, 
   checkStatusAdmin, 
   checkPayoutStatusAdmin,
+  resendPayoutWebhookAdmin,
+  testAgentWebhookAdmin,
   createFundRequest, 
   getFundRequestStatus, 
   getFundRequests, 
@@ -34,6 +36,8 @@ router.use((req, res, next) => {
 // Admin/Global route to trigger status check (does not require agent auth)
 router.get('/admin/status/:transaction_id', checkStatusAdmin);
 router.get('/admin/payout/status/:order_id', checkPayoutStatusAdmin);
+router.post('/admin/payout/resend-webhook', resendPayoutWebhookAdmin);
+router.post('/admin/agent/test-webhook', testAgentWebhookAdmin);
 
 // Bypass B2B Auth Middleware for admin whatsapp endpoints
 router.use('/admin/whatsapp', (req, res, next) => {

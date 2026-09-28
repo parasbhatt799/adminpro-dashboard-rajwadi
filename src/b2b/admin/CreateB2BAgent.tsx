@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X, Search, Camera, User, Zap, Layers, Plus } from 'lucide-react';
+import { UserPlus, ArrowLeft, ShieldCheck, Edit, Trash2, Settings, KeyRound, Copy, RefreshCw, Edit3, Globe, Building2, CheckCircle2, X, Search, Camera, User, Zap, Layers, Plus, Send, Webhook } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
 import { motion } from 'motion/react';
 
@@ -29,6 +29,7 @@ interface Agent {
   ip_whitelist?: string[];
   domain_whitelist?: string[];
   billavenue_agent_id?: string;
+  webhook_url?: string;
   is_active?: boolean;
   profile_photo_url?: string;
 }
@@ -52,6 +53,11 @@ export default function CreateB2BAgent() {
   const [showAgentIdModal, setShowAgentIdModal] = useState(false);
   const [billAvenueAgentId, setBillAvenueAgentId] = useState('');
   const [agentSearchTerm, setAgentSearchTerm] = useState('');
+
+  // Webhook Modal State
+  const [showWebhookModal, setShowWebhookModal] = useState(false);
+  const [webhookUrlInput, setWebhookUrlInput] = useState('');
+  const [isTestingWebhook, setIsTestingWebhook] = useState(false);
 
   // Custom Payout Slabs Modal State
   const [showSlabsModal, setShowSlabsModal] = useState(false);
@@ -458,6 +464,74 @@ export default function CreateB2BAgent() {
       setShowAgentIdModal(false);
     }
     setIsSaving(false);
+  };
+
+  const openWebhookModal = (agent: Agent) => {
+    setWebhookUrlInput(agent.webhook_url || '');
+    setShowWebhookModal(true);
+  };
+
+  const saveWebhookUrl = async () => {
+    if (!selectedAgentForApi) return;
+    setIsSaving(true);
+    try {
+      const url = webhookUrlInput.trim();
+      const { error } = await supabase
+        .from('b2b_api_credentials')
+        .update({ webhook_url: url || null })
+        .eq('id', selectedAgentForApi.id);
+
+      if (error) throw error;
+      toast.success('Webhook URL saved successfully');
+      setAgents(agents.map(a => a.id === selectedAgentForApi.id ? { ...a, webhook_url: url } : a));
+      setSelectedAgentForApi({ ...selectedAgentForApi, webhook_url: url });
+      setShowWebhookModal(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error('Failed to save Webhook URL');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleTestWebhookPing = async () => {
+    if (!selectedAgentForApi) return;
+    const targetUrl = webhookUrlInput.trim() || selectedAgentForApi.webhook_url;
+    if (!targetUrl) {
+      toast.error('Please enter a Webhook URL first');
+      return;
+    }
+    setIsTestingWebhook(true);
+    try {
+      let res = await fetch('/api/v1/b2b/admin/agent/test-webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: selectedAgentForApi.id,
+          webhook_url: targetUrl
+        })
+      });
+      if (!res.ok && res.status === 404) {
+        res = await fetch('/api/b2b/admin/agent/test-webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_id: selectedAgentForApi.id,
+            webhook_url: targetUrl
+          })
+        });
+      }
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        alert(`✅ Test Ping Sent!\n\nTarget URL: ${data.data?.webhook_url}\nHTTP Response Status: ${data.data?.http_status}\nResponse: ${typeof data.data?.response_body === 'object' ? JSON.stringify(data.data?.response_body) : (data.data?.response_body || 'OK')}`);
+      } else {
+        alert(`❌ Webhook Test Failed: ${data.message || data.error || 'Server did not respond'}`);
+      }
+    } catch (e: any) {
+      alert('Network error while testing webhook: ' + (e.message || ''));
+    } finally {
+      setIsTestingWebhook(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1067,6 +1141,30 @@ export default function CreateB2BAgent() {
                       <Edit3 size={14} /> Edit Mapping
                     </button>
                   </div>
+
+                  {/* Webhook Callback URL Card */}
+                  <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-4 flex items-center justify-between gap-3 shadow-sm">
+                    <div className="min-w-0 flex-1">
+                      <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest block mb-1">
+                        Payout Webhook / Callback URL
+                      </span>
+                      <div className="text-xs text-slate-300 font-mono truncate">
+                        {selectedAgentForApi.webhook_url ? (
+                          <span className="inline-block text-emerald-300 font-bold bg-slate-900 px-3 py-1 rounded-md border border-emerald-500/30 truncate max-w-full">
+                            {selectedAgentForApi.webhook_url}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">No Webhook URL configured (Partner won't receive auto updates)</span>
+                        )}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => openWebhookModal(selectedAgentForApi)} 
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shrink-0 shadow-sm cursor-pointer"
+                    >
+                      <Webhook size={14} /> Configure Webhook
+                    </button>
+                  </div>
                 </div>
 
               </div>
@@ -1175,6 +1273,76 @@ export default function CreateB2BAgent() {
                 <button onClick={saveDomainWhitelist} disabled={isSaving} className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold disabled:opacity-50 flex items-center gap-2 transition-colors">
                   {isSaving ? <RefreshCw className="h-5 w-5 animate-spin" /> : 'Save Domains'}
                 </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Manage Webhook Callback URL Modal */}
+      {showWebhookModal && selectedAgentForApi && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden text-slate-200"
+          >
+            <div className="p-6 border-b border-slate-700 bg-emerald-950/40">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <Webhook className="h-5 w-5 text-emerald-400" />
+                Payout Webhook / Callback URL
+              </h3>
+              <p className="text-sm text-emerald-300/80 mt-1">
+                Configure the HTTP/HTTPS endpoint for <span className="font-semibold text-white">{selectedAgentForApi.first_name} {selectedAgentForApi.last_name}</span> to receive real-time JSON callbacks for all payout transactions.
+              </p>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-slate-300 mb-2">Partner Webhook URL (POST Endpoint)</label>
+                <input
+                  type="url"
+                  value={webhookUrlInput}
+                  onChange={(e) => setWebhookUrlInput(e.target.value)}
+                  placeholder="https://api.partner.com/api/v1/payout/callback"
+                  className="w-full rounded-xl bg-slate-900 border-slate-700 text-white placeholder-slate-500 focus:border-emerald-500 p-3 border font-mono text-sm outline-none"
+                  autoFocus
+                />
+              </div>
+
+              <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-700/60 text-xs text-slate-400 space-y-1">
+                <p className="font-semibold text-slate-300 flex items-center gap-1">
+                  💡 How it works:
+                </p>
+                <p>When the partner triggers a payout via API, our server sends a <code className="text-emerald-400 font-mono">POST</code> request with order details, status, and bank UTR to this URL.</p>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-4 border-t border-slate-700">
+                <button
+                  type="button"
+                  onClick={handleTestWebhookPing}
+                  disabled={isTestingWebhook || !webhookUrlInput.trim()}
+                  className="px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-emerald-300 rounded-xl text-xs font-bold disabled:opacity-40 flex items-center gap-2 transition-colors cursor-pointer"
+                  title="Sends a test JSON payload to verify this URL responds with HTTP 200"
+                >
+                  <Send className={`h-4 w-4 ${isTestingWebhook ? 'animate-pulse' : ''}`} />
+                  {isTestingWebhook ? 'Testing...' : 'Send Test Ping'}
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowWebhookModal(false)} 
+                    className="px-4 py-2.5 text-slate-300 bg-slate-900 border border-slate-700 hover:bg-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={saveWebhookUrl} 
+                    disabled={isSaving} 
+                    className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-bold text-xs disabled:opacity-50 flex items-center gap-2 transition-colors cursor-pointer shadow-lg shadow-emerald-600/20"
+                  >
+                    {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Save Webhook'}
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>
