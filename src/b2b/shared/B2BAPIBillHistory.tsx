@@ -455,7 +455,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       txnStatus === 'FAILED' ||
       txnStatus === 'FAILURE' ||
       txnStatus === 'REJECTED' ||
-      (rawStatus === 'failed' && txnStatus !== 'AWAITED' && txnStatus !== 'PENDING') ||
+      rawStatus === 'failed' ||
+      rawStatus === 'auth_failed' ||
+      statusCode === 503 ||
+      statusCode === 401 ||
+      statusCode === 403 ||
       (hasErrorInfo && !hasCC01 && txnStatus !== 'AWAITED' && txnStatus !== 'PENDING' && rawStatus !== 'pending');
 
     if (isExplicitFailed) {
@@ -1629,7 +1633,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               </thead>
               <tbody className="divide-y divide-slate-700/50">
                 {paginatedLogs.map((log) => {
-                  const reqBody = log.request_payload || {};
+                  const reqBody = log.request_payload?.body || log.request_payload || {};
                   const resBody = log.response_payload || {};
                   const statusInfo = getStatusInfo(log.status_code, resBody, log.payment_status);
                   const apiTxnId = resBody?.api_txn_id || (typeof resBody?.transaction_id === 'string' && resBody.transaction_id.startsWith('BBPSU') ? resBody.transaction_id : null) || reqBody?.api_txn_id || (typeof reqBody?.transaction_id === 'string' && reqBody.transaction_id.startsWith('BBPSU') ? reqBody.transaction_id : null) || resBody?.transaction_id || reqBody?.transaction_id || 'N/A';
