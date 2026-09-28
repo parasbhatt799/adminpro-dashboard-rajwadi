@@ -7,6 +7,7 @@ import {
   checkNixasoftStatus,
   PayoutSlab
 } from '../../services/nixasoft_payout.js';
+import { firePayoutWebhook } from '../b2b/controller.js';
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
 
@@ -565,12 +566,118 @@ router.post('/callback', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing requestId' });
     }
 
-    // Find record by requestId (txn_id)
+    const normStatus = String(status).toUpperCase();
+
+    // 1. Check if this is a B2B Payout Transaction
+    const { data: b2bTx } = await supabaseAdmin
+      .from('b2b_payout_transactions')
+      .select('*')
+      .eq('order_id', requestId)
+      .maybeSingle();
+
+    if (b2bTx) {
+      console.log(`[Nixasoft Callback] Matched B2B Payout Transaction: ${b2bTx.order_id}, Status: ${normStatus}`);
+
+      if (normStatus === 'SUCCESS') {
+        const finalUtr = utr || b2bTx.utr || null;
+        await supabaseAdmin
+          .from('b2b_payout_transactions')
+          .update({
+            status: 'success',
+            utr: finalUtr,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', b2bTx.id);
+
+        try {
+          let targetWebhook = b2bTx.request_payload?.webhook_url || b2bTx.request_payload?.callback_url;
+          if (!targetWebhook) {
+            const { data: cred } = await supabaseAdmin
+              .from('b2b_api_credentials')
+              .select('webhook_url')
+              .eq('id', b2bTx.agent_id)
+              .single();
+            targetWebhook = cred?.webhook_url;
+          }
+
+          firePayoutWebhook(targetWebhook, b2bTx.agent_id, {
+            event: 'PAYOUT_STATUS_UPDATE',
+            order_id: b2bTx.order_id,
+            client_order_id: b2bTx.client_order_id || null,
+            utr: finalUtr,
+            status: 'success',
+            amount: Number(b2bTx.amount),
+            base_fee: Number(b2bTx.request_payload?.base_fee || b2bTx.base_charge || Math.round((Number(b2bTx.fee || 0) / 1.18) * 100) / 100),
+            gst: Number(b2bTx.request_payload?.gst_amount || b2bTx.gst_amount || Math.round((Number(b2bTx.fee || 0) - (Number(b2bTx.fee || 0) / 1.18)) * 100) / 100),
+            fee: Number(b2bTx.fee || 0),
+            total_deducted: Number(b2bTx.total_deducted),
+            beneficiary_name: b2bTx.beneficiary_name,
+            account_number: b2bTx.account_number,
+            ifsc_code: b2bTx.ifsc_code,
+            timestamp: new Date().toISOString()
+          });
+        } catch (hookErr: any) {
+          console.error('[Nixasoft Callback] Failed to dispatch B2B success webhook:', hookErr.message);
+        }
+      } else if (normStatus === 'FAILED') {
+        if (b2bTx.status !== 'failed') {
+          await supabaseAdmin.rpc('add_b2b_payout_wallet', {
+            p_agent_id: b2bTx.agent_id,
+            p_amount: b2bTx.total_deducted
+          });
+
+          const failReason = description || 'Transaction Failed';
+          await supabaseAdmin
+            .from('b2b_payout_transactions')
+            .update({
+              status: 'failed',
+              error_message: failReason,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', b2bTx.id);
+
+          try {
+            let targetWebhook = b2bTx.request_payload?.webhook_url || b2bTx.request_payload?.callback_url;
+            if (!targetWebhook) {
+              const { data: cred } = await supabaseAdmin
+                .from('b2b_api_credentials')
+                .select('webhook_url')
+                .eq('id', b2bTx.agent_id)
+                .single();
+              targetWebhook = cred?.webhook_url;
+            }
+
+            firePayoutWebhook(targetWebhook, b2bTx.agent_id, {
+              event: 'PAYOUT_STATUS_UPDATE',
+              order_id: b2bTx.order_id,
+              client_order_id: b2bTx.client_order_id || null,
+              utr: null,
+              status: 'failed',
+              amount: Number(b2bTx.amount),
+              base_fee: Number(b2bTx.request_payload?.base_fee || b2bTx.base_charge || Math.round((Number(b2bTx.fee || 0) / 1.18) * 100) / 100),
+              gst: Number(b2bTx.request_payload?.gst_amount || b2bTx.gst_amount || Math.round((Number(b2bTx.fee || 0) - (Number(b2bTx.fee || 0) / 1.18)) * 100) / 100),
+              fee: Number(b2bTx.fee || 0),
+              total_deducted: Number(b2bTx.total_deducted),
+              beneficiary_name: b2bTx.beneficiary_name,
+              account_number: b2bTx.account_number,
+              ifsc_code: b2bTx.ifsc_code,
+              failure_reason: failReason,
+              timestamp: new Date().toISOString()
+            });
+          } catch (hookErr: any) {
+            console.error('[Nixasoft Callback] Failed to dispatch B2B failure webhook:', hookErr.message);
+          }
+        }
+      }
+      return res.json({ success: true, message: 'B2B Callback processed successfully' });
+    }
+
+    // 2. Fallback to Retail payout_submissions
     const { data: record } = await supabaseAdmin
       .from('payout_submissions')
       .select('*')
       .eq('txn_id', requestId)
-      .single();
+      .maybeSingle();
 
     if (!record) {
       console.warn('[Nixasoft Callback] No payout record found for requestId:', requestId);

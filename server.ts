@@ -22,6 +22,7 @@ import nixasoftPayoutRoutes from "./api/nixasoft/routes.js";
 
 // Initialize CRON Jobs
 import "./jobs/billavenue-cron.js";
+import "./jobs/b2b-payout-cron.js";
 
 // Force IPv4 resolution for fetch/http requests to fix Camlenio "Only IPv4 allowed" restriction
 dns.setDefaultResultOrder("ipv4first");

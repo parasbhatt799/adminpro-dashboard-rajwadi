@@ -1746,7 +1746,7 @@ const calculatePartnerPayoutFee = (amount: number, customSlabsRaw?: any): { fee:
   return { fee: fallback.charge, slab: fallback.slab };
 };
 
-const firePayoutWebhook = (webhookUrl: string | null | undefined, agentId: string, payload: any) => {
+export const firePayoutWebhook = (webhookUrl: string | null | undefined, agentId: string, payload: any) => {
   if (!webhookUrl || !webhookUrl.startsWith('http')) {
     console.log(`[B2B Payout Webhook Skipped] No valid webhook URL for agent ${agentId}`);
     return;
@@ -2110,6 +2110,124 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
       });
     } else if (payoutResult.statuscode === 'TXP') {
       // PROCESSING / PENDING
+      // Fast Settler: Wait 2.5 seconds and do 1 live check before declaring pending.
+      // Often IMPS bank clearing responds within 2 seconds.
+      let liveCheck: any = null;
+      try {
+        await new Promise(r => setTimeout(r, 2500));
+        liveCheck = await checkNixasoftStatus(orderId);
+      } catch (quickErr) {
+        console.warn('[B2B Fast Check Warning]', quickErr);
+      }
+
+      if (liveCheck && liveCheck.statuscode === 'TXN') {
+        const utr = liveCheck.data?.utr || null;
+        const apiTxnId = liveCheck.data?.apiTxnId || null;
+
+        await supabaseAdmin
+          .from('b2b_payout_transactions')
+          .update({
+            status: 'success',
+            utr,
+            api_txn_id: apiTxnId,
+            response_payload: liveCheck,
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', orderId);
+
+        firePayoutWebhook(targetWebhookUrl, agentId, {
+          event: 'PAYOUT_STATUS_UPDATE',
+          order_id: orderId,
+          client_order_id: cleanClientOrderId || null,
+          utr,
+          status: 'success',
+          amount: parsedAmount,
+          base_fee: baseFee,
+          gst: gstAmount,
+          fee: totalFee,
+          total_deducted: totalDeduction,
+          beneficiary_name: cleanName,
+          account_number: cleanAccount,
+          ifsc_code: cleanIfsc,
+          timestamp: new Date().toISOString()
+        });
+
+        await supabaseAdmin.from('b2b_api_logs').insert({
+          agent_id: agentId,
+          endpoint: '/api/b2b/payout/transfer',
+          request_ip: (req as any).clientIp || req.ip,
+          request_payload: { order_id: orderId, client_order_id: cleanClientOrderId, amount: parsedAmount, beneficiary_name: cleanName, account_number: cleanAccount, ifsc_code: cleanIfsc },
+          status_code: 200,
+          payment_status: 'success',
+          response_payload: liveCheck
+        });
+
+        return res.json({
+          status: 'success',
+          message: 'Payout transfer completed successfully',
+          data: {
+            order_id: orderId,
+            client_order_id: cleanClientOrderId || null,
+            utr,
+            amount: parsedAmount,
+            base_fee: baseFee,
+            gst: gstAmount,
+            fee: totalFee,
+            total_deducted: totalDeduction,
+            beneficiary_name: cleanName,
+            account_number: cleanAccount,
+            ifsc_code: cleanIfsc,
+            status: 'success'
+          }
+        });
+      } else if (liveCheck && liveCheck.statuscode === 'TXF') {
+        const failReason = liveCheck.message || 'Bank transaction declined';
+        await supabaseAdmin.rpc('add_b2b_payout_wallet', {
+          p_agent_id: agentId,
+          p_amount: totalDeduction
+        });
+
+        await supabaseAdmin
+          .from('b2b_payout_transactions')
+          .update({
+            status: 'failed',
+            error_message: failReason,
+            response_payload: liveCheck,
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', orderId);
+
+        firePayoutWebhook(targetWebhookUrl, agentId, {
+          event: 'PAYOUT_STATUS_UPDATE',
+          order_id: orderId,
+          client_order_id: cleanClientOrderId || null,
+          utr: null,
+          status: 'failed',
+          amount: parsedAmount,
+          base_fee: baseFee,
+          gst: gstAmount,
+          fee: totalFee,
+          total_deducted: totalDeduction,
+          beneficiary_name: cleanName,
+          account_number: cleanAccount,
+          ifsc_code: cleanIfsc,
+          failure_reason: failReason,
+          timestamp: new Date().toISOString()
+        });
+
+        return res.status(400).json({
+          status: 'failed',
+          message: failReason,
+          data: {
+            order_id: orderId,
+            client_order_id: cleanClientOrderId || null,
+            amount: parsedAmount,
+            status: 'failed'
+          }
+        });
+      }
+
+      // If still pending, save and let background cron auto-reconcile
       const apiTxnId = payoutResult.data?.apiTxnId || null;
 
       await supabaseAdmin
@@ -2153,7 +2271,7 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
 
       return res.status(202).json({
         status: 'pending',
-        message: 'Payout transfer is currently being processed by the bank. Please query status using order_id.',
+        message: 'Payout transfer is currently being processed by the bank. Webhook will be delivered automatically upon completion.',
         data: {
           order_id: orderId,
           client_order_id: cleanClientOrderId || null,
@@ -2443,6 +2561,37 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
             .eq('id', tx.id);
           tx.status = 'success';
           tx.utr = utr;
+
+          // Dispatch Webhook to Agent
+          try {
+            let targetWebhook = tx.request_payload?.webhook_url || tx.request_payload?.callback_url;
+            if (!targetWebhook) {
+              const { data: cred } = await supabaseAdmin
+                .from('b2b_api_credentials')
+                .select('webhook_url')
+                .eq('id', tx.agent_id)
+                .single();
+              targetWebhook = cred?.webhook_url;
+            }
+            firePayoutWebhook(targetWebhook, tx.agent_id, {
+              event: 'PAYOUT_STATUS_UPDATE',
+              order_id: tx.order_id,
+              client_order_id: tx.client_order_id || null,
+              utr,
+              status: 'success',
+              amount: Number(tx.amount),
+              base_fee: Number(tx.request_payload?.base_fee || tx.base_charge || Math.round((Number(tx.charge ?? tx.fee ?? 0) / 1.18) * 100) / 100),
+              gst: Number(tx.request_payload?.gst_amount || tx.gst_amount || Math.round((Number(tx.charge ?? tx.fee ?? 0) - (Number(tx.charge ?? tx.fee ?? 0) / 1.18)) * 100) / 100),
+              fee: Number(tx.charge ?? tx.fee ?? 0),
+              total_deducted: Number(tx.total_deducted),
+              beneficiary_name: tx.beneficiary_name,
+              account_number: tx.account_number,
+              ifsc_code: tx.ifsc_code,
+              timestamp: new Date().toISOString()
+            });
+          } catch (hookErr) {
+            console.warn('[B2B checkPayoutStatusAdmin] Webhook dispatch warning:', hookErr);
+          }
         } else if (liveStatus.statuscode === 'TXF') {
           await supabaseAdmin.rpc('add_b2b_payout_wallet', {
             p_agent_id: tx.agent_id,
@@ -2460,6 +2609,38 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
             .eq('id', tx.id);
           tx.status = 'failed';
           tx.error_message = liveStatus.message;
+
+          // Dispatch Webhook to Agent
+          try {
+            let targetWebhook = tx.request_payload?.webhook_url || tx.request_payload?.callback_url;
+            if (!targetWebhook) {
+              const { data: cred } = await supabaseAdmin
+                .from('b2b_api_credentials')
+                .select('webhook_url')
+                .eq('id', tx.agent_id)
+                .single();
+              targetWebhook = cred?.webhook_url;
+            }
+            firePayoutWebhook(targetWebhook, tx.agent_id, {
+              event: 'PAYOUT_STATUS_UPDATE',
+              order_id: tx.order_id,
+              client_order_id: tx.client_order_id || null,
+              utr: null,
+              status: 'failed',
+              amount: Number(tx.amount),
+              base_fee: Number(tx.request_payload?.base_fee || tx.base_charge || Math.round((Number(tx.charge ?? tx.fee ?? 0) / 1.18) * 100) / 100),
+              gst: Number(tx.request_payload?.gst_amount || tx.gst_amount || Math.round((Number(tx.charge ?? tx.fee ?? 0) - (Number(tx.charge ?? tx.fee ?? 0) / 1.18)) * 100) / 100),
+              fee: Number(tx.charge ?? tx.fee ?? 0),
+              total_deducted: Number(tx.total_deducted),
+              beneficiary_name: tx.beneficiary_name,
+              account_number: tx.account_number,
+              ifsc_code: tx.ifsc_code,
+              failure_reason: liveStatus.message,
+              timestamp: new Date().toISOString()
+            });
+          } catch (hookErr) {
+            console.warn('[B2B checkPayoutStatusAdmin] Webhook dispatch warning:', hookErr);
+          }
         }
       } catch (checkErr) {
         console.warn('[B2B checkPayoutStatusAdmin] Upstream status check failed:', checkErr);
