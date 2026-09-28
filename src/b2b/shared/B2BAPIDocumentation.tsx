@@ -296,7 +296,8 @@ export default function B2BAPIDocumentation() {
         doc.text('2.4 POST /pay-bill - Execute Bill Payment', 14, y);
         y += 4;
         y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "amount": 1500.00,\n  "mobile": "9898971274",\n  "paymentMode": "UPI",\n  "client_transaction_id": "TXN_ORD_20260814_001",\n  "customerParams": [{ "name": "Consumer Number", "value": "12345678901" }]\n}`, y);
-        y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "message": "Bill Paid successfully",\n  "transaction_id": "BBPSU1283118228",\n  "payment_status": "success",\n  "charge_deducted": 10.00\n}`, y);
+        y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "payment_status": "success",\n  "message": "Bill Paid successfully",\n  "transaction_id": "BBPSU1283118228",\n  "charge_deducted": 10.00\n}`, y);
+        y = drawCodeBlock('Sample Pending Response (202 Accepted)', `{\n  "status": "pending",\n  "payment_status": "pending",\n  "message": "Transaction initiated, currently pending at biller",\n  "transaction_id": "BBPSU1283118228"\n}`, y);
 
         y = checkPageBreak(y, 75);
         doc.setFont('helvetica', 'bold');
@@ -304,7 +305,7 @@ export default function B2BAPIDocumentation() {
         doc.setTextColor(16, 185, 129);
         doc.text('2.5 GET /status/:transaction_id - Live Status & Auto-Refund', 14, y);
         y += 4;
-        y = drawCodeBlock('Sample Status Response (200 OK)', `{\n  "status": "success",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "bbps_txn_ref_id": "CC016226CBAF13851712",\n    "current_status": "success",\n    "bbps_status": "SUCCESS"\n  }\n}`, y);
+        y = drawCodeBlock('Sample Status Response (200 OK / 202 Accepted)', `{\n  "status": "pending",\n  "payment_status": "pending",\n  "data": {\n    "transaction_id": "BBPSU1283118228",\n    "client_transaction_id": "TXN_ORD_20260814_001",\n    "current_status": "pending",\n    "status": "pending",\n    "payment_status": "pending",\n    "bbps_status": "PENDING"\n  }\n}`, y);
 
         y = checkPageBreak(y, 85);
         doc.setFont('helvetica', 'bold');
@@ -351,6 +352,7 @@ export default function B2BAPIDocumentation() {
 
       const errorRows: string[][] = [
         ['200 OK', 'success', 'Request processed successfully', 'Parse response data payload'],
+        ['202 Accepted', 'pending', 'Transaction initiated & currently pending at biller', 'Save as PENDING. Poll status or wait for Webhook'],
         ['400 Bad Request', 'error', `Insufficient ${activeService === 'payout' ? 'Payout' : 'BBPS'} Wallet Balance`, `Submit /fund-request with wallet_type: "${activeService}"`]
       ];
 
@@ -360,6 +362,7 @@ export default function B2BAPIDocumentation() {
         );
       } else {
         errorRows.push(
+          ['400 Bad Request', 'failed', 'Payment failed at biller gateway', 'Funds auto-refunded to BBPS wallet. Do not deliver service'],
           ['400 Bad Request', 'error', 'Payment mode Cash disabled by biller', 'Pass paymentMode: "UPI" or "Internet Banking"']
         );
       }
@@ -900,22 +903,87 @@ export default function B2BAPIDocumentation() {
 }`}
               />
 
+              {/* Lifecycle Notice */}
+              <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-4 text-xs text-indigo-200 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-indigo-300">
+                  <Sparkles className="h-4 w-4 text-indigo-400" />
+                  <span>Transaction Lifecycle Guide (Success vs Pending vs Failed):</span>
+                </div>
+                <ul className="list-disc list-inside space-y-1 text-slate-300 leading-relaxed pl-1">
+                  <li>
+                    <strong className="text-emerald-400">HTTP 200 (Success):</strong> Payment is immediately confirmed by biller. Mark as <code>SUCCESS</code> in your database.
+                  </li>
+                  <li>
+                    <strong className="text-amber-400">HTTP 202 (Pending):</strong> Payment is accepted by biller and is processing. Mark as <code>PENDING</code> in your database. <strong>Do NOT mark as Success or Failed yet.</strong> Query <code>/status/:transaction_id</code> or wait for the automatic Webhook callback.
+                  </li>
+                  <li>
+                    <strong className="text-rose-400">HTTP 400 (Failed):</strong> Payment rejected by biller or gateway. Wallet deduction is immediately auto-refunded (<code>refunded: true</code>). Mark as <code>FAILED</code> in your database.
+                  </li>
+                </ul>
+              </div>
+
               <CodeBlock 
-                title="Success Response (200 OK - Payment Processed Successfully)"
+                title="1. Success Response (HTTP 200 OK - Payment Processed Successfully)"
                 section="pay_res_success"
                 code={`{
   "status": "success",
+  "payment_status": "success",
   "message": "Bill Paid successfully",
+  "data": {
+    "transaction_id": "BBPSU1283118228",
+    "api_txn_id": "BBPSU1283118228",
+    "client_transaction_id": "TXN_ORD_20260814_001",
+    "status": "success",
+    "payment_status": "success"
+  },
   "transaction_id": "BBPSU1283118228",
   "client_transaction_id": "TXN_ORD_20260814_001",
   "bbps_txn_ref_id": "CC016226CBAF13851712",
-  "payment_status": "success",
-  "charge_deducted": 10.00
+  "charge_deducted": 10.00,
+  "refunded": false,
+  "refunded_amount": 0
 }`}
               />
 
               <CodeBlock 
-                title="Error Response (400 Bad Request - Insufficient Wallet Balance)"
+                title="2. Pending Response (HTTP 202 Accepted - Awaiting Biller Confirmation)"
+                section="pay_res_pending"
+                code={`{
+  "status": "pending",
+  "payment_status": "pending",
+  "message": "Transaction initiated, currently pending at biller",
+  "data": {
+    "transaction_id": "BBPSU1283118228",
+    "api_txn_id": "BBPSU1283118228",
+    "client_transaction_id": "TXN_ORD_20260814_001",
+    "status": "pending",
+    "payment_status": "pending"
+  },
+  "transaction_id": "BBPSU1283118228",
+  "client_transaction_id": "TXN_ORD_20260814_001",
+  "bbps_txn_ref_id": "BBPSU1283118228",
+  "charge_deducted": 0,
+  "refunded": false,
+  "refunded_amount": 0
+}`}
+              />
+
+              <CodeBlock 
+                title="3. Failed & Auto-Refunded Response (HTTP 400 Bad Request - Biller Rejection)"
+                section="pay_res_failed"
+                code={`{
+  "status": "failed",
+  "payment_status": "failed",
+  "message": "Payment failed at gateway / biller network",
+  "transaction_id": "BBPSU1283118228",
+  "client_transaction_id": "TXN_ORD_20260814_001",
+  "refunded": true,
+  "refunded_amount": 1500.00
+}`}
+              />
+
+              <CodeBlock 
+                title="4. Insufficient Balance Error (HTTP 400 Bad Request)"
                 section="pay_res_insufficient"
                 code={`{
   "status": "error",
@@ -939,31 +1007,57 @@ export default function B2BAPIDocumentation() {
               </p>
 
               <CodeBlock 
-                title="Sample Success Response (200 OK)"
-                section="status_res_code"
+                title="Pending Status Response (HTTP 202 / Processing at Biller)"
+                section="status_res_pending"
                 code={`{
-  "status": "success",
+  "status": "pending",
+  "payment_status": "pending",
   "data": {
     "transaction_id": "BBPSU1283118228",
     "client_transaction_id": "TXN_ORD_20260814_001",
-    "bbps_txn_ref_id": "CC016226CBAF13851712",
-    "current_status": "success",
-    "bbps_status": "SUCCESS",
+    "bbps_txn_ref_id": "BBPSU1283118228",
+    "current_status": "pending",
+    "status": "pending",
+    "payment_status": "pending",
+    "bbps_status": "PENDING",
     "polled_at": "2026-08-14T03:15:00.000Z"
   }
 }`}
               />
 
               <CodeBlock 
-                title="Sample Gateway Failure & Auto-Refund Response (200 OK)"
-                section="status_res_auto_refund"
+                title="Success Status Response (HTTP 200 / Confirmed by Biller)"
+                section="status_res_code"
                 code={`{
   "status": "success",
+  "payment_status": "success",
+  "data": {
+    "transaction_id": "BBPSU1283118228",
+    "client_transaction_id": "TXN_ORD_20260814_001",
+    "bbps_txn_ref_id": "CC016226CBAF13851712",
+    "approval_ref_number": "1234567890",
+    "current_status": "success",
+    "status": "success",
+    "payment_status": "success",
+    "bbps_status": "SUCCESS",
+    "polled_at": "2026-08-14T03:16:00.000Z"
+  }
+}`}
+              />
+
+              <CodeBlock 
+                title="Failed & Auto-Refunded Status Response"
+                section="status_res_auto_refund"
+                code={`{
+  "status": "failed",
+  "payment_status": "failed",
   "data": {
     "transaction_id": "BBPSU1283118228",
     "client_transaction_id": "TXN_ORD_20260814_001",
     "bbps_txn_ref_id": "N/A",
     "current_status": "failed",
+    "status": "failed",
+    "payment_status": "failed",
     "bbps_status": "FAILED_GATEWAY_ERROR",
     "message": "Bill payment failed to connect to biller gateway. BBPS wallet automatically refunded.",
     "refund_status": "REFUNDED",
@@ -1641,6 +1735,16 @@ var_dump($result);
             </thead>
             <tbody className="divide-y divide-slate-700/50 bg-slate-900/40">
               <tr className="hover:bg-slate-800/40">
+                <td className="px-4 py-3 font-mono font-bold text-amber-400">202 Accepted</td>
+                <td className="px-4 py-3 font-mono text-amber-300">pending</td>
+                <td className="px-4 py-3 text-slate-300">
+                  Transaction initiated & currently pending at biller / upstream banking gateway.
+                </td>
+                <td className="px-4 py-3 text-slate-300">
+                  Store order as <code>PENDING</code>. Query <code>/status/:transaction_id</code> or wait for webhook. Do NOT mark failed.
+                </td>
+              </tr>
+              <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
                 <td className="px-4 py-3 font-mono text-rose-300">error</td>
                 <td className="px-4 py-3 text-slate-300">
@@ -1658,12 +1762,20 @@ var_dump($result);
                   <td className="px-4 py-3 text-slate-300">Check bank account and IFSC details. Auto-refunded.</td>
                 </tr>
               ) : (
-                <tr className="hover:bg-slate-800/40">
-                  <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
-                  <td className="px-4 py-3 font-mono text-rose-300">error</td>
-                  <td className="px-4 py-3 text-slate-300">Payment mode 'Cash' disabled by biller.</td>
-                  <td className="px-4 py-3 text-slate-300">Pass <code>paymentMode: "UPI"</code> or <code>"Internet Banking"</code>.</td>
-                </tr>
+                <>
+                  <tr className="hover:bg-slate-800/40">
+                    <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
+                    <td className="px-4 py-3 font-mono text-rose-300">failed</td>
+                    <td className="px-4 py-3 text-slate-300">Bill payment rejected or failed by biller network.</td>
+                    <td className="px-4 py-3 text-slate-300">Wallet balance is auto-refunded (<code>refunded: true</code>). Do not deliver bill receipt.</td>
+                  </tr>
+                  <tr className="hover:bg-slate-800/40">
+                    <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
+                    <td className="px-4 py-3 font-mono text-rose-300">error</td>
+                    <td className="px-4 py-3 text-slate-300">Payment mode 'Cash' disabled by biller.</td>
+                    <td className="px-4 py-3 text-slate-300">Pass <code>paymentMode: "UPI"</code> or <code>"Internet Banking"</code>.</td>
+                  </tr>
+                </>
               )}
               <tr className="hover:bg-slate-800/40">
                 <td className="px-4 py-3 font-mono font-bold text-amber-400">401 Unauthorized</td>
