@@ -1646,28 +1646,102 @@ export const getAdminBankAccounts = async (req: Request, res: Response): Promise
 /**
  * Helper to calculate partner payout fee from custom slabs or global default slabs
  */
-const calculatePartnerPayoutFee = (amount: number, customSlabs?: any[]): { fee: number; slab: any } => {
-  if (customSlabs && Array.isArray(customSlabs) && customSlabs.length > 0) {
-    const activeSlabs = customSlabs.filter(s => s.is_active !== false);
-    if (activeSlabs.length > 0) {
-      const sorted = [...activeSlabs].sort((a, b) => a.min_amount - b.min_amount);
-      for (const slab of sorted) {
-        if (amount >= slab.min_amount && amount <= slab.max_amount) {
-          const fee = slab.charge_type === 'percentage'
-            ? Math.round(((amount * slab.charge_value) / 100) * 100) / 100
-            : slab.charge_value;
-          return { fee: Math.max(0, fee), slab };
-        }
-      }
-      const highest = sorted[sorted.length - 1];
-      if (amount > highest.max_amount) {
-        const fee = highest.charge_type === 'percentage'
-          ? Math.round(((amount * highest.charge_value) / 100) * 100) / 100
-          : highest.charge_value;
-        return { fee: Math.max(0, fee), slab: highest };
+const calculatePartnerPayoutFee = (amount: number, customSlabsRaw?: any): { fee: number; slab: any; error?: string } => {
+  let customSlabs: any[] = [];
+  if (customSlabsRaw) {
+    if (Array.isArray(customSlabsRaw)) {
+      customSlabs = customSlabsRaw;
+    } else if (typeof customSlabsRaw === 'string') {
+      try {
+        customSlabs = JSON.parse(customSlabsRaw);
+      } catch (e) {
+        customSlabs = [];
       }
     }
   }
+
+  // 1. If agent has custom slabs configured, STRICTLY enforce their custom slabs
+  if (Array.isArray(customSlabs) && customSlabs.length > 0) {
+    const activeSlabs = customSlabs.filter(s => s.is_active !== false);
+    if (activeSlabs.length > 0) {
+      const sorted = [...activeSlabs].sort((a, b) => Number(a.min_amount) - Number(b.min_amount));
+      const minAllowed = Number(sorted[0].min_amount);
+      const maxAllowed = Number(sorted[sorted.length - 1].max_amount);
+
+      if (amount < minAllowed) {
+        return {
+          fee: 0,
+          slab: null,
+          error: `Minimum payout transfer amount allowed for your account is ₹${minAllowed.toLocaleString('en-IN')}. Requested amount: ₹${amount.toLocaleString('en-IN')}.`
+        };
+      }
+
+      if (amount > maxAllowed) {
+        return {
+          fee: 0,
+          slab: null,
+          error: `Maximum payout transfer amount allowed per transaction for your account is ₹${maxAllowed.toLocaleString('en-IN')}. Requested amount: ₹${amount.toLocaleString('en-IN')}.`
+        };
+      }
+
+      for (const slab of sorted) {
+        if (amount >= Number(slab.min_amount) && amount <= Number(slab.max_amount)) {
+          const fee = slab.charge_type === 'percentage'
+            ? Math.round(((amount * Number(slab.charge_value)) / 100) * 100) / 100
+            : Number(slab.charge_value);
+          return { fee: Math.max(0, fee), slab };
+        }
+      }
+
+      // If amount falls into an unconfigured gap between active slabs
+      return {
+        fee: 0,
+        slab: null,
+        error: `No payout fee slab is configured for amount ₹${amount.toLocaleString('en-IN')}. Allowed range is ₹${minAllowed.toLocaleString('en-IN')} to ₹${maxAllowed.toLocaleString('en-IN')}. Please contact administrator.`
+      };
+    }
+  }
+
+  // 2. If agent has NO custom slabs, check Global Slabs from Nixasoft config
+  const globalConfig = getNixasoftConfig();
+  const globalActiveSlabs = (globalConfig.slabs || []).filter(s => s.is_active !== false);
+  if (globalActiveSlabs.length > 0) {
+    const sorted = [...globalActiveSlabs].sort((a, b) => Number(a.min_amount) - Number(b.min_amount));
+    const minAllowed = Number(sorted[0].min_amount);
+    const maxAllowed = Number(sorted[sorted.length - 1].max_amount);
+
+    if (amount < minAllowed) {
+      return {
+        fee: 0,
+        slab: null,
+        error: `Minimum payout transfer amount allowed is ₹${minAllowed.toLocaleString('en-IN')}. Requested amount: ₹${amount.toLocaleString('en-IN')}.`
+      };
+    }
+
+    if (amount > maxAllowed) {
+      return {
+        fee: 0,
+        slab: null,
+        error: `Maximum payout transfer amount allowed is ₹${maxAllowed.toLocaleString('en-IN')}. Requested amount: ₹${amount.toLocaleString('en-IN')}.`
+      };
+    }
+
+    for (const slab of sorted) {
+      if (amount >= Number(slab.min_amount) && amount <= Number(slab.max_amount)) {
+        const fee = slab.charge_type === 'percentage'
+          ? Math.round(((amount * Number(slab.charge_value)) / 100) * 100) / 100
+          : Number(slab.charge_value);
+        return { fee: Math.max(0, fee), slab };
+      }
+    }
+
+    return {
+      fee: 0,
+      slab: null,
+      error: `No payout fee slab is configured for amount ₹${amount.toLocaleString('en-IN')}. Allowed range is ₹${minAllowed.toLocaleString('en-IN')} to ₹${maxAllowed.toLocaleString('en-IN')}. Please contact administrator.`
+    };
+  }
+
   const fallback = calculateSlabCharge(amount);
   return { fee: fallback.charge, slab: fallback.slab };
 };
@@ -1740,10 +1814,10 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
 
     // 2. Validate parameters
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount < 100 || parsedAmount > 200000) {
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
       return res.status(400).json({
         status: 'error',
-        message: 'Invalid amount. Payout transfer amount must be between ₹100 and ₹2,00,000.'
+        message: 'Invalid amount. Payout transfer amount must be greater than ₹0.'
       });
     }
 
@@ -1791,7 +1865,24 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
     }
 
     // 4. Calculate Slabs Fee + 18% GST (Applicable only for Payout)
-    const { fee: rawSlabFee } = calculatePartnerPayoutFee(parsedAmount, agent.payout_slabs);
+    const slabResult = calculatePartnerPayoutFee(parsedAmount, agent.payout_slabs);
+    if (slabResult.error) {
+      await supabaseAdmin.from('b2b_api_logs').insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/payout/transfer',
+        request_ip: (req as any).clientIp || req.ip,
+        request_payload: { client_order_id: cleanClientOrderId, amount: parsedAmount, beneficiary_name: cleanName, account_number: cleanAccount, ifsc_code: cleanIfsc },
+        status_code: 400,
+        payment_status: 'failed',
+        response_payload: { status: 'error', message: slabResult.error }
+      });
+      return res.status(400).json({
+        status: 'error',
+        message: slabResult.error
+      });
+    }
+
+    const rawSlabFee = slabResult.fee;
     const baseFee = Math.round(rawSlabFee * 100) / 100;
     const gstRate = 0.18; // 18% GST on slab charge
     const gstAmount = Math.round((baseFee * gstRate) * 100) / 100;
