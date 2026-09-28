@@ -1831,12 +1831,15 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
 
     // Auto-save webhook URL to agent profile if passed in payload and not yet configured in DB
     if ((reqWebhookUrl || reqCallbackUrl) && targetWebhookUrl && !agent.webhook_url) {
-      supabaseAdmin
-        .from('b2b_api_credentials')
-        .update({ webhook_url: targetWebhookUrl })
-        .eq('id', agentId)
-        .then(() => console.log(`[B2B Auto-Saved Webhook URL] ${targetWebhookUrl} for agent ${agentId}`))
-        .catch((err: any) => console.error('[B2B Auto-Save Webhook URL Error]', err));
+      try {
+        await supabaseAdmin
+          .from('b2b_api_credentials')
+          .update({ webhook_url: targetWebhookUrl })
+          .eq('id', agentId);
+        console.log(`[B2B Auto-Saved Webhook URL] ${targetWebhookUrl} for agent ${agentId}`);
+      } catch (saveErr) {
+        console.error('[B2B Auto-Save Webhook URL Error]', saveErr);
+      }
     }
 
     // 2. Validate parameters
