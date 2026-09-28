@@ -1097,7 +1097,8 @@ export default function B2BAPIDocumentation() {
                 { name: "transfer_mode", type: "String", required: false, desc: "Transfer mode: 'IMPS' (default, 24x7 instant) or 'NEFT'." },
                 { name: "client_order_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency and status query." },
                 { name: "bank_name", type: "String", required: false, desc: "Optional name of the beneficiary bank." },
-                { name: "email", type: "String", required: false, desc: "Optional customer or sender email address." }
+                { name: "email", type: "String", required: false, desc: "Optional customer or sender email address." },
+                { name: "webhook_url", type: "String", required: false, desc: "Optional callback URL (HTTP/HTTPS POST). If provided, instant status updates & bank UTRs will be dispatched to this endpoint and auto-configured." }
               ]} />
 
               <CodeBlock 
@@ -1111,7 +1112,8 @@ export default function B2BAPIDocumentation() {
   "mobile_number": "9876543210",
   "transfer_mode": "IMPS",
   "client_order_id": "ORD_PAYOUT_1001",
-  "bank_name": "HDFC Bank"
+  "bank_name": "HDFC Bank",
+  "webhook_url": "https://api.partner.com/api/v1/payout/callback"
 }`}
               />
 
@@ -1644,27 +1646,36 @@ var_dump($result);
   "utr": "426812831122",
   "status": "success",
   "amount": 2500.00,
-  "fee": 25.00,
+  "base_fee": 25.00,
+  "gst": 4.50,
+  "fee": 29.50,
+  "total_deducted": 2529.50,
   "beneficiary_name": "Ramesh Kumar",
   "account_number": "91234567890123",
   "ifsc_code": "HDFC0001234",
-  "timestamp": "2026-09-27T08:15:02.000Z"
+  "timestamp": "2026-09-28T14:15:02.000Z"
 }`}
             />
 
             <CodeBlock 
-              title="Payout Webhook Payload (Transfer Failed & Auto-Refunded to Payout Wallet)"
+              title="Payout Webhook Payload (Transfer Failed & Auto-Refunded)"
               section="webhook_payout_failed"
               code={`{
   "event": "PAYOUT_STATUS_UPDATE",
   "order_id": "B2BPO1727443912001",
   "client_order_id": "ORD_PAYOUT_1001",
+  "utr": null,
   "status": "failed",
   "amount": 2500.00,
-  "fee": 25.00,
-  "refunded_to_payout_wallet": true,
-  "message": "Beneficiary account inactive or invalid IFSC. Funds refunded to payout wallet.",
-  "timestamp": "2026-09-27T08:15:02.000Z"
+  "base_fee": 25.00,
+  "gst": 4.50,
+  "fee": 29.50,
+  "total_deducted": 2529.50,
+  "beneficiary_name": "Ramesh Kumar",
+  "account_number": "91234567890123",
+  "ifsc_code": "HDFC0001234",
+  "failure_reason": "Beneficiary account inactive or invalid IFSC. Funds refunded to payout wallet.",
+  "timestamp": "2026-09-28T14:15:02.000Z"
 }`}
             />
           </div>
