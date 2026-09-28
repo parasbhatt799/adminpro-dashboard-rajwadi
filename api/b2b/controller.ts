@@ -524,10 +524,13 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
       .eq('id', log.id);
 
     return res.json({
-      status: 'success',
+      status: localStatus,
+      payment_status: localStatus,
       data: {
         transaction_id,
         current_status: localStatus,
+        status: localStatus,
+        payment_status: localStatus,
         bbps_status: bbpsStatus,
         bbps_txn_id: cc01Ref || undefined,
         approval_ref_number: billAvenueTxnData?.approvalRefNumber || undefined,
@@ -844,7 +847,8 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
       .eq('id', log.id);
 
     return res.json({
-      status: 'success',
+      status: localStatus,
+      payment_status: localStatus,
       data: {
         transaction_id: apiTxnId,
         api_txn_id: apiTxnId,
@@ -853,6 +857,8 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
         bbps_txn_id: cc01Ref || undefined,
         approval_ref_number: billAvenueTxnData?.approvalRefNumber || undefined,
         current_status: localStatus,
+        status: localStatus,
+        payment_status: localStatus,
         bbps_status: bbpsStatus,
         polled_at: new Date().toISOString()
       }
@@ -1098,7 +1104,17 @@ export const payBill = async (req: Request, res: Response) => {
           response_payload: { error: payErr.message, transaction_id: customTxnId, requestId: billavenueRequestId }
         }).eq('id', logId);
       }
-      return res.status(500).json({ status: 'error', message: payErr.message || 'Payment failed at gateway' });
+      return res.status(400).json({ 
+        status: 'failed', 
+        payment_status: 'failed',
+        message: payErr.message || 'Payment failed at gateway',
+        refunded: true,
+        refunded_amount: totalDeduction,
+        transaction_id: bbpsuTxnId,
+        api_txn_id: bbpsuTxnId,
+        client_transaction_id: customTxnId,
+        bbps_txn_ref_id: bbpsuTxnId
+      });
     }
 
     // 3. Process the response
@@ -1190,8 +1206,10 @@ export const payBill = async (req: Request, res: Response) => {
       await supabaseAdmin.from('b2b_api_logs').update(updatePayload).eq('id', logId);
     }
 
-    res.json({
-      status: finalStatus === 'success' || finalStatus === 'pending' ? 'success' : 'error',
+    const httpStatusCode = finalStatus === 'success' ? 200 : (finalStatus === 'pending' ? 202 : 400);
+
+    return res.status(httpStatusCode).json({
+      status: finalStatus,
       message: finalStatus === 'success' 
         ? 'Bill Paid successfully' 
         : (finalStatus === 'pending' ? 'Transaction initiated, currently pending at biller' : (errorMessage || 'Payment failed')),
@@ -1200,14 +1218,18 @@ export const payBill = async (req: Request, res: Response) => {
         transaction_id: bbpsuTxnId,
         api_txn_id: bbpsuTxnId,
         client_transaction_id: customTxnId,
-        bbps_txn_ref_id: bbpsuTxnId
+        bbps_txn_ref_id: bbpsuTxnId,
+        status: finalStatus,
+        payment_status: finalStatus
       },
       transaction_id: bbpsuTxnId,
       api_txn_id: bbpsuTxnId,
       client_transaction_id: customTxnId,
       bbps_txn_ref_id: bbpsuTxnId,
       payment_status: finalStatus,
-      charge_deducted: finalStatus === 'success' ? chargePerBill : 0
+      charge_deducted: finalStatus === 'success' ? chargePerBill : 0,
+      refunded: finalStatus === 'failed',
+      refunded_amount: finalStatus === 'failed' ? totalDeduction : 0
     });
 
     // Fire webhook asynchronously
