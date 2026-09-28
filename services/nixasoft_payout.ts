@@ -169,7 +169,7 @@ export async function executeNixasoftPayout(
   const config = getNixasoftConfig();
   const token = apiTokenOverride || config.api_token || 'fba1b6568695f15ab0a3fc2efbf29f53';
 
-  const url = 'https://api.nixasoft.in/api/service/payout';
+  const url = 'https://api.nixasoft.in/api/v2/service/payout';
 
   console.log(`[Nixasoft Payout] Sending request to ${url} for reqId: ${payload.requestId}, amount: ${payload.amount}`);
 
