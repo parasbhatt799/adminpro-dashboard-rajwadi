@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useNavigate } from 'react-router-dom';
-import { Shield, KeyRound, Copy, Activity, RefreshCw, Terminal, Eye, EyeOff, LogOut, CheckCircle2, FileText } from 'lucide-react';
+import { Shield, KeyRound, Copy, Activity, RefreshCw, Terminal, Eye, EyeOff, LogOut, CheckCircle2, FileText, Zap, Layers, Wallet, ArrowUpRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import { useToast } from '../../context/ToastContext';
@@ -16,6 +16,7 @@ export default function B2BAgentDashboard() {
   const [logs, setLogs] = useState<any[]>([]);
   const [showSecret, setShowSecret] = useState(false);
   const [stats, setStats] = useState({ fetchCount: 0, successCount: 0 });
+  const [payoutStats, setPayoutStats] = useState({ totalCount: 0, successCount: 0, totalVolume: 0 });
   const [webhookUrl, setWebhookUrl] = useState('');
   const [isUpdatingWebhook, setIsUpdatingWebhook] = useState(false);
 
@@ -32,26 +33,52 @@ export default function B2BAgentDashboard() {
   const fetchDashboardData = async (agentId: string) => {
     setLoading(true);
     try {
-      const [credRes, logsRes, fetchCountRes, payCountRes, settingsRes] = await Promise.all([
+      const [credRes, logsRes, settingsRes] = await Promise.all([
         supabase.from('b2b_api_credentials').select('*').eq('id', agentId).single(),
         supabase.from('b2b_api_logs').select('*').eq('agent_id', agentId).order('created_at', { ascending: false }).limit(20),
-        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/fetch-bill,endpoint.eq./api/v1/b2b/fetch-bill"),
-        supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill").eq('status_code', 200),
         supabase.from('b2b_settings').select('global_charge_per_bill').limit(1).maybeSingle()
       ]);
 
       if (credRes.data) {
         setCredentials(credRes.data);
         setWebhookUrl(credRes.data.webhook_url || '');
+
+        const isBbps = credRes.data.is_bbps_enabled !== false;
+        const isPayout = !!credRes.data.is_payout_enabled;
+
+        // Fetch BBPS stats if BBPS is enabled
+        if (isBbps) {
+          const [fetchCountRes, payCountRes] = await Promise.all([
+            supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/fetch-bill,endpoint.eq./api/v1/b2b/fetch-bill"),
+            supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill").eq('status_code', 200)
+          ]);
+          setStats({
+            fetchCount: fetchCountRes.count || 0,
+            successCount: payCountRes.count || 0
+          });
+        }
+
+        // Fetch Payout stats if Payout is enabled
+        if (isPayout) {
+          const [pTotalRes, pSuccessRes, pVolumeRes] = await Promise.all([
+            supabase.from('b2b_payout_transactions').select('*', { count: 'exact', head: true }).eq('agent_id', agentId),
+            supabase.from('b2b_payout_transactions').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).eq('status', 'success'),
+            supabase.from('b2b_payout_transactions').select('amount').eq('agent_id', agentId).eq('status', 'success')
+          ]);
+
+          const vol = (pVolumeRes.data || []).reduce((acc: number, cur: any) => acc + (parseFloat(cur.amount) || 0), 0);
+          setPayoutStats({
+            totalCount: pTotalRes.count || 0,
+            successCount: pSuccessRes.count || 0,
+            totalVolume: vol
+          });
+        }
       }
+
       if (settingsRes.data) {
         setGlobalCharge(parseFloat(settingsRes.data.global_charge_per_bill?.toString() || '0'));
       }
       if (logsRes.data) setLogs(logsRes.data);
-      setStats({
-        fetchCount: fetchCountRes.count || 0,
-        successCount: payCountRes.count || 0
-      });
     } catch (error) {
       console.error(error);
       toast.error('Failed to load dashboard data');
@@ -113,10 +140,14 @@ export default function B2BAgentDashboard() {
     );
   }
 
+  const isBbps = credentials.is_bbps_enabled !== false;
+  const isPayout = !!credentials.is_payout_enabled;
+
   return (
     <div className="space-y-8">
       {/* Status Banner */}
-        <div className={`rounded-xl p-4 flex items-center gap-4 ${credentials.is_active ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+      <div className={`rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${credentials.is_active ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-red-500/10 border border-red-500/20'}`}>
+        <div className="flex items-center gap-4">
           <div className={`p-2 rounded-full ${credentials.is_active ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
             <Activity className="h-6 w-6" />
           </div>
@@ -130,51 +161,143 @@ export default function B2BAgentDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Active Subscribed Service Badges */}
+        <div className="flex items-center gap-2 flex-wrap sm:self-center">
+          {isBbps && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+              <Zap size={13} /> BBPS Bill Pay Active
+            </span>
+          )}
+          {isPayout && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+              <Layers size={13} /> Instant Payout Active
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Credentials Section */}
+        <div className="lg:col-span-2 space-y-6">
           
-          {/* Credentials Section */}
-          <div className="lg:col-span-2 space-y-6">
+          {/* Dynamic Stats Overview */}
+          <div className="space-y-6">
             
-            {/* Stats Overview */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
-                <div className="flex items-center justify-between relative z-10">
-                  <div>
-                    <p className="text-slate-400 text-sm font-medium mb-1">Charge Per Bill</p>
-                    <h3 className="text-3xl font-bold text-amber-400">
-                      ₹{credentials.charge_per_bill !== null && credentials.charge_per_bill !== undefined 
-                          ? parseFloat(credentials.charge_per_bill).toFixed(2) 
-                          : globalCharge.toFixed(2)}
-                    </h3>
+            {/* BBPS Overview Cards (Only shown if BBPS service is active) */}
+            {isBbps && (
+              <div>
+                {isPayout && (
+                  <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    <Zap size={14} /> BBPS Bill Payment Overview
                   </div>
-                  <div className="p-3 bg-amber-500/20 rounded-xl text-amber-400">
-                    <Shield className="h-6 w-6" />
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-slate-400 text-xs font-medium mb-1">Charge Per Bill</p>
+                        <h3 className="text-2xl font-bold text-amber-400">
+                          ₹{credentials.charge_per_bill !== null && credentials.charge_per_bill !== undefined 
+                              ? parseFloat(credentials.charge_per_bill).toFixed(2) 
+                              : globalCharge.toFixed(2)}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Deducted per bill</p>
+                      </div>
+                      <div className="p-3 bg-amber-500/20 rounded-xl text-amber-400">
+                        <Shield className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-slate-400 text-xs font-medium mb-1">Total Bills Fetched</p>
+                        <h3 className="text-2xl font-bold text-white">{stats.fetchCount}</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">All bill fetch requests</p>
+                      </div>
+                      <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-slate-400 text-xs font-medium mb-1">Successful Payments</p>
+                        <h3 className="text-2xl font-bold text-emerald-400">{stats.successCount}</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Completed bills paid</p>
+                      </div>
+                      <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
-                <div className="flex items-center justify-between relative z-10">
-                  <div>
-                    <p className="text-slate-400 text-sm font-medium mb-1">Total Bills Fetched</p>
-                    <h3 className="text-3xl font-bold text-white">{stats.fetchCount}</h3>
+            )}
+
+            {/* Instant Payout Overview Cards (Only shown if Payout service is active) */}
+            {isPayout && (
+              <div>
+                {isBbps && (
+                  <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-purple-400">
+                    <Layers size={14} /> Instant Payout API Overview
                   </div>
-                  <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
-                    <FileText className="h-6 w-6" />
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-slate-800 rounded-2xl border border-purple-500/30 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-purple-300 text-xs font-medium mb-1">Payout Wallet</p>
+                        <h3 className="text-2xl font-bold text-purple-400">
+                          ₹{(credentials.payout_wallet_balance || 0).toFixed(2)}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Available for transfers</p>
+                      </div>
+                      <div className="p-3 bg-purple-500/20 rounded-xl text-purple-400">
+                        <Wallet className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-slate-400 text-xs font-medium mb-1">Successful Transfers</p>
+                        <h3 className="text-2xl font-bold text-emerald-400">
+                          {payoutStats.successCount}
+                          <span className="text-xs font-normal text-slate-500 ml-1.5">/ {payoutStats.totalCount}</span>
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Processed successfully</p>
+                      </div>
+                      <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-slate-400 text-xs font-medium mb-1">Payout Volume</p>
+                        <h3 className="text-2xl font-bold text-white">
+                          ₹{payoutStats.totalVolume.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Total transferred volume</p>
+                      </div>
+                      <div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400">
+                        <ArrowUpRight className="h-5 w-5" />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
-                <div className="flex items-center justify-between relative z-10">
-                  <div>
-                    <p className="text-slate-400 text-sm font-medium mb-1">Successful Payments</p>
-                    <h3 className="text-3xl font-bold text-white">{stats.successCount}</h3>
-                  </div>
-                  <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
-                    <CheckCircle2 className="h-6 w-6" />
-                  </div>
-                </div>
-              </div>
-            </div>
+            )}
+
+          </div>
 
             <div className="bg-slate-800 rounded-2xl border border-slate-700 p-6 shadow-xl relative overflow-hidden">
               <div className="absolute top-0 right-0 p-32 bg-indigo-500/5 blur-[100px] rounded-full pointer-events-none" />
@@ -256,12 +379,16 @@ export default function B2BAgentDashboard() {
                     </label>
 
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                        ⚡ Instant Payout
-                      </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        🏛️ Bill Payment
-                      </span>
+                      {isPayout && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          ⚡ Instant Payout
+                        </span>
+                      )}
+                      {isBbps && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                          🏛️ Bill Payment
+                        </span>
+                      )}
                     </div>
                   </div>
 
