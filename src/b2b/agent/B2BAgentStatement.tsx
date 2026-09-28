@@ -24,7 +24,10 @@ import {
   AlertCircle,
   HelpCircle,
   Hash,
-  Download
+  Download,
+  Zap,
+  Layers,
+  Landmark
 } from 'lucide-react';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
@@ -35,18 +38,24 @@ export interface StatementTxn {
   date: string;
   timestamp: number;
   type: 'credit' | 'debit';
-  source: 'fund_request' | 'bill_payment' | 'bill_refund';
+  source: 'fund_request' | 'bill_payment' | 'bill_refund' | 'payout_transfer' | 'payout_refund';
   title: string;
   narration: string;
   reference: string;
   billerName?: string;
   consumerNo?: string;
+  beneficiaryName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  bankName?: string;
+  orderId?: string;
   amount: number;
   charge: number;
   netCredit: number;
   netDebit: number;
   runningBalance: number;
   status: 'approved' | 'success' | 'pending' | 'failed' | 'refunded';
+  walletType?: 'bbps' | 'payout';
   raw: any;
 }
 
@@ -90,6 +99,8 @@ export default function B2BAgentStatement() {
   // Raw fetched data
   const [allFunds, setAllFunds] = useState<any[]>([]);
   const [allLogs, setAllLogs] = useState<any[]>([]);
+  const [allPayouts, setAllPayouts] = useState<any[]>([]);
+  const [selectedWallet, setSelectedWallet] = useState<'bbps' | 'payout'>('bbps');
 
   useEffect(() => {
     const id = localStorage.getItem('b2bAgentId');
@@ -126,10 +137,18 @@ export default function B2BAgentStatement() {
       })
       .subscribe();
 
+    const channel4 = supabase
+      .channel(`b2b_agent_statement_payouts_${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'b2b_payout_transactions', filter: `agent_id=eq.${id}` }, () => {
+        fetchData(id, true);
+      })
+      .subscribe();
+
     return () => {
       supabase.removeChannel(channel1);
       supabase.removeChannel(channel2);
       supabase.removeChannel(channel3);
+      supabase.removeChannel(channel4);
     };
   }, [navigate]);
 
@@ -142,6 +161,13 @@ export default function B2BAgentStatement() {
         .single();
       if (data) {
         setAgentDetails(data);
+        const isBbps = data.is_bbps_enabled !== false;
+        const isPayout = !!data.is_payout_enabled;
+        if (isPayout && !isBbps) {
+          setSelectedWallet('payout');
+        } else {
+          setSelectedWallet('bbps');
+        }
       }
     } catch (e) {
       console.error('Error fetching agent details:', e);
@@ -153,7 +179,7 @@ export default function B2BAgentStatement() {
     else setRefreshing(true);
 
     try {
-      // 1. Fetch all fund requests for this agent
+      // 1. Fetch all fund requests for this agent (including wallet_type)
       let fundsData: any[] = [];
       let from = 0;
       const step = 1000;
@@ -161,7 +187,7 @@ export default function B2BAgentStatement() {
       while (hasMore) {
         const { data, error } = await supabase
           .from('b2b_fund_requests')
-          .select('id, agent_id, amount, status, created_at, updated_at, utr_number, b2b_admin_bank_accounts(account_name, bank_name)')
+          .select('id, agent_id, amount, status, wallet_type, created_at, updated_at, utr_number, b2b_admin_bank_accounts(account_name, bank_name)')
           .eq('agent_id', id)
           .order('created_at', { ascending: true })
           .range(from, from + step - 1);
@@ -200,6 +226,29 @@ export default function B2BAgentStatement() {
         }
       }
       setAllLogs(logsData);
+
+      // 3. Fetch all payout transactions for this agent
+      let payoutsData: any[] = [];
+      let pFrom = 0;
+      let pHasMore = true;
+      while (pHasMore) {
+        const { data, error } = await supabase
+          .from('b2b_payout_transactions')
+          .select('id, agent_id, order_id, client_order_id, amount, fee, total_deducted, beneficiary_name, account_number, ifsc_code, bank_name, transfer_mode, status, utr, created_at')
+          .eq('agent_id', id)
+          .order('created_at', { ascending: true })
+          .range(pFrom, pFrom + step - 1);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+          payoutsData = payoutsData.concat(data);
+          if (data.length < step) pHasMore = false;
+          else pFrom += step;
+        } else {
+          pHasMore = false;
+        }
+      }
+      setAllPayouts(payoutsData);
 
     } catch (err: any) {
       console.error('Statement fetch error:', err);
@@ -276,106 +325,216 @@ export default function B2BAgentStatement() {
   const allLedgerTxns = useMemo(() => {
     const list: StatementTxn[] = [];
 
-    // 1. Process Fund Requests
-    allFunds.forEach((f) => {
-      const isApproved = f.status === 'approved';
-      if (!isApproved) return; // Only approved fund requests affect balance
+    if (selectedWallet === 'bbps') {
+      // 1. Process BBPS Fund Requests
+      allFunds.forEach((f) => {
+        if (f.status !== 'approved') return;
+        if ((f.wallet_type || 'bbps') !== 'bbps') return;
 
-      const amt = Number(f.amount || 0);
-      const bankName = f.b2b_admin_bank_accounts?.bank_name || 'Admin Bank';
-      const utr = f.utr_number || 'N/A';
+        const amt = Number(f.amount || 0);
+        const bankName = f.b2b_admin_bank_accounts?.bank_name || 'Admin Bank';
+        const utr = f.utr_number || 'N/A';
 
-      list.push({
-        id: `fund_${f.id}`,
-        date: f.created_at,
-        timestamp: new Date(f.created_at).getTime(),
-        type: 'credit',
-        source: 'fund_request',
-        title: 'Wallet Fund Top-Up',
-        narration: `Deposit to ${bankName} | UTR: ${utr}`,
-        reference: utr,
-        amount: amt,
-        charge: 0,
-        netCredit: amt,
-        netDebit: 0,
-        runningBalance: 0, // Calculated later
-        status: 'approved',
-        raw: f
-      });
-    });
-
-    // 2. Process Bill Logs
-    allLogs.forEach((l) => {
-      const parsed = parseBillLog(l);
-      // If status is failed and wasn't refunded or had 0 deduction, check if it was deducted
-      // In B2B gateway, any pay-bill attempt immediately deducts funds.
-      // If success or pending -> Debit stands.
-      // If failed/refunded -> There is a debit of (amount + charge) AND a refund credit of (amount + charge).
-
-      if (parsed.status === 'success' || parsed.status === 'pending') {
         list.push({
-          id: `bill_${l.id}`,
-          date: l.created_at,
-          timestamp: new Date(l.created_at).getTime(),
-          type: 'debit',
-          source: 'bill_payment',
-          title: `Bill Payment - ${parsed.billerName}`,
-          narration: `Consumer: ${parsed.consumerNo || 'N/A'} | Ref: ${parsed.reference}${parsed.charge > 0 ? ` (Includes ₹${parsed.charge.toFixed(2)} Fee)` : ''}`,
-          reference: parsed.reference,
-          billerName: parsed.billerName,
-          consumerNo: parsed.consumerNo,
-          amount: parsed.billAmount,
-          charge: parsed.charge,
-          netCredit: 0,
-          netDebit: parsed.totalDeduction,
-          runningBalance: 0,
-          status: parsed.status,
-          raw: l
-        });
-      } else if (parsed.status === 'failed' || parsed.status === 'refunded') {
-        // Debit entry at request time
-        list.push({
-          id: `bill_fail_${l.id}`,
-          date: l.created_at,
-          timestamp: new Date(l.created_at).getTime(),
-          type: 'debit',
-          source: 'bill_payment',
-          title: `Bill Payment (Failed) - ${parsed.billerName}`,
-          narration: `Consumer: ${parsed.consumerNo || 'N/A'} | Ref: ${parsed.reference}`,
-          reference: parsed.reference,
-          billerName: parsed.billerName,
-          consumerNo: parsed.consumerNo,
-          amount: parsed.billAmount,
-          charge: parsed.charge,
-          netCredit: 0,
-          netDebit: parsed.totalDeduction,
-          runningBalance: 0,
-          status: 'failed',
-          raw: l
-        });
-
-        // Instant refund entry
-        list.push({
-          id: `bill_refund_${l.id}`,
-          date: l.created_at,
-          timestamp: new Date(l.created_at).getTime() + 10, // slight offset to order after debit
+          id: `fund_${f.id}`,
+          date: f.created_at,
+          timestamp: new Date(f.created_at).getTime(),
           type: 'credit',
-          source: 'bill_refund',
-          title: `Refund - Failed Bill Payment`,
-          narration: `Auto-refund for ${parsed.billerName} | Consumer: ${parsed.consumerNo || 'N/A'}`,
-          reference: parsed.reference,
-          billerName: parsed.billerName,
-          consumerNo: parsed.consumerNo,
-          amount: parsed.totalDeduction,
+          source: 'fund_request',
+          title: 'BBPS Wallet Top-Up',
+          narration: `Deposit to ${bankName} | UTR: ${utr}`,
+          reference: utr,
+          amount: amt,
           charge: 0,
-          netCredit: parsed.totalDeduction,
+          netCredit: amt,
           netDebit: 0,
           runningBalance: 0,
-          status: 'refunded',
-          raw: l
+          status: 'approved',
+          walletType: 'bbps',
+          raw: f
         });
-      }
-    });
+      });
+
+      // 2. Process BBPS Bill Payment Logs
+      allLogs.forEach((l) => {
+        const parsed = parseBillLog(l);
+        if (parsed.status === 'success' || parsed.status === 'pending') {
+          list.push({
+            id: `bill_${l.id}`,
+            date: l.created_at,
+            timestamp: new Date(l.created_at).getTime(),
+            type: 'debit',
+            source: 'bill_payment',
+            title: `Bill Payment - ${parsed.billerName}`,
+            narration: `Consumer: ${parsed.consumerNo || 'N/A'} | Ref: ${parsed.reference}${parsed.charge > 0 ? ` (Includes ₹${parsed.charge.toFixed(2)} Fee)` : ''}`,
+            reference: parsed.reference,
+            billerName: parsed.billerName,
+            consumerNo: parsed.consumerNo,
+            amount: parsed.billAmount,
+            charge: parsed.charge,
+            netCredit: 0,
+            netDebit: parsed.totalDeduction,
+            runningBalance: 0,
+            status: parsed.status,
+            walletType: 'bbps',
+            raw: l
+          });
+        } else if (parsed.status === 'failed' || parsed.status === 'refunded') {
+          list.push({
+            id: `bill_fail_${l.id}`,
+            date: l.created_at,
+            timestamp: new Date(l.created_at).getTime(),
+            type: 'debit',
+            source: 'bill_payment',
+            title: `Bill Payment (Failed) - ${parsed.billerName}`,
+            narration: `Consumer: ${parsed.consumerNo || 'N/A'} | Ref: ${parsed.reference}`,
+            reference: parsed.reference,
+            billerName: parsed.billerName,
+            consumerNo: parsed.consumerNo,
+            amount: parsed.billAmount,
+            charge: parsed.charge,
+            netCredit: 0,
+            netDebit: parsed.totalDeduction,
+            runningBalance: 0,
+            status: 'failed',
+            walletType: 'bbps',
+            raw: l
+          });
+
+          list.push({
+            id: `bill_refund_${l.id}`,
+            date: l.created_at,
+            timestamp: new Date(l.created_at).getTime() + 10,
+            type: 'credit',
+            source: 'bill_refund',
+            title: `Refund - Failed Bill Payment`,
+            narration: `Auto-refund for ${parsed.billerName} | Consumer: ${parsed.consumerNo || 'N/A'}`,
+            reference: parsed.reference,
+            billerName: parsed.billerName,
+            consumerNo: parsed.consumerNo,
+            amount: parsed.totalDeduction,
+            charge: 0,
+            netCredit: parsed.totalDeduction,
+            netDebit: 0,
+            runningBalance: 0,
+            status: 'refunded',
+            walletType: 'bbps',
+            raw: l
+          });
+        }
+      });
+    } else {
+      // 1. Process Payout Fund Requests
+      allFunds.forEach((f) => {
+        if (f.status !== 'approved') return;
+        if (f.wallet_type !== 'payout') return;
+
+        const amt = Number(f.amount || 0);
+        const bankName = f.b2b_admin_bank_accounts?.bank_name || 'Admin Bank';
+        const utr = f.utr_number || 'N/A';
+
+        list.push({
+          id: `fund_payout_${f.id}`,
+          date: f.created_at,
+          timestamp: new Date(f.created_at).getTime(),
+          type: 'credit',
+          source: 'fund_request',
+          title: 'Payout Wallet Top-Up',
+          narration: `Deposit to ${bankName} | UTR: ${utr}`,
+          reference: utr,
+          amount: amt,
+          charge: 0,
+          netCredit: amt,
+          netDebit: 0,
+          runningBalance: 0,
+          status: 'approved',
+          walletType: 'payout',
+          raw: f
+        });
+      });
+
+      // 2. Process Payout Transactions
+      allPayouts.forEach((p) => {
+        const amt = Number(p.amount || 0);
+        const fee = Number(p.fee || 0);
+        const totalDeducted = Number(p.total_deducted || (amt + fee));
+        const beneficiary = p.beneficiary_name || 'Beneficiary';
+        const maskedAc = p.account_number ? `••••${p.account_number.slice(-4)}` : 'N/A';
+        const ref = p.utr || p.order_id || p.client_order_id || p.id;
+        const narration = `Beneficiary: ${beneficiary} | A/C: ${maskedAc} | IFSC: ${p.ifsc_code || 'N/A'}${p.bank_name ? ` (${p.bank_name})` : ''}${fee > 0 ? ` | Fee: ₹${fee.toFixed(2)}` : ''}`;
+
+        if (p.status === 'success' || p.status === 'pending') {
+          list.push({
+            id: `payout_${p.id}`,
+            date: p.created_at,
+            timestamp: new Date(p.created_at).getTime(),
+            type: 'debit',
+            source: 'payout_transfer',
+            title: `Instant Payout - ${beneficiary}`,
+            narration,
+            reference: ref,
+            beneficiaryName: beneficiary,
+            accountNumber: p.account_number,
+            ifscCode: p.ifsc_code,
+            bankName: p.bank_name,
+            amount: amt,
+            charge: fee,
+            netCredit: 0,
+            netDebit: totalDeducted,
+            runningBalance: 0,
+            status: p.status,
+            walletType: 'payout',
+            raw: p
+          });
+        } else if (p.status === 'failed' || p.status === 'refunded') {
+          list.push({
+            id: `payout_fail_${p.id}`,
+            date: p.created_at,
+            timestamp: new Date(p.created_at).getTime(),
+            type: 'debit',
+            source: 'payout_transfer',
+            title: `Instant Payout (Failed) - ${beneficiary}`,
+            narration,
+            reference: ref,
+            beneficiaryName: beneficiary,
+            accountNumber: p.account_number,
+            ifscCode: p.ifsc_code,
+            bankName: p.bank_name,
+            amount: amt,
+            charge: fee,
+            netCredit: 0,
+            netDebit: totalDeducted,
+            runningBalance: 0,
+            status: 'failed',
+            walletType: 'payout',
+            raw: p
+          });
+
+          list.push({
+            id: `payout_refund_${p.id}`,
+            date: p.created_at,
+            timestamp: new Date(p.created_at).getTime() + 10,
+            type: 'credit',
+            source: 'payout_refund',
+            title: `Refund - Failed Payout Transfer`,
+            narration: `Auto-refund for ${beneficiary} | Ref: ${ref}`,
+            reference: ref,
+            beneficiaryName: beneficiary,
+            accountNumber: p.account_number,
+            ifscCode: p.ifsc_code,
+            bankName: p.bank_name,
+            amount: totalDeducted,
+            charge: 0,
+            netCredit: totalDeducted,
+            netDebit: 0,
+            runningBalance: 0,
+            status: 'refunded',
+            walletType: 'payout',
+            raw: p
+          });
+        }
+      });
+    }
 
     // Sort ascending by time to calculate accurate running balance
     list.sort((a, b) => a.timestamp - b.timestamp);
@@ -388,7 +547,7 @@ export default function B2BAgentStatement() {
     }
 
     return list;
-  }, [allFunds, allLogs]);
+  }, [allFunds, allLogs, allPayouts, selectedWallet]);
 
   // Date Bounds for Filtering
   const dateBounds = useMemo(() => {
@@ -475,6 +634,10 @@ export default function B2BAgentStatement() {
           t.reference.toLowerCase().includes(q) ||
           (t.billerName && t.billerName.toLowerCase().includes(q)) ||
           (t.consumerNo && t.consumerNo.toLowerCase().includes(q)) ||
+          (t.beneficiaryName && t.beneficiaryName.toLowerCase().includes(q)) ||
+          (t.accountNumber && t.accountNumber.toLowerCase().includes(q)) ||
+          (t.ifscCode && t.ifscCode.toLowerCase().includes(q)) ||
+          (t.bankName && t.bankName.toLowerCase().includes(q)) ||
           t.amount.toString().includes(q)
         );
       });
@@ -553,10 +716,13 @@ export default function B2BAgentStatement() {
   };
 
   // Export to Excel
+  // Export to Excel
   const handleExportExcel = async () => {
     try {
       const XLSX = await import('xlsx');
       const agentName = `${agentDetails?.first_name || ''} ${agentDetails?.last_name || ''}`.trim() || agentDetails?.b2b_login_id || 'B2B Agent';
+      const walletLabel = selectedWallet === 'payout' ? 'Payout_Wallet' : 'BBPS_Wallet';
+      const sheetName = selectedWallet === 'payout' ? 'Payout Statement' : 'BBPS Statement';
 
       if (activeTab === 'statement') {
         const rows = filteredData.displayedTxns.map((t, index) => ({
@@ -570,7 +736,16 @@ export default function B2BAgentStatement() {
           'Credit (+) (₹)': t.netCredit > 0 ? t.netCredit : '',
           'Debit (-) (₹)': t.netDebit > 0 ? t.netDebit : '',
           'Running Balance (₹)': t.runningBalance,
-          'Status': t.status.toUpperCase()
+          'Status': t.status.toUpperCase(),
+          ...(selectedWallet === 'payout' ? {
+            'Beneficiary': t.beneficiaryName || '',
+            'Account No': t.accountNumber || '',
+            'IFSC': t.ifscCode || '',
+            'Bank': t.bankName || ''
+          } : {
+            'Biller': t.billerName || '',
+            'Consumer No': t.consumerNo || ''
+          })
         }));
 
         // Add summary row
@@ -585,14 +760,23 @@ export default function B2BAgentStatement() {
           'Credit (+) (₹)': filteredData.periodCredits as any,
           'Debit (-) (₹)': filteredData.periodDebits as any,
           'Running Balance (₹)': filteredData.closingBalance as any,
-          'Status': ''
+          'Status': '',
+          ...(selectedWallet === 'payout' ? {
+            'Beneficiary': '',
+            'Account No': '',
+            'IFSC': '',
+            'Bank': ''
+          } : {
+            'Biller': '',
+            'Consumer No': ''
+          })
         });
 
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Account Statement');
-        XLSX.writeFile(wb, `B2B_Statement_${agentDetails?.b2b_login_id || 'Agent'}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
-        toast.success('Detailed statement exported to Excel!');
+        XLSX.utils.book_append_sheet(wb, ws, sheetName);
+        XLSX.writeFile(wb, `B2B_${walletLabel}_Statement_${agentDetails?.b2b_login_id || 'Agent'}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+        toast.success(`${selectedWallet === 'payout' ? 'Payout' : 'BBPS'} statement exported to Excel!`);
       } else {
         // Daily Ledger Export
         const rows = dailyLedgerList.map((d, index) => ({
@@ -609,8 +793,8 @@ export default function B2BAgentStatement() {
 
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Daily Balance Summary');
-        XLSX.writeFile(wb, `B2B_Daily_Balance_${agentDetails?.b2b_login_id || 'Agent'}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, `${selectedWallet === 'payout' ? 'Payout' : 'BBPS'} Daily Summary`);
+        XLSX.writeFile(wb, `B2B_${walletLabel}_Daily_Balance_${agentDetails?.b2b_login_id || 'Agent'}_${format(new Date(), 'yyyyMMdd')}.xlsx`);
         toast.success('Daily balance summary exported to Excel!');
       }
     } catch (err: any) {
@@ -634,16 +818,20 @@ export default function B2BAgentStatement() {
       });
 
       const agentName = `${agentDetails?.first_name || ''} ${agentDetails?.last_name || ''}`.trim() || agentDetails?.b2b_login_id || 'B2B Agent';
-      const liveBal = Number(agentDetails?.wallet_balance || 0);
+      const liveBal = selectedWallet === 'payout'
+        ? Number(agentDetails?.payout_wallet_balance || 0)
+        : Number(agentDetails?.wallet_balance || 0);
+      const walletLabel = selectedWallet === 'payout' ? 'Payout_Wallet' : 'BBPS_Wallet';
+      const walletTitle = selectedWallet === 'payout' ? 'INSTANT PAYOUT WALLET' : 'BBPS BILL PAYMENT WALLET';
 
       // --- Header Design ---
       doc.setFillColor(15, 23, 42); // slate-900
       doc.rect(0, 0, 210, 42, 'F');
 
-      doc.setFontSize(18);
+      doc.setFontSize(16);
       doc.setTextColor(255, 255, 255);
       doc.setFont('helvetica', 'bold');
-      doc.text('B2B AGENT ACCOUNT STATEMENT', 14, 16);
+      doc.text(`B2B AGENT STATEMENT (${walletTitle})`, 14, 16);
 
       doc.setFontSize(9);
       doc.setTextColor(148, 163, 184); // slate-400
@@ -801,7 +989,7 @@ export default function B2BAgentStatement() {
         });
       }
 
-      doc.save(`B2B_Statement_${agentDetails?.b2b_login_id || 'Agent'}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+      doc.save(`B2B_${walletLabel}_Statement_${agentDetails?.b2b_login_id || 'Agent'}_${format(new Date(), 'yyyyMMdd')}.pdf`);
       toast.success('Official PDF Statement downloaded!');
     } catch (err: any) {
       console.error('PDF Export Error:', err);
@@ -809,7 +997,12 @@ export default function B2BAgentStatement() {
     }
   };
 
-  const liveWalletBalance = Number(agentDetails?.wallet_balance || 0);
+  const isBbpsActive = agentDetails?.is_bbps_enabled !== false;
+  const isPayoutActive = !!agentDetails?.is_payout_enabled;
+  const liveWalletBalance = selectedWallet === 'payout' 
+    ? Number(agentDetails?.payout_wallet_balance || 0)
+    : Number(agentDetails?.wallet_balance || 0);
+  const activeWalletName = selectedWallet === 'payout' ? 'Payout Wallet' : 'BBPS Wallet';
 
   if (loading) {
     return (
@@ -873,21 +1066,82 @@ export default function B2BAgentStatement() {
         </div>
       </div>
 
+      {/* Wallet Switcher Bar (Shown if agent has both services, or clear indicator if single service) */}
+      {isBbpsActive && isPayoutActive ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/90 p-3 rounded-2xl border border-slate-700 shadow-lg">
+          <div className="flex items-center gap-2 text-xs font-bold text-slate-300 pl-1">
+            <Wallet size={16} className="text-indigo-400" />
+            <span>Select Wallet Passbook:</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setSelectedWallet('bbps')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedWallet === 'bbps'
+                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                  : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-700'
+              }`}
+            >
+              <Zap size={14} className={selectedWallet === 'bbps' ? 'text-white' : 'text-emerald-400'} />
+              <span>BBPS Wallet Statement</span>
+              <span className={`font-mono text-[11px] px-2 py-0.5 rounded-lg ${selectedWallet === 'bbps' ? 'bg-emerald-700/60' : 'bg-slate-800 text-emerald-400 border border-emerald-500/20'}`}>
+                ₹{Number(agentDetails?.wallet_balance || 0).toFixed(2)}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedWallet('payout')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                selectedWallet === 'payout'
+                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                  : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-700'
+              }`}
+            >
+              <Layers size={14} className={selectedWallet === 'payout' ? 'text-white' : 'text-purple-400'} />
+              <span>Payout Wallet Statement</span>
+              <span className={`font-mono text-[11px] px-2 py-0.5 rounded-lg ${selectedWallet === 'payout' ? 'bg-purple-700/60' : 'bg-slate-800 text-purple-400 border border-purple-500/20'}`}>
+                ₹{Number(agentDetails?.payout_wallet_balance || 0).toFixed(2)}
+              </span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2">
+          {selectedWallet === 'payout' ? (
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30 shadow-sm">
+              <Layers size={14} /> Instant Payout Wallet Passbook
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-sm">
+              <Zap size={14} /> BBPS Bill Payment Wallet Passbook
+            </span>
+          )}
+        </div>
+      )}
+
       {/* Primary Balance Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Live Current Balance */}
-        <div className="bg-slate-800/90 border border-slate-700 rounded-2xl p-5 shadow-xl relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+        <div className={`bg-slate-800/90 border rounded-2xl p-5 shadow-xl relative overflow-hidden group transition-all ${
+          selectedWallet === 'payout' ? 'border-purple-500/40 hover:border-purple-500/60' : 'border-slate-700 hover:border-emerald-500/40'
+        }`}>
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Current Wallet Balance</span>
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <Wallet className="w-5 h-5" />
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              {activeWalletName} Balance
+            </span>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+              selectedWallet === 'payout' ? 'bg-purple-500/10 border border-purple-500/20 text-purple-400' : 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            }`}>
+              {selectedWallet === 'payout' ? <Layers className="w-5 h-5" /> : <Wallet className="w-5 h-5" />}
             </div>
           </div>
-          <div className="text-3xl font-black text-emerald-400 tracking-tight">
+          <div className={`text-3xl font-black tracking-tight ${selectedWallet === 'payout' ? 'text-purple-400' : 'text-emerald-400'}`}>
             ₹ {liveWalletBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
           <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className={`w-2 h-2 rounded-full animate-pulse ${selectedWallet === 'payout' ? 'bg-purple-400' : 'bg-emerald-400'}`} />
             Real-time available account balance
           </p>
         </div>
@@ -920,7 +1174,7 @@ export default function B2BAgentStatement() {
             - ₹ {filteredData.periodDebits.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <p className="text-[11px] text-slate-400 mt-1">
-            Total bill payments & fee charges in period
+            {selectedWallet === 'payout' ? 'Total payout transfers & fee charges in period' : 'Total bill payments & fee charges in period'}
           </p>
         </div>
 
@@ -1042,7 +1296,11 @@ export default function B2BAgentStatement() {
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
               type="text"
-              placeholder="Search by UTR, Txn Ref ID, Consumer No, Biller..."
+              placeholder={
+                selectedWallet === 'payout'
+                  ? 'Search by UTR, Order ID, Beneficiary, A/C, IFSC...'
+                  : 'Search by UTR, Txn Ref ID, Consumer No, Biller...'
+              }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition-colors"
@@ -1156,6 +1414,26 @@ export default function B2BAgentStatement() {
                             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
                               isCredit ? 'bg-emerald-400' : 'bg-rose-400'
                             }`} />
+                            {t.source === 'payout_transfer' && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 shrink-0">
+                                Payout
+                              </span>
+                            )}
+                            {t.source === 'payout_refund' && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 shrink-0">
+                                Refund
+                              </span>
+                            )}
+                            {t.source === 'bill_payment' && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 shrink-0">
+                                BBPS Bill
+                              </span>
+                            )}
+                            {t.source === 'fund_request' && (
+                              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
+                                Top-Up
+                              </span>
+                            )}
                             <span className="font-bold text-white text-xs truncate">
                               {t.title}
                             </span>
@@ -1356,7 +1634,29 @@ export default function B2BAgentStatement() {
                                           )}
                                         </div>
                                         <div>
-                                          <div className="font-bold text-white text-xs">{dt.title}</div>
+                                          <div className="flex items-center gap-1.5 font-bold text-white text-xs">
+                                            {dt.source === 'payout_transfer' && (
+                                              <span className="text-[9px] font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                                Payout
+                                              </span>
+                                            )}
+                                            {dt.source === 'payout_refund' && (
+                                              <span className="text-[9px] font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                                Refund
+                                              </span>
+                                            )}
+                                            {dt.source === 'bill_payment' && (
+                                              <span className="text-[9px] font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                                BBPS Bill
+                                              </span>
+                                            )}
+                                            {dt.source === 'fund_request' && (
+                                              <span className="text-[9px] font-bold uppercase tracking-wider px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                                Top-Up
+                                              </span>
+                                            )}
+                                            <span>{dt.title}</span>
+                                          </div>
                                           <div className="text-[11px] text-slate-400">{dt.narration}</div>
                                         </div>
                                       </div>
