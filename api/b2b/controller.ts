@@ -1476,7 +1476,7 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
         mode: (targetBankDetails as any)?.bank_name || 'Bank Transfer',
         proofUrl: requestData.proof_url || proof_url || undefined,
         adminPhone: targetAdminPhones
-      }).catch(err => console.error('[WhatsApp Admin Notify Error]', err));
+      }).catch((err: any) => console.error('[WhatsApp Admin Notify Error]', err));
     } catch (wsErr) {
       console.error('[WhatsApp Trigger Error]', wsErr);
     }
@@ -1836,7 +1836,7 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         .update({ webhook_url: targetWebhookUrl })
         .eq('id', agentId)
         .then(() => console.log(`[B2B Auto-Saved Webhook URL] ${targetWebhookUrl} for agent ${agentId}`))
-        .catch(err => console.error('[B2B Auto-Save Webhook URL Error]', err));
+        .catch((err: any) => console.error('[B2B Auto-Save Webhook URL Error]', err));
     }
 
     // 2. Validate parameters
