@@ -272,10 +272,11 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       }
       const data = await resData.json();
 
-      if (data.status === 'success') {
+      if (data.status === 'success' || data.data) {
         await fetchLogs();
         const messageDetails = data.data?.message ? `\nNote: ${data.data.message}` : '';
-        alert(`Current BBPS Status: ${data.data?.bbps_status || 'CHECKED'}${messageDetails}\nOur DB was updated automatically!`);
+        const currentBBPS = data.data?.bbps_status || data.data?.current_status || data.data?.payment_status || 'CHECKED';
+        alert(`Current BBPS Status: ${currentBBPS}${messageDetails}\nOur DB was updated automatically!`);
       } else {
         const errorText = data?.message || data?.error || data?.details || 'Unable to fetch transaction status.';
         alert(`Status Check Message: ${errorText}`);
@@ -327,7 +328,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
           }
           const data = await resData.json();
-          if (data.status === 'success') {
+          if (data.status === 'success' || data.data) {
             successCount++;
           } else {
             errorCount++;

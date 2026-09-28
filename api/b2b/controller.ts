@@ -524,8 +524,7 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
       .eq('id', log.id);
 
     return res.json({
-      status: localStatus,
-      payment_status: localStatus,
+      status: 'success',
       data: {
         transaction_id,
         current_status: localStatus,
