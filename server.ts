@@ -54,6 +54,7 @@ const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
+  app.set('trust proxy', true);
   const PORT = 3000;
 
   app.use(express.json({

@@ -19,18 +19,46 @@ export const b2bAuthMiddleware = async (req: Request, res: Response, next: NextF
 
     const apiKey = req.header('x-api-key');
     const secretKey = req.header('x-secret-key');
-    // x-forwarded-for for proxies, or req.ip
-    const ipAddress = req.header('x-forwarded-for')?.split(',')[0] || req.ip || req.socket.remoteAddress;
 
     if (!apiKey || !secretKey) {
       return res.status(401).json({ status: 'error', message: 'Missing API Key or Secret Key in headers' });
     }
 
+    // Resolve real client public IP from proxy headers (Cloudflare, Nginx X-Real-IP, X-Forwarded-For, etc.)
+    const forwardedHeader = req.header('x-forwarded-for');
+    const forwardedIps = forwardedHeader 
+      ? forwardedHeader.split(',').map(s => s.trim().replace(/^::ffff:/, '')).filter(Boolean)
+      : [];
+
+    const candidateIps: string[] = Array.from(new Set([
+      req.header('cf-connecting-ip'),
+      req.header('x-real-ip'),
+      ...forwardedIps,
+      req.header('true-client-ip'),
+      req.header('x-client-ip'),
+      req.ip,
+      req.socket.remoteAddress
+    ].filter((ip): ip is string => Boolean(ip && typeof ip === 'string' && ip.trim().length > 0))
+     .map(ip => ip.replace(/^::ffff:/, '').trim())));
+
+    // Fetch agent's whitelist from DB to match real client IP
+    const { data: credData } = await supabaseAdmin
+      .from('b2b_api_credentials')
+      .select('ip_whitelist')
+      .eq('api_key', apiKey)
+      .maybeSingle();
+
+    const whitelist: string[] = credData?.ip_whitelist || [];
+
+    // Prioritize candidate IP that matches agent's whitelist; otherwise fallback to primary detected client IP
+    const matchedIp = candidateIps.find(ip => whitelist.includes(ip));
+    const effectiveIp = matchedIp || candidateIps[0] || '127.0.0.1';
+
     // Call our Supabase Postgres function to authenticate
     const { data, error } = await supabaseAdmin.rpc('authenticate_b2b_api', {
       p_api_key: apiKey,
       p_secret_key: secretKey,
-      p_ip_address: ipAddress
+      p_ip_address: effectiveIp
     });
 
     if (error) {
