@@ -1354,321 +1354,501 @@ export default function CreateB2BAgent() {
   );
 
   const renderForm = () => (
-    <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-4 mb-8">
-        <button
-          onClick={() => setView('list')}
-          className="p-2 bg-slate-800 rounded-lg border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors shadow-sm"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <div>
-          <h2 className="text-2xl font-bold text-white">
-            {view === 'create' ? 'Onboard New B2B Agent' : 'Edit B2B Agent'}
-          </h2>
-          <p className="text-slate-400 mt-1">
-            {view === 'create' ? 'Register basic details to create a new B2B agent profile.' : 'Update agent details.'}
-          </p>
+    <div className="w-full space-y-6">
+      {/* Top Header Bar */}
+      <div className="bg-slate-800/80 backdrop-blur-md rounded-2xl border border-slate-700 p-5 shadow-lg flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className="p-2.5 bg-slate-900 hover:bg-slate-700 rounded-xl border border-slate-700 text-slate-300 hover:text-white transition-all shadow-sm"
+            title="Back to Agent List"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div>
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold text-white tracking-tight">
+                {view === 'create' ? 'Onboard New B2B Agent' : 'Edit B2B Agent'}
+              </h2>
+              {view === 'create' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+                  New Partner
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  ID: {formData.b2bLoginId || 'Agent'}
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-slate-400 mt-1">
+              {view === 'create'
+                ? 'Register basic details, wallet rates, portal branding, and API permissions.'
+                : 'Update agent profile, commercial rates, portal tag, and credentials.'}
+            </p>
+          </div>
+        </div>
+
+        {/* Top Quick Actions */}
+        <div className="flex items-center gap-3 self-end md:self-auto">
+          <button
+            type="button"
+            onClick={() => setView('list')}
+            className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-700 border border-slate-700 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            form="b2b-agent-form"
+            type="submit"
+            disabled={loading}
+            className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-indigo-600/30 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {loading ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <UserPlus className="h-4 w-4" />
+            )}
+            {view === 'create' ? 'Complete Registration' : 'Save Changes'}
+          </button>
         </div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden"
-      >
-        <div className="p-6 border-b border-slate-700 bg-slate-900/50 flex items-center gap-3">
-          <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 border border-indigo-500/20">
-            <ShieldCheck className="h-5 w-5" />
-          </div>
-          <h3 className="font-semibold text-white">Agent Details Form</h3>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-8">
+      {/* Main Form Area */}
+      <form id="b2b-agent-form" onSubmit={handleSubmit} className="w-full">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           
-          <div>
-            <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 border-b border-slate-700 pb-2">
-              1. Basic Profile Details
-            </h4>
+          {/* LEFT COLUMN: Profile Avatar Preview & API Services (xl:col-span-4) */}
+          <div className="xl:col-span-4 space-y-6">
             
-            {/* Profile Photo Upload */}
-            <div className="flex flex-col sm:flex-row items-center gap-6 mb-6 pb-6 border-b border-slate-700/60">
-              <div className="relative w-24 h-24 group">
-                <label className="w-full h-full bg-slate-900 rounded-full border-2 border-dashed border-slate-700 flex flex-col items-center justify-center text-slate-400 overflow-hidden cursor-pointer hover:border-indigo-500 hover:text-indigo-400 transition-all shadow-inner">
-                  {photoPreview ? (
-                    <img src={photoPreview} alt="Agent Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <>
-                      <Camera size={24} />
-                      <span className="text-[9px] font-bold uppercase mt-1">Photo</span>
-                    </>
+            {/* Identity & Photo Card */}
+            <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
+              <div className="p-4 border-b border-slate-700 bg-slate-900/60 flex items-center gap-2.5">
+                <div className="bg-indigo-500/10 p-1.5 rounded-lg text-indigo-400 border border-indigo-500/20">
+                  <User className="h-4 w-4" />
+                </div>
+                <h3 className="font-bold text-white text-sm">Agent Identity & Avatar</h3>
+              </div>
+
+              <div className="p-6 flex flex-col items-center text-center">
+                {/* Profile Photo Uploader */}
+                <div className="relative group mb-4">
+                  <label className="w-28 h-28 bg-slate-900 rounded-full border-2 border-dashed border-indigo-500/40 hover:border-indigo-400 flex flex-col items-center justify-center text-slate-400 overflow-hidden cursor-pointer transition-all shadow-inner group-hover:scale-105">
+                    {photoPreview ? (
+                      <img src={photoPreview} alt="Agent Preview" className="w-full h-full object-cover" />
+                    ) : (
+                      <>
+                        <Camera size={26} className="text-indigo-400 group-hover:text-indigo-300" />
+                        <span className="text-[10px] font-bold uppercase mt-1 text-slate-400 group-hover:text-slate-200">Upload Photo</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      className="sr-only"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                    />
+                  </label>
+                  {photoPreview && (
+                    <button
+                      type="button"
+                      onClick={() => { setProfilePhoto(null); setPhotoPreview(null); }}
+                      className="absolute top-0 right-0 bg-rose-500 hover:bg-rose-600 text-white p-1.5 rounded-full shadow-lg transition-transform hover:scale-110"
+                      title="Remove Photo"
+                    >
+                      <X size={14} />
+                    </button>
                   )}
-                  <input
-                    type="file"
-                    className="sr-only"
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                  />
-                </label>
-                {photoPreview && (
-                  <button
-                    type="button"
-                    onClick={() => { setProfilePhoto(null); setPhotoPreview(null); }}
-                    className="absolute -top-1 -right-1 bg-rose-500 text-white p-1 rounded-full shadow-lg hover:bg-rose-600 transition-colors"
-                    title="Remove Photo"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-              <div className="text-center sm:text-left">
-                <h5 className="text-sm font-semibold text-white">Profile Photo</h5>
-                <p className="text-xs text-slate-400 mt-1">Upload a square photo for the B2B agent. Click the circle to choose an image.</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">First Name</label>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                  placeholder="Enter first name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Last Name</label>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                  placeholder="Enter last name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Mobile Number</label>
-                <input
-                  type="tel"
-                  name="mobile"
-                  value={formData.mobile}
-                  onChange={handleChange}
-                  required
-                  pattern="[0-9]{10}"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
-                  placeholder="10-digit mobile number"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Total Charge per Bill (₹)</label>
-                <input
-                  type="number"
-                  name="chargePerBill"
-                  value={formData.chargePerBill}
-                  onChange={handleTotalChargeChange}
-                  min="0"
-                  step="0.01"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-amber-400 font-bold placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono text-base"
-                  placeholder="e.g. 10.00"
-                />
-                <p className="text-xs text-slate-400 mt-1">Total charge deducted from agent wallet per bill.</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-amber-300 mb-1 flex items-center justify-between">
-                  <span>Fix Security Deposit Amount (₹)</span>
-                  <span className="text-[11px] text-amber-400/80 font-normal">Frozen from wallet</span>
-                </label>
-                <input
-                  type="number"
-                  name="fixedDepositAmount"
-                  value={formData.fixedDepositAmount}
-                  onChange={handleChange}
-                  min="0"
-                  step="100"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-400 font-bold placeholder-slate-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all font-mono text-base"
-                  placeholder="e.g. 5000"
-                />
-                <p className="text-xs text-slate-400 mt-1">Deposit amount frozen from wallet. Usable balance = Wallet - Deposit. Set to 0 to unfreeze.</p>
-              </div>
-
-              {/* Developer & Owner Charge Split */}
-              <div className="md:col-span-2 bg-slate-900/60 p-4 rounded-xl border border-slate-700/70 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-blue-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>Developer Charge (₹)</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Internal Admin Only</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="developerCharge"
-                    value={formData.developerCharge}
-                    onChange={handleDeveloperChargeChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-blue-500/30 text-blue-300 font-bold placeholder-slate-500 focus:border-blue-500 outline-none transition-all font-mono"
-                    placeholder="0.00"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">Developer revenue portion per bill.</p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-purple-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                    <span>Owner Charge (₹)</span>
-                    <span className="text-[10px] text-slate-400 font-normal">Internal Admin Only</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="ownerCharge"
-                    value={formData.ownerCharge}
-                    onChange={handleOwnerChargeChange}
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-purple-500/30 text-purple-300 font-bold placeholder-slate-500 focus:border-purple-500 outline-none transition-all font-mono"
-                    placeholder="0.00"
-                  />
-                  <p className="text-[11px] text-slate-400 mt-1">Owner revenue portion per bill.</p>
+
+                <h4 className="text-base font-bold text-white">
+                  {formData.firstName || formData.lastName ? `${formData.firstName} ${formData.lastName}`.trim() : 'Agent Name'}
+                </h4>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-xs font-mono text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md">
+                    @{formData.b2bLoginId || 'login_id'}
+                  </span>
+                  {formData.agentTag && (
+                    <span className="text-xs font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md">
+                      {formData.agentTag}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-400 mt-2 font-mono">
+                  {formData.mobile ? `+91 ${formData.mobile}` : 'Mobile not specified'}
+                </p>
+
+                <div className="w-full border-t border-slate-700/60 mt-4 pt-4 flex items-center justify-between text-xs text-slate-400">
+                  <span>Partner Status</span>
+                  <span className="inline-flex items-center gap-1.5 font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    Active
+                  </span>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1 flex items-center justify-between">
-                  <span>Agent Tag (Portal Name)</span>
-                  <span className="text-[11px] text-slate-400">e.g. Rajwadi, Zentopay</span>
-                </label>
-                <input
-                  type="text"
-                  name="agentTag"
-                  value={formData.agentTag}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-indigo-300 font-bold placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
-                  placeholder="Portal Tag (e.g. Rajwadi, Zentopay)"
-                />
-                <p className="text-xs text-slate-400 mt-1">Identifies which portal this agent belongs to in Fund Requests.</p>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-slate-300 mb-1">Full Address</label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleChange}
-                  rows={3}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all resize-none"
-                  placeholder="Enter complete address"
-                />
-              </div>
             </div>
-          </div>
 
-          <div>
-            <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 border-b border-slate-700 pb-2">
-              2. B2B Login Credentials
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">B2B Login ID</label>
-                <input
-                  type="text"
-                  name="b2bLoginId"
-                  value={formData.b2bLoginId}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
-                  placeholder="e.g., agent_123"
-                />
-                <p className="text-xs text-slate-400 mt-1">Must be unique across the platform.</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">
-                  B2B Password {view === 'edit' && <span className="text-xs font-normal text-slate-400">(Leave blank to keep current)</span>}
-                </label>
-                <input
-                  type="text"
-                  name="b2bPassword"
-                  value={formData.b2bPassword}
-                  onChange={handleChange}
-                  required={view === 'create'}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono"
-                  placeholder={view === 'edit' ? "Enter new password" : "Enter a secure password"}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-bold text-indigo-400 uppercase tracking-wider mb-4 border-b border-slate-700 pb-2">
-              3. Enabled Services & Permissions
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div 
-                onClick={() => setFormData(prev => ({ ...prev, isBbpsEnabled: !prev.isBbpsEnabled }))}
-                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                  formData.isBbpsEnabled ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-900 border-slate-700'
-                }`}
-              >
-                <div>
-                  <div className="text-sm font-bold text-white flex items-center gap-2">
-                    <Zap size={16} className="text-emerald-400" /> Bill Payment (BBPS)
+            {/* Services & Modules Permissions */}
+            <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
+              <div className="p-4 border-b border-slate-700 bg-slate-900/60 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-emerald-500/10 p-1.5 rounded-lg text-emerald-400 border border-emerald-500/20">
+                    <Zap className="h-4 w-4" />
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Enables BBPS bill fetch & pay endpoints and wallet</p>
+                  <h3 className="font-bold text-white text-sm">Services & Permissions</h3>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={formData.isBbpsEnabled}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isBbpsEnabled: e.target.checked }))}
-                  className="rounded text-emerald-600 focus:ring-emerald-500 w-5 h-5 bg-slate-800 border-slate-700"
-                />
+                <span className="text-[11px] text-slate-400">Live Access</span>
               </div>
 
-              <div 
-                onClick={() => setFormData(prev => ({ ...prev, isPayoutEnabled: !prev.isPayoutEnabled }))}
-                className={`p-4 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                  formData.isPayoutEnabled ? 'bg-purple-500/10 border-purple-500/30' : 'bg-slate-900 border-slate-700'
-                }`}
-              >
-                <div>
-                  <div className="text-sm font-bold text-white flex items-center gap-2">
-                    <Layers size={16} className="text-purple-400" /> Instant Payout API
+              <div className="p-4 space-y-3">
+                {/* BBPS Toggle */}
+                <div 
+                  onClick={() => setFormData(prev => ({ ...prev, isBbpsEnabled: !prev.isBbpsEnabled }))}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                    formData.isBbpsEnabled 
+                      ? 'bg-emerald-500/10 border-emerald-500/40 shadow-sm shadow-emerald-500/10' 
+                      : 'bg-slate-900/70 border-slate-700 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${formData.isBbpsEnabled ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-500'}`}>
+                      <Zap size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">Bill Payment (BBPS)</div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">BBPS fetch & pay endpoints & wallet</p>
+                    </div>
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">Enables 24x7 IMPS/NEFT bank payout API and wallet</p>
+                  <input
+                    type="checkbox"
+                    checked={formData.isBbpsEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isBbpsEnabled: e.target.checked }))}
+                    className="rounded text-emerald-600 focus:ring-emerald-500 w-5 h-5 bg-slate-800 border-slate-700 cursor-pointer"
+                  />
                 </div>
-                <input
-                  type="checkbox"
-                  checked={formData.isPayoutEnabled}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isPayoutEnabled: e.target.checked }))}
-                  className="rounded text-purple-600 focus:ring-purple-500 w-5 h-5 bg-slate-800 border-slate-700"
-                />
+
+                {/* Instant Payout Toggle */}
+                <div 
+                  onClick={() => setFormData(prev => ({ ...prev, isPayoutEnabled: !prev.isPayoutEnabled }))}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                    formData.isPayoutEnabled 
+                      ? 'bg-purple-500/10 border-purple-500/40 shadow-sm shadow-purple-500/10' 
+                      : 'bg-slate-900/70 border-slate-700 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${formData.isPayoutEnabled ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>
+                      <Layers size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">Instant Payout API</div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">24x7 IMPS/NEFT bank payout API & wallet</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.isPayoutEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isPayoutEnabled: e.target.checked }))}
+                    className="rounded text-purple-600 focus:ring-purple-500 w-5 h-5 bg-slate-800 border-slate-700 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
+
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-700">
-            <button
-              type="button"
-              onClick={() => setView('list')}
-              className="px-6 py-2.5 rounded-xl font-medium text-slate-300 hover:bg-slate-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/30"
-            >
-              {loading ? (
-                <div className="h-5 w-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <UserPlus className="h-5 w-5" />
-              )}
-              {view === 'create' ? 'Complete Registration' : 'Update Agent'}
-            </button>
+          {/* RIGHT COLUMN: Form Inputs in Structured Cards (xl:col-span-8) */}
+          <div className="xl:col-span-8 space-y-6">
+            
+            {/* Card 1: Basic Profile Details */}
+            <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-slate-700 bg-slate-900/60 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-indigo-500/10 p-2 rounded-lg text-indigo-400 border border-indigo-500/20">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">1. Basic Profile & Portal Details</h3>
+                    <p className="text-xs text-slate-400">Personal information and branding tag</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-6 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">First Name *</label>
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-sm"
+                      placeholder="e.g. Riyaz"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Last Name *</label>
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all text-sm"
+                      placeholder="e.g. Mahida"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Mobile Number *</label>
+                    <input
+                      type="tel"
+                      name="mobile"
+                      value={formData.mobile}
+                      onChange={handleChange}
+                      required
+                      pattern="[0-9]{10}"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono text-sm"
+                      placeholder="10-digit number"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Portal Tag</span>
+                      <span className="text-[10px] text-slate-400 font-normal">e.g. Rajwadi</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="agentTag"
+                      value={formData.agentTag}
+                      onChange={handleChange}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-indigo-300 font-bold placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono text-sm"
+                      placeholder="Portal Name / Tag"
+                    />
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <span className="text-[10px] text-slate-500">Quick set:</span>
+                      {['Rajwadi', 'Zentopay', 'UsePay'].map(tag => (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, agentTag: tag }))}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 hover:bg-slate-700 text-slate-400 hover:text-indigo-300 border border-slate-700 transition-colors"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">Full Address</label>
+                    <textarea
+                      name="address"
+                      value={formData.address}
+                      onChange={handleChange}
+                      rows={2}
+                      className="w-full px-3.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all resize-none text-sm"
+                      placeholder="Enter complete office/residence address"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: Commercial Rates & Balance Rules */}
+            <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-slate-700 bg-slate-900/60 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-amber-500/10 p-2 rounded-lg text-amber-400 border border-amber-500/20">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">2. Commercial Rates & Security Rules</h3>
+                    <p className="text-xs text-slate-400">Per-bill fee deduction and security deposit setup</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-6 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                    <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Total Charge per Bill (₹)</span>
+                      <span className="text-[10px] text-amber-400/80 font-normal">Deducted from Agent</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="chargePerBill"
+                      value={formData.chargePerBill}
+                      onChange={handleTotalChargeChange}
+                      min="0"
+                      step="0.01"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-400 font-bold placeholder-slate-500 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all font-mono text-lg"
+                      placeholder="0.00"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1.5">Total fee deducted from agent wallet per transaction.</p>
+                  </div>
+
+                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
+                    <label className="block text-xs font-bold text-amber-300 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span>Fix Security Deposit (₹)</span>
+                      <span className="text-[10px] text-amber-400/80 font-normal">Frozen Balance</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="fixedDepositAmount"
+                      value={formData.fixedDepositAmount}
+                      onChange={handleChange}
+                      min="0"
+                      step="100"
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-300 font-bold placeholder-slate-500 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/20 outline-none transition-all font-mono text-lg"
+                      placeholder="0"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1.5">Frozen from wallet. Usable balance = Wallet - Deposit.</p>
+                  </div>
+                </div>
+
+                {/* Developer & Owner Charge Split */}
+                <div className="bg-slate-900/80 p-4 rounded-xl border border-slate-700/80 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-slate-800">
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      Internal Revenue Split (Developer + Owner = Total)
+                    </span>
+                    <span className="text-xs font-mono text-slate-400">
+                      Split Total: ₹{formData.chargePerBill || '0'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold text-blue-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <span>Developer Charge (₹)</span>
+                        <span className="text-[10px] text-slate-500">Internal Portion</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="developerCharge"
+                        value={formData.developerCharge}
+                        onChange={handleDeveloperChargeChange}
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-blue-500/40 text-blue-300 font-bold placeholder-slate-500 focus:border-blue-400 outline-none transition-all font-mono text-sm"
+                        placeholder="0.00"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Developer revenue portion per bill.</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-purple-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                        <span>Owner Charge (₹)</span>
+                        <span className="text-[10px] text-slate-500">Internal Portion</span>
+                      </label>
+                      <input
+                        type="number"
+                        name="ownerCharge"
+                        value={formData.ownerCharge}
+                        onChange={handleOwnerChargeChange}
+                        min="0"
+                        step="0.01"
+                        className="w-full px-3.5 py-2 rounded-lg bg-slate-900 border border-purple-500/40 text-purple-300 font-bold placeholder-slate-500 focus:border-purple-400 outline-none transition-all font-mono text-sm"
+                        placeholder="0.00"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">Owner revenue portion per bill.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: B2B Login Credentials */}
+            <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 overflow-hidden">
+              <div className="p-4 sm:p-5 border-b border-slate-700 bg-slate-900/60 flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-400 border border-emerald-500/20">
+                    <KeyRound className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base">3. B2B Login Credentials</h3>
+                    <p className="text-xs text-slate-400">Agent portal access and authentication</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 sm:p-6 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                      B2B Login ID *
+                    </label>
+                    <input
+                      type="text"
+                      name="b2bLoginId"
+                      value={formData.b2bLoginId}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono text-sm"
+                      placeholder="e.g. agent_riyaz"
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Must be unique across the platform.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 uppercase tracking-wider mb-1.5">
+                      B2B Password {view === 'edit' && <span className="text-[10px] lowercase font-normal text-slate-400">(leave blank to keep current)</span>} *
+                    </label>
+                    <input
+                      type="text"
+                      name="b2bPassword"
+                      value={formData.b2bPassword}
+                      onChange={handleChange}
+                      required={view === 'create'}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all font-mono text-sm"
+                      placeholder={view === 'edit' ? "Enter new password if changing" : "Enter a secure password"}
+                    />
+                    <p className="text-[11px] text-slate-400 mt-1">Used by the agent to log into their dashboard.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bottom Actions Bar */}
+            <div className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="text-xs text-slate-400 text-center sm:text-left">
+                Ensure all details and financial charge splits are accurate before saving.
+              </div>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setView('list')}
+                  className="px-5 py-2.5 rounded-xl font-semibold text-sm text-slate-300 hover:text-white bg-slate-900 hover:bg-slate-700 border border-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg shadow-indigo-600/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {loading ? (
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <UserPlus className="h-4 w-4" />
+                  )}
+                  {view === 'create' ? 'Complete Registration' : 'Update Agent Details'}
+                </button>
+              </div>
+            </div>
+
           </div>
-        </form>
-      </motion.div>
+
+        </div>
+      </form>
     </div>
   );
 

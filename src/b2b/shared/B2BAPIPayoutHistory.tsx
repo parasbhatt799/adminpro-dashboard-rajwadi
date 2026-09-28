@@ -4,7 +4,7 @@ import {
   Zap, Clock, CheckCircle2, XCircle, Search, RefreshCw, 
   Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, 
   ChevronRight, User, Building2, Receipt, Copy, Download, 
-  FileSpreadsheet, FileText, ArrowRightLeft, AlertCircle, Eye, Printer
+  FileSpreadsheet, FileText, ArrowRightLeft, AlertCircle, Eye, Printer, Check
 } from 'lucide-react';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
