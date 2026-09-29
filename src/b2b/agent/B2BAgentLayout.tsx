@@ -152,13 +152,23 @@ export default function B2BAgentLayout() {
                   <Book className="h-4 w-4" /> Documentation
                 </Link>
 
-                {/* Bill History (Shown if BBPS or CSPL service is enabled) */}
-                {(isBbpsEnabled || isCsplEnabled) && (
+                {/* BBPS Bill History (Shown if BBPS service is enabled) */}
+                {isBbpsEnabled && (
                   <Link 
                     to="/b2b/agent/bill-history" 
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
                   >
-                    <Activity className="h-4 w-4" /> Bill History
+                    <Activity className="h-4 w-4" /> BBPS History
+                  </Link>
+                )}
+
+                {/* CSPL Bill History (Shown if CSPL service is enabled) */}
+                {isCsplEnabled && (
+                  <Link 
+                    to="/b2b/agent/cspl-history" 
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('cspl-history') ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
+                  >
+                    <Zap className="h-4 w-4" /> CSPL History
                   </Link>
                 )}
 
@@ -274,9 +284,15 @@ export default function B2BAgentLayout() {
             <Book className="h-3.5 w-3.5" /> Documentation
           </Link>
 
-          {(isBbpsEnabled || isCsplEnabled) && (
+          {isBbpsEnabled && (
             <Link to="/b2b/agent/bill-history" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
-              <Activity className="h-3.5 w-3.5" /> Bill History
+              <Activity className="h-3.5 w-3.5" /> BBPS History
+            </Link>
+          )}
+
+          {isCsplEnabled && (
+            <Link to="/b2b/agent/cspl-history" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('cspl-history') ? 'bg-blue-500/20 text-blue-400' : 'text-slate-400'}`}>
+              <Zap className="h-3.5 w-3.5" /> CSPL History
             </Link>
           )}
 
