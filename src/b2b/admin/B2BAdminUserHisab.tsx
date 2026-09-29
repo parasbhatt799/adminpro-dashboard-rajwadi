@@ -251,7 +251,7 @@ export default function B2BAdminUserHisab() {
         let q = supabase
           .from('b2b_api_logs')
           .select('id, agent_id, created_at, status_code, payment_status, charge_deducted, developer_charge, owner_charge, request_payload, response_payload')
-          .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill')
+          .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill,endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill')
           .order('created_at', { ascending: false })
           .range(logFrom, logFrom + logStep - 1);
 

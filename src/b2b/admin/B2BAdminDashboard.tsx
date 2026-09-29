@@ -49,7 +49,7 @@ export default function B2BAdminDashboard() {
         const { data, error } = await supabase
           .from('b2b_api_logs')
           .select('charge_deducted, developer_charge, owner_charge, request_payload, response_payload, status_code, endpoint')
-          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
+          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill,endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill")
           .range(from, from + step - 1);
 
         if (error) {

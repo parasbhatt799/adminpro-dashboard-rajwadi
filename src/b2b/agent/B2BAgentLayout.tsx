@@ -152,8 +152,8 @@ export default function B2BAgentLayout() {
                   <Book className="h-4 w-4" /> Documentation
                 </Link>
 
-                {/* Bill History (Only shown if BBPS service is enabled) */}
-                {isBbpsEnabled && (
+                {/* Bill History (Shown if BBPS or CSPL service is enabled) */}
+                {(isBbpsEnabled || isCsplEnabled) && (
                   <Link 
                     to="/b2b/agent/bill-history" 
                     className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400 hover:text-white hover:bg-slate-700/50'}`}
@@ -274,7 +274,7 @@ export default function B2BAgentLayout() {
             <Book className="h-3.5 w-3.5" /> Documentation
           </Link>
 
-          {isBbpsEnabled && (
+          {(isBbpsEnabled || isCsplEnabled) && (
             <Link to="/b2b/agent/bill-history" className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium ${isActive('bill-history') ? 'bg-indigo-500/20 text-indigo-400' : 'text-slate-400'}`}>
               <Activity className="h-3.5 w-3.5" /> Bill History
             </Link>

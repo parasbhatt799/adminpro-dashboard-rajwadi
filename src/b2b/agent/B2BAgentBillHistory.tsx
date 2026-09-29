@@ -18,11 +18,11 @@ export default function B2BAgentBillHistory() {
     }
     supabase
       .from('b2b_api_credentials')
-      .select('is_bbps_enabled')
+      .select('is_bbps_enabled, is_cspl_enabled')
       .eq('id', agentId)
       .single()
       .then(({ data, error }) => {
-        if (!error && data && data.is_bbps_enabled === false) {
+        if (!error && data && data.is_bbps_enabled === false && !data.is_cspl_enabled) {
           setIsAllowed(false);
         }
         setLoading(false);

@@ -57,7 +57,7 @@ export interface StatementTxn {
   netDebit: number;
   runningBalance: number;
   status: 'approved' | 'success' | 'pending' | 'failed' | 'refunded';
-  walletType?: 'bbps' | 'payout';
+  walletType?: 'bbps' | 'payout' | 'cspl';
   raw: any;
 }
 
@@ -102,7 +102,7 @@ export default function B2BAgentStatement() {
   const [allFunds, setAllFunds] = useState<any[]>([]);
   const [allLogs, setAllLogs] = useState<any[]>([]);
   const [allPayouts, setAllPayouts] = useState<any[]>([]);
-  const [selectedWallet, setSelectedWallet] = useState<'bbps' | 'payout'>('bbps');
+  const [selectedWallet, setSelectedWallet] = useState<'bbps' | 'payout' | 'cspl'>('bbps');
 
   useEffect(() => {
     const id = localStorage.getItem('b2bAgentId');
@@ -214,7 +214,7 @@ export default function B2BAgentStatement() {
           .from('b2b_api_logs')
           .select('id, agent_id, endpoint, status_code, payment_status, charge_deducted, request_payload, response_payload, created_at')
           .eq('agent_id', id)
-          .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill')
+          .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill,endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill')
           .order('created_at', { ascending: true })
           .range(lFrom, lFrom + step - 1);
 
@@ -421,6 +421,105 @@ export default function B2BAgentStatement() {
             runningBalance: 0,
             status: 'refunded',
             walletType: 'bbps',
+            raw: l
+          });
+        }
+      });
+    } else if (selectedWallet === 'cspl') {
+      // 1. Process CSPL Fund Requests
+      allFunds.forEach((f) => {
+        if (f.status !== 'approved') return;
+        if (f.wallet_type !== 'cspl') return;
+
+        const amt = Number(f.amount || 0);
+        const bankName = f.b2b_admin_bank_accounts?.bank_name || 'Admin Bank';
+        const utr = f.utr_number || 'N/A';
+
+        list.push({
+          id: `fund_cspl_${f.id}`,
+          date: f.created_at,
+          timestamp: new Date(f.created_at).getTime(),
+          type: 'credit',
+          source: 'fund_request',
+          title: 'CSPL Wallet Top-Up',
+          narration: `Deposit to ${bankName} | UTR: ${utr}`,
+          reference: utr,
+          amount: amt,
+          charge: 0,
+          netCredit: amt,
+          netDebit: 0,
+          runningBalance: 0,
+          status: 'approved',
+          walletType: 'cspl',
+          raw: f
+        });
+      });
+
+      // 2. Process CSPL Bill Payment Logs
+      allLogs.forEach((l) => {
+        if (!l.endpoint?.includes('/cspl/')) return;
+        const parsed = parseBillLog(l);
+        if (parsed.status === 'success' || parsed.status === 'pending') {
+          list.push({
+            id: `bill_${l.id}`,
+            date: l.created_at,
+            timestamp: new Date(l.created_at).getTime(),
+            type: 'debit',
+            source: 'bill_payment',
+            title: `CSPL Bill - ${parsed.billerName}`,
+            narration: `Consumer: ${parsed.consumerNo || 'N/A'} | Ref: ${parsed.reference}${parsed.charge > 0 ? ` (Fee ₹${parsed.charge.toFixed(2)})` : ''}`,
+            reference: parsed.reference,
+            billerName: parsed.billerName,
+            consumerNo: parsed.consumerNo,
+            amount: parsed.billAmount,
+            charge: parsed.charge,
+            netCredit: 0,
+            netDebit: parsed.totalDeduction,
+            runningBalance: 0,
+            status: parsed.status,
+            walletType: 'cspl',
+            raw: l
+          });
+        } else if (parsed.status === 'failed' || parsed.status === 'refunded') {
+          list.push({
+            id: `bill_fail_${l.id}`,
+            date: l.created_at,
+            timestamp: new Date(l.created_at).getTime(),
+            type: 'debit',
+            source: 'bill_payment',
+            title: `CSPL Bill (Failed) - ${parsed.billerName}`,
+            narration: `Consumer: ${parsed.consumerNo || 'N/A'} | Ref: ${parsed.reference}`,
+            reference: parsed.reference,
+            billerName: parsed.billerName,
+            consumerNo: parsed.consumerNo,
+            amount: parsed.billAmount,
+            charge: parsed.charge,
+            netCredit: 0,
+            netDebit: parsed.totalDeduction,
+            runningBalance: 0,
+            status: 'failed',
+            walletType: 'cspl',
+            raw: l
+          });
+
+          list.push({
+            id: `bill_refund_${l.id}`,
+            date: l.created_at,
+            timestamp: new Date(l.created_at).getTime() + 10,
+            type: 'credit',
+            source: 'bill_refund',
+            title: `Refund - Failed CSPL Bill`,
+            narration: `Auto-refund for ${parsed.billerName} | Consumer: ${parsed.consumerNo || 'N/A'}`,
+            reference: parsed.reference,
+            billerName: parsed.billerName,
+            consumerNo: parsed.consumerNo,
+            amount: parsed.totalDeduction,
+            charge: 0,
+            netCredit: parsed.totalDeduction,
+            netDebit: 0,
+            runningBalance: 0,
+            status: 'refunded',
+            walletType: 'cspl',
             raw: l
           });
         }
@@ -1015,10 +1114,18 @@ export default function B2BAgentStatement() {
 
   const isBbpsActive = agentDetails?.is_bbps_enabled !== false;
   const isPayoutActive = !!agentDetails?.is_payout_enabled;
+  const isCsplActive = !!agentDetails?.is_cspl_enabled;
+  const activeServiceCount = (isBbpsActive ? 1 : 0) + (isPayoutActive ? 1 : 0) + (isCsplActive ? 1 : 0);
   const liveWalletBalance = selectedWallet === 'payout' 
     ? Number(agentDetails?.payout_wallet_balance || 0)
+    : selectedWallet === 'cspl'
+    ? Number(agentDetails?.cspl_wallet_balance || 0)
     : Number(agentDetails?.wallet_balance || 0);
-  const activeWalletName = selectedWallet === 'payout' ? 'Payout Wallet' : 'BBPS Wallet';
+  const activeWalletName = selectedWallet === 'payout' 
+    ? 'Payout Wallet' 
+    : selectedWallet === 'cspl'
+    ? 'CSPL Wallet'
+    : 'BBPS Wallet';
 
   if (loading) {
     return (
@@ -1082,45 +1189,67 @@ export default function B2BAgentStatement() {
         </div>
       </div>
 
-      {/* Wallet Switcher Bar (Shown if agent has both services, or clear indicator if single service) */}
-      {isBbpsActive && isPayoutActive ? (
+      {/* Wallet Switcher Bar (Shown if agent has multiple services) */}
+      {activeServiceCount > 1 ? (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-800/90 p-3 rounded-2xl border border-slate-700 shadow-lg">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-300 pl-1">
             <Wallet size={16} className="text-indigo-400" />
             <span>Select Wallet Passbook:</span>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setSelectedWallet('bbps')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedWallet === 'bbps'
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
-                  : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-700'
-              }`}
-            >
-              <Zap size={14} className={selectedWallet === 'bbps' ? 'text-white' : 'text-emerald-400'} />
-              <span>BBPS Wallet Statement</span>
-              <span className={`font-mono text-[11px] px-2 py-0.5 rounded-lg ${selectedWallet === 'bbps' ? 'bg-emerald-700/60' : 'bg-slate-800 text-emerald-400 border border-emerald-500/20'}`}>
-                ₹{Number(agentDetails?.wallet_balance || 0).toFixed(2)}
-              </span>
-            </button>
+            {isBbpsActive && (
+              <button
+                type="button"
+                onClick={() => setSelectedWallet('bbps')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  selectedWallet === 'bbps'
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30'
+                    : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                <Zap size={14} className={selectedWallet === 'bbps' ? 'text-white' : 'text-emerald-400'} />
+                <span>BBPS Wallet</span>
+                <span className={`font-mono text-[11px] px-2 py-0.5 rounded-lg ${selectedWallet === 'bbps' ? 'bg-emerald-700/60' : 'bg-slate-800 text-emerald-400 border border-emerald-500/20'}`}>
+                  ₹{Number(agentDetails?.wallet_balance || 0).toFixed(2)}
+                </span>
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => setSelectedWallet('payout')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                selectedWallet === 'payout'
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
-                  : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-700'
-              }`}
-            >
-              <Layers size={14} className={selectedWallet === 'payout' ? 'text-white' : 'text-purple-400'} />
-              <span>Payout Wallet Statement</span>
-              <span className={`font-mono text-[11px] px-2 py-0.5 rounded-lg ${selectedWallet === 'payout' ? 'bg-purple-700/60' : 'bg-slate-800 text-purple-400 border border-purple-500/20'}`}>
-                ₹{Number(agentDetails?.payout_wallet_balance || 0).toFixed(2)}
-              </span>
-            </button>
+            {isCsplActive && (
+              <button
+                type="button"
+                onClick={() => setSelectedWallet('cspl')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  selectedWallet === 'cspl'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30'
+                    : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                <Zap size={14} className={selectedWallet === 'cspl' ? 'text-white' : 'text-blue-400'} />
+                <span>CSPL Wallet</span>
+                <span className={`font-mono text-[11px] px-2 py-0.5 rounded-lg ${selectedWallet === 'cspl' ? 'bg-blue-700/60' : 'bg-slate-800 text-blue-400 border border-blue-500/20'}`}>
+                  ₹{Number(agentDetails?.cspl_wallet_balance || 0).toFixed(2)}
+                </span>
+              </button>
+            )}
+
+            {isPayoutActive && (
+              <button
+                type="button"
+                onClick={() => setSelectedWallet('payout')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  selectedWallet === 'payout'
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30'
+                    : 'bg-slate-900/80 text-slate-400 hover:text-white border border-slate-700'
+                }`}
+              >
+                <Layers size={14} className={selectedWallet === 'payout' ? 'text-white' : 'text-purple-400'} />
+                <span>Payout Wallet</span>
+                <span className={`font-mono text-[11px] px-2 py-0.5 rounded-lg ${selectedWallet === 'payout' ? 'bg-purple-700/60' : 'bg-slate-800 text-purple-400 border border-purple-500/20'}`}>
+                  ₹{Number(agentDetails?.payout_wallet_balance || 0).toFixed(2)}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       ) : (
@@ -1128,6 +1257,10 @@ export default function B2BAgentStatement() {
           {selectedWallet === 'payout' ? (
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-purple-500/10 text-purple-400 border border-purple-500/30 shadow-sm">
               <Layers size={14} /> Instant Payout Wallet Passbook
+            </span>
+          ) : selectedWallet === 'cspl' ? (
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30 shadow-sm">
+              <Zap size={14} /> CSPL Fast Bill Wallet Passbook
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 shadow-sm">
