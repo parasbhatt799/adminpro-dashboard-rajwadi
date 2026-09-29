@@ -57,7 +57,7 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
   }, []);
 
   // Agent Map for Admin Display
-  const [agentMap, setAgentMap] = useState<Record<string, { b2b_login_id?: string; name?: string }>>({});
+  const [agentMap, setAgentMap] = useState<Record<string, { b2b_login_id?: string; name?: string; is_cspl_enabled?: boolean }>>({});
 
   // Action States
   const [selectedLog, setSelectedLog] = useState<CsplLogEntry | null>(null);
@@ -173,13 +173,14 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
         try {
           const { data: creds } = await supabase
             .from('b2b_api_credentials')
-            .select('id, agent_id, b2b_login_id, first_name, last_name');
+            .select('id, agent_id, b2b_login_id, first_name, last_name, is_cspl_enabled');
 
           if (creds) {
-            const map: Record<string, { b2b_login_id?: string; name?: string }> = {};
+            const map: Record<string, { b2b_login_id?: string; name?: string; is_cspl_enabled?: boolean }> = {};
             creds.forEach((c: any) => {
               const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ');
-              const info = { b2b_login_id: c.b2b_login_id || 'N/A', name: fullName };
+              const isCspl = !!c.is_cspl_enabled;
+              const info = { b2b_login_id: c.b2b_login_id || 'N/A', name: fullName, is_cspl_enabled: isCspl };
               if (c.id) map[c.id] = info;
               if (c.agent_id) map[c.agent_id] = info;
             });
@@ -265,18 +266,16 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
     }
   };
 
-  // Compute unique B2B login IDs for admin filter
+  // Compute unique B2B login IDs for admin filter (Only agents who have CSPL service active)
   const uniqueLoginIds = useMemo(() => {
     const set = new Set<string>();
     Object.values(agentMap).forEach(info => {
-      if (info.b2b_login_id && info.b2b_login_id !== 'N/A') set.add(info.b2b_login_id);
-    });
-    logs.forEach(log => {
-      const loginId = agentMap[log.agent_id]?.b2b_login_id;
-      if (loginId && loginId !== 'N/A') set.add(loginId);
+      if (info.is_cspl_enabled && info.b2b_login_id && info.b2b_login_id !== 'N/A') {
+        set.add(info.b2b_login_id);
+      }
     });
     return Array.from(set).sort();
-  }, [agentMap, logs]);
+  }, [agentMap]);
 
   const filteredAgentOptions = useMemo(() => {
     if (!agentSearchQuery.trim()) return uniqueLoginIds;

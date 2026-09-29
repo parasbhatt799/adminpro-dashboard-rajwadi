@@ -61,7 +61,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [showAgentSummaryModal, setShowAgentSummaryModal] = useState(false);
   const [agentSearchInModal, setAgentSearchInModal] = useState('');
 
-  const [agentMap, setAgentMap] = useState<Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string }>>({});
+  const [agentMap, setAgentMap] = useState<Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string; is_bbps_enabled?: boolean }>>({});
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -191,7 +191,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         while (credsHasMore) {
           const { data: credsBatch, error: credsErr } = await supabase
             .from('b2b_api_credentials')
-            .select('id, agent_id, b2b_login_id, billavenue_agent_id, first_name, last_name')
+            .select('id, agent_id, b2b_login_id, billavenue_agent_id, first_name, last_name, is_bbps_enabled')
             .range(credsFrom, credsFrom + credsStep - 1);
 
           if (credsErr) throw credsErr;
@@ -208,13 +208,15 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
           }
         }
 
-        const map: Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string }> = {};
+        const map: Record<string, { b2b_login_id?: string; billavenue_agent_id?: string; name?: string; is_bbps_enabled?: boolean }> = {};
         allCreds.forEach((c: any) => {
           const fullName = [c.first_name, c.last_name].filter(Boolean).join(' ');
+          const isBbps = c.is_bbps_enabled !== false;
           const info = {
             b2b_login_id: c.b2b_login_id || 'N/A',
             billavenue_agent_id: c.billavenue_agent_id || c.agent_id || 'N/A',
-            name: fullName
+            name: fullName,
+            is_bbps_enabled: isBbps
           };
           if (c.id) map[c.id] = info;
           if (c.agent_id) map[c.agent_id] = info;
@@ -563,18 +565,16 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     return true;
   };
 
-  // Compute unique B2B Login IDs for dropdown filter
+  // Compute unique B2B Login IDs for dropdown filter (Only agents who have BBPS service active)
   const uniqueLoginIds = useMemo(() => {
     const set = new Set<string>();
     Object.values(agentMap).forEach(info => {
-      if (info.b2b_login_id && info.b2b_login_id !== 'N/A') set.add(info.b2b_login_id);
-    });
-    logs.forEach(log => {
-      const loginId = agentMap[log.agent_id]?.b2b_login_id;
-      if (loginId && loginId !== 'N/A') set.add(loginId);
+      if (info.is_bbps_enabled && info.b2b_login_id && info.b2b_login_id !== 'N/A') {
+        set.add(info.b2b_login_id);
+      }
     });
     return Array.from(set).sort();
-  }, [agentMap, logs]);
+  }, [agentMap]);
 
   const filteredAgentOptions = useMemo(() => {
     if (!agentSearchQuery.trim()) return uniqueLoginIds;
@@ -592,19 +592,16 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     return info?.name ? `${b2bLoginFilter} (${info.name})` : b2bLoginFilter;
   }, [b2bLoginFilter, agentMap]);
 
-  // Compute unique BillAvenue Agent IDs for dropdown filter
+  // Compute unique BillAvenue Agent IDs for dropdown filter (Only agents who have BBPS service active)
   const uniqueBillAvenueAgentIds = useMemo(() => {
     const set = new Set<string>();
     Object.values(agentMap).forEach(info => {
-      if (info.billavenue_agent_id && info.billavenue_agent_id !== 'N/A') set.add(info.billavenue_agent_id);
-    });
-    logs.forEach(log => {
-      const reqBody = log.request_payload || log.request_body || {};
-      const baId = agentMap[log.agent_id]?.billavenue_agent_id || reqBody?.billavenueAgentId;
-      if (baId && baId !== 'N/A') set.add(baId);
+      if (info.is_bbps_enabled && info.billavenue_agent_id && info.billavenue_agent_id !== 'N/A') {
+        set.add(info.billavenue_agent_id);
+      }
     });
     return Array.from(set).sort();
-  }, [agentMap, logs]);
+  }, [agentMap]);
 
   const filteredLogs = logs.filter(log => {
     const reqBody = log.request_payload || log.request_body || {};
