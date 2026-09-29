@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
-import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight, User, Building2, Smartphone, BarChart3, Receipt, Users, Copy, Zap } from 'lucide-react';
+import { Activity, Clock, CheckCircle2, XCircle, FileText, FileSpreadsheet, Search, CreditCard, RefreshCw, Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, ChevronRight, ChevronDown, Check, User, Building2, Smartphone, BarChart3, Receipt, Users, Copy, Zap } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
@@ -37,6 +37,20 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [chargeFilter, setChargeFilter] = useState('');
   const [txnIdFilter, setTxnIdFilter] = useState('');
   const [b2bLoginFilter, setB2bLoginFilter] = useState('all');
+  const [agentDropdownOpen, setAgentDropdownOpen] = useState(false);
+  const [agentSearchQuery, setAgentSearchQuery] = useState('');
+  const agentDropdownRef = React.useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (agentDropdownRef.current && !agentDropdownRef.current.contains(event.target as Node)) {
+        setAgentDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   const [billAvenueAgentIdFilter, setBillAvenueAgentIdFilter] = useState('all');
   const [cardMobileFilter, setCardMobileFilter] = useState('');
   const [selectedLog, setSelectedLog] = useState<LogEntry | null>(null);
@@ -561,6 +575,22 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
     });
     return Array.from(set).sort();
   }, [agentMap, logs]);
+
+  const filteredAgentOptions = useMemo(() => {
+    if (!agentSearchQuery.trim()) return uniqueLoginIds;
+    const q = agentSearchQuery.toLowerCase();
+    return uniqueLoginIds.filter(id => {
+      const info = Object.values(agentMap).find(a => a.b2b_login_id === id);
+      const name = info?.name?.toLowerCase() || '';
+      return id.toLowerCase().includes(q) || name.includes(q);
+    });
+  }, [uniqueLoginIds, agentSearchQuery, agentMap]);
+
+  const selectedAgentLabel = useMemo(() => {
+    if (b2bLoginFilter === 'all') return 'All B2B Login IDs';
+    const info = Object.values(agentMap).find(a => a.b2b_login_id === b2bLoginFilter);
+    return info?.name ? `${b2bLoginFilter} (${info.name})` : b2bLoginFilter;
+  }, [b2bLoginFilter, agentMap]);
 
   // Compute unique BillAvenue Agent IDs for dropdown filter
   const uniqueBillAvenueAgentIds = useMemo(() => {
@@ -1331,7 +1361,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       </div>
 
       {/* Filter Controls Bar */}
-      <div className="bg-slate-800/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-700 space-y-3 shadow-xl">
+      <div className="bg-slate-800/80 backdrop-blur-sm p-4 rounded-2xl border border-slate-700 space-y-3 shadow-xl relative z-20">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {/* Date Filter Dropdown (Default: Today) */}
           <div className="space-y-1">
@@ -1398,23 +1428,94 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
 
           {/* B2B Login ID Dropdown Filter */}
           {isAdmin && (
-            <div className="space-y-1">
+            <div className={`space-y-1 relative ${agentDropdownOpen ? 'z-30' : 'z-10'}`} ref={agentDropdownRef}>
               <label className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider block flex items-center gap-1.5">
                 <User className="w-3.5 h-3.5 text-indigo-400" />
-                B2B Login ID
+                B2B Agent
               </label>
-              <select
-                value={b2bLoginFilter}
-                onChange={(e) => setB2bLoginFilter(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all cursor-pointer outline-none font-mono"
+
+              {/* Trigger button */}
+              <button
+                type="button"
+                onClick={() => setAgentDropdownOpen(prev => !prev)}
+                className="w-full bg-slate-900 border border-slate-700 hover:border-indigo-500/50 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer outline-none flex items-center justify-between font-mono"
               >
-                <option value="all">All B2B Login IDs</option>
-                {uniqueLoginIds.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
+                <span className="truncate text-left text-xs sm:text-sm">
+                  {selectedAgentLabel}
+                </span>
+                <ChevronDown className={`w-4 h-4 text-slate-400 ml-1.5 shrink-0 transition-transform duration-200 ${agentDropdownOpen ? 'rotate-180 text-indigo-400' : ''}`} />
+              </button>
+
+              {/* Downward Opening Dropdown Menu */}
+              {agentDropdownOpen && (
+                <div 
+                  className="absolute top-full left-0 mt-1.5 w-full min-w-[240px] max-w-xs bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+                  style={{ maxHeight: '300px' }}
+                >
+                  {uniqueLoginIds.length > 3 && (
+                    <div className="p-2 border-b border-slate-800 bg-slate-950/80">
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                        <input
+                          type="text"
+                          value={agentSearchQuery}
+                          onChange={(e) => setAgentSearchQuery(e.target.value)}
+                          placeholder="Search agent ID / name..."
+                          className="w-full bg-slate-900 border border-slate-700/80 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none focus:border-indigo-500"
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="overflow-y-auto max-h-56 divide-y divide-slate-800/40 py-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setB2bLoginFilter('all');
+                        setAgentDropdownOpen(false);
+                        setAgentSearchQuery('');
+                      }}
+                      className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
+                        b2bLoginFilter === 'all' ? 'bg-indigo-600/20 text-indigo-300 font-bold' : 'text-slate-200'
+                      }`}
+                    >
+                      <span>All B2B Login IDs</span>
+                      {b2bLoginFilter === 'all' && <Check className="w-3.5 h-3.5 text-indigo-400" />}
+                    </button>
+
+                    {filteredAgentOptions.map((id) => {
+                      const info = Object.values(agentMap).find(a => a.b2b_login_id === id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            setB2bLoginFilter(id);
+                            setAgentDropdownOpen(false);
+                            setAgentSearchQuery('');
+                          }}
+                          className={`w-full text-left px-3 py-2 text-xs flex items-center justify-between hover:bg-slate-800 transition-colors cursor-pointer ${
+                            b2bLoginFilter === id ? 'bg-indigo-600/20 text-indigo-300 font-bold' : 'text-slate-200'
+                          }`}
+                        >
+                          <div className="flex flex-col truncate pr-2">
+                            <span className="font-mono text-white font-medium">{id}</span>
+                            {info?.name && <span className="text-[10px] text-slate-400 truncate">{info.name}</span>}
+                          </div>
+                          {b2bLoginFilter === id && <Check className="w-3.5 h-3.5 text-indigo-400 shrink-0" />}
+                        </button>
+                      );
+                    })}
+
+                    {filteredAgentOptions.length === 0 && (
+                      <div className="py-3 px-3 text-center text-xs text-slate-500">
+                        No matching agents found
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
