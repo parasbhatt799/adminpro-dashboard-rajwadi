@@ -5,6 +5,7 @@ import {
   calculateSlabCharge,
   executeNixasoftPayout,
   checkNixasoftStatus,
+  executeNixasoftVerification,
   PayoutSlab
 } from '../../services/nixasoft_payout.js';
 import { firePayoutWebhook } from '../b2b/controller.js';
@@ -59,6 +60,8 @@ router.get('/config', async (req, res) => {
       min_payout: config.min_payout,
       max_payout: config.max_payout,
       notice: config.notice || '',
+      verification_charge: config.verification_charge !== undefined ? config.verification_charge : 3,
+      is_verification_enabled: config.is_verification_enabled !== false,
       slabs: (config.slabs || []).filter(s => s.is_active)
     });
   } catch (err: any) {
@@ -106,7 +109,16 @@ router.get('/admin/settings', async (req, res) => {
 // 4. Admin: Update Master Settings & Toggle
 router.post('/admin/settings', async (req, res) => {
   try {
-    const { is_active, api_token, auth_token, min_payout, max_payout, notice } = req.body;
+    const {
+      is_active,
+      api_token,
+      auth_token,
+      min_payout,
+      max_payout,
+      notice,
+      verification_charge,
+      is_verification_enabled
+    } = req.body;
 
     const updated = saveNixasoftConfig({
       ...(is_active !== undefined ? { is_active: Boolean(is_active) } : {}),
@@ -114,7 +126,9 @@ router.post('/admin/settings', async (req, res) => {
       ...(auth_token !== undefined ? { auth_token: String(auth_token).trim() } : {}),
       ...(min_payout !== undefined ? { min_payout: Number(min_payout) } : {}),
       ...(max_payout !== undefined ? { max_payout: Number(max_payout) } : {}),
-      ...(notice !== undefined ? { notice: String(notice).trim() } : {})
+      ...(notice !== undefined ? { notice: String(notice).trim() } : {}),
+      ...(verification_charge !== undefined ? { verification_charge: Number(verification_charge) } : {}),
+      ...(is_verification_enabled !== undefined ? { is_verification_enabled: Boolean(is_verification_enabled) } : {})
     });
 
     // Also sync payout_settings is_enabled in Supabase for realtime triggers
@@ -223,6 +237,201 @@ router.delete('/admin/slabs/:id', (req, res) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 7.5 User: Verify Bank Account via Nixasoft (Charges deducted ONLY on Success)
+router.post('/verify-bank', async (req, res) => {
+  try {
+    const { userId, accountNumber, ifscCode } = req.body;
+
+    if (!userId || !accountNumber || !ifscCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required parameters: userId, accountNumber, and ifscCode are required.'
+      });
+    }
+
+    const cleanAcc = String(accountNumber).trim();
+    const cleanIfsc = String(ifscCode).trim().toUpperCase();
+
+    if (cleanAcc.length < 6 || cleanAcc.length > 30) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid bank account number (6-30 digits).'
+      });
+    }
+
+    if (cleanIfsc.length !== 11) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please enter a valid 11-character IFSC code (e.g. HDFC0001234).'
+      });
+    }
+
+    const config = getNixasoftConfig();
+    if (config.is_verification_enabled === false) {
+      return res.status(400).json({
+        success: false,
+        message: 'Bank account verification service is currently disabled by administrator.'
+      });
+    }
+
+    const verificationFee = Number(config.verification_charge !== undefined ? config.verification_charge : 3);
+
+    // 1. Fetch user profile to verify active status and wallet balance
+    const { data: userProfile, error: userError } = await supabaseAdmin
+      .from('users_profiles')
+      .select('id, name, firm_name, wallet_balance, status, mobile_number, email')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userProfile) {
+      return res.status(404).json({ success: false, message: 'User account not found.' });
+    }
+
+    if (userProfile.status !== 'Active') {
+      return res.status(403).json({ success: false, message: 'Your account is currently inactive.' });
+    }
+
+    const currentBalance = Number(userProfile.wallet_balance || 0);
+
+    // Wallet balance check: User must have at least verificationFee + ₹250 reserve
+    if (currentBalance - verificationFee < 250) {
+      return res.status(400).json({
+        success: false,
+        message: `Insufficient wallet balance for verification fee (₹${verificationFee.toFixed(2)}). You must maintain at least ₹250 in your wallet. Available: ₹${currentBalance.toFixed(2)}, Required: ₹${(verificationFee + 250).toFixed(2)}`
+      });
+    }
+
+    // 2. Call Nixasoft Bank Verification 1 API
+    const clientRequestId = `VR_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+    const verificationResult = await executeNixasoftVerification({
+      accountNumber: cleanAcc,
+      ifscCode: cleanIfsc,
+      requestId: clientRequestId
+    });
+
+    console.log('[Bank Verification API Result]:', verificationResult);
+
+    // 3. Check if verification was SUCCESSFUL
+    if (verificationResult.statuscode !== 'TXN' || !verificationResult.data) {
+      // Failed! User requested: DO NOT deduct charge when verification fails
+      const rawMsg = verificationResult.message || 'Bank account verification failed. Please check Account Number and IFSC Code.';
+      const cleanMsg = sanitizeText(rawMsg);
+      return res.status(400).json({
+        success: false,
+        message: cleanMsg,
+        statuscode: verificationResult.statuscode
+      });
+    }
+
+    // 4. SUCCESS! Extract verified bank details
+    const verifiedData = verificationResult.data;
+    const bankName = verifiedData.bank_name || verifiedData.ifsc_details?.bank || 'Bank';
+    const nameAtBank = verifiedData.name_at_bank || 'VERIFIED BENEFICIARY';
+    const utr = verifiedData.utr || verifiedData.reference_id || '';
+
+    // Deduct verification charge atomically from wallet
+    let payoutId = null;
+    try {
+      const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc('submit_auto_payout_request', {
+        p_user_id: userId,
+        p_bank_name: bankName,
+        p_holder_name: nameAtBank,
+        p_account_number: cleanAcc,
+        p_ifsc_code: cleanIfsc,
+        p_amount: 0,
+        p_charges: verificationFee,
+        p_txn_id: clientRequestId,
+        p_status: 'approved',
+        p_utr_number: utr
+      });
+
+      if (rpcError || !rpcResult?.success) {
+        console.warn('[Bank Verification] RPC not available, using atomic update fallback:', rpcError || rpcResult);
+        await supabaseAdmin
+          .from('users_profiles')
+          .update({ wallet_balance: currentBalance - verificationFee })
+          .eq('id', userId);
+
+        const { data: subData } = await supabaseAdmin
+          .from('payout_submissions')
+          .insert([{
+            user_id: userId,
+            bank_name: bankName,
+            account_holder_name: nameAtBank,
+            account_number: cleanAcc,
+            ifsc_code: cleanIfsc,
+            amount: 0,
+            charge_amount: verificationFee,
+            status: 'approved',
+            txn_id: clientRequestId,
+            bank_ref: 'VERIFICATION_CHARGE',
+            utr_number: utr,
+            remark: `A/C Verification Fee debited (₹${verificationFee})`
+          }])
+          .select()
+          .single();
+        payoutId = subData?.id;
+      } else {
+        payoutId = rpcResult.payout_id;
+        await supabaseAdmin
+          .from('payout_submissions')
+          .update({
+            bank_ref: 'VERIFICATION_CHARGE',
+            remark: `A/C Verification Fee debited (₹${verificationFee})`
+          })
+          .eq('id', payoutId);
+      }
+    } catch (deductErr: any) {
+      console.error('[Bank Verification] Error debiting verification fee:', deductErr.message);
+    }
+
+    // 5. Update beneficiary record if it was already saved
+    try {
+      const { data: existingBen } = await supabaseAdmin
+        .from('payout_beneficiaries')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('account_number', cleanAcc)
+        .maybeSingle();
+
+      if (existingBen) {
+        await supabaseAdmin
+          .from('payout_beneficiaries')
+          .update({
+            holder_name: nameAtBank,
+            bank_name: bankName,
+            ifsc_code: cleanIfsc,
+            is_verified: true
+          })
+          .eq('id', existingBen.id);
+      }
+    } catch (bErr: any) {
+      console.warn('[Bank Verification] Beneficiary table update warning:', bErr.message);
+    }
+
+    return res.json({
+      success: true,
+      message: `Bank account verified successfully! Registered Name: ${nameAtBank}`,
+      charge_deducted: verificationFee,
+      data: {
+        name_at_bank: nameAtBank,
+        bank_name: bankName,
+        branch: verifiedData.branch || verifiedData.ifsc_details?.branch || '',
+        city: verifiedData.city || verifiedData.ifsc_details?.city || '',
+        utr: utr,
+        reference_id: verifiedData.reference_id || clientRequestId,
+        account_number: cleanAcc,
+        ifsc_code: cleanIfsc,
+        is_verified: true
+      }
+    });
+
+  } catch (err: any) {
+    console.error('[Bank Verification Fatal Error]:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Internal server error during verification.' });
   }
 });
 

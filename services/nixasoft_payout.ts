@@ -22,6 +22,8 @@ export interface NixasoftConfig {
   min_payout: number;
   max_payout: number;
   notice?: string;
+  verification_charge: number;
+  is_verification_enabled: boolean;
   slabs: PayoutSlab[];
 }
 
@@ -32,6 +34,8 @@ const DEFAULT_CONFIG: NixasoftConfig = {
   min_payout: 100,
   max_payout: 200000,
   notice: 'Instant 24x7 IMPS / NEFT Bank Payout',
+  verification_charge: 3,
+  is_verification_enabled: true,
   slabs: [
     {
       id: 'slab-1',
@@ -72,6 +76,8 @@ export function getNixasoftConfig(): NixasoftConfig {
     return {
       ...DEFAULT_CONFIG,
       ...data,
+      verification_charge: data.verification_charge !== undefined ? Number(data.verification_charge) : DEFAULT_CONFIG.verification_charge,
+      is_verification_enabled: data.is_verification_enabled !== undefined ? Boolean(data.is_verification_enabled) : DEFAULT_CONFIG.is_verification_enabled,
       slabs: Array.isArray(data.slabs) && data.slabs.length > 0 ? data.slabs : DEFAULT_CONFIG.slabs
     };
   } catch (err) {
@@ -86,6 +92,8 @@ export function saveNixasoftConfig(config: Partial<NixasoftConfig>): NixasoftCon
     const updated: NixasoftConfig = {
       ...current,
       ...config,
+      verification_charge: config.verification_charge !== undefined ? Number(config.verification_charge) : current.verification_charge,
+      is_verification_enabled: config.is_verification_enabled !== undefined ? Boolean(config.is_verification_enabled) : current.is_verification_enabled,
       slabs: config.slabs ? config.slabs : current.slabs
     };
     fs.ensureDirSync(path.dirname(CONFIG_FILE));
@@ -247,6 +255,87 @@ export async function checkNixasoftStatus(
       statuscode: 'TXP',
       message: error.message || 'Failed to fetch status',
       data: { requestId }
+    };
+  }
+}
+
+export interface NixasoftVerificationRequest {
+  accountNumber: string;
+  ifscCode: string;
+  requestId: string;
+}
+
+export interface NixasoftVerificationResponse {
+  statuscode: 'TXN' | 'TXP' | 'TXF' | 'ERR' | string;
+  message?: string;
+  data?: {
+    reference_id?: string;
+    name_at_bank?: string;
+    bank_name?: string;
+    utr?: string;
+    city?: string;
+    branch?: string;
+    micr?: string;
+    name_match_score?: string;
+    name_match_result?: string;
+    account_status?: string;
+    account_status_code?: string;
+    ifsc_details?: {
+      bank?: string;
+      ifsc?: string;
+      micr?: string;
+      nbin?: string;
+      address?: string;
+      city?: string;
+      state?: string;
+      branch?: string;
+      ifsc_subcode?: string;
+      category?: string;
+      swift_code?: string;
+    };
+  };
+}
+
+// Call Nixasoft Bank Verification 1 API
+export async function executeNixasoftVerification(
+  payload: NixasoftVerificationRequest,
+  apiTokenOverride?: string
+): Promise<NixasoftVerificationResponse> {
+  const config = getNixasoftConfig();
+  const token = apiTokenOverride || config.api_token || 'fba1b6568695f15ab0a3fc2efbf29f53';
+  const url = 'https://api.nixasoft.in/api/verification';
+
+  console.log(`[Nixasoft Verification] Verifying account: ${payload.accountNumber}, IFSC: ${payload.ifscCode}, reqId: ${payload.requestId}`);
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'apiToken': token,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        type: 'bankverification',
+        accountNumber: payload.accountNumber,
+        ifscCode: payload.ifscCode,
+        requestId: payload.requestId
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    const resJson = await response.json() as NixasoftVerificationResponse;
+    console.log('[Nixasoft Verification] Response received:', JSON.stringify(resJson));
+    return resJson;
+  } catch (error: any) {
+    console.error('[Nixasoft Verification] Error from API:', error.message);
+    return {
+      statuscode: 'ERR',
+      message: error.message || 'Verification service timeout / server error'
     };
   }
 }

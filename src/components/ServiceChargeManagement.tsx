@@ -14,7 +14,8 @@ import {
   ArrowRight,
   Layers,
   RefreshCw,
-  SlidersVertical
+  SlidersVertical,
+  ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import React, { useState, useEffect } from 'react';
@@ -85,6 +86,12 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
   const [isDeletingPayoutSlab, setIsDeletingPayoutSlab] = useState(false);
   const [payoutError, setPayoutError] = useState<string | null>(null);
   const [payoutSuccess, setPayoutSuccess] = useState<string | null>(null);
+
+  // Bank Verification State
+  const [verificationCharge, setVerificationCharge] = useState<number>(3);
+  const [isVerificationEnabled, setIsVerificationEnabled] = useState<boolean>(true);
+  const [savingVerificationSettings, setSavingVerificationSettings] = useState<boolean>(false);
+  const [verificationStats, setVerificationStats] = useState<{ totalCount: number; totalFees: number }>({ totalCount: 0, totalFees: 0 });
 
   const [qrMinLimit, setQrMinLimit] = useState<number>(100);
   const [qrMaxLimit, setQrMaxLimit] = useState<number>(100000);
@@ -326,19 +333,72 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
     }
   };
 
-  // Fetch Nixasoft payout slabs
+  // Fetch Nixasoft payout slabs and verification settings
   const fetchPayoutSlabs = async () => {
     try {
       setLoadingPayoutSlabs(true);
       const res = await fetch('/api/nixasoft-payout/admin/settings');
       const data = await res.json();
-      if (data.success && data.settings?.slabs) {
-        setPayoutSlabs(data.settings.slabs);
+      if (data.success && data.settings) {
+        if (data.settings.slabs) {
+          setPayoutSlabs(data.settings.slabs);
+        }
+        if (data.settings.verification_charge !== undefined) {
+          setVerificationCharge(Number(data.settings.verification_charge));
+        }
+        if (data.settings.is_verification_enabled !== undefined) {
+          setIsVerificationEnabled(Boolean(data.settings.is_verification_enabled));
+        }
+      }
+
+      // Fetch collected verification fees from payout_submissions
+      try {
+        const { data: verRows, error: verErr } = await supabase
+          .from('payout_submissions')
+          .select('charge_amount, status')
+          .eq('bank_ref', 'VERIFICATION_CHARGE')
+          .in('status', ['approved', 'success', 'successful']);
+
+        if (!verErr && verRows) {
+          const totalFees = verRows.reduce((sum, r) => sum + (Number(r.charge_amount) || 0), 0);
+          setVerificationStats({
+            totalCount: verRows.length,
+            totalFees
+          });
+        }
+      } catch (statsErr) {
+        console.error('Error fetching verification stats:', statsErr);
       }
     } catch (err) {
       console.error('Error fetching payout slabs in ServiceChargeManagement:', err);
     } finally {
       setLoadingPayoutSlabs(false);
+    }
+  };
+
+  const handleSaveVerificationSettings = async () => {
+    try {
+      setSavingVerificationSettings(true);
+      setPayoutError(null);
+      const res = await fetch('/api/nixasoft-payout/admin/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          verification_charge: Number(verificationCharge),
+          is_verification_enabled: isVerificationEnabled
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPayoutSuccess('Bank Account Verification settings saved successfully!');
+        setTimeout(() => setPayoutSuccess(null), 3500);
+      } else {
+        setPayoutError(data.message || 'Failed to save verification settings');
+      }
+    } catch (err: any) {
+      setPayoutError(err.message || 'Error saving verification settings');
+    } finally {
+      setSavingVerificationSettings(false);
     }
   };
 
@@ -853,6 +913,132 @@ export default function ServiceChargeManagement({ adminRole }: ServiceChargeMana
           {payoutError}
         </div>
       )}
+
+      {/* Bank Account Verification Settings Card */}
+      <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div>
+            <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-indigo-600" />
+              Bank Account Verification Settings (ખાતા ચકાસણી નિયંત્રણ)
+              <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border ${
+                isVerificationEnabled 
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                  : 'bg-rose-50 text-rose-700 border-rose-200'
+              }`}>
+                {isVerificationEnabled ? 'ACTIVE (ON)' : 'DISABLED (OFF)'}
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Set dynamic verification fee debited from user wallet ONLY when a bank account is successfully verified via Nixasoft API
+            </p>
+          </div>
+
+          {isFullAdmin && (
+            <button
+              onClick={handleSaveVerificationSettings}
+              disabled={savingVerificationSettings}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-md shadow-indigo-100 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              {savingVerificationSettings ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              Save Verification Settings
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+          {/* Verification Fee Input */}
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+              Verification Fee Per Success (₹)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">₹</span>
+              <input
+                type="number"
+                min="0"
+                step="0.5"
+                value={verificationCharge}
+                disabled={!isFullAdmin}
+                onChange={(e) => setVerificationCharge(Number(e.target.value))}
+                placeholder="3.00"
+                className="w-full pl-8 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 disabled:opacity-60"
+              />
+            </div>
+            <p className="text-[11px] text-slate-400">
+              User's wallet will be debited this exact amount only upon successful bank verification (Default: ₹3.00).
+            </p>
+          </div>
+
+          {/* Toggle Service Active */}
+          <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
+            <div className="space-y-1 pr-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                Verification Service Status
+              </span>
+              <p className="text-[11px] text-slate-400">
+                When enabled, users can verify bank accounts before initiating instant payouts.
+              </p>
+            </div>
+            {isFullAdmin ? (
+              <button
+                type="button"
+                onClick={() => setIsVerificationEnabled(!isVerificationEnabled)}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  isVerificationEnabled ? 'bg-emerald-500' : 'bg-slate-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    isVerificationEnabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            ) : (
+              <span className="text-xs font-bold text-slate-500">View Only</span>
+            )}
+          </div>
+        </div>
+
+        {/* Verification Revenue & Usage Summary Banner */}
+        <div className="p-4 bg-gradient-to-r from-indigo-50/70 via-purple-50/40 to-slate-50 border border-indigo-100/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-indigo-600 text-white rounded-xl shadow-xs">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="text-xs font-bold uppercase tracking-wider text-indigo-900 block">
+                Total Verification Revenue Collected (કુલ ચાર્જ સંગ્રહ)
+              </span>
+              <p className="text-xs text-slate-500">
+                Total revenue from successfully verified bank accounts
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 sm:gap-6">
+            <div className="text-right">
+              <div className="text-xl font-black text-indigo-950">
+                ₹{verificationStats.totalFees.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </div>
+              <div className="text-xs font-semibold text-slate-500">
+                Total Collected Fees
+              </div>
+            </div>
+
+            <div className="h-8 w-px bg-indigo-200/60 hidden sm:block" />
+
+            <div className="text-right">
+              <div className="text-xl font-black text-slate-800">
+                {verificationStats.totalCount}
+              </div>
+              <div className="text-xs font-semibold text-slate-500">
+                Verified Accounts
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* Dynamic Charge Slabs Table */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200 shadow-sm space-y-6">

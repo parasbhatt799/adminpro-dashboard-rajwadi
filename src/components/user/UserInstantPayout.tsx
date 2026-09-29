@@ -79,6 +79,20 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
   const [selectedBeneficiary, setSelectedBeneficiary] = useState<Beneficiary | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [addingBeneficiary, setAddingBeneficiary] = useState(false);
+
+  // Bank Verification State
+  const [verificationFee, setVerificationFee] = useState<number>(3);
+  const [isVerificationEnabled, setIsVerificationEnabled] = useState<boolean>(true);
+  const [verifyingBank, setVerifyingBank] = useState<boolean>(false);
+  const [verifyingBenId, setVerifyingBenId] = useState<string | null>(null);
+  const [verifiedDetails, setVerifiedDetails] = useState<{
+    name_at_bank: string;
+    bank_name: string;
+    branch?: string;
+    city?: string;
+    utr?: string;
+  } | null>(null);
+
   const [newBenForm, setNewBenForm] = useState({
     holder_name: '',
     bank_name: '',
@@ -140,6 +154,12 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
         setMaxPayout(configData.max_payout || 200000);
         setNotice(configData.notice || '');
         setSlabs(configData.slabs || []);
+        if (configData.verification_charge !== undefined) {
+          setVerificationFee(Number(configData.verification_charge));
+        }
+        if (configData.is_verification_enabled !== undefined) {
+          setIsVerificationEnabled(Boolean(configData.is_verification_enabled));
+        }
       }
 
       // 3. Fetch beneficiaries
@@ -241,6 +261,86 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
     });
   }, [amount, slabs]);
 
+  // Verify Bank Account via Nixasoft API (Charges debited ONLY upon success)
+  const handleVerifyAccount = async (targetAcc?: string, targetIfsc?: string, existingBenId?: string) => {
+    const acc = (targetAcc || newBenForm.account_number).trim();
+    const ifsc = (targetIfsc || newBenForm.ifsc_code).trim().toUpperCase();
+
+    if (!acc) {
+      showToast('warning', 'Please enter Bank Account Number');
+      return;
+    }
+
+    if (!targetAcc && acc !== newBenForm.confirm_account_number.trim()) {
+      showToast('warning', 'Bank account numbers do not match!');
+      return;
+    }
+
+    if (!ifsc || ifsc.length !== 11) {
+      showToast('warning', 'Please enter a valid 11-character IFSC Code (e.g. HDFC0001234)');
+      return;
+    }
+
+    // Check balance: User must maintain at least verificationFee + 250 in wallet
+    if (walletBalance - verificationFee < 250) {
+      showToast('error', `Insufficient wallet balance for verification fee (₹${verificationFee.toFixed(2)}). You must maintain at least ₹250 in your wallet. Available: ₹${walletBalance.toFixed(2)}`);
+      return;
+    }
+
+    try {
+      setVerifyingBank(true);
+      if (existingBenId) setVerifyingBenId(existingBenId);
+
+      const res = await fetch('/api/nixasoft-payout/verify-bank', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
+          accountNumber: acc,
+          ifscCode: ifsc
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.data) {
+        showToast('success', `✅ Bank Verified! Name: ${data.data.name_at_bank}`);
+        setVerifiedDetails({
+          name_at_bank: data.data.name_at_bank,
+          bank_name: data.data.bank_name,
+          branch: data.data.branch,
+          city: data.data.city,
+          utr: data.data.utr
+        });
+        setNewBenForm(prev => ({
+          ...prev,
+          holder_name: data.data.name_at_bank,
+          bank_name: data.data.bank_name || prev.bank_name
+        }));
+
+        // Refresh beneficiaries
+        await fetchBeneficiaries();
+
+        // Refresh wallet balance
+        const { data: refreshedUser } = await supabase
+          .from('users_profiles')
+          .select('wallet_balance')
+          .eq('id', userId)
+          .single();
+        if (refreshedUser) {
+          setWalletBalance(Number(refreshedUser.wallet_balance || 0));
+        }
+      } else {
+        showToast('error', data.message || 'Bank account verification failed. Please check Account Number and IFSC Code.');
+      }
+    } catch (err: any) {
+      console.error('Error verifying bank account:', err);
+      showToast('error', err.message || 'Network error during bank verification');
+    } finally {
+      setVerifyingBank(false);
+      setVerifyingBenId(null);
+    }
+  };
+
   // Add Beneficiary
   const handleAddBeneficiary = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,8 +349,14 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
       return;
     }
 
+    if (!newBenForm.holder_name.trim()) {
+      showToast('warning', 'Beneficiary name is required. Please verify your account first.');
+      return;
+    }
+
     try {
       setAddingBeneficiary(true);
+      const isVerified = Boolean(verifiedDetails && verifiedDetails.name_at_bank);
       const { data, error } = await supabase
         .from('payout_beneficiaries')
         .insert([{
@@ -260,15 +366,16 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
           account_number: newBenForm.account_number.trim(),
           ifsc_code: newBenForm.ifsc_code.trim().toUpperCase(),
           phone: newBenForm.phone.trim() || userProfile?.mobile_number || '',
-          is_verified: true
+          is_verified: isVerified
         }])
         .select()
         .single();
 
       if (error) throw error;
 
-      showToast('success', 'Beneficiary bank account saved successfully!');
+      showToast('success', isVerified ? 'Verified beneficiary bank account saved!' : 'Beneficiary bank account saved successfully!');
       setIsAddModalOpen(false);
+      setVerifiedDetails(null);
       setNewBenForm({
         holder_name: '',
         bank_name: '',
@@ -546,6 +653,40 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                             <p className="text-[10px] font-mono text-slate-400">
                               IFSC: {ben.ifsc_code}
                             </p>
+
+                            <div className="flex items-center gap-1.5 pt-1">
+                              {ben.is_verified ? (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                                  <ShieldCheck size={11} className="text-emerald-600" />
+                                  Verified
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                                    Unverified
+                                  </span>
+                                  {isVerificationEnabled && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleVerifyAccount(ben.account_number, ben.ifsc_code, ben.id);
+                                      }}
+                                      disabled={verifyingBank}
+                                      className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white transition-all shadow-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                                      title={`Verify account for ₹${verificationFee}`}
+                                    >
+                                      {verifyingBenId === ben.id ? (
+                                        <Loader2 size={10} className="animate-spin" />
+                                      ) : (
+                                        <ShieldCheck size={10} />
+                                      )}
+                                      Verify (₹{verificationFee})
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
                           {isSelected && (
                             <div className="w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0">
@@ -755,21 +896,130 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
               </div>
 
               <form onSubmit={handleAddBeneficiary} className="space-y-4">
+                {/* Account Number & Confirm Account */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Account Number
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={newBenForm.account_number}
+                      onChange={(e) => {
+                        setNewBenForm({ ...newBenForm, account_number: e.target.value });
+                        if (verifiedDetails) setVerifiedDetails(null);
+                      }}
+                      placeholder="Enter account number"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Confirm Account Number
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newBenForm.confirm_account_number}
+                      onChange={(e) => {
+                        setNewBenForm({ ...newBenForm, confirm_account_number: e.target.value });
+                        if (verifiedDetails) setVerifiedDetails(null);
+                      }}
+                      placeholder="Re-enter account number"
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                {/* IFSC Code */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                    Beneficiary Name (As per Bank Record)
+                    Bank IFSC Code
                   </label>
                   <input
                     type="text"
                     required
-                    value={newBenForm.holder_name}
-                    onChange={(e) => setNewBenForm({ ...newBenForm, holder_name: e.target.value })}
-                    placeholder="Enter full name"
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500 uppercase"
+                    maxLength={11}
+                    value={newBenForm.ifsc_code}
+                    onChange={(e) => {
+                      setNewBenForm({ ...newBenForm, ifsc_code: e.target.value.toUpperCase() });
+                      if (verifiedDetails) setVerifiedDetails(null);
+                    }}
+                    placeholder="e.g. HDFC0001234"
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500 uppercase"
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Bank Verification Trigger Card */}
+                {isVerificationEnabled && (
+                  <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                        Verify Bank Account (ખાતા ચકાસણી)
+                      </span>
+                      <p className="text-[11px] text-slate-500 leading-tight">
+                        Fetch real registered name from bank record. Fee: ₹{verificationFee.toFixed(2)} (કપાય માત્ર સફળ થવા પર જ).
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleVerifyAccount()}
+                      disabled={verifyingBank || !newBenForm.account_number || !newBenForm.ifsc_code}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shrink-0 flex items-center gap-1.5 shadow-sm transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      {verifyingBank ? <Loader2 size={13} className="animate-spin" /> : <ShieldCheck size={13} />}
+                      {verifyingBank ? 'Verifying with Bank...' : `Verify Account (₹${verificationFee})`}
+                    </button>
+                  </div>
+                )}
+
+                {/* Verified Confirmation Box */}
+                {verifiedDetails && (
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3.5 flex items-start gap-2.5 animate-in fade-in">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-0.5">
+                      <p className="font-black text-emerald-950 flex items-center gap-1.5">
+                        ✅ Bank Verified: {verifiedDetails.name_at_bank}
+                      </p>
+                      <p className="text-emerald-800 font-medium">
+                        Bank: {verifiedDetails.bank_name} {verifiedDetails.branch ? `— ${verifiedDetails.branch}` : ''}
+                      </p>
+                      {verifiedDetails.utr && (
+                        <p className="text-emerald-700 font-mono text-[10px]">
+                          UTR: {verifiedDetails.utr} | Verification Fee ₹{verificationFee.toFixed(2)} Debited
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Beneficiary Name & Bank Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1 flex items-center justify-between">
+                      <span>Beneficiary Name</span>
+                      {verifiedDetails && (
+                        <span className="text-[10px] font-bold text-emerald-600 lowercase bg-emerald-100/70 px-1.5 rounded">
+                          verified
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newBenForm.holder_name}
+                      onChange={(e) => setNewBenForm({ ...newBenForm, holder_name: e.target.value })}
+                      placeholder="Enter full name"
+                      className={`w-full px-4 py-2.5 border rounded-xl text-sm font-bold uppercase outline-none transition-all ${
+                        verifiedDetails 
+                          ? 'bg-emerald-50/50 border-emerald-300 text-emerald-950 font-black' 
+                          : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white focus:border-indigo-500'
+                      }`}
+                    />
+                  </div>
+
                   <div>
                     <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
                       Bank Name
@@ -783,51 +1033,9 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                       className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500"
                     />
                   </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                      IFSC Code
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={11}
-                      value={newBenForm.ifsc_code}
-                      onChange={(e) => setNewBenForm({ ...newBenForm, ifsc_code: e.target.value.toUpperCase() })}
-                      placeholder="e.g. HDFC0001234"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500 uppercase"
-                    />
-                  </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                      Account Number
-                    </label>
-                    <input
-                      type="password"
-                      required
-                      value={newBenForm.account_number}
-                      onChange={(e) => setNewBenForm({ ...newBenForm, account_number: e.target.value })}
-                      placeholder="Enter account number"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-                      Confirm Account Number
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newBenForm.confirm_account_number}
-                      onChange={(e) => setNewBenForm({ ...newBenForm, confirm_account_number: e.target.value })}
-                      placeholder="Re-enter account number"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:bg-white focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
+                {/* Beneficiary Mobile */}
                 <div>
                   <label className="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
                     Beneficiary Mobile (Optional)
@@ -845,18 +1053,21 @@ export default function UserInstantPayout({ userId }: UserInstantPayoutProps) {
                 <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setIsAddModalOpen(false)}
-                    className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors"
+                    onClick={() => {
+                      setIsAddModalOpen(false);
+                      setVerifiedDetails(null);
+                    }}
+                    className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={addingBeneficiary}
-                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50"
+                    disabled={addingBeneficiary || verifyingBank}
+                    className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-indigo-100 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                   >
                     {addingBeneficiary ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    Save Beneficiary
+                    {verifiedDetails ? 'Save Verified Beneficiary' : 'Save Beneficiary'}
                   </button>
                 </div>
               </form>
