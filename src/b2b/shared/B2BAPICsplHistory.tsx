@@ -762,7 +762,10 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                     </div>
                   )}
 
-                  <div className="overflow-y-auto max-h-56 divide-y divide-slate-800/40 py-1">
+                  <div 
+                    className="overflow-y-auto max-h-56 divide-y divide-slate-800/40 py-1 no-scrollbar"
+                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                  >
                     <button
                       type="button"
                       onClick={() => {
