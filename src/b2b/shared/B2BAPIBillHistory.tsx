@@ -33,7 +33,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
-  const [gatewayFilter, setGatewayFilter] = useState<'all' | 'bbps' | 'cspl'>('all');
   const [amountFilter, setAmountFilter] = useState('');
   const [chargeFilter, setChargeFilter] = useState('');
   const [txnIdFilter, setTxnIdFilter] = useState('');
@@ -135,7 +134,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         let query = supabase
           .from('b2b_api_logs')
           .select('*')
-          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill,endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill")
+          .or("endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill")
           .order('created_at', { ascending: false })
           .range(from, from + step - 1);
 
@@ -267,27 +266,18 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       setUpdatingStatus(log.id);
 
       const API_URL = import.meta.env.VITE_API_URL || '';
-      const isCspl = log.endpoint?.includes('/cspl/');
 
-      let resData: Response;
-      if (isCspl) {
-        resData = await fetch(`${API_URL}/api/v1/b2b/cspl/status/${transactionId}`);
-        if (!resData.ok && resData.status === 404) {
-          resData = await fetch(`${API_URL}/api/b2b/cspl/status/${transactionId}`);
-        }
-      } else {
-        resData = await fetch(`${API_URL}/api/v1/b2b/admin/status/${transactionId}`);
-        if (!resData.ok && resData.status === 404) {
-          resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
-        }
+      let resData = await fetch(`${API_URL}/api/v1/b2b/admin/status/${transactionId}`);
+      if (!resData.ok && resData.status === 404) {
+        resData = await fetch(`${API_URL}/api/b2b/admin/status/${transactionId}`);
       }
       const data = await resData.json();
 
       if (data.status === 'success' || data.data) {
         await fetchLogs();
         const messageDetails = data.data?.message ? `\nNote: ${data.data.message}` : '';
-        const currentStatus = data.data?.bbps_status || data.data?.current_status || data.data?.payment_status || data.data?.status || 'CHECKED';
-        alert(`Current ${isCspl ? 'CSPL' : 'BBPS'} Status: ${currentStatus}${messageDetails}\nOur DB was updated automatically!`);
+        const currentBBPS = data.data?.bbps_status || data.data?.current_status || data.data?.payment_status || 'CHECKED';
+        alert(`Current BBPS Status: ${currentBBPS}${messageDetails}\nOur DB was updated automatically!`);
       } else {
         const errorText = data?.message || data?.error || data?.details || 'Unable to fetch transaction status.';
         alert(`Status Check Message: ${errorText}`);
@@ -698,16 +688,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
       matchesSearch = searchString.includes(searchTrimmed);
     }
 
-    // Gateway Filter
-    let matchesGateway = true;
-    const isCsplEntry = log.endpoint?.includes('/cspl/');
-    if (gatewayFilter === 'cspl') {
-      matchesGateway = !!isCsplEntry;
-    } else if (gatewayFilter === 'bbps') {
-      matchesGateway = !isCsplEntry;
-    }
-
-    return matchesDate && matchesStatus && matchesGateway && matchesB2bLogin && matchesBillAvenueAgentId && matchesCardMobile && matchesAmount && matchesCharge && matchesTxnId && matchesSearch;
+    return matchesDate && matchesStatus && matchesB2bLogin && matchesBillAvenueAgentId && matchesCardMobile && matchesAmount && matchesCharge && matchesTxnId && matchesSearch;
   });
 
   // Calculate summary metrics for current filtered logs
@@ -1415,23 +1396,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
             </select>
           </div>
 
-          {/* Gateway / API Provider Filter */}
-          <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-blue-300 uppercase tracking-wider block flex items-center gap-1.5">
-              <Zap className="w-3.5 h-3.5 text-blue-400" />
-              API Gateway
-            </label>
-            <select
-              value={gatewayFilter}
-              onChange={(e) => setGatewayFilter(e.target.value as any)}
-              className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 px-3 text-sm text-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all cursor-pointer outline-none"
-            >
-              <option value="all">All Gateways (બધા)</option>
-              <option value="bbps">BillAvenue (BBPS)</option>
-              <option value="cspl">⚡ CSPL Fast Bill</option>
-            </select>
-          </div>
-
           {/* B2B Login ID Dropdown Filter */}
           {isAdmin && (
             <div className="space-y-1">
@@ -1603,7 +1567,7 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
         </div>
 
         {/* Filter Summary & Reset Button */}
-        {(dateFilter !== 'today' || statusFilter !== 'all' || gatewayFilter !== 'all' || b2bLoginFilter !== 'all' || billAvenueAgentIdFilter !== 'all' || cardMobileFilter || amountFilter || chargeFilter || txnIdFilter || searchTerm) && (
+        {(dateFilter !== 'today' || statusFilter !== 'all' || b2bLoginFilter !== 'all' || billAvenueAgentIdFilter !== 'all' || cardMobileFilter || amountFilter || chargeFilter || txnIdFilter || searchTerm) && (
           <div className="flex items-center justify-between pt-2 border-t border-slate-700/60 text-xs">
             <span className="text-slate-400">
               Showing <span className="font-bold text-indigo-400">{filteredLogs.length}</span> of <span className="font-bold text-slate-300">{logs.length}</span> payments
@@ -1612,7 +1576,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               onClick={() => {
                 setDateFilter('today');
                 setStatusFilter('all');
-                setGatewayFilter('all');
                 setB2bLoginFilter('all');
                 setBillAvenueAgentIdFilter('all');
                 setCardMobileFilter('');
@@ -1654,7 +1617,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
               <thead className="bg-slate-900/50 text-slate-400 border-b border-slate-700/50 uppercase text-[10px] font-bold tracking-wider">
                 <tr>
                   <th className="px-3 py-3">Date & Time</th>
-                  <th className="px-3 py-3 text-blue-400">Gateway</th>
                   {isAdmin && <th className="px-3 py-3 text-indigo-400">B2B Login ID</th>}
                   {isAdmin && <th className="px-3 py-3 text-emerald-400">BillAvenue Agent ID</th>}
                   <th className="px-3 py-3">Biller ID</th>
@@ -1714,18 +1676,6 @@ export default function B2BAPIBillHistory({ isAdmin, agentId }: B2BAPIBillHistor
                       <td className="px-3 py-3">
                         <div className="font-medium text-slate-300 text-xs">{format(parseISO(log.created_at), 'dd MMM, yyyy')}</div>
                         <div className="text-slate-500 text-[11px]">{format(parseISO(log.created_at), 'hh:mm:ss a')}</div>
-                      </td>
-
-                      <td className="px-3 py-3">
-                        {log.endpoint?.includes('/cspl/') ? (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/30 inline-flex items-center gap-1">
-                            <Zap size={10} className="text-blue-400" /> CSPL Fast
-                          </span>
-                        ) : (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 inline-flex items-center gap-1">
-                            <Building2 size={10} className="text-indigo-400" /> BBPS
-                          </span>
-                        )}
                       </td>
 
                       {isAdmin && (
