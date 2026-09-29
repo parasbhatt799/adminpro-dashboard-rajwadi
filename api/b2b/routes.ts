@@ -16,7 +16,11 @@ import {
   getFundRequests, 
   getAdminBankAccounts,
   transferPayout,
-  getPayoutStatus
+  getPayoutStatus,
+  getCsplBillerInfo,
+  fetchCsplBill,
+  payCsplBill,
+  checkCsplStatus
 } from './controller';
 
 const router = Router();
@@ -78,8 +82,11 @@ router.post('/fund-request', createFundRequest);
 // Check Fund Request Status via API
 router.get('/fund-request/status/:request_id', getFundRequestStatus);
 
-// List Fund Requests via API
-router.get('/fund-requests', getFundRequests);
+// CSPL Fast Bill Payment API
+router.post('/cspl/biller-info', getCsplBillerInfo);
+router.post('/cspl/fetch-bill', fetchCsplBill);
+router.post('/cspl/pay-bill', payCsplBill);
+router.get('/cspl/status/:transaction_id', checkCsplStatus);
 
 export default router;
 

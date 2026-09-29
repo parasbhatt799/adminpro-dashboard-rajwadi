@@ -17,6 +17,7 @@ export default function B2BAgentDashboard() {
   const [showSecret, setShowSecret] = useState(false);
   const [stats, setStats] = useState({ fetchCount: 0, successCount: 0 });
   const [payoutStats, setPayoutStats] = useState({ totalCount: 0, successCount: 0, totalVolume: 0 });
+  const [csplStats, setCsplStats] = useState({ fetchCount: 0, successCount: 0 });
   const [webhookUrl, setWebhookUrl] = useState('');
   const [isUpdatingWebhook, setIsUpdatingWebhook] = useState(false);
 
@@ -45,6 +46,7 @@ export default function B2BAgentDashboard() {
 
         const isBbps = credRes.data.is_bbps_enabled !== false;
         const isPayout = !!credRes.data.is_payout_enabled;
+        const isCspl = !!credRes.data.is_cspl_enabled;
 
         // Fetch BBPS stats if BBPS is enabled
         if (isBbps) {
@@ -71,6 +73,18 @@ export default function B2BAgentDashboard() {
             totalCount: pTotalRes.count || 0,
             successCount: pSuccessRes.count || 0,
             totalVolume: vol
+          });
+        }
+
+        // Fetch CSPL stats if CSPL is enabled
+        if (isCspl) {
+          const [csplFetchRes, csplPayRes] = await Promise.all([
+            supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/cspl/fetch-bill,endpoint.eq./api/v1/b2b/cspl/fetch-bill"),
+            supabase.from('b2b_api_logs').select('*', { count: 'exact', head: true }).eq('agent_id', agentId).or("endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill").eq('status_code', 200)
+          ]);
+          setCsplStats({
+            fetchCount: csplFetchRes.count || 0,
+            successCount: csplPayRes.count || 0
           });
         }
       }
@@ -142,6 +156,7 @@ export default function B2BAgentDashboard() {
 
   const isBbps = credentials.is_bbps_enabled !== false;
   const isPayout = !!credentials.is_payout_enabled;
+  const isCspl = !!credentials.is_cspl_enabled;
 
   return (
     <div className="space-y-8">
@@ -171,6 +186,11 @@ export default function B2BAgentDashboard() {
           {isPayout && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-400 border border-purple-500/30">
               <Layers size={13} /> Instant Payout Active
+            </span>
+          )}
+          {isCspl && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30">
+              <Zap size={13} /> CSPL Fast Bill Active
             </span>
           )}
         </div>
@@ -290,6 +310,59 @@ export default function B2BAgentDashboard() {
                       </div>
                       <div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400">
                         <ArrowUpRight className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* CSPL Fast Bill API Overview Cards (Only shown if CSPL service is active) */}
+            {isCspl && (
+              <div>
+                {(isBbps || isPayout) && (
+                  <div className="flex items-center gap-2 mb-3 text-xs font-bold uppercase tracking-wider text-blue-400">
+                    <Zap size={14} /> CSPL Fast Bill Payment API Overview
+                  </div>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-slate-800 rounded-2xl border border-blue-500/30 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-blue-300 text-xs font-medium mb-1">CSPL Wallet Balance</p>
+                        <h3 className="text-2xl font-bold text-blue-400">
+                          ₹{(credentials.cspl_wallet_balance || 0).toFixed(2)}
+                        </h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Available for CSPL bill pay</p>
+                      </div>
+                      <div className="p-3 bg-blue-500/20 rounded-xl text-blue-400">
+                        <Wallet className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-slate-400 text-xs font-medium mb-1">CSPL Bills Fetched</p>
+                        <h3 className="text-2xl font-bold text-white">{csplStats.fetchCount}</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Total fetch requests</p>
+                      </div>
+                      <div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-2xl border border-slate-700 p-5 shadow-xl relative overflow-hidden">
+                    <div className="flex items-center justify-between relative z-10">
+                      <div>
+                        <p className="text-slate-400 text-xs font-medium mb-1">Successful CSPL Payments</p>
+                        <h3 className="text-2xl font-bold text-emerald-400">{csplStats.successCount}</h3>
+                        <p className="text-[10px] text-slate-500 mt-1">Fast bills completed</p>
+                      </div>
+                      <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
+                        <CheckCircle2 className="h-5 w-5" />
                       </div>
                     </div>
                   </div>

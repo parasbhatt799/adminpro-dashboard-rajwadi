@@ -18,22 +18,26 @@ export default function B2BAgentFundRequest() {
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [statusFilter, setStatusFilter] = useState<'all' | 'approved' | 'pending' | 'rejected'>('all');
-  const [walletFilter, setWalletFilter] = useState<'all' | 'bbps' | 'payout'>('all');
+  const [walletFilter, setWalletFilter] = useState<'all' | 'bbps' | 'payout' | 'cspl'>('all');
   const [searchTerm, setSearchTerm] = useState('');
 
   // Agent Service Configuration & Selected Wallet
   const [agentDetails, setAgentDetails] = useState<{
     is_bbps_enabled: boolean;
     is_payout_enabled: boolean;
+    is_cspl_enabled: boolean;
     wallet_balance: number;
     payout_wallet_balance: number;
+    cspl_wallet_balance: number;
   }>({
     is_bbps_enabled: true,
     is_payout_enabled: false,
+    is_cspl_enabled: false,
     wallet_balance: 0,
-    payout_wallet_balance: 0
+    payout_wallet_balance: 0,
+    cspl_wallet_balance: 0
   });
-  const [selectedWalletType, setSelectedWalletType] = useState<'bbps' | 'payout'>('bbps');
+  const [selectedWalletType, setSelectedWalletType] = useState<'bbps' | 'payout' | 'cspl'>('bbps');
 
   const [formData, setFormData] = useState({
     amount: '',
@@ -137,23 +141,29 @@ export default function B2BAgentFundRequest() {
 
         const isBbps = agentRes.data.is_bbps_enabled !== false;
         const isPayout = !!agentRes.data.is_payout_enabled;
+        const isCspl = !!agentRes.data.is_cspl_enabled;
         const bbpsBal = parseFloat(agentRes.data.wallet_balance?.toString() || '0');
         const payoutBal = parseFloat(agentRes.data.payout_wallet_balance?.toString() || '0');
+        const csplBal = parseFloat(agentRes.data.cspl_wallet_balance?.toString() || '0');
 
         setAgentDetails({
           is_bbps_enabled: isBbps,
           is_payout_enabled: isPayout,
+          is_cspl_enabled: isCspl,
           wallet_balance: bbpsBal,
-          payout_wallet_balance: payoutBal
+          payout_wallet_balance: payoutBal,
+          cspl_wallet_balance: csplBal
         });
 
         // Determine default wallet selection based on available services
-        if (isBbps && !isPayout) {
-          setSelectedWalletType('bbps');
-        } else if (!isBbps && isPayout) {
+        if (isCspl && !isBbps && !isPayout) {
+          setSelectedWalletType('cspl');
+        } else if (isPayout && !isBbps && !isCspl) {
           setSelectedWalletType('payout');
-        } else if (isBbps && isPayout) {
-          setSelectedWalletType(prev => prev || 'bbps');
+        } else if (isBbps) {
+          setSelectedWalletType('bbps');
+        } else if (isCspl) {
+          setSelectedWalletType('cspl');
         }
       }
     } catch (err) {
@@ -298,7 +308,7 @@ export default function B2BAgentFundRequest() {
       const exportData: Record<string, any>[] = filteredRequests.map((req, idx) => ({
         'S.No': idx + 1,
         'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
-        'Target Wallet': req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
+        'Target Wallet': req.wallet_type === 'cspl' ? 'CSPL Wallet' : req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
         'Amount (₹)': Number(req.amount || 0),
         'UTR / Reference Number': req.utr_number || '',
         'Status': req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending',
@@ -347,7 +357,7 @@ export default function B2BAgentFundRequest() {
       const tableData = filteredRequests.map((req, idx) => [
         (idx + 1).toString(),
         format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
-        req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
+        req.wallet_type === 'cspl' ? 'CSPL Wallet' : req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
         `₹ ${Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
         req.utr_number || 'N/A',
         req.status === 'approved' ? 'Approved' : req.status === 'rejected' ? 'Rejected' : 'Pending'
@@ -453,7 +463,7 @@ export default function B2BAgentFundRequest() {
         return;
       }
 
-      const targetWalletLabel = selectedWalletType === 'payout' ? 'Payout Wallet' : 'BBPS Wallet';
+      const targetWalletLabel = selectedWalletType === 'cspl' ? 'CSPL Wallet' : selectedWalletType === 'payout' ? 'Payout Wallet' : 'BBPS Wallet';
 
       const insertPayload: any = {
         agent_id: agentId,
@@ -688,6 +698,7 @@ export default function B2BAgentFundRequest() {
               <option value="all">All Wallets</option>
               <option value="bbps">BBPS Wallet</option>
               <option value="payout">Payout Wallet</option>
+              <option value="cspl">CSPL Wallet</option>
             </select>
           </div>
 
@@ -761,74 +772,126 @@ export default function B2BAgentFundRequest() {
                     Target Wallet
                   </span>
                   <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-700">
-                    {agentDetails.is_bbps_enabled && agentDetails.is_payout_enabled ? 'Dual Services' : 'Single Service'}
+                    {[agentDetails.is_bbps_enabled, agentDetails.is_payout_enabled, agentDetails.is_cspl_enabled].filter(Boolean).length > 1 ? 'Multiple Services' : 'Single Service'}
                   </span>
                 </label>
 
-                {agentDetails.is_bbps_enabled && agentDetails.is_payout_enabled ? (
-                  /* Both Services Enabled: Show 2 interactive selection cards */
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {[agentDetails.is_bbps_enabled, agentDetails.is_payout_enabled, agentDetails.is_cspl_enabled].filter(Boolean).length > 1 ? (
+                  /* Multiple Services Enabled: Show interactive selection cards */
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                     {/* BBPS Wallet Card */}
-                    <div
-                      onClick={() => setSelectedWalletType('bbps')}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                        selectedWalletType === 'bbps'
-                          ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/10'
-                          : 'bg-slate-900/60 border-slate-700 hover:border-slate-600 opacity-70'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="target_wallet_type"
-                            checked={selectedWalletType === 'bbps'}
-                            onChange={() => setSelectedWalletType('bbps')}
-                            className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
-                          />
-                          <span className="text-xs font-bold text-white tracking-wide">BBPS Wallet</span>
+                    {agentDetails.is_bbps_enabled && (
+                      <div
+                        onClick={() => setSelectedWalletType('bbps')}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                          selectedWalletType === 'bbps'
+                            ? 'bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/30 shadow-lg shadow-emerald-500/10'
+                            : 'bg-slate-900/60 border-slate-700 hover:border-slate-600 opacity-70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="target_wallet_type"
+                              checked={selectedWalletType === 'bbps'}
+                              onChange={() => setSelectedWalletType('bbps')}
+                              className="w-4 h-4 text-emerald-500 focus:ring-emerald-500 bg-slate-900 border-slate-700 cursor-pointer"
+                            />
+                            <span className="text-xs font-bold text-white tracking-wide">BBPS Wallet</span>
+                          </div>
+                          <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                            Utility
+                          </span>
                         </div>
-                        <span className="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-mono font-bold">
-                          Utility
-                        </span>
+                        <p className="text-[11px] text-slate-400 line-clamp-1">Bill Payments & Utilities</p>
+                        <div className="mt-2 text-xs font-mono font-bold text-emerald-400">
+                          Bal: ₹{agentDetails.wallet_balance.toFixed(2)}
+                        </div>
                       </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-1">Bill Payments & Utilities</p>
-                      <div className="mt-2 text-xs font-mono font-bold text-emerald-400">
-                        Bal: ₹{agentDetails.wallet_balance.toFixed(2)}
-                      </div>
-                    </div>
+                    )}
 
                     {/* Payout Wallet Card */}
-                    <div
-                      onClick={() => setSelectedWalletType('payout')}
-                      className={`p-3 rounded-xl border cursor-pointer transition-all ${
-                        selectedWalletType === 'payout'
-                          ? 'bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30 shadow-lg shadow-purple-500/10'
-                          : 'bg-slate-900/60 border-slate-700 hover:border-slate-600 opacity-70'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="radio"
-                            name="target_wallet_type"
-                            checked={selectedWalletType === 'payout'}
-                            onChange={() => setSelectedWalletType('payout')}
-                            className="w-4 h-4 text-purple-500 focus:ring-purple-500 bg-slate-900 border-slate-700 cursor-pointer"
-                          />
-                          <span className="text-xs font-bold text-white tracking-wide">Payout Wallet</span>
+                    {agentDetails.is_payout_enabled && (
+                      <div
+                        onClick={() => setSelectedWalletType('payout')}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                          selectedWalletType === 'payout'
+                            ? 'bg-purple-950/40 border-purple-500 ring-2 ring-purple-500/30 shadow-lg shadow-purple-500/10'
+                            : 'bg-slate-900/60 border-slate-700 hover:border-slate-600 opacity-70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="target_wallet_type"
+                              checked={selectedWalletType === 'payout'}
+                              onChange={() => setSelectedWalletType('payout')}
+                              className="w-4 h-4 text-purple-500 focus:ring-purple-500 bg-slate-900 border-slate-700 cursor-pointer"
+                            />
+                            <span className="text-xs font-bold text-white tracking-wide">Payout Wallet</span>
+                          </div>
+                          <span className="text-[9px] bg-purple-500/15 text-purple-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                            Transfer
+                          </span>
                         </div>
-                        <span className="text-[9px] bg-purple-500/15 text-purple-400 px-1.5 py-0.5 rounded font-mono font-bold">
-                          Transfer
-                        </span>
+                        <p className="text-[11px] text-slate-400 line-clamp-1">Bank Payout API & Transfer</p>
+                        <div className="mt-2 text-xs font-mono font-bold text-purple-400">
+                          Bal: ₹{agentDetails.payout_wallet_balance.toFixed(2)}
+                        </div>
                       </div>
-                      <p className="text-[11px] text-slate-400 line-clamp-1">Bank Payout API & Transfer</p>
-                      <div className="mt-2 text-xs font-mono font-bold text-purple-400">
-                        Bal: ₹{agentDetails.payout_wallet_balance.toFixed(2)}
+                    )}
+
+                    {/* CSPL Fast Bill Wallet Card */}
+                    {agentDetails.is_cspl_enabled && (
+                      <div
+                        onClick={() => setSelectedWalletType('cspl')}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all ${
+                          selectedWalletType === 'cspl'
+                            ? 'bg-blue-950/40 border-blue-500 ring-2 ring-blue-500/30 shadow-lg shadow-blue-500/10'
+                            : 'bg-slate-900/60 border-slate-700 hover:border-slate-600 opacity-70'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="radio"
+                              name="target_wallet_type"
+                              checked={selectedWalletType === 'cspl'}
+                              onChange={() => setSelectedWalletType('cspl')}
+                              className="w-4 h-4 text-blue-500 focus:ring-blue-500 bg-slate-900 border-slate-700 cursor-pointer"
+                            />
+                            <span className="text-xs font-bold text-white tracking-wide">CSPL Wallet</span>
+                          </div>
+                          <span className="text-[9px] bg-blue-500/15 text-blue-400 px-1.5 py-0.5 rounded font-mono font-bold">
+                            Fast BBPS
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 line-clamp-1">CSPL Instant Bill Payment API</p>
+                        <div className="mt-2 text-xs font-mono font-bold text-blue-400">
+                          Bal: ₹{agentDetails.cspl_wallet_balance.toFixed(2)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : agentDetails.is_cspl_enabled && !agentDetails.is_bbps_enabled && !agentDetails.is_payout_enabled ? (
+                  /* Only CSPL Service Enabled */
+                  <div className="p-3.5 rounded-xl border bg-blue-950/30 border-blue-500/40 shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-2.5 h-2.5 rounded-full bg-blue-400 animate-pulse" />
+                      <div>
+                        <div className="text-xs font-bold text-blue-300">CSPL Wallet (Only Service Active)</div>
+                        <div className="text-[11px] text-slate-400">Funds will be credited to CSPL Fast Bill Wallet</div>
                       </div>
                     </div>
+                    <div className="text-right">
+                      <span className="text-xs font-mono font-bold text-blue-400">
+                        ₹{agentDetails.cspl_wallet_balance.toFixed(2)}
+                      </span>
+                    </div>
                   </div>
-                ) : agentDetails.is_payout_enabled ? (
+                ) : agentDetails.is_payout_enabled && !agentDetails.is_bbps_enabled ? (
                   /* Only Payout Service Enabled */
                   <div className="p-3.5 rounded-xl border bg-purple-950/30 border-purple-500/40 shadow-sm flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
@@ -1080,7 +1143,12 @@ export default function B2BAgentFundRequest() {
                           {format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a')}
                         </td>
                         <td className="px-6 py-4">
-                          {req.wallet_type === 'payout' ? (
+                          {req.wallet_type === 'cspl' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                              CSPL Wallet
+                            </span>
+                          ) : req.wallet_type === 'payout' ? (
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
                               <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
                               Payout Wallet

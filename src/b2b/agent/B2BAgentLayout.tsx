@@ -12,9 +12,11 @@ export default function B2BAgentLayout() {
   const [loading, setLoading] = useState(true);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [payoutWalletBalance, setPayoutWalletBalance] = useState<number>(0);
+  const [csplWalletBalance, setCsplWalletBalance] = useState<number>(0);
   const [fixedDepositAmount, setFixedDepositAmount] = useState<number>(0);
   const [isBbpsEnabled, setIsBbpsEnabled] = useState<boolean>(true);
   const [isPayoutEnabled, setIsPayoutEnabled] = useState<boolean>(false);
+  const [isCsplEnabled, setIsCsplEnabled] = useState<boolean>(false);
   const [agentProfile, setAgentProfile] = useState<{ first_name?: string; last_name?: string; profile_photo_url?: string } | null>(null);
 
   useEffect(() => {
@@ -38,9 +40,11 @@ export default function B2BAgentLayout() {
         (payload: any) => {
           setWalletBalance(payload.new.wallet_balance || 0);
           setPayoutWalletBalance(payload.new.payout_wallet_balance || 0);
+          setCsplWalletBalance(payload.new.cspl_wallet_balance || 0);
           setFixedDepositAmount(payload.new.fixed_deposit_amount || 0);
           if (payload.new.is_bbps_enabled !== undefined) setIsBbpsEnabled(payload.new.is_bbps_enabled !== false);
           if (payload.new.is_payout_enabled !== undefined) setIsPayoutEnabled(!!payload.new.is_payout_enabled);
+          if (payload.new.is_cspl_enabled !== undefined) setIsCsplEnabled(!!payload.new.is_cspl_enabled);
           setAgentProfile({
             first_name: payload.new.first_name,
             last_name: payload.new.last_name,
@@ -61,16 +65,18 @@ export default function B2BAgentLayout() {
     try {
       const { data, error } = await supabase
         .from('b2b_api_credentials')
-        .select('wallet_balance, payout_wallet_balance, fixed_deposit_amount, first_name, last_name, profile_photo_url, is_bbps_enabled, is_payout_enabled')
+        .select('wallet_balance, payout_wallet_balance, cspl_wallet_balance, fixed_deposit_amount, first_name, last_name, profile_photo_url, is_bbps_enabled, is_payout_enabled, is_cspl_enabled')
         .eq('id', agentId)
         .single();
 
       if (!error && data) {
         setWalletBalance(data.wallet_balance || 0);
         setPayoutWalletBalance(data.payout_wallet_balance || 0);
+        setCsplWalletBalance(data.cspl_wallet_balance || 0);
         setFixedDepositAmount(data.fixed_deposit_amount || 0);
         setIsBbpsEnabled(data.is_bbps_enabled !== false);
         setIsPayoutEnabled(!!data.is_payout_enabled);
+        setIsCsplEnabled(!!data.is_cspl_enabled);
         setAgentProfile({
           first_name: data.first_name,
           last_name: data.last_name,
@@ -197,6 +203,20 @@ export default function B2BAgentLayout() {
                       </span>
                       <span className="text-purple-400 font-bold text-xs sm:text-sm leading-none">
                         ₹ {payoutWalletBalance.toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {isCsplEnabled && (
+                  <div className="flex items-center gap-2.5 bg-slate-900/80 px-3.5 py-1.5 rounded-xl border border-blue-500/30 shadow-sm">
+                    <Landmark className="h-4 w-4 text-blue-400 shrink-0" />
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-blue-300 font-semibold uppercase leading-none mb-0.5">
+                        CSPL Wallet
+                      </span>
+                      <span className="text-blue-400 font-bold text-xs sm:text-sm leading-none">
+                        ₹ {csplWalletBalance.toFixed(2)}
                       </span>
                     </div>
                   </div>

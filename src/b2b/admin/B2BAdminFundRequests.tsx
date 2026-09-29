@@ -13,7 +13,7 @@ export default function B2BAdminFundRequests() {
   const [requests, setRequests] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [walletFilter, setWalletFilter] = useState<'all' | 'bbps' | 'payout'>('all');
+  const [walletFilter, setWalletFilter] = useState<'all' | 'bbps' | 'payout' | 'cspl'>('all');
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'custom' | 'all'>('today');
   const [customRange, setCustomRange] = useState({ start: '', end: '' });
   const [selectedProofReq, setSelectedProofReq] = useState<any | null>(null);
@@ -516,7 +516,7 @@ export default function B2BAdminFundRequests() {
           'S.No': idx + 1,
           'Date & Time': format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
           'Agent Name / ID': agentName,
-          'Target Wallet': req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
+          'Target Wallet': req.wallet_type === 'payout' ? 'Payout Wallet' : req.wallet_type === 'cspl' ? 'CSPL Wallet' : 'BBPS Wallet',
           'Agent Tag / Portal': cred?.agent_tag || 'N/A',
           'Mobile': cred?.mobile || '',
           'Amount (₹)': Number(req.amount || 0),
@@ -575,7 +575,7 @@ export default function B2BAdminFundRequests() {
           (idx + 1).toString(),
           format(new Date(req.created_at), 'dd MMM yyyy, hh:mm a'),
           agentName,
-          req.wallet_type === 'payout' ? 'Payout Wallet' : 'BBPS Wallet',
+          req.wallet_type === 'payout' ? 'Payout Wallet' : req.wallet_type === 'cspl' ? 'CSPL Wallet' : 'BBPS Wallet',
           cred?.agent_tag || 'N/A',
           `₹ ${Number(req.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`,
           req.utr_number || 'N/A',
@@ -787,6 +787,7 @@ export default function B2BAdminFundRequests() {
             >
               <option value="all">All Wallets</option>
               <option value="bbps">BBPS Wallet</option>
+              <option value="cspl">CSPL Wallet</option>
               <option value="payout">Payout Wallet</option>
             </select>
           </div>
@@ -877,6 +878,11 @@ export default function B2BAdminFundRequests() {
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30">
                           <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
                           Payout Wallet
+                        </span>
+                      ) : req.wallet_type === 'cspl' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                          CSPL Wallet
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">

@@ -22,7 +22,8 @@ export default function B2BAPIDocumentation() {
   const [agentName, setAgentName] = useState<string>('B2B Partner');
   const [isBbpsEnabled, setIsBbpsEnabled] = useState(true);
   const [isPayoutEnabled, setIsPayoutEnabled] = useState(false);
-  const [activeService, setActiveService] = useState<'bbps' | 'payout'>('bbps');
+  const [isCsplEnabled, setIsCsplEnabled] = useState(false);
+  const [activeService, setActiveService] = useState<'bbps' | 'payout' | 'cspl'>('bbps');
 
   const copyToClipboard = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -43,7 +44,10 @@ export default function B2BAPIDocumentation() {
     if (adminCheck) {
       setIsBbpsEnabled(true);
       setIsPayoutEnabled(true);
-      if (urlService === 'payout') {
+      setIsCsplEnabled(true);
+      if (urlService === 'cspl') {
+        setActiveService('cspl');
+      } else if (urlService === 'payout') {
         setActiveService('payout');
       } else {
         setActiveService('bbps');
@@ -54,7 +58,7 @@ export default function B2BAPIDocumentation() {
         try {
           const { data, error } = await supabase
             .from('b2b_api_credentials')
-            .select('first_name, last_name, b2b_login_id, is_bbps_enabled, is_payout_enabled')
+            .select('first_name, last_name, b2b_login_id, is_bbps_enabled, is_payout_enabled, is_cspl_enabled')
             .eq('id', agentId)
             .maybeSingle();
 
@@ -67,22 +71,27 @@ export default function B2BAPIDocumentation() {
 
             const bbps = data.is_bbps_enabled !== false;
             const payout = !!data.is_payout_enabled;
+            const cspl = !!data.is_cspl_enabled;
             setIsBbpsEnabled(bbps);
             setIsPayoutEnabled(payout);
+            setIsCsplEnabled(cspl);
 
             // Determine initial active service
-            if (payout && !bbps) {
+            if (urlService === 'cspl' && cspl) {
+              setActiveService('cspl');
+            } else if (urlService === 'payout' && payout) {
+              setActiveService('payout');
+            } else if (urlService === 'bbps' && bbps) {
+              setActiveService('bbps');
+            } else if (cspl && !bbps && !payout) {
+              setActiveService('cspl');
+              setSearchParams({ service: 'cspl' }, { replace: true });
+            } else if (payout && !bbps && !cspl) {
               setActiveService('payout');
               setSearchParams({ service: 'payout' }, { replace: true });
-            } else if (bbps && !payout) {
+            } else if (bbps) {
               setActiveService('bbps');
               setSearchParams({ service: 'bbps' }, { replace: true });
-            } else if (bbps && payout) {
-              if (urlService === 'payout') {
-                setActiveService('payout');
-              } else {
-                setActiveService('bbps');
-              }
             }
           }
         } catch (err) {
@@ -101,19 +110,21 @@ export default function B2BAPIDocumentation() {
   // Sync activeService if URL search params change
   useEffect(() => {
     const urlService = searchParams.get('service');
-    if (urlService === 'payout' && (isPayoutEnabled || isAdmin)) {
+    if (urlService === 'cspl' && (isCsplEnabled || isAdmin)) {
+      setActiveService('cspl');
+    } else if (urlService === 'payout' && (isPayoutEnabled || isAdmin)) {
       setActiveService('payout');
     } else if (urlService === 'bbps' && (isBbpsEnabled || isAdmin)) {
       setActiveService('bbps');
     }
-  }, [searchParams, isBbpsEnabled, isPayoutEnabled, isAdmin]);
+  }, [searchParams, isBbpsEnabled, isPayoutEnabled, isCsplEnabled, isAdmin]);
 
-  const handleSelectService = (service: 'bbps' | 'payout') => {
+  const handleSelectService = (service: 'bbps' | 'payout' | 'cspl') => {
     setActiveService(service);
     setSearchParams({ service }, { replace: true });
   };
 
-  const hasMultipleServices = (isBbpsEnabled && isPayoutEnabled) || isAdmin;
+  const hasMultipleServices = [isBbpsEnabled, isPayoutEnabled, isCsplEnabled].filter(Boolean).length > 1 || isAdmin;
 
   // Dedicated PDF Export Function for the active service
   const handleExportPDF = async () => {
@@ -221,10 +232,20 @@ export default function B2BAPIDocumentation() {
       y += 4;
 
       const endpointRows: string[][] = [
-        ['GET', '/balance', `Fetch current available agent ${activeService === 'payout' ? 'Payout' : 'BBPS'} wallet balance in Rupees`]
+        ['GET', '/balance', `Fetch current available agent ${activeService === 'cspl' ? 'CSPL' : activeService === 'payout' ? 'Payout' : 'BBPS'} wallet balance in Rupees`]
       ];
 
-      if (activeService === 'bbps') {
+      if (activeService === 'cspl') {
+        endpointRows.push(
+          ['POST', '/cspl/biller-info', 'Fetch real-time CSPL biller information & required input parameters'],
+          ['POST', '/cspl/fetch-bill', 'Instant JSON bill fetch with live dues, bill date & customer name'],
+          ['POST', '/cspl/pay-bill', 'Sub-second fast bill pay deducting from CSPL Wallet with auto-refund'],
+          ['GET', '/cspl/status/:transaction_id', 'Query real-time status of a CSPL bill payment transaction'],
+          ['GET', '/admin-bank-accounts', 'Fetch company bank accounts for CSPL wallet top-up'],
+          ['POST', '/fund-request', 'Submit electronic fund request (wallet_type: "cspl")'],
+          ['GET', '/fund-request/status/:request_id', 'Check real-time approval status of submitted fund request']
+        );
+      } else if (activeService === 'bbps') {
         endpointRows.push(
           ['GET', '/categories', 'Fetch supported biller categories (Electricity, Fastag, Water, etc.)'],
           ['GET', '/billers', 'Fetch billers list and required customer input parameters'],
@@ -479,63 +500,90 @@ export default function B2BAPIDocumentation() {
 
   // Dynamic header titles based on the active service
   const isPayout = activeService === 'payout';
+  const isCspl = activeService === 'cspl';
+  const isBbps = activeService === 'bbps';
 
-  const pageTitle = isPayout 
-    ? 'B2B Instant Payout API Reference' 
-    : 'B2B Bill Payment API Reference';
+  const pageTitle = isCspl
+    ? 'B2B CSPL Fast Bill Payment API Reference'
+    : isPayout 
+      ? 'B2B Instant Payout API Reference' 
+      : 'B2B Bill Payment (BBPS) API Reference';
 
-  const pageDescription = isPayout 
-    ? '24x7 Real-time automated bank account transfer API via IMPS / NEFT with dedicated payout wallet, live status checking, and automatic refunds on banking failure.' 
-    : 'High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated webhook updates.';
+  const pageDescription = isCspl
+    ? 'Ultra-fast, JSON-native Bill Payment API powered by CSPL Camlenio BBPS gateway with sub-second execution, dedicated CSPL wallet, instant bill fetch, and automatic refunds on banking failure.'
+    : isPayout 
+      ? '24x7 Real-time automated bank account transfer API via IMPS / NEFT with dedicated payout wallet, live status checking, and automatic refunds on banking failure.' 
+      : 'High-performance, RESTful API documentation for processing utility bill payments, electricity bills, credit cards, fastag, and mobile recharges with real-time status tracking and automated webhook updates.';
 
   return (
     <div id="b2b-api-doc-container" className="space-y-8 w-full text-slate-200 p-4 md:p-6 bg-slate-900 rounded-3xl">
-      {/* SEPARATE SERVICE SWITCHER TABS (Shown if agent has both services, or admin) */}
+      {/* SEPARATE SERVICE SWITCHER TABS (Shown if agent has multiple services, or admin) */}
       {hasMultipleServices && (
         <div className="bg-slate-800/90 border border-slate-700/80 rounded-2xl p-2.5 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => handleSelectService('bbps')}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
-                activeService === 'bbps' 
-                  ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/30' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
-              }`}
-            >
-              <Landmark className="h-4 w-4" />
-              Bill Payment (BBPS) API
-            </button>
+          <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap">
+            {isBbpsEnabled && (
+              <button
+                type="button"
+                onClick={() => handleSelectService('bbps')}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+                  activeService === 'bbps' 
+                    ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/30 ring-2 ring-emerald-400/30' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                }`}
+              >
+                <Landmark className="h-4 w-4" />
+                Bill Payment (BBPS) API
+              </button>
+            )}
 
-            <button
-              type="button"
-              onClick={() => handleSelectService('payout')}
-              className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
-                activeService === 'payout' 
-                  ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 ring-2 ring-purple-400/30' 
-                  : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
-              }`}
-            >
-              <Zap className="h-4 w-4" />
-              Instant Payout API
-            </button>
+            {isPayoutEnabled && (
+              <button
+                type="button"
+                onClick={() => handleSelectService('payout')}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+                  activeService === 'payout' 
+                    ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/30 ring-2 ring-purple-400/30' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                }`}
+              >
+                <Zap className="h-4 w-4" />
+                Instant Payout API
+              </button>
+            )}
+
+            {isCsplEnabled && (
+              <button
+                type="button"
+                onClick={() => handleSelectService('cspl')}
+                className={`flex-1 sm:flex-none flex items-center justify-center gap-2.5 px-5 py-2.5 rounded-xl text-xs md:text-sm font-bold transition-all cursor-pointer ${
+                  activeService === 'cspl' 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 ring-2 ring-blue-400/30' 
+                    : 'text-slate-400 hover:text-white hover:bg-slate-700/60'
+                }`}
+              >
+                <Zap className="h-4 w-4" />
+                CSPL Fast Bill API
+              </button>
+            )}
           </div>
 
           <div className="text-xs text-slate-400 flex items-center gap-2 self-end sm:self-center">
             <Eye className="h-4 w-4 text-indigo-400" />
-            <span>Active Documentation: <strong className={isPayout ? 'text-purple-400' : 'text-emerald-400'}>{isPayout ? 'Instant Payout API' : 'Bill Payment (BBPS)'}</strong></span>
+            <span>Active Documentation: <strong className={isCspl ? 'text-blue-400' : isPayout ? 'text-purple-400' : 'text-emerald-400'}>{isCspl ? 'CSPL Fast Bill API' : isPayout ? 'Instant Payout API' : 'Bill Payment (BBPS)'}</strong></span>
           </div>
         </div>
       )}
 
       {/* Header Banner */}
       <div className={`border rounded-3xl p-6 md:p-8 shadow-2xl relative overflow-hidden transition-all ${
-        isPayout 
-          ? 'bg-slate-800/90 border-purple-500/30' 
-          : 'bg-slate-800/90 border-slate-700'
+        isCspl
+          ? 'bg-slate-800/90 border-blue-500/30'
+          : isPayout 
+            ? 'bg-slate-800/90 border-purple-500/30' 
+            : 'bg-slate-800/90 border-slate-700'
       }`}>
         <div className={`absolute top-0 right-0 p-40 blur-[120px] rounded-full pointer-events-none ${
-          isPayout ? 'bg-purple-600/15' : 'bg-emerald-600/10'
+          isCspl ? 'bg-blue-600/15' : isPayout ? 'bg-purple-600/15' : 'bg-emerald-600/10'
         }`} />
         
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -551,7 +599,11 @@ export default function B2BAPIDocumentation() {
                 </span>
               )}
 
-              {isPayout ? (
+              {isCspl ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-500/30 text-blue-300 text-xs font-semibold">
+                  <Zap className="h-3.5 w-3.5 text-blue-400" /> Service: CSPL Fast Bill API
+                </span>
+              ) : isPayout ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-purple-300 text-xs font-semibold">
                   <Zap className="h-3.5 w-3.5 text-purple-400" /> Service: Instant Payout API
                 </span>
@@ -576,9 +628,11 @@ export default function B2BAPIDocumentation() {
               onClick={handleExportPDF}
               disabled={exportingPdf}
               className={`inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-2xl text-white font-bold text-xs md:text-sm shadow-xl border transition-all cursor-pointer hover:scale-105 active:scale-95 disabled:opacity-50 ${
-                isPayout 
-                  ? 'bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 border-purple-400/30' 
-                  : 'bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 border-indigo-400/30'
+                isCspl
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-600 border-blue-400/30'
+                  : isPayout 
+                    ? 'bg-gradient-to-r from-purple-600 to-indigo-700 hover:from-purple-500 hover:to-indigo-600 border-purple-400/30' 
+                    : 'bg-gradient-to-r from-indigo-600 to-emerald-600 hover:from-indigo-500 hover:to-emerald-500 border-indigo-400/30'
               }`}
             >
               {exportingPdf ? (
@@ -589,7 +643,7 @@ export default function B2BAPIDocumentation() {
               ) : (
                 <>
                   <Download className="h-4 w-4 text-white" />
-                  <span>Export {isPayout ? 'Payout' : 'BBPS'} PDF Doc</span>
+                  <span>Export {isCspl ? 'CSPL' : isPayout ? 'Payout' : 'BBPS'} PDF Doc</span>
                 </>
               )}
             </button>
@@ -672,7 +726,7 @@ export default function B2BAPIDocumentation() {
           </div>
 
           <p className="text-xs text-slate-300">
-            Retrieve real-time available wallet balance for your {isPayout ? 'dedicated Payout Wallet' : 'BBPS Utility Bill Payment Wallet'}.
+            Retrieve real-time available wallet balance for your {isCspl ? 'dedicated CSPL Fast Bill Wallet' : isPayout ? 'dedicated Payout Wallet' : 'BBPS Utility Bill Payment Wallet'}.
           </p>
 
           <CodeBlock 
@@ -684,10 +738,12 @@ export default function B2BAPIDocumentation() {
     "balance": 25450.75,
     "bbps_wallet_balance": 15450.75,
     "payout_wallet_balance": 10000.00,
+    "cspl_wallet_balance": 12500.00,
     "usable_bbps_balance": 15450.75,
     "fixed_deposit_amount": 0,
     "is_bbps_enabled": ${isBbpsEnabled},
-    "is_payout_enabled": ${isPayoutEnabled}
+    "is_payout_enabled": ${isPayoutEnabled},
+    "is_cspl_enabled": ${isCsplEnabled}
   }
 }`}
           />
@@ -697,15 +753,17 @@ export default function B2BAPIDocumentation() {
             { name: "data.balance", type: "Number", required: true, desc: "Legacy / default BBPS wallet balance (₹)." },
             { name: "data.bbps_wallet_balance", type: "Number", required: true, desc: "Dedicated wallet balance for utility bill payments (₹)." },
             { name: "data.payout_wallet_balance", type: "Number", required: true, desc: "Dedicated wallet balance for 24x7 instant bank payouts (₹)." },
+            { name: "data.cspl_wallet_balance", type: "Number", required: true, desc: "Dedicated wallet balance for CSPL Fast BBPS bill payments (₹)." },
             { name: "data.is_bbps_enabled", type: "Boolean", required: true, desc: "Whether Bill Payment service is active for this agent." },
-            { name: "data.is_payout_enabled", type: "Boolean", required: true, desc: "Whether Instant Payout API service is active for this agent." }
+            { name: "data.is_payout_enabled", type: "Boolean", required: true, desc: "Whether Instant Payout API service is active for this agent." },
+            { name: "data.is_cspl_enabled", type: "Boolean", required: true, desc: "Whether CSPL Fast Bill Payment API service is active for this agent." }
           ]} />
         </div>
 
         {/* ========================================================================= */}
         {/* CASE A: BILL PAYMENT (BBPS) ENDPOINTS ONLY                                */}
         {/* ========================================================================= */}
-        {!isPayout && (
+        {isBbps && (
           <>
             {/* 2.2 GET /categories */}
             <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
@@ -1198,13 +1256,238 @@ export default function B2BAPIDocumentation() {
         )}
 
         {/* ========================================================================= */}
+        {/* CASE C: CSPL FAST BILL PAYMENT ENDPOINTS ONLY                             */}
+        {/* ========================================================================= */}
+        {isCspl && (
+          <>
+            {/* 2.2 POST /cspl/biller-info */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+                  /cspl/biller-info
+                </h3>
+                <span className="text-xs text-blue-300 font-mono font-semibold">CSPL Biller Info & Parameters</span>
+              </div>
+
+              <p className="text-xs text-slate-300">Fetch real-time biller details, customer input parameters, and validation metadata directly from CSPL gateway.</p>
+
+              <CodeBlock 
+                title="Sample Request Body"
+                section="cspl_biller_req"
+                code={`{
+  "billerId": "DGVCL0000GUJ01"
+}`}
+              />
+
+              <CodeBlock 
+                title="Sample Response (200 OK)"
+                section="cspl_biller_res"
+                code={`{
+  "status": "success",
+  "data": {
+    "responseCode": "000",
+    "billerId": "DGVCL0000GUJ01",
+    "billerName": "Dakshin Gujarat Vij Company Limited",
+    "category": "Electricity",
+    "fetchOption": "MANDATORY",
+    "inputParams": [
+      {
+        "paramName": "Consumer Number",
+        "dataType": "NUMERIC",
+        "minLength": 11,
+        "maxLength": 11,
+        "isOptional": false
+      }
+    ]
+  }
+}`}
+              />
+
+              <ParamTable params={[
+                { name: "billerId", type: "String", required: true, desc: "Unique Biller Identifier (e.g., DGVCL0000GUJ01, TORRENT000GUJ01)." }
+              ]} />
+            </div>
+
+            {/* 2.3 POST /cspl/fetch-bill */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+                  /cspl/fetch-bill
+                </h3>
+                <span className="text-xs text-blue-300 font-mono font-semibold">Instant JSON Bill Fetch</span>
+              </div>
+
+              <p className="text-xs text-slate-300">Fetch live outstanding bill details directly from CSPL gateway without XML latency. Returns due amount, bill date, due date, and customer name.</p>
+
+              <CodeBlock 
+                title="Sample Request Body"
+                section="cspl_fetch_req"
+                code={`{
+  "billerId": "DGVCL0000GUJ01",
+  "customerParams": {
+    "Consumer Number": "12345678901"
+  },
+  "customerMobile": "9876543210"
+}`}
+              />
+
+              <CodeBlock 
+                title="Sample Response (200 OK)"
+                section="cspl_fetch_res"
+                code={`{
+  "status": "success",
+  "message": "Bill fetched successfully",
+  "data": {
+    "responseCode": "000",
+    "customerName": "BHAVESHBHAI PATEL",
+    "billAmount": 125000,
+    "amount": "1250.00",
+    "dueDate": "2026-10-15",
+    "billDate": "2026-09-25",
+    "billNumber": "DGV20260901",
+    "billerResponse": {
+      "customerName": "BHAVESHBHAI PATEL",
+      "billAmount": "125000",
+      "dueDate": "2026-10-15",
+      "billDate": "2026-09-25"
+    }
+  }
+}`}
+              />
+
+              <ParamTable params={[
+                { name: "billerId", type: "String", required: true, desc: "Unique CSPL Biller ID." },
+                { name: "customerParams", type: "Object | Array", required: true, desc: "Key-value object or array of input parameters required by the biller." },
+                { name: "customerMobile", type: "String", required: false, desc: "10-digit mobile number of the customer." },
+                { name: "customerEmail", type: "String", required: false, desc: "Optional email address of the customer." }
+              ]} />
+            </div>
+
+            {/* 2.4 POST /cspl/pay-bill */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
+                  /cspl/pay-bill
+                </h3>
+                <span className="text-xs text-blue-300 font-mono font-semibold">Sub-Second Fast Bill Pay</span>
+              </div>
+
+              <p className="text-xs text-slate-300">
+                Execute an instant bill payment. Deducts atomically from your <strong>CSPL Wallet Balance</strong>. If payment fails at the CSPL gateway, funds and service charges are <strong>automatically refunded to your CSPL Wallet instantly</strong>.
+              </p>
+
+              <CodeBlock 
+                title="Sample Request Body"
+                section="cspl_pay_req"
+                code={`{
+  "billerId": "DGVCL0000GUJ01",
+  "amount": 1250.00,
+  "customerParams": {
+    "Consumer Number": "12345678901"
+  },
+  "customerMobile": "9876543210",
+  "customerName": "BHAVESHBHAI PATEL",
+  "client_transaction_id": "CLIENT_TXN_998811"
+}`}
+              />
+
+              <CodeBlock 
+                title="1. Successful Payment Response (HTTP 200 OK)"
+                section="cspl_pay_res_success"
+                code={`{
+  "status": "success",
+  "message": "Bill paid successfully via CSPL Fast BBPS",
+  "data": {
+    "transaction_id": "CSPL_1727615000000_1234",
+    "client_transaction_id": "CLIENT_TXN_998811",
+    "amount": 1250.00,
+    "charge_deducted": 5.00,
+    "total_deducted": 1255.00,
+    "cspl_reference": "CAM98234112",
+    "status": "success",
+    "gateway_response": {
+      "responseCode": "000",
+      "status": "SUCCESS",
+      "rrn": "CAM98234112",
+      "message": "Transaction Successful"
+    }
+  }
+}`}
+              />
+
+              <CodeBlock 
+                title="2. Failed & Auto-Refunded Response (HTTP 400 Bad Request)"
+                section="cspl_pay_res_fail"
+                code={`{
+  "status": "error",
+  "message": "Bill payment failed at CSPL gateway. Your CSPL wallet balance has been refunded.",
+  "data": {
+    "transaction_id": "CSPL_1727615000000_1234",
+    "client_transaction_id": "CLIENT_TXN_998811",
+    "status": "failed",
+    "refunded": true,
+    "gateway_response": {
+      "responseCode": "001",
+      "status": "FAILED",
+      "message": "Biller system not reachable"
+    }
+  }
+}`}
+              />
+
+              <ParamTable params={[
+                { name: "billerId", type: "String", required: true, desc: "Unique CSPL Biller ID." },
+                { name: "amount", type: "Number", required: true, desc: "Bill payment amount in INR (₹)." },
+                { name: "customerParams", type: "Object | Array", required: true, desc: "Biller required parameters (e.g. Consumer Number)." },
+                { name: "customerMobile", type: "String", required: false, desc: "Customer mobile number for SMS alert." },
+                { name: "customerName", type: "String", required: false, desc: "Customer name." },
+                { name: "client_transaction_id", type: "String", required: false, desc: "Unique transaction identifier generated by your own system for reconciliation." }
+              ]} />
+            </div>
+
+            {/* 2.5 GET /cspl/status/:transaction_id */}
+            <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                <h3 className="text-lg font-bold text-white flex items-center gap-3">
+                  <span className="bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">GET</span>
+                  /cspl/status/:transaction_id
+                </h3>
+                <span className="text-xs text-blue-300 font-mono font-semibold">Check CSPL Payment Status</span>
+              </div>
+
+              <p className="text-xs text-slate-300">Query real-time transaction status using <code>transaction_id</code> or your <code>client_transaction_id</code>.</p>
+
+              <CodeBlock 
+                title="Sample Response (200 OK)"
+                section="cspl_status_res"
+                code={`{
+  "status": "success",
+  "data": {
+    "transaction_id": "CSPL_1727615000000_1234",
+    "client_transaction_id": "CLIENT_TXN_998811",
+    "status": "success",
+    "amount": 1250.00,
+    "charge_deducted": 5.00,
+    "total_deduction": 1255.00,
+    "created_at": "2026-09-29T10:15:00.000Z"
+  }
+}`}
+              />
+            </div>
+          </>
+        )}
+
+        {/* ========================================================================= */}
         {/* FUND MANAGEMENT & BANK ACCOUNTS (TAILORED TO ACTIVE SERVICE)              */}
         {/* ========================================================================= */}
         <div className="space-y-8">
           <div className="flex items-center gap-2 pt-2">
-            <span className={`h-2.5 w-2.5 rounded-full animate-pulse ${isPayout ? 'bg-purple-400' : 'bg-emerald-400'}`} />
-            <h3 className={`text-sm font-bold uppercase tracking-wider ${isPayout ? 'text-purple-400' : 'text-emerald-400'}`}>
-              {isPayout ? 'Payout Wallet Fund Deposit APIs' : 'BBPS Wallet Fund Deposit APIs'}
+            <span className={`h-2.5 w-2.5 rounded-full animate-pulse ${isCspl ? 'bg-blue-400' : isPayout ? 'bg-purple-400' : 'bg-emerald-400'}`} />
+            <h3 className={`text-sm font-bold uppercase tracking-wider ${isCspl ? 'text-blue-400' : isPayout ? 'text-purple-400' : 'text-emerald-400'}`}>
+              {isCspl ? 'CSPL Wallet Fund Deposit APIs' : isPayout ? 'Payout Wallet Fund Deposit APIs' : 'BBPS Wallet Fund Deposit APIs'}
             </h3>
           </div>
 
@@ -1332,10 +1615,10 @@ export default function B2BAPIDocumentation() {
         <div className="border-b border-slate-700/80 pb-4">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
             <Code className="h-5 w-5 text-indigo-400" />
-            3. Code Integration Examples: {isPayout ? 'Instant Payout (/payout/transfer)' : 'Bill Payment (/pay-bill)'}
+            3. Code Integration Examples: {isCspl ? 'CSPL Fast Bill Payment (/cspl/pay-bill)' : isPayout ? 'Instant Payout (/payout/transfer)' : 'Bill Payment (/pay-bill)'}
           </h2>
           <p className="text-xs text-slate-400 mt-1">
-            Production-ready code templates in multiple languages for executing {isPayout ? '24x7 instant payouts' : 'instant bill payments'}.
+            Production-ready code templates in multiple languages for executing {isCspl ? 'sub-second CSPL bill payments' : isPayout ? '24x7 instant payouts' : 'instant bill payments'}.
           </p>
         </div>
 
@@ -1375,7 +1658,135 @@ export default function B2BAPIDocumentation() {
           </button>
         </div>
 
-        {isPayout ? (
+        {isCspl ? (
+          <>
+            {activeLang === 'curl' && (
+              <CodeBlock 
+                title="cURL Request Example (/cspl/pay-bill)"
+                section="code_curl_cspl"
+                code={`curl -X POST "${baseUrl}/api/v1/b2b/cspl/pay-bill" \\
+  -H "x-api-key: pub_live_your_key_here" \\
+  -H "x-secret-key: sec_live_your_secret_here" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "billerId": "DGVCL0000GUJ01",
+    "amount": 1250.00,
+    "customerParams": {
+      "Consumer Number": "12345678901"
+    },
+    "customerMobile": "9876543210",
+    "customerName": "BHAVESHBHAI PATEL",
+    "client_transaction_id": "CLIENT_TXN_998811"
+  }'`}
+              />
+            )}
+
+            {activeLang === 'nodejs' && (
+              <CodeBlock 
+                title="Node.js Integration Example (Axios - CSPL Bill Pay)"
+                section="code_nodejs_cspl"
+                code={`const axios = require('axios');
+
+async function payCsplBill() {
+  try {
+    const response = await axios.post('${baseUrl}/api/v1/b2b/cspl/pay-bill', {
+      billerId: 'DGVCL0000GUJ01',
+      amount: 1250.00,
+      customerParams: {
+        'Consumer Number': '12345678901'
+      },
+      customerMobile: '9876543210',
+      customerName: 'BHAVESHBHAI PATEL',
+      client_transaction_id: 'CLIENT_TXN_998811'
+    }, {
+      headers: {
+        'x-api-key': 'pub_live_your_key_here',
+        'x-secret-key': 'sec_live_your_secret_here',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Payment Status:', response.data.status);
+    console.log('CSPL Ref:', response.data.data?.cspl_reference);
+    console.log('Transaction ID:', response.data.data?.transaction_id);
+  } catch (error) {
+    console.error('Payment Error:', error.response?.data || error.message);
+  }
+}
+
+payCsplBill();`}
+              />
+            )}
+
+            {activeLang === 'python' && (
+              <CodeBlock 
+                title="Python Integration Example (Requests - CSPL Bill Pay)"
+                section="code_python_cspl"
+                code={`import requests
+
+url = "${baseUrl}/api/v1/b2b/cspl/pay-bill"
+
+headers = {
+    "x-api-key": "pub_live_your_key_here",
+    "x-secret-key": "sec_live_your_secret_here",
+    "Content-Type": "application/json"
+}
+
+payload = {
+    "billerId": "DGVCL0000GUJ01",
+    "amount": 1250.00,
+    "customerParams": {
+        "Consumer Number": "12345678901"
+    },
+    "customerMobile": "9876543210",
+    "customerName": "BHAVESHBHAI PATEL",
+    "client_transaction_id": "CLIENT_TXN_998811"
+}
+
+response = requests.post(url, json=payload, headers=headers)
+print("HTTP Status:", response.status_code)
+print("Response JSON:", response.json())`}
+              />
+            )}
+
+            {activeLang === 'php' && (
+              <CodeBlock 
+                title="PHP Integration Example (cURL - CSPL Bill Pay)"
+                section="code_php_cspl"
+                code={`<?php
+$url = "${baseUrl}/api/v1/b2b/cspl/pay-bill";
+
+$payload = json_encode([
+    "billerId" => "DGVCL0000GUJ01",
+    "amount" => 1250.00,
+    "customerParams" => [
+        "Consumer Number" => "12345678901"
+    ],
+    "customerMobile" => "9876543210",
+    "customerName" => "BHAVESHBHAI PATEL",
+    "client_transaction_id" => "CLIENT_TXN_998811"
+]);
+
+$ch = curl_init($url);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_POST, true);
+curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'x-api-key: pub_live_your_key_here',
+    'x-secret-key: sec_live_your_secret_here',
+    'Content-Type: application/json'
+]);
+
+$response = curl_exec($ch);
+curl_close($ch);
+
+$result = json_decode($response, true);
+var_dump($result);
+?>`}
+              />
+            )}
+          </>
+        ) : isPayout ? (
           <>
             {activeLang === 'curl' && (
               <CodeBlock 
@@ -1627,14 +2038,35 @@ var_dump($result);
       <section className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
         <h2 className="text-xl font-bold text-white flex items-center gap-2 border-b border-slate-700/80 pb-3">
           <Activity className="h-5 w-5 text-indigo-400" />
-          4. Webhook Notifications: {isPayout ? 'Instant Payout Status Updates' : 'BBPS Payment Updates'}
+          4. Webhook Notifications: {isCspl ? 'CSPL Fast Bill Payment Updates' : isPayout ? 'Instant Payout Status Updates' : 'BBPS Payment Updates'}
         </h2>
 
         <p className="text-xs text-slate-300">
-          When transactions are initiated and return a <code>pending</code> status, our background engine continuously verifies status with {isPayout ? 'the banking network' : 'BBPS'}. Once confirmed as <strong>Success</strong> or <strong>Failed</strong>, an HTTP POST callback is dispatched to your configured Webhook URL.
+          When transactions are initiated, our gateway engine verifies real-time status with {isCspl ? 'CSPL Camlenio BBPS' : isPayout ? 'the banking network' : 'BBPS'}. Once confirmed as <strong>Success</strong> or <strong>Failed</strong>, an HTTP POST callback is dispatched to your configured Webhook URL.
         </p>
 
-        {isPayout ? (
+        {isCspl ? (
+          <div className="space-y-3 pt-2">
+            <CodeBlock 
+              title="CSPL Webhook Payload (Bill Payment Success)"
+              section="webhook_cspl_success"
+              code={`{
+  "event": "CSPL_BILL_PAYMENT_SUCCESS",
+  "transaction_id": "CSPL_1727615000000_1234",
+  "client_transaction_id": "CLIENT_TXN_998811",
+  "amount": 1250.00,
+  "status": "success",
+  "response": {
+    "responseCode": "000",
+    "status": "SUCCESS",
+    "rrn": "CAM98234112",
+    "message": "Transaction Successful"
+  },
+  "timestamp": "2026-09-29T10:15:02.000Z"
+}`}
+            />
+          </div>
+        ) : isPayout ? (
           <div className="space-y-3 pt-2">
             <CodeBlock 
               title="Payout Webhook Payload (Transfer Success)"
@@ -1722,7 +2154,7 @@ var_dump($result);
           <CheckCircle2 className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
           <div>
             <strong className="block mb-1 text-emerald-300">Automated Wallet Refund Guarantee:</strong>
-            If any transaction is marked as <code>FAILED</code> by the upstream banking network or biller gateway, the system automatically refunds 100% of the principal amount and applicable charges back to your {isPayout ? 'Payout Wallet' : 'BBPS Wallet'} instantly.
+            If any transaction is marked as <code>FAILED</code> by the upstream banking network or biller gateway, the system automatically refunds 100% of the principal amount and applicable charges back to your {isCspl ? 'CSPL Wallet' : isPayout ? 'Payout Wallet' : 'BBPS Wallet'} instantly.
           </div>
         </div>
       </section>
@@ -1759,10 +2191,10 @@ var_dump($result);
                 <td className="px-4 py-3 font-mono font-bold text-rose-400">400 Bad Request</td>
                 <td className="px-4 py-3 font-mono text-rose-300">error</td>
                 <td className="px-4 py-3 text-slate-300">
-                  Insufficient {isPayout ? 'Payout' : 'BBPS'} Wallet Balance to cover requested transaction.
+                  Insufficient {isCspl ? 'CSPL' : isPayout ? 'Payout' : 'BBPS'} Wallet Balance to cover requested transaction.
                 </td>
                 <td className="px-4 py-3 text-slate-300">
-                  Submit <code>/fund-request</code> with <code>wallet_type: "{isPayout ? 'payout' : 'bbps'}"</code>.
+                  Submit <code>/fund-request</code> with <code>wallet_type: "{isCspl ? 'cspl' : isPayout ? 'payout' : 'bbps'}"</code>.
                 </td>
               </tr>
               {isPayout ? (

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { supabaseAdmin } from '../../server';
 import * as billAvenue from '../../services/billavenue';
+import * as camlenioBbps from '../../services/camlenio_bbps.js';
 import { notifyAdminNewB2BFundRequest } from '../../services/whatsapp_service.js';
 import { executeNixasoftPayout, checkNixasoftStatus, calculateSlabCharge, getNixasoftConfig, PayoutSlab } from '../../services/nixasoft_payout.js';
 
@@ -227,7 +228,7 @@ export const getBalance = async (req: Request, res: Response) => {
     const agentId = (req as any).agentId;
     const { data, error } = await supabaseAdmin
       .from('b2b_api_credentials')
-      .select('wallet_balance, payout_wallet_balance, is_bbps_enabled, is_payout_enabled, fixed_deposit_amount')
+      .select('wallet_balance, payout_wallet_balance, cspl_wallet_balance, is_bbps_enabled, is_payout_enabled, is_cspl_enabled, fixed_deposit_amount')
       .eq('id', agentId)
       .single();
 
@@ -245,6 +246,7 @@ export const getBalance = async (req: Request, res: Response) => {
         response_payload: {
           balance: data.wallet_balance || 0,
           payout_wallet_balance: data.payout_wallet_balance || 0,
+          cspl_wallet_balance: data.cspl_wallet_balance || 0,
           usable_bbps_balance: Math.max(0, (data.wallet_balance || 0) - (data.fixed_deposit_amount || 0))
         }
       });
@@ -255,10 +257,12 @@ export const getBalance = async (req: Request, res: Response) => {
         balance: data.wallet_balance || 0,
         bbps_wallet_balance: data.wallet_balance || 0,
         payout_wallet_balance: data.payout_wallet_balance || 0,
+        cspl_wallet_balance: data.cspl_wallet_balance || 0,
         usable_bbps_balance: Math.max(0, (data.wallet_balance || 0) - (data.fixed_deposit_amount || 0)),
         fixed_deposit_amount: data.fixed_deposit_amount || 0,
         is_bbps_enabled: data.is_bbps_enabled !== false,
-        is_payout_enabled: !!data.is_payout_enabled
+        is_payout_enabled: !!data.is_payout_enabled,
+        is_cspl_enabled: !!data.is_cspl_enabled
       }
     });
   } catch (err: any) {
@@ -2810,6 +2814,502 @@ export const testAgentWebhookAdmin = async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     return res.status(500).json({ status: 'error', message: 'Connection failed: ' + (err.message || 'Server unreachable') });
+  }
+};
+
+/**
+ * ==========================================
+ * CSPL B2B FAST BILL PAYMENT API CONTROLLER
+ * ==========================================
+ */
+
+/**
+ * 1. Get CSPL Biller Info
+ */
+export const getCsplBillerInfo = async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).agentId;
+    const { billerId } = req.body;
+
+    if (!billerId) {
+      return res.status(400).json({ status: 'error', message: 'billerId is required' });
+    }
+
+    // Verify agent has CSPL permission
+    const { data: agent } = await supabaseAdmin
+      .from('b2b_api_credentials')
+      .select('is_cspl_enabled')
+      .eq('id', agentId)
+      .single();
+
+    if (!agent || !agent.is_cspl_enabled) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'CSPL Fast Bill Payment API is not enabled for your account. Please contact administrator.'
+      });
+    }
+
+    const data = await camlenioBbps.getBillerInfo(String(billerId).trim());
+
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/cspl/biller-info',
+        request_ip: (req as any).clientIp || req.ip,
+        request_payload: req.body,
+        status_code: 200,
+        response_payload: data
+      });
+
+    res.json({
+      status: 'success',
+      data
+    });
+  } catch (err: any) {
+    console.error('[B2B getCsplBillerInfo Error]', err);
+    res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch biller info' });
+  }
+};
+
+/**
+ * 2. Fetch CSPL Bill
+ */
+export const fetchCsplBill = async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).agentId;
+    const { billerId, customerParams, customerMobile, customerEmail } = req.body;
+
+    if (!billerId || !customerParams) {
+      return res.status(400).json({ status: 'error', message: 'billerId and customerParams are required' });
+    }
+
+    // Verify agent has CSPL permission
+    const { data: agent } = await supabaseAdmin
+      .from('b2b_api_credentials')
+      .select('is_cspl_enabled')
+      .eq('id', agentId)
+      .single();
+
+    if (!agent || !agent.is_cspl_enabled) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'CSPL Fast Bill Payment API is not enabled for your account. Please contact administrator.'
+      });
+    }
+
+    let inputParams: any[] = [];
+    if (Array.isArray(customerParams)) {
+      inputParams = customerParams.map((p: any) => ({
+        paramName: String(p.paramName || p.name || ''),
+        paramValue: String(p.paramValue || p.value || '')
+      })).filter(p => p.paramName);
+    } else if (typeof customerParams === 'object' && customerParams !== null) {
+      inputParams = Object.keys(customerParams).map((key) => ({
+        paramName: key,
+        paramValue: String(customerParams[key] || '')
+      }));
+    }
+
+    const payload = {
+      billerId: String(billerId).trim(),
+      customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
+      customerEmail: customerEmail || "",
+      inputParams
+    };
+
+    const data = await camlenioBbps.fetchBill(payload);
+
+    await supabaseAdmin
+      .from('b2b_api_logs')
+      .insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/cspl/fetch-bill',
+        request_ip: (req as any).clientIp || req.ip,
+        request_payload: req.body,
+        status_code: 200,
+        response_payload: data
+      });
+
+    res.json({
+      status: data.responseCode === '000' || data.status === 'SUCCESS' ? 'success' : 'error',
+      message: data.responseCode === '000' || data.status === 'SUCCESS' ? 'Bill fetched successfully' : (data.message || data.responseReason || 'Failed to fetch bill'),
+      data
+    });
+  } catch (err: any) {
+    console.error('[B2B fetchCsplBill Error]', err);
+    res.status(500).json({ status: 'error', message: err.message || 'Failed to fetch bill' });
+  }
+};
+
+/**
+ * 3. Pay CSPL Bill (Atomic CSPL Wallet Balance deduction + Auto-refund)
+ */
+export const payCsplBill = async (req: Request, res: Response) => {
+  try {
+    const agentId = (req as any).agentId;
+    const {
+      billerId,
+      billerName,
+      amount,
+      customerParams,
+      customerMobile,
+      customerName,
+      billDetails,
+      client_transaction_id
+    } = req.body;
+
+    if (!billerId || !amount || !customerParams) {
+      return res.status(400).json({ status: 'error', message: 'billerId, amount, and customerParams are required' });
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      return res.status(400).json({ status: 'error', message: 'Invalid bill payment amount' });
+    }
+
+    // 1. Verify agent permission and fetch CSPL balance
+    const { data: agentData } = await supabaseAdmin
+      .from('b2b_api_credentials')
+      .select('id, is_cspl_enabled, cspl_wallet_balance, charge_per_bill, developer_charge, owner_charge, custom_max_bill_payment_limit, webhook_url')
+      .eq('id', agentId)
+      .single();
+
+    if (!agentData || !agentData.is_cspl_enabled) {
+      return res.status(403).json({
+        status: 'error',
+        message: 'CSPL Fast Bill Payment API is not enabled for your account. Please contact administrator.'
+      });
+    }
+
+    // 2. Limit Check
+    const { data: globalSettings } = await supabaseAdmin
+      .from('qr_settings')
+      .select('cspl_max_limit, bbps_max_limit')
+      .eq('id', 1)
+      .maybeSingle();
+
+    const maxLimit = Number(globalSettings?.cspl_max_limit) > 0
+      ? Number(globalSettings?.cspl_max_limit)
+      : (Number(globalSettings?.bbps_max_limit) || 49999);
+
+    if (parsedAmount > maxLimit) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Transaction amount ₹${parsedAmount.toLocaleString('en-IN')} exceeds CSPL maximum single limit of ₹${maxLimit.toLocaleString('en-IN')}.`
+      });
+    }
+
+    // 3. Calculate Charges
+    let baseChargePerBill = parseFloat(agentData.charge_per_bill?.toString() || '0');
+    let baseDeveloperCharge = parseFloat(agentData.developer_charge?.toString() || '0');
+    let baseOwnerCharge = parseFloat(agentData.owner_charge?.toString() || '0');
+
+    if (baseDeveloperCharge === 0 && baseOwnerCharge === 0 && baseChargePerBill > 0) {
+      baseOwnerCharge = baseChargePerBill;
+    }
+
+    // 50k Slab Multiplier
+    const multiplier = Math.floor(parsedAmount / 50000) + 1;
+    const developerCharge = baseDeveloperCharge * multiplier;
+    const ownerCharge = baseOwnerCharge * multiplier;
+    const chargePerBill = developerCharge + ownerCharge;
+    const totalDeduction = parsedAmount + chargePerBill;
+
+    // 4. Check & Deduct CSPL Wallet Balance
+    const currentCsplBal = parseFloat(agentData.cspl_wallet_balance?.toString() || '0');
+    if (currentCsplBal < totalDeduction) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Insufficient CSPL wallet balance. Required: ₹${totalDeduction.toFixed(2)} (Bill: ₹${parsedAmount.toFixed(2)}, Charge: ₹${chargePerBill.toFixed(2)}), Available: ₹${currentCsplBal.toFixed(2)}`
+      });
+    }
+
+    // Atomic deduction via RPC with fallback
+    let deducted = false;
+    const { data: rpcDeduct, error: rpcErr } = await supabaseAdmin.rpc('deduct_b2b_cspl_wallet_balance', {
+      p_agent_id: agentId,
+      p_amount: totalDeduction
+    });
+
+    if (!rpcErr && rpcDeduct === true) {
+      deducted = true;
+    } else {
+      // Direct atomic fallback
+      const { data: updatedCred, error: updateErr } = await supabaseAdmin
+        .from('b2b_api_credentials')
+        .update({ cspl_wallet_balance: currentCsplBal - totalDeduction })
+        .eq('id', agentId)
+        .gte('cspl_wallet_balance', totalDeduction)
+        .select('cspl_wallet_balance')
+        .maybeSingle();
+
+      if (!updateErr && updatedCred) {
+        deducted = true;
+      }
+    }
+
+    if (!deducted) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Failed to deduct from CSPL wallet or insufficient balance.'
+      });
+    }
+
+    // 5. Generate Transaction ID
+    const csplTxnId = `CSPL_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+    const finalClientTxnId = (client_transaction_id || csplTxnId).trim();
+
+    // 6. Build CSPL Payload
+    const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
+    const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse;
+    const fetchRequestId = billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
+    const csplRequestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
+
+    let paramArray: any[] = [];
+    if (Array.isArray(customerParams)) {
+      paramArray = customerParams.map((p: any) => ({
+        paramName: String(p.paramName || p.name || '').trim(),
+        paramValue: String(p.paramValue || p.value || '').trim()
+      })).filter(p => p.paramName);
+    } else if (typeof customerParams === 'object' && customerParams !== null) {
+      paramArray = Object.entries(customerParams).map(([name, value]) => ({
+        paramName: String(name).trim(),
+        paramValue: String(value).trim()
+      }));
+    }
+
+    const rawCat = billDetails?.catname || billDetails?.categoryName || (billerName && billerName.toLowerCase().includes("card") ? "Credit Card" : billerName) || "Credit Card";
+    const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Credit Card";
+
+    const custBillAmountInPaise = Math.round(parsedAmount * 100);
+    const fetchedAmountInPaise = billDetails?.billAmount
+      ? Math.round(Number(billDetails.billAmount) * 100)
+      : (fetchedBillerResponse?.billAmount ? Number(fetchedBillerResponse.billAmount) : custBillAmountInPaise);
+
+    const csplPayload: any = {
+      requestId: csplRequestId,
+      customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
+      customerName: customerName || billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer",
+      catname: cleanCatName,
+      billerId: String(billerId).trim(),
+      billamount: fetchedAmountInPaise || custBillAmountInPaise,
+      cust_billamount: custBillAmountInPaise,
+      inputParams: paramArray
+    };
+
+    if (fetchedBillerResponse) {
+      csplPayload.billerResponse = fetchedBillerResponse;
+    }
+
+    // Insert pending log in b2b_api_logs
+    const { data: logRecord } = await supabaseAdmin
+      .from('b2b_api_logs')
+      .insert({
+        agent_id: agentId,
+        endpoint: '/api/b2b/cspl/pay-bill',
+        request_ip: (req as any).clientIp || req.ip,
+        developer_charge: developerCharge,
+        owner_charge: ownerCharge,
+        request_payload: {
+          ...req.body,
+          transaction_id: csplTxnId,
+          client_transaction_id: finalClientTxnId,
+          totalDeduction,
+          chargeDeducted: chargePerBill,
+          csplPayload
+        },
+        response_payload: {
+          payment_status: 'pending',
+          transaction_id: csplTxnId,
+          client_transaction_id: finalClientTxnId
+        },
+        status_code: 202
+      })
+      .select('id')
+      .single();
+
+    // 7. Call CSPL API
+    let csplResponse: any = null;
+    let paymentSuccess = false;
+
+    try {
+      csplResponse = await camlenioBbps.payBill(csplPayload);
+      if (
+        csplResponse?.responseCode === '000' ||
+        csplResponse?.data?.responseCode === '000' ||
+        csplResponse?.status === 'SUCCESS' ||
+        csplResponse?.status === 'SUCCESSFUL'
+      ) {
+        paymentSuccess = true;
+      }
+    } catch (apiErr: any) {
+      console.error('[CSPL PayBill API Call Error]', apiErr);
+      csplResponse = { status: 'ERROR', message: apiErr.message || 'CSPL Gateway Timeout / Error' };
+    }
+
+    // 8. Handle Success or Auto-Refund
+    if (paymentSuccess) {
+      // Update log to success
+      if (logRecord?.id) {
+        await supabaseAdmin
+          .from('b2b_api_logs')
+          .update({
+            status_code: 200,
+            payment_status: 'success',
+            response_payload: {
+              ...csplResponse,
+              payment_status: 'success',
+              transaction_id: csplTxnId,
+              client_transaction_id: finalClientTxnId
+            }
+          })
+          .eq('id', logRecord.id);
+      }
+
+      // Credit admin balance if owner charge exists
+      if (ownerCharge > 0) {
+        try {
+          await supabaseAdmin.rpc('add_admin_balance', { p_amount: ownerCharge });
+        } catch (_) {}
+      }
+
+      // Webhook notification if configured
+      if (agentData.webhook_url) {
+        try {
+          fetch(agentData.webhook_url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event: 'CSPL_BILL_PAYMENT_SUCCESS',
+              transaction_id: csplTxnId,
+              client_transaction_id: finalClientTxnId,
+              amount: parsedAmount,
+              status: 'success',
+              response: csplResponse,
+              timestamp: new Date().toISOString()
+            })
+          }).catch(e => console.warn('[CSPL Webhook Error]', e));
+        } catch (_) {}
+      }
+
+      return res.json({
+        status: 'success',
+        message: 'Bill paid successfully via CSPL Fast BBPS',
+        data: {
+          transaction_id: csplTxnId,
+          client_transaction_id: finalClientTxnId,
+          amount: parsedAmount,
+          charge_deducted: chargePerBill,
+          total_deducted: totalDeduction,
+          cspl_reference: csplResponse?.refid || csplResponse?.rrn || csplResponse?.data?.rrn || csplTxnId,
+          status: 'success',
+          gateway_response: csplResponse
+        }
+      });
+    } else {
+      // PAYMENT FAILED: AUTO-REFUND to CSPL Wallet immediately!
+      console.warn(`[CSPL PayBill - FAILED] Auto-refunding ₹${totalDeduction} to agent ${agentId} CSPL Wallet...`);
+      let refunded = false;
+
+      const { data: rpcRefund } = await supabaseAdmin.rpc('refund_b2b_cspl_wallet_balance', {
+        p_agent_id: agentId,
+        p_amount: totalDeduction
+      });
+
+      if (rpcRefund === true) {
+        refunded = true;
+      } else {
+        // Fallback refund update
+        await supabaseAdmin.rpc('add_b2b_cspl_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction }).catch(async () => {
+          const { data: cData } = await supabaseAdmin.from('b2b_api_credentials').select('cspl_wallet_balance').eq('id', agentId).single();
+          if (cData) {
+            await supabaseAdmin.from('b2b_api_credentials').update({ cspl_wallet_balance: (parseFloat(cData.cspl_wallet_balance || '0') + totalDeduction) }).eq('id', agentId);
+          }
+        });
+        refunded = true;
+      }
+
+      // Update log to failed
+      if (logRecord?.id) {
+        await supabaseAdmin
+          .from('b2b_api_logs')
+          .update({
+            status_code: 400,
+            payment_status: 'failed',
+            charge_deducted: 0,
+            response_payload: {
+              ...csplResponse,
+              payment_status: 'failed',
+              auto_refunded: refunded,
+              transaction_id: csplTxnId,
+              client_transaction_id: finalClientTxnId
+            }
+          })
+          .eq('id', logRecord.id);
+      }
+
+      return res.status(400).json({
+        status: 'error',
+        message: csplResponse?.message || csplResponse?.error || 'Bill payment failed at CSPL gateway. Your CSPL wallet balance has been refunded.',
+        data: {
+          transaction_id: csplTxnId,
+          client_transaction_id: finalClientTxnId,
+          status: 'failed',
+          refunded: true,
+          gateway_response: csplResponse
+        }
+      });
+    }
+  } catch (err: any) {
+    console.error('[B2B payCsplBill Error]', err);
+    res.status(500).json({ status: 'error', message: err.message || 'Internal server error while processing CSPL bill payment' });
+  }
+};
+
+/**
+ * 4. Check CSPL Bill Payment Status
+ */
+export const checkCsplStatus = async (req: Request, res: Response) => {
+  try {
+    const { transaction_id } = req.params;
+    const agentId = (req as any).agentId;
+
+    if (!transaction_id) {
+      return res.status(400).json({ status: 'error', message: 'transaction_id is required' });
+    }
+
+    // Look up transaction in b2b_api_logs
+    const { data: log, error } = await supabaseAdmin
+      .from('b2b_api_logs')
+      .select('*')
+      .eq('agent_id', agentId)
+      .or(`id.eq.${transaction_id},request_payload->>transaction_id.eq.${transaction_id},request_payload->>client_transaction_id.eq.${transaction_id}`)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !log) {
+      return res.status(404).json({ status: 'error', message: `Transaction ${transaction_id} not found` });
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        transaction_id: log.request_payload?.transaction_id || log.id,
+        client_transaction_id: log.request_payload?.client_transaction_id,
+        status: log.payment_status || (log.status_code === 200 ? 'success' : 'failed'),
+        endpoint: log.endpoint,
+        amount: log.request_payload?.amount,
+        charge_deducted: log.request_payload?.chargeDeducted,
+        total_deduction: log.request_payload?.totalDeduction,
+        response_payload: log.response_payload,
+        created_at: log.created_at
+      }
+    });
+  } catch (err: any) {
+    console.error('[B2B checkCsplStatus Error]', err);
+    res.status(500).json({ status: 'error', message: err.message || 'Failed to check status' });
   }
 };
 

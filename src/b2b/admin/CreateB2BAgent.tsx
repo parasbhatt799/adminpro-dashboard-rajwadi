@@ -15,8 +15,10 @@ interface Agent {
   address: string;
   b2b_login_id: string;
   wallet_balance: number;
+  cspl_wallet_balance?: number;
   payout_wallet_balance?: number;
   is_bbps_enabled?: boolean;
+  is_cspl_enabled?: boolean;
   is_payout_enabled?: boolean;
   payout_slabs?: any[];
   charge_per_bill: number;
@@ -80,6 +82,7 @@ export default function CreateB2BAgent() {
     fixedDepositAmount: '0',
     agentTag: '',
     isBbpsEnabled: true,
+    isCsplEnabled: false,
     isPayoutEnabled: false
   });
 
@@ -192,6 +195,7 @@ export default function CreateB2BAgent() {
       fixedDepositAmount: agent.fixed_deposit_amount !== null && agent.fixed_deposit_amount !== undefined ? agent.fixed_deposit_amount.toString() : '0',
       agentTag: agent.agent_tag || '',
       isBbpsEnabled: agent.is_bbps_enabled !== false,
+      isCsplEnabled: !!agent.is_cspl_enabled,
       isPayoutEnabled: !!agent.is_payout_enabled
     });
     setView('edit');
@@ -273,6 +277,24 @@ export default function CreateB2BAgent() {
       }
     } else {
       toast.error('Failed to change Payout status');
+    }
+  };
+
+  const toggleCspl = async (agent: Agent) => {
+    const newStatus = !agent.is_cspl_enabled;
+    const { error } = await supabase
+      .from('b2b_api_credentials')
+      .update({ is_cspl_enabled: newStatus })
+      .eq('id', agent.id);
+
+    if (!error) {
+      toast.success(`CSPL Service ${newStatus ? 'enabled' : 'disabled'}`);
+      setAgents(agents.map(a => a.id === agent.id ? { ...a, is_cspl_enabled: newStatus } : a));
+      if (selectedAgentForApi?.id === agent.id) {
+        setSelectedAgentForApi({ ...selectedAgentForApi, is_cspl_enabled: newStatus });
+      }
+    } else {
+      toast.error('Failed to change CSPL status');
     }
   };
 
@@ -579,7 +601,9 @@ export default function CreateB2BAgent() {
             profile_photo_url: uploadedPhotoUrl || null,
             is_active: true,
             is_bbps_enabled: formData.isBbpsEnabled,
+            is_cspl_enabled: formData.isCsplEnabled,
             is_payout_enabled: formData.isPayoutEnabled,
+            cspl_wallet_balance: 0,
             payout_wallet_balance: 0
           });
 
@@ -607,6 +631,7 @@ export default function CreateB2BAgent() {
           agent_tag: formData.agentTag ? formData.agentTag.trim() : null,
           profile_photo_url: uploadedPhotoUrl || null,
           is_bbps_enabled: formData.isBbpsEnabled,
+          is_cspl_enabled: formData.isCsplEnabled,
           is_payout_enabled: formData.isPayoutEnabled
         };
         
@@ -632,7 +657,7 @@ export default function CreateB2BAgent() {
       }
 
       setFormData({
-        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '', isBbpsEnabled: true, isPayoutEnabled: false
+        firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '', isBbpsEnabled: true, isCsplEnabled: false, isPayoutEnabled: false
       });
       setProfilePhoto(null);
       setPhotoPreview(null);
@@ -714,6 +739,11 @@ export default function CreateB2BAgent() {
                     <Zap size={13} /> BBPS Wallet
                   </span>
                 </th>
+                <th className="py-4 px-5 text-center whitespace-nowrap text-blue-400">
+                  <span className="inline-flex items-center gap-1 font-bold">
+                    <Zap size={13} /> CSPL Wallet
+                  </span>
+                </th>
                 <th className="py-4 px-5 text-center whitespace-nowrap text-purple-400">
                   <span className="inline-flex items-center gap-1 font-bold">
                     <Layers size={13} /> Payout Wallet
@@ -730,13 +760,13 @@ export default function CreateB2BAgent() {
             <tbody className="divide-y divide-slate-700/50">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     Loading agents...
                   </td>
                 </tr>
               ) : filteredAgents.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     {agentSearchTerm ? 'No agents match your search criteria.' : 'No agents found. Click "Create Agent" to onboard one.'}
                   </td>
                 </tr>
@@ -773,6 +803,11 @@ export default function CreateB2BAgent() {
                                 No BBPS
                               </span>
                             )}
+                            {agent.is_cspl_enabled ? (
+                              <span className="text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="CSPL Fast Bill Payment API Active">
+                                <Zap size={9} /> CSPL
+                              </span>
+                            ) : null}
                             {agent.is_payout_enabled ? (
                               <span className="text-[10px] font-bold text-purple-400 bg-purple-500/10 border border-purple-500/20 px-1.5 py-0.5 rounded flex items-center gap-0.5" title="Instant Payout API Active">
                                 <Layers size={9} /> Payout
@@ -824,6 +859,17 @@ export default function CreateB2BAgent() {
                           ₹{parseFloat(agent.wallet_balance?.toString() || '0').toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                         {agent.is_bbps_enabled === false && (
+                          <span className="text-[10px] text-slate-500 font-medium">Inactive</span>
+                        )}
+                      </div>
+                    </td>
+                    {/* CSPL Wallet */}
+                    <td className="py-4 px-5 text-center">
+                      <div className="flex flex-col items-center justify-center">
+                        <span className="text-blue-400 font-bold font-mono text-sm">
+                          ₹{parseFloat(agent.cspl_wallet_balance?.toString() || '0').toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        {!agent.is_cspl_enabled && (
                           <span className="text-[10px] text-slate-500 font-medium">Inactive</span>
                         )}
                       </div>
@@ -1093,6 +1139,25 @@ export default function CreateB2BAgent() {
                             onChange={() => togglePayout(selectedAgentForApi)}
                           />
                           <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
+                        </label>
+                      </div>
+
+                      {/* CSPL Fast Bill Payment Toggle */}
+                      <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-700/80 flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-bold text-white flex items-center gap-1.5">
+                            <Zap size={16} className="text-blue-400" /> CSPL Fast Bill API
+                          </div>
+                          <p className="text-xs text-slate-400 mt-0.5">High-speed JSON BBPS & dedicated CSPL wallet</p>
+                        </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                          <input 
+                            type="checkbox" 
+                            className="sr-only peer" 
+                            checked={!!selectedAgentForApi.is_cspl_enabled}
+                            onChange={() => toggleCspl(selectedAgentForApi)}
+                          />
+                          <div className="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-600 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
                         </label>
                       </div>
                     </div>
@@ -1718,6 +1783,32 @@ export default function CreateB2BAgent() {
                     checked={formData.isPayoutEnabled}
                     onChange={(e) => setFormData(prev => ({ ...prev, isPayoutEnabled: e.target.checked }))}
                     className="rounded text-purple-600 focus:ring-purple-500 w-5 h-5 bg-slate-800 border-slate-700 cursor-pointer"
+                  />
+                </div>
+
+                {/* CSPL Fast Bill Payment Toggle */}
+                <div 
+                  onClick={() => setFormData(prev => ({ ...prev, isCsplEnabled: !prev.isCsplEnabled }))}
+                  className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between select-none ${
+                    formData.isCsplEnabled 
+                      ? 'bg-blue-500/10 border-blue-500/40 shadow-sm shadow-blue-500/10' 
+                      : 'bg-slate-900/70 border-slate-700 opacity-70 hover:opacity-100'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2 rounded-lg ${formData.isCsplEnabled ? 'bg-blue-500/20 text-blue-400' : 'bg-slate-800 text-slate-500'}`}>
+                      <Zap size={18} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white">CSPL Fast Bill API</div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">High-speed JSON BBPS & dedicated CSPL wallet</p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={formData.isCsplEnabled}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isCsplEnabled: e.target.checked }))}
+                    className="rounded text-blue-600 focus:ring-blue-500 w-5 h-5 bg-slate-800 border-slate-700 cursor-pointer"
                   />
                 </div>
               </div>
