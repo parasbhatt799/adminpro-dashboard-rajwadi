@@ -1379,7 +1379,7 @@ export default function B2BAPIDocumentation() {
                 Execute an instant bill payment. Deducts atomically from your <strong>CSPL Wallet Balance</strong>. If payment fails at the CSPL gateway, funds and service charges are <strong>automatically refunded to your CSPL Wallet instantly</strong>.
               </p>
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-xs text-blue-300">
-                <span className="font-bold text-white">💡 Pro-Tip for Fetch-Mandatory Billers (e.g. Credit Cards):</span> Call <code>/cspl/fetch-bill</code> first, then pass the fetched <code>billDetails</code> (or <code>billerResponse</code>) in your pay request. If omitted, our backend will automatically attempt to link your latest fetch or auto-fetch on the fly. Note that payments below the <strong>Minimum Amount Due</strong> will be rejected by the bank.
+                <span className="font-bold text-white">💡 Pro-Tip for Fetch-Mandatory Billers (e.g. Credit Cards):</span> Call <code>/cspl/fetch-bill</code> first, then pass the fetched <code>billDetails</code> (or <code>billerResponse</code>) in your pay request. If omitted, our backend will automatically attempt to link your latest fetch or auto-fetch on the fly. Users can pay any custom manual amount they choose.
               </div>
 
               <CodeBlock 
@@ -1448,7 +1448,7 @@ export default function B2BAPIDocumentation() {
 
               <ParamTable params={[
                 { name: "billerId", type: "String", required: true, desc: "Unique CSPL Biller ID." },
-                { name: "amount", type: "Number", required: true, desc: "Bill payment amount in INR (₹). Must be >= Minimum Amount Due if specified." },
+                { name: "amount", type: "Number", required: true, desc: "Any custom bill payment amount in INR (₹) (e.g. 1.00, 500, 2500, etc. Supports manual / partial payments)." },
                 { name: "customerParams", type: "Object | Array", required: true, desc: "Biller required parameters (e.g. Consumer Number or Card Last 4 Digits & Mobile)." },
                 { name: "customerMobile", type: "String", required: false, desc: "Customer mobile number for SMS alert." },
                 { name: "customerName", type: "String", required: false, desc: "Customer name." },

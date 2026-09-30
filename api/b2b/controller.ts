@@ -3183,36 +3183,7 @@ export const payCsplBill = async (req: Request, res: Response) => {
       addInfoList = fetchedAdditionalInfo.info;
     }
 
-    let minAmountDue: number | null = null;
-    let maxPermissibleAmount: number | null = null;
-    if (Array.isArray(addInfoList)) {
-      for (const info of addInfoList) {
-        const name = String(info.infoName || info.name || '').toLowerCase();
-        const val = parseFloat(String(info.infoValue || info.value || '').replace(/,/g, ''));
-        if (!isNaN(val) && val > 0) {
-          if (name.includes('minimum amount') || name.includes('min amount') || name.includes('min due')) {
-            minAmountDue = val;
-          }
-          if (name.includes('maximum permissible') || name.includes('max amount')) {
-            maxPermissibleAmount = val;
-          }
-        }
-      }
-    }
 
-    if (minAmountDue !== null && parsedAmount < minAmountDue) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Payment amount ₹${parsedAmount.toLocaleString('en-IN')} is below the Minimum Amount Due of ₹${minAmountDue.toLocaleString('en-IN')} required by ${billerName || 'biller'}.`
-      });
-    }
-
-    if (maxPermissibleAmount !== null && parsedAmount > maxPermissibleAmount) {
-      return res.status(400).json({
-        status: 'error',
-        message: `Payment amount ₹${parsedAmount.toLocaleString('en-IN')} exceeds the Maximum Permissible Amount of ₹${maxPermissibleAmount.toLocaleString('en-IN')} for this biller.`
-      });
-    }
 
     // 5. Calculate Charges
     let baseChargePerBill = parseFloat(agentData.charge_per_bill?.toString() || '0');
