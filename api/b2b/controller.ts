@@ -3241,12 +3241,11 @@ export const payCsplBill = async (req: Request, res: Response) => {
       });
     }
 
-    // 7. Generate Transaction ID
-    const csplTxnId = `CSPL_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+    // 7. Generate Unified Transaction ID (Clean alphanumeric format starting with CSPL, matching Camlenio 1:1)
+    const csplTxnId = `CSPL${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`;
     const finalClientTxnId = (client_transaction_id || csplTxnId).trim();
 
     // 8. Build CSPL Payload
-    const csplRequestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
     const rawCat = billDetails?.catname || billDetails?.categoryName || (billerName && billerName.toLowerCase().includes("card") ? "Credit Card" : billerName) || "Credit Card";
     const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Credit Card";
 
@@ -3260,7 +3259,7 @@ export const payCsplBill = async (req: Request, res: Response) => {
     }
 
     const csplPayload: any = {
-      requestId: csplRequestId,
+      requestId: csplTxnId,
       customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
       customerName: fetchedCustomerName || "BBPS Customer",
       catname: cleanCatName,
@@ -3269,6 +3268,11 @@ export const payCsplBill = async (req: Request, res: Response) => {
       cust_billamount: custBillAmountInPaise,
       inputParams: paramArray
     };
+
+    if (fetchRequestId) {
+      csplPayload.refid = fetchRequestId;
+      csplPayload.fetchRequestId = fetchRequestId;
+    }
 
     if (fetchedDueDate) csplPayload.dueDate = fetchedDueDate;
     if (fetchedBillDate) csplPayload.billDate = fetchedBillDate;

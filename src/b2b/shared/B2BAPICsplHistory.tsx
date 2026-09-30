@@ -1013,21 +1013,20 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                           const bbpsNpciRef = res.data?.txnRefId || res.txnRefId;
                           return (
                             <>
-                              {csplPortalId && (
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <span className="text-[10px] text-blue-400 font-sans font-bold">CSPL:</span>
-                                  <span className="bg-blue-500/10 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded text-[11px] font-bold font-mono truncate max-w-[130px]" title={`CSPL / Camlenio Dashboard ID: ${csplPortalId}`}>
-                                    {csplPortalId}
-                                  </span>
-                                  <button
-                                    onClick={() => copyToClipboard(csplPortalId, `cspl_${log.id}`)}
-                                    className="text-slate-400 hover:text-white transition-colors cursor-pointer"
-                                    title="Copy CSPL / Camlenio Portal Txn ID"
-                                  >
-                                    {copiedId === `cspl_${log.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                                  </button>
-                                </div>
-                              )}
+                              {/* 1. CSPL / Camlenio & B2B Unified ID */}
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-[10px] text-blue-400 font-sans font-bold">CSPL:</span>
+                                <span className="bg-blue-500/10 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded text-[11px] font-bold font-mono truncate max-w-[130px]" title={`CSPL Unified Txn ID: ${csplPortalId || txnId}`}>
+                                  {csplPortalId || txnId}
+                                </span>
+                                <button
+                                  onClick={() => copyToClipboard(csplPortalId || txnId, `cspl_${log.id}`)}
+                                  className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                                  title="Copy CSPL Txn ID"
+                                >
+                                  {copiedId === `cspl_${log.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
                               {bbpsNpciRef && (
                                 <div className="flex items-center gap-1.5 mb-1">
                                   <span className="text-[10px] text-emerald-400 font-sans font-semibold">BBPS:</span>
@@ -1043,10 +1042,16 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                                   </button>
                                 </div>
                               )}
-                              <div className="flex items-center gap-1 text-[10px] text-slate-500">
-                                <span title={`B2B ID: ${txnId}`}>ID: {txnId}</span>
-                                {clientTxnId && <span className="text-slate-400 truncate max-w-[110px]" title={`Client Ref: ${clientTxnId}`}> | Ref: {clientTxnId}</span>}
-                              </div>
+                              {csplPortalId && txnId && csplPortalId !== txnId && (
+                                <div className="text-[10px] text-slate-500 truncate max-w-[130px]" title={`Internal ID: ${txnId}`}>
+                                  ID: {txnId}
+                                </div>
+                              )}
+                              {clientTxnId && (
+                                <div className="text-[10px] text-slate-400 truncate max-w-[130px] mt-0.5" title={`Client Ref: ${clientTxnId}`}>
+                                  Ref: {clientTxnId}
+                                </div>
+                              )}
                             </>
                           );
                         })()}
