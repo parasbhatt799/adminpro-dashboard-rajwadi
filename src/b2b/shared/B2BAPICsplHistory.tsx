@@ -328,9 +328,19 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
         if (!chg.toString().includes(chargeFilter.trim())) return false;
       }
 
+      // Transaction IDs
+      const csplTxnId = res.txnid || res.refid || res.cspl_reference || res.data?.approvalRefNumber || req.csplPayload?.requestId || '';
+      const bbpsRef = res.data?.txnRefId || res.txnRefId || '';
+      const clientTxnId = req.client_transaction_id || res.client_transaction_id || '';
+
       // Transaction ID Filter
-      if (txnIdFilter.trim() && !txnId.toLowerCase().includes(txnIdFilter.trim().toLowerCase())) {
-        return false;
+      if (txnIdFilter.trim()) {
+        const tFilter = txnIdFilter.trim().toLowerCase();
+        const matchesTxn = txnId.toLowerCase().includes(tFilter) || 
+          csplTxnId.toLowerCase().includes(tFilter) || 
+          bbpsRef.toLowerCase().includes(tFilter) || 
+          clientTxnId.toLowerCase().includes(tFilter);
+        if (!matchesTxn) return false;
       }
 
       // Search Term
@@ -346,6 +356,9 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
           ${req.mobile || ''}
           ${req.consumerNumber || ''}
           ${txnId}
+          ${csplTxnId}
+          ${bbpsRef}
+          ${clientTxnId}
         `.toLowerCase();
         if (!searchString.includes(term)) return false;
       }
@@ -423,6 +436,8 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
         const res = log.response_payload || log.response_body || {};
         const statusInfo = getStatusInfo(log.status_code, res, log.payment_status);
         const agentInfo = agentMap[log.agent_id];
+        const csplId = res.txnid || res.refid || res.cspl_reference || res.data?.approvalRefNumber || req.csplPayload?.requestId || '';
+        const npciRef = res.data?.txnRefId || res.txnRefId || '';
 
         return {
           'Sr No': index + 1,
@@ -437,6 +452,8 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
             'Dev Charge (₹)': Number(log.developer_charge || 0),
             'Owner Charge (₹)': Number(log.owner_charge || 0)
           } : {}),
+          'CSPL / Camlenio Txn ID': csplId,
+          'BBPS NPCI Ref': npciRef,
           'API Txn ID': req.transaction_id || res.transaction_id || log.id,
           'Client Txn ID': req.client_transaction_id || '',
           'Status': statusInfo.text.toUpperCase()
@@ -991,23 +1008,48 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
 
                       {/* Txn ID */}
                       <td className="px-4 py-3.5 font-mono text-xs text-slate-300">
-                        <div className="flex items-center gap-1.5">
-                          <span className="bg-slate-900 px-2 py-0.5 rounded border border-slate-700/60 text-[11px] font-semibold text-slate-200 truncate max-w-[130px]" title={txnId}>
-                            {txnId}
-                          </span>
-                          <button
-                            onClick={() => copyToClipboard(txnId, `copy_${log.id}`)}
-                            className="text-slate-500 hover:text-white transition-colors cursor-pointer"
-                            title="Copy Transaction ID"
-                          >
-                            {copiedId === `copy_${log.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-                          </button>
-                        </div>
-                        {clientTxnId && (
-                          <div className="text-[10px] text-slate-500 truncate max-w-[130px] mt-0.5" title={`Client: ${clientTxnId}`}>
-                            Ref: {clientTxnId}
-                          </div>
-                        )}
+                        {(() => {
+                          const csplPortalId = res.txnid || res.refid || res.cspl_reference || res.data?.approvalRefNumber || req.csplPayload?.requestId;
+                          const bbpsNpciRef = res.data?.txnRefId || res.txnRefId;
+                          return (
+                            <>
+                              {csplPortalId && (
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="text-[10px] text-blue-400 font-sans font-bold">CSPL:</span>
+                                  <span className="bg-blue-500/10 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded text-[11px] font-bold font-mono truncate max-w-[130px]" title={`CSPL / Camlenio Dashboard ID: ${csplPortalId}`}>
+                                    {csplPortalId}
+                                  </span>
+                                  <button
+                                    onClick={() => copyToClipboard(csplPortalId, `cspl_${log.id}`)}
+                                    className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+                                    title="Copy CSPL / Camlenio Portal Txn ID"
+                                  >
+                                    {copiedId === `cspl_${log.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                  </button>
+                                </div>
+                              )}
+                              {bbpsNpciRef && (
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="text-[10px] text-emerald-400 font-sans font-semibold">BBPS:</span>
+                                  <span className="text-[11px] text-slate-300 truncate max-w-[130px]" title={`BBPS Ref: ${bbpsNpciRef}`}>
+                                    {bbpsNpciRef}
+                                  </span>
+                                  <button
+                                    onClick={() => copyToClipboard(bbpsNpciRef, `bbps_${log.id}`)}
+                                    className="text-slate-500 hover:text-white transition-colors cursor-pointer"
+                                    title="Copy BBPS NPCI Ref"
+                                  >
+                                    {copiedId === `bbps_${log.id}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                                  </button>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-1 text-[10px] text-slate-500">
+                                <span title={`B2B ID: ${txnId}`}>ID: {txnId}</span>
+                                {clientTxnId && <span className="text-slate-400 truncate max-w-[110px]" title={`Client Ref: ${clientTxnId}`}> | Ref: {clientTxnId}</span>}
+                              </div>
+                            </>
+                          );
+                        })()}
                       </td>
 
                       {/* Status */}

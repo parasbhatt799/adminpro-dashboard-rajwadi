@@ -3391,8 +3391,9 @@ export const payCsplBill = async (req: Request, res: Response) => {
           client_transaction_id: finalClientTxnId,
           amount: parsedAmount,
           charge_deducted: chargePerBill,
-          total_deducted: totalDeduction,
-          cspl_reference: csplResponse?.refid || csplResponse?.rrn || csplResponse?.data?.rrn || csplTxnId,
+          cspl_txnid: csplResponse?.txnid || csplResponse?.refid || csplResponse?.data?.approvalRefNumber || csplTxnId,
+          cspl_reference: csplResponse?.refid || csplResponse?.txnid || csplResponse?.rrn || csplResponse?.data?.rrn || csplTxnId,
+          bbps_ref: csplResponse?.data?.txnRefId || csplResponse?.txnRefId || csplResponse?.rrn || '',
           status: 'success',
           gateway_response: csplResponse
         }
