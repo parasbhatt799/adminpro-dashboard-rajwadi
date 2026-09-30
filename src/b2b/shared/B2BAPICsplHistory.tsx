@@ -1007,48 +1007,25 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                       )}
 
                       {/* Txn ID */}
-                      <td className="px-4 py-3.5 font-mono text-xs text-slate-300">
+                      <td className="px-4 py-3.5 font-mono text-xs">
                         {(() => {
-                          const csplPortalId = res.txnid || res.refid || res.cspl_reference || res.data?.approvalRefNumber || req.csplPayload?.requestId;
-                          const bbpsNpciRef = res.data?.txnRefId || res.txnRefId;
+                          const displayTxnId = req.transaction_id || res.transaction_id || res.txnid || res.refid || log.id;
                           return (
                             <>
-                              {/* 1. CSPL / Camlenio & B2B Unified ID */}
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-[10px] text-blue-400 font-sans font-bold">CSPL:</span>
-                                <span className="bg-blue-500/10 text-blue-300 border border-blue-500/30 px-1.5 py-0.5 rounded text-[11px] font-bold font-mono truncate max-w-[130px]" title={`CSPL Unified Txn ID: ${csplPortalId || txnId}`}>
-                                  {csplPortalId || txnId}
+                              <div className="flex items-center gap-1.5 font-bold text-blue-300">
+                                <span className="truncate max-w-[160px]" title={displayTxnId}>
+                                  {displayTxnId}
                                 </span>
                                 <button
-                                  onClick={() => copyToClipboard(csplPortalId || txnId, `cspl_${log.id}`)}
-                                  className="text-slate-400 hover:text-white transition-colors cursor-pointer"
-                                  title="Copy CSPL Txn ID"
+                                  onClick={() => copyToClipboard(displayTxnId, `copy_${log.id}`)}
+                                  className="text-slate-500 hover:text-white transition-colors cursor-pointer"
+                                  title="Copy Transaction ID"
                                 >
-                                  {copiedId === `cspl_${log.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                                  {copiedId === `copy_${log.id}` ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                                 </button>
                               </div>
-                              {bbpsNpciRef && (
-                                <div className="flex items-center gap-1.5 mb-1">
-                                  <span className="text-[10px] text-emerald-400 font-sans font-semibold">BBPS:</span>
-                                  <span className="text-[11px] text-slate-300 truncate max-w-[130px]" title={`BBPS Ref: ${bbpsNpciRef}`}>
-                                    {bbpsNpciRef}
-                                  </span>
-                                  <button
-                                    onClick={() => copyToClipboard(bbpsNpciRef, `bbps_${log.id}`)}
-                                    className="text-slate-500 hover:text-white transition-colors cursor-pointer"
-                                    title="Copy BBPS NPCI Ref"
-                                  >
-                                    {copiedId === `bbps_${log.id}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                                  </button>
-                                </div>
-                              )}
-                              {csplPortalId && txnId && csplPortalId !== txnId && (
-                                <div className="text-[10px] text-slate-500 truncate max-w-[130px]" title={`Internal ID: ${txnId}`}>
-                                  ID: {txnId}
-                                </div>
-                              )}
                               {clientTxnId && (
-                                <div className="text-[10px] text-slate-400 truncate max-w-[130px] mt-0.5" title={`Client Ref: ${clientTxnId}`}>
+                                <div className="text-[10px] text-slate-400 truncate max-w-[160px] mt-0.5" title={`Client Ref: ${clientTxnId}`}>
                                   Ref: {clientTxnId}
                                 </div>
                               )}
