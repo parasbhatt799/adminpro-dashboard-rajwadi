@@ -20,7 +20,8 @@ import {
   getCsplBillerInfo,
   fetchCsplBill,
   payCsplBill,
-  checkCsplStatus
+  checkCsplStatus,
+  checkCsplStatusAdmin
 } from './controller';
 
 const router = Router();
@@ -40,6 +41,8 @@ router.use((req, res, next) => {
 // Admin/Global route to trigger status check (does not require agent auth)
 router.get('/admin/status/:transaction_id', checkStatusAdmin);
 router.get('/admin/payout/status/:order_id', checkPayoutStatusAdmin);
+router.get('/admin/cspl/status/:transaction_id', checkCsplStatusAdmin);
+router.get('/cspl/status/:transaction_id', checkCsplStatusAdmin);
 router.post('/admin/payout/resend-webhook', resendPayoutWebhookAdmin);
 router.post('/admin/agent/test-webhook', testAgentWebhookAdmin);
 

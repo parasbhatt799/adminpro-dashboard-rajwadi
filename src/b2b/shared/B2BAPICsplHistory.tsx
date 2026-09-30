@@ -243,17 +243,20 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
       setUpdatingStatus(log.id);
       const API_URL = import.meta.env.VITE_API_URL || '';
 
-      let resData = await fetch(`${API_URL}/api/v1/b2b/cspl/status/${transactionId}`);
+      let resData = await fetch(`${API_URL}/api/v1/b2b/admin/cspl/status/${encodeURIComponent(transactionId)}`);
       if (!resData.ok && resData.status === 404) {
-        resData = await fetch(`${API_URL}/api/b2b/cspl/status/${transactionId}`);
+        resData = await fetch(`${API_URL}/api/b2b/admin/cspl/status/${encodeURIComponent(transactionId)}`);
+      }
+      if (!resData.ok && resData.status === 404) {
+        resData = await fetch(`${API_URL}/api/v1/b2b/cspl/status/${encodeURIComponent(transactionId)}`);
       }
       const data = await resData.json();
 
       if (data.status === 'success' || data.data) {
         await fetchLogs(true);
         const currentStatus = data.data?.status || data.data?.payment_status || 'CHECKED';
-        const msg = data.data?.message ? `\nNote: ${data.data.message}` : '';
-        alert(`Current CSPL Status: ${currentStatus}${msg}\nOur database was synced automatically!`);
+        const msg = data.data?.message ? ` (${data.data.message})` : '';
+        alert(`Transaction Status: ${currentStatus}${msg}`);
       } else {
         const errorText = data?.message || data?.error || 'Unable to check status online.';
         alert(`Status Check: ${errorText}`);

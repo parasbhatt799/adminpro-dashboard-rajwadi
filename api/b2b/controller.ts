@@ -3476,30 +3476,73 @@ export const checkCsplStatus = async (req: Request, res: Response) => {
       return res.status(400).json({ status: 'error', message: 'transaction_id is required' });
     }
 
+    const cleanTxnId = String(transaction_id).trim();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTxnId);
+
     // Look up transaction in b2b_api_logs
-    const { data: log, error } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('b2b_api_logs')
       .select('*')
-      .eq('agent_id', agentId)
-      .or(`id.eq.${transaction_id},request_payload->>transaction_id.eq.${transaction_id},request_payload->>client_transaction_id.eq.${transaction_id}`)
+      .or('endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill')
+      .or(`${isUuid ? `id.eq.${cleanTxnId},` : ''}request_payload->>transaction_id.eq.${cleanTxnId},request_payload->>client_transaction_id.eq.${cleanTxnId},request_payload->>requestId.eq.${cleanTxnId},response_payload->>transaction_id.eq.${cleanTxnId},response_payload->>client_transaction_id.eq.${cleanTxnId},response_payload->>txnid.eq.${cleanTxnId}`);
+
+    if (agentId) {
+      query = query.eq('agent_id', agentId);
+    }
+
+    let { data: log, error } = await query
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (error || !log) {
+    if (!log) {
+      const { data: recentLogs } = await supabaseAdmin
+        .from('b2b_api_logs')
+        .select('*')
+        .or('endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill')
+        .order('created_at', { ascending: false })
+        .limit(200);
+
+      if (recentLogs) {
+        log = recentLogs.find(l => {
+          if (agentId && l.agent_id !== agentId) return false;
+          const reqStr = JSON.stringify(l.request_payload || {});
+          const resStr = JSON.stringify(l.response_payload || {});
+          return reqStr.includes(cleanTxnId) || resStr.includes(cleanTxnId) || l.id === cleanTxnId;
+        }) || null;
+      }
+    }
+
+    if (!log) {
       return res.status(404).json({ status: 'error', message: `Transaction ${transaction_id} not found` });
     }
+
+    const resPayload = log.response_payload || {};
+    const reqPayload = log.request_payload || {};
+    const rawStatus = (log.payment_status || resPayload.payment_status || resPayload.status || '').toLowerCase();
+    const responseCode = String(resPayload.responseCode || resPayload.data?.responseCode || '').trim();
+    const isSuccess =
+      rawStatus === 'success' ||
+      rawStatus === 'successful' ||
+      responseCode === '000' ||
+      (log.status_code === 200 && rawStatus !== 'failed' && rawStatus !== 'error');
+
+    const isPending = rawStatus === 'pending' || (log.status_code === 202 && !isSuccess);
+    const finalStatus = isSuccess ? 'SUCCESS' : isPending ? 'PENDING' : 'FAILED';
+    const message = resPayload.message || resPayload.responseReason || (isSuccess ? 'Transaction Successful' : 'Transaction Failed');
 
     res.json({
       status: 'success',
       data: {
-        transaction_id: log.request_payload?.transaction_id || log.id,
-        client_transaction_id: log.request_payload?.client_transaction_id,
-        status: log.payment_status || (log.status_code === 200 ? 'success' : 'failed'),
+        transaction_id: reqPayload.transaction_id || resPayload.transaction_id || resPayload.txnid || log.id,
+        client_transaction_id: reqPayload.client_transaction_id,
+        status: finalStatus,
+        payment_status: finalStatus.toLowerCase(),
+        message: message,
         endpoint: log.endpoint,
-        amount: log.request_payload?.amount,
-        charge_deducted: log.request_payload?.chargeDeducted,
-        total_deduction: log.request_payload?.totalDeduction,
+        amount: reqPayload.amount,
+        charge_deducted: reqPayload.chargeDeducted ?? log.charge_deducted,
+        total_deduction: reqPayload.totalDeduction,
         response_payload: log.response_payload,
         created_at: log.created_at
       }
@@ -3509,5 +3552,13 @@ export const checkCsplStatus = async (req: Request, res: Response) => {
     res.status(500).json({ status: 'error', message: err.message || 'Failed to check status' });
   }
 };
+
+/**
+ * 5. Check CSPL Bill Payment Status (Admin/Global trigger - does not require agent API key)
+ */
+export const checkCsplStatusAdmin = async (req: Request, res: Response): Promise<any> => {
+  return checkCsplStatus(req, res);
+};
+
 
 
