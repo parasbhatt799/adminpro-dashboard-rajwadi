@@ -3241,8 +3241,10 @@ export const payCsplBill = async (req: Request, res: Response) => {
       });
     }
 
-    // 7. Generate Unified Transaction ID (Clean alphanumeric format starting with CSPL, matching Camlenio 1:1)
-    const csplTxnId = `CSPL${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`;
+    // 7. Generate Transaction ID (Uses Camlenio's fetch session ID if available so IDs match 1:1, else CSPL timestamp)
+    const defaultTxnId = `CSPL${Date.now()}${Math.floor(1000 + Math.random() * 9000)}`;
+    const csplRequestId = fetchRequestId || defaultTxnId;
+    const csplTxnId = fetchRequestId || defaultTxnId;
     const finalClientTxnId = (client_transaction_id || csplTxnId).trim();
 
     // 8. Build CSPL Payload
@@ -3259,7 +3261,7 @@ export const payCsplBill = async (req: Request, res: Response) => {
     }
 
     const csplPayload: any = {
-      requestId: csplTxnId,
+      requestId: csplRequestId,
       customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
       customerName: fetchedCustomerName || "BBPS Customer",
       catname: cleanCatName,
