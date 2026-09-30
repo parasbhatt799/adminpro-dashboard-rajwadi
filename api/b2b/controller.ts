@@ -1315,7 +1315,10 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
     const reqUtr = String(utr_number || transaction_ref_no || '').trim();
     const reqAmount = Number(amount);
     const bankId = String(admin_bank_account_id || bank_account_id || '').trim();
-    const targetWalletType = String(wallet_type || 'bbps').toLowerCase() === 'payout' ? 'payout' : 'bbps';
+    const rawWallet = String(wallet_type || req.body?.target_wallet || req.body?.wallet || 'bbps').toLowerCase().trim();
+    let targetWalletType: 'bbps' | 'payout' | 'cspl' = 'bbps';
+    if (rawWallet === 'payout') targetWalletType = 'payout';
+    else if (rawWallet === 'cspl') targetWalletType = 'cspl';
 
     if (!reqAmount || isNaN(reqAmount) || reqAmount <= 0) {
       return res.status(400).json({ status: 'error', message: 'Valid amount is required' });
@@ -1337,6 +1340,22 @@ export const createFundRequest = async (req: Request, res: Response): Promise<an
         return res.status(403).json({
           status: 'error',
           message: 'Payout API service is not enabled for your account. Cannot request funds for Payout Wallet.'
+        });
+      }
+    }
+
+    // If requesting cspl wallet, verify agent has CSPL service enabled
+    if (targetWalletType === 'cspl') {
+      const { data: credCheck } = await supabaseAdmin
+        .from('b2b_api_credentials')
+        .select('is_cspl_enabled')
+        .eq('id', agentId)
+        .single();
+
+      if (credCheck && credCheck.is_cspl_enabled === false) {
+        return res.status(403).json({
+          status: 'error',
+          message: 'CSPL Fast Bill service is not enabled for your account. Cannot request funds for CSPL Wallet.'
         });
       }
     }

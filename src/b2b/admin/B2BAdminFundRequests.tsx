@@ -144,7 +144,7 @@ export default function B2BAdminFundRequests() {
           .from('b2b_fund_requests')
           .select(`
             *,
-            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance, payout_wallet_balance, is_bbps_enabled, is_payout_enabled, agent_tag),
+            b2b_api_credentials(first_name, last_name, b2b_login_id, mobile, wallet_balance, payout_wallet_balance, cspl_wallet_balance, is_bbps_enabled, is_payout_enabled, is_cspl_enabled, agent_tag),
             b2b_admin_bank_accounts(bank_name, account_name, account_number, ifsc_code, branch_name, upi_id)
           `)
           .order('created_at', { ascending: false })
@@ -184,7 +184,7 @@ export default function B2BAdminFundRequests() {
     amount: number,
     action: 'approve' | 'reject' | 'revert_approved',
     currentBalance?: number,
-    walletType: 'bbps' | 'payout' = 'bbps'
+    walletType: 'bbps' | 'payout' | 'cspl' | string = 'bbps'
   ) => {
     // 1. Guard against double-clicks and concurrent actions on the same request
     if (processingIds.includes(requestId)) {
@@ -192,7 +192,7 @@ export default function B2BAdminFundRequests() {
       return;
     }
 
-    const targetWalletName = walletType === 'payout' ? 'Payout Wallet' : 'BBPS Wallet';
+    const targetWalletName = walletType === 'payout' ? 'Payout Wallet' : walletType === 'cspl' ? 'CSPL Wallet' : 'BBPS Wallet';
 
     if (action === 'revert_approved') {
       let warning = '';
@@ -854,9 +854,10 @@ export default function B2BAdminFundRequests() {
                             {req.b2b_api_credentials?.first_name} {req.b2b_api_credentials?.last_name}
                           </div>
                           <div className="text-xs text-indigo-300 font-mono">{req.b2b_api_credentials?.b2b_login_id}</div>
-                          <div className="flex items-center gap-2 mt-0.5 text-[11px] font-mono">
+                          <div className="flex items-center gap-2 mt-0.5 text-[11px] font-mono flex-wrap">
                             <span className="text-emerald-400 font-medium">BBPS: ₹{parseFloat(req.b2b_api_credentials?.wallet_balance?.toString() || '0').toFixed(2)}</span>
                             <span className="text-purple-400 font-medium">Payout: ₹{parseFloat(req.b2b_api_credentials?.payout_wallet_balance?.toString() || '0').toFixed(2)}</span>
+                            <span className="text-blue-400 font-medium">CSPL: ₹{parseFloat(req.b2b_api_credentials?.cspl_wallet_balance?.toString() || '0').toFixed(2)}</span>
                           </div>
                         </div>
                       </div>
@@ -946,7 +947,11 @@ export default function B2BAdminFundRequests() {
                               req.agent_id, 
                               req.amount, 
                               'approve', 
-                              req.wallet_type === 'payout' ? req.b2b_api_credentials?.payout_wallet_balance : req.b2b_api_credentials?.wallet_balance, 
+                              req.wallet_type === 'payout' 
+                                ? req.b2b_api_credentials?.payout_wallet_balance 
+                                : req.wallet_type === 'cspl' 
+                                ? req.b2b_api_credentials?.cspl_wallet_balance 
+                                : req.b2b_api_credentials?.wallet_balance, 
                               req.wallet_type || 'bbps'
                             )}
                             className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
@@ -961,7 +966,11 @@ export default function B2BAdminFundRequests() {
                               req.agent_id, 
                               req.amount, 
                               'reject', 
-                              req.wallet_type === 'payout' ? req.b2b_api_credentials?.payout_wallet_balance : req.b2b_api_credentials?.wallet_balance, 
+                              req.wallet_type === 'payout' 
+                                ? req.b2b_api_credentials?.payout_wallet_balance 
+                                : req.wallet_type === 'cspl' 
+                                ? req.b2b_api_credentials?.cspl_wallet_balance 
+                                : req.b2b_api_credentials?.wallet_balance, 
                               req.wallet_type || 'bbps'
                             )}
                             className="bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
@@ -979,7 +988,11 @@ export default function B2BAdminFundRequests() {
                             req.agent_id, 
                             req.amount, 
                             'revert_approved', 
-                            req.wallet_type === 'payout' ? req.b2b_api_credentials?.payout_wallet_balance : req.b2b_api_credentials?.wallet_balance, 
+                            req.wallet_type === 'payout' 
+                              ? req.b2b_api_credentials?.payout_wallet_balance 
+                              : req.wallet_type === 'cspl' 
+                              ? req.b2b_api_credentials?.cspl_wallet_balance 
+                              : req.b2b_api_credentials?.wallet_balance, 
                             req.wallet_type || 'bbps'
                           )}
                           className="p-2 bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500/20 rounded-lg transition-colors cursor-pointer disabled:opacity-50 inline-flex items-center justify-center"
@@ -1027,6 +1040,10 @@ export default function B2BAdminFundRequests() {
                   {selectedProofReq.wallet_type === 'payout' ? (
                     <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-purple-500/15 text-purple-300 border border-purple-500/30 inline-block mt-0.5">
                       🟣 Payout Wallet
+                    </span>
+                  ) : selectedProofReq.wallet_type === 'cspl' ? (
+                    <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-blue-500/15 text-blue-300 border border-blue-500/30 inline-block mt-0.5">
+                      🔵 CSPL Wallet
                     </span>
                   ) : (
                     <span className="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 inline-block mt-0.5">
@@ -1242,7 +1259,11 @@ export default function B2BAdminFundRequests() {
                             selectedProofReq.agent_id, 
                             selectedProofReq.amount, 
                             'reject',
-                            selectedProofReq.wallet_type === 'payout' ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance : selectedProofReq.b2b_api_credentials?.wallet_balance,
+                            selectedProofReq.wallet_type === 'payout' 
+                              ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance 
+                              : selectedProofReq.wallet_type === 'cspl' 
+                              ? selectedProofReq.b2b_api_credentials?.cspl_wallet_balance 
+                              : selectedProofReq.b2b_api_credentials?.wallet_balance,
                             selectedProofReq.wallet_type || 'bbps'
                           );
                           setSelectedProofReq(null);
@@ -1264,7 +1285,11 @@ export default function B2BAdminFundRequests() {
                                 selectedProofReq.agent_id, 
                                 selectedProofReq.amount, 
                                 'approve',
-                                selectedProofReq.wallet_type === 'payout' ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance : selectedProofReq.b2b_api_credentials?.wallet_balance,
+                                selectedProofReq.wallet_type === 'payout' 
+                                  ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance 
+                                  : selectedProofReq.wallet_type === 'cspl' 
+                                  ? selectedProofReq.b2b_api_credentials?.cspl_wallet_balance 
+                                  : selectedProofReq.b2b_api_credentials?.wallet_balance,
                                 selectedProofReq.wallet_type || 'bbps'
                               );
                               setSelectedProofReq(null);
@@ -1287,7 +1312,11 @@ export default function B2BAdminFundRequests() {
                             selectedProofReq.agent_id,
                             selectedProofReq.amount,
                             'revert_approved',
-                            selectedProofReq.wallet_type === 'payout' ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance : selectedProofReq.b2b_api_credentials?.wallet_balance,
+                            selectedProofReq.wallet_type === 'payout' 
+                              ? selectedProofReq.b2b_api_credentials?.payout_wallet_balance 
+                              : selectedProofReq.wallet_type === 'cspl' 
+                              ? selectedProofReq.b2b_api_credentials?.cspl_wallet_balance 
+                              : selectedProofReq.b2b_api_credentials?.wallet_balance,
                             selectedProofReq.wallet_type || 'bbps'
                           );
                           setSelectedProofReq(null);
