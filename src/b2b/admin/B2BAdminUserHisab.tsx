@@ -19,7 +19,11 @@ import {
   ChevronRight, 
   AlertCircle,
   Receipt,
-  Scale
+  Scale,
+  Send,
+  Zap,
+  Building2,
+  Percent
 } from 'lucide-react';
 import { format } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
@@ -33,8 +37,13 @@ interface AgentCred {
   last_name?: string;
   mobile?: string;
   wallet_balance?: number | string;
+  payout_wallet_balance?: number | string;
+  cspl_wallet_balance?: number | string;
   is_active?: boolean;
   billavenue_agent_id?: string;
+  is_bbps_enabled?: boolean;
+  is_payout_enabled?: boolean;
+  is_cspl_enabled?: boolean;
 }
 
 interface FundRequestItem {
@@ -44,6 +53,7 @@ interface FundRequestItem {
   status: string;
   created_at: string;
   utr_number?: string;
+  wallet_type?: string;
   b2b_admin_bank_accounts?: {
     account_name?: string;
     bank_name?: string;
@@ -63,13 +73,35 @@ interface BillLogItem {
   response_payload?: any;
 }
 
+interface PayoutTxItem {
+  id: string;
+  agent_id: string;
+  order_id: string;
+  client_order_id?: string;
+  amount: number;
+  charge: number;
+  base_charge?: number;
+  gst_amount?: number;
+  total_deducted: number;
+  beneficiary_name?: string;
+  account_number?: string;
+  ifsc_code?: string;
+  bank_name?: string;
+  transfer_mode?: string;
+  status: string;
+  utr?: string;
+  is_refunded?: boolean;
+  created_at: string;
+  error_message?: string;
+}
+
 type CombinedEntry = {
   id: string;
   date: string;
   agent_id: string;
   agent_name: string;
   agent_login: string;
-  type: 'fund' | 'bill';
+  type: 'fund' | 'bill' | 'payout';
   reference: string;
   details: string;
   amount: number;
@@ -77,9 +109,13 @@ type CombinedEntry = {
   netImpact: number;
   status: 'success' | 'pending' | 'failed';
   rawStatus: string;
+  isRefunded?: boolean;
 };
 
 export default function B2BAdminUserHisab() {
+  // Active Wallet Category: BBPS, Payout, or CSPL
+  const [selectedWallet, setSelectedWallet] = useState<'bbps' | 'payout' | 'cspl'>('bbps');
+
   const [agents, setAgents] = useState<AgentCred[]>([]);
   const [selectedAgentId, setSelectedAgentId] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<'today' | 'yesterday' | '7days' | '30days' | 'thisMonth' | 'all' | 'custom'>('today');
@@ -90,12 +126,13 @@ export default function B2BAdminUserHisab() {
 
   // Table filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'fund' | 'bill'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'fund' | 'debit'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'success' | 'pending' | 'failed'>('all');
 
   // Raw data
   const [fundRequests, setFundRequests] = useState<FundRequestItem[]>([]);
   const [billLogs, setBillLogs] = useState<BillLogItem[]>([]);
+  const [payoutTransactions, setPayoutTransactions] = useState<PayoutTxItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Pagination
@@ -105,18 +142,18 @@ export default function B2BAdminUserHisab() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedAgentId, dateFilter, customRange, searchTerm, typeFilter, statusFilter]);
+  }, [selectedWallet, selectedAgentId, dateFilter, customRange, searchTerm, typeFilter, statusFilter]);
 
   // Initial load of agents list
   useEffect(() => {
     fetchAgents();
   }, []);
 
-  // Fetch data when filters change
+  // Fetch data when filters or active wallet tab change
   useEffect(() => {
     fetchHisabData();
 
-    // Supabase Realtime subscriptions for both tables
+    // Supabase Realtime subscriptions
     const fundChannel = supabase
       .channel('b2b_hisab_fund_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'b2b_fund_requests' }, () => {
@@ -132,6 +169,13 @@ export default function B2BAdminUserHisab() {
       })
       .subscribe();
 
+    const payoutChannel = supabase
+      .channel('b2b_hisab_payout_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'b2b_payout_transactions' }, () => {
+        fetchHisabData();
+      })
+      .subscribe();
+
     const credChannel = supabase
       .channel('b2b_hisab_cred_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'b2b_api_credentials' }, () => {
@@ -142,19 +186,20 @@ export default function B2BAdminUserHisab() {
     return () => {
       supabase.removeChannel(fundChannel);
       supabase.removeChannel(logChannel);
+      supabase.removeChannel(payoutChannel);
       supabase.removeChannel(credChannel);
     };
-  }, [selectedAgentId, dateFilter, customRange]);
+  }, [selectedWallet, selectedAgentId, dateFilter, customRange]);
 
   const fetchAgents = async () => {
     try {
       const { data, error } = await supabase
         .from('b2b_api_credentials')
-        .select('id, agent_id, b2b_login_id, first_name, last_name, mobile, wallet_balance, is_active, billavenue_agent_id')
+        .select('id, agent_id, b2b_login_id, first_name, last_name, mobile, wallet_balance, payout_wallet_balance, cspl_wallet_balance, is_active, billavenue_agent_id, is_bbps_enabled, is_payout_enabled, is_cspl_enabled')
         .order('first_name', { ascending: true });
 
       if (error) throw error;
-      if (data) setAgents(data);
+      if (data) setAgents(data as AgentCred[]);
     } catch (err) {
       console.error('Error fetching B2B agents:', err);
     }
@@ -205,7 +250,7 @@ export default function B2BAdminUserHisab() {
       setLoading(true);
       const { startIso, endIso } = calculateDateBounds();
 
-      // 1. Fetch Fund Requests
+      // 1. Fetch Fund Requests for all / active wallet
       let allFunds: FundRequestItem[] = [];
       let fundFrom = 0;
       const fundStep = 1000;
@@ -214,7 +259,7 @@ export default function B2BAdminUserHisab() {
       while (fundHasMore) {
         let q = supabase
           .from('b2b_fund_requests')
-          .select('id, agent_id, amount, status, created_at, utr_number, b2b_admin_bank_accounts(account_name, bank_name)')
+          .select('id, agent_id, amount, status, created_at, utr_number, wallet_type, b2b_admin_bank_accounts(account_name, bank_name)')
           .order('created_at', { ascending: false })
           .range(fundFrom, fundFrom + fundStep - 1);
 
@@ -241,42 +286,87 @@ export default function B2BAdminUserHisab() {
 
       setFundRequests(allFunds);
 
-      // 2. Fetch Bill Logs
-      let allLogs: BillLogItem[] = [];
-      let logFrom = 0;
-      const logStep = 1000;
-      let logHasMore = true;
+      // 2. Fetch Transactions based on selectedWallet
+      if (selectedWallet === 'payout') {
+        // Fetch from b2b_payout_transactions
+        let allPayouts: PayoutTxItem[] = [];
+        let payoutFrom = 0;
+        const payoutStep = 1000;
+        let payoutHasMore = true;
 
-      while (logHasMore) {
-        let q = supabase
-          .from('b2b_api_logs')
-          .select('id, agent_id, created_at, status_code, payment_status, charge_deducted, developer_charge, owner_charge, request_payload, response_payload')
-          .or('endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill,endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill')
-          .order('created_at', { ascending: false })
-          .range(logFrom, logFrom + logStep - 1);
+        while (payoutHasMore) {
+          let q = supabase
+            .from('b2b_payout_transactions')
+            .select('id, agent_id, order_id, client_order_id, amount, charge, base_charge, gst_amount, total_deducted, beneficiary_name, account_number, ifsc_code, bank_name, transfer_mode, status, utr, is_refunded, created_at, error_message')
+            .order('created_at', { ascending: false })
+            .range(payoutFrom, payoutFrom + payoutStep - 1);
 
-        if (selectedAgentId !== 'all') {
-          q = q.eq('agent_id', selectedAgentId);
+          if (selectedAgentId !== 'all') {
+            q = q.eq('agent_id', selectedAgentId);
+          }
+          if (startIso) q = q.gte('created_at', startIso);
+          if (endIso) q = q.lte('created_at', endIso);
+
+          const { data, error } = await q;
+          if (error) {
+            console.error('Error fetching payout transactions:', error);
+            break;
+          }
+
+          if (data && data.length > 0) {
+            allPayouts = allPayouts.concat(data as any);
+            if (data.length < payoutStep) payoutHasMore = false;
+            else payoutFrom += payoutStep;
+          } else {
+            payoutHasMore = false;
+          }
         }
-        if (startIso) q = q.gte('created_at', startIso);
-        if (endIso) q = q.lte('created_at', endIso);
 
-        const { data, error } = await q;
-        if (error) {
-          console.error('Error fetching bill logs:', error);
-          break;
+        setPayoutTransactions(allPayouts);
+        setBillLogs([]);
+      } else {
+        // Fetch Bill Logs for BBPS or CSPL
+        let allLogs: BillLogItem[] = [];
+        let logFrom = 0;
+        const logStep = 1000;
+        let logHasMore = true;
+
+        const endpoints = selectedWallet === 'cspl'
+          ? 'endpoint.eq./api/b2b/cspl/pay-bill,endpoint.eq./api/v1/b2b/cspl/pay-bill'
+          : 'endpoint.eq./api/b2b/pay-bill,endpoint.eq./api/v1/b2b/pay-bill';
+
+        while (logHasMore) {
+          let q = supabase
+            .from('b2b_api_logs')
+            .select('id, agent_id, created_at, status_code, payment_status, charge_deducted, developer_charge, owner_charge, request_payload, response_payload')
+            .or(endpoints)
+            .order('created_at', { ascending: false })
+            .range(logFrom, logFrom + logStep - 1);
+
+          if (selectedAgentId !== 'all') {
+            q = q.eq('agent_id', selectedAgentId);
+          }
+          if (startIso) q = q.gte('created_at', startIso);
+          if (endIso) q = q.lte('created_at', endIso);
+
+          const { data, error } = await q;
+          if (error) {
+            console.error('Error fetching bill logs:', error);
+            break;
+          }
+
+          if (data && data.length > 0) {
+            allLogs = allLogs.concat(data as any);
+            if (data.length < logStep) logHasMore = false;
+            else logFrom += logStep;
+          } else {
+            logHasMore = false;
+          }
         }
 
-        if (data && data.length > 0) {
-          allLogs = allLogs.concat(data as any);
-          if (data.length < logStep) logHasMore = false;
-          else logFrom += logStep;
-        } else {
-          logHasMore = false;
-        }
+        setBillLogs(allLogs);
+        setPayoutTransactions([]);
       }
-
-      setBillLogs(allLogs);
     } catch (err) {
       console.error('Error fetching hisab data:', err);
     } finally {
@@ -352,17 +442,28 @@ export default function B2BAdminUserHisab() {
     return { amount, charge };
   };
 
+  // Filter fund requests for currently active wallet
+  const currentWalletFunds = useMemo(() => {
+    return fundRequests.filter((req) => {
+      const wt = (req.wallet_type || 'bbps').toLowerCase();
+      if (selectedWallet === 'bbps') return wt === 'bbps';
+      if (selectedWallet === 'payout') return wt === 'payout';
+      if (selectedWallet === 'cspl') return wt === 'cspl';
+      return true;
+    });
+  }, [fundRequests, selectedWallet]);
+
   // -------------------------------------------------------------
-  // CARDS CALCULATIONS (SUMMARY STATS)
+  // SUMMARY STATS CALCULATIONS FOR SELECTED WALLET
   // -------------------------------------------------------------
   const summaryStats = useMemo(() => {
-    // 1. Approve Fund Total
+    // 1. Approve Fund Total for selected wallet
     let approvedFundAmount = 0;
     let approvedFundCount = 0;
     let pendingFundAmount = 0;
     let pendingFundCount = 0;
 
-    fundRequests.forEach((req) => {
+    currentWalletFunds.forEach((req) => {
       const st = (req.status || '').toLowerCase();
       const amt = Number(req.amount || 0);
       if (st === 'approved') {
@@ -374,51 +475,84 @@ export default function B2BAdminUserHisab() {
       }
     });
 
-    // 2. Bill Payment Total & Charges
-    let billSuccessAmount = 0;
-    let billSuccessCount = 0;
-    let billSuccessCharge = 0;
+    // 2. Outflow Total & Charges (Bills or Payouts)
+    let outflowSuccessAmount = 0;
+    let outflowSuccessCount = 0;
+    let outflowSuccessCharge = 0;
 
-    let billPendingAmount = 0;
-    let billPendingCount = 0;
-    let billPendingCharge = 0;
+    let outflowPendingAmount = 0;
+    let outflowPendingCount = 0;
+    let outflowPendingCharge = 0;
 
-    let billFailedAmount = 0;
-    let billFailedCount = 0;
+    let outflowFailedAmount = 0;
+    let outflowFailedCount = 0;
 
-    billLogs.forEach((log) => {
-      const status = parseBillLogStatus(log);
-      const { amount, charge } = parseBillLogValues(log);
+    if (selectedWallet === 'payout') {
+      payoutTransactions.forEach((tx) => {
+        const amt = Number(tx.amount || 0);
+        const charge = Number(tx.charge || (Number(tx.base_charge || 0) + Number(tx.gst_amount || 0)) || 0);
+        const st = (tx.status || '').toLowerCase();
 
-      if (status === 'success') {
-        billSuccessAmount += amount;
-        billSuccessCount++;
-        billSuccessCharge += charge;
-      } else if (status === 'pending') {
-        billPendingAmount += amount;
-        billPendingCount++;
-        billPendingCharge += charge;
-      } else {
-        billFailedAmount += amount;
-        billFailedCount++;
-      }
-    });
+        if (st === 'success' || st === 'approved') {
+          outflowSuccessAmount += amt;
+          outflowSuccessCount++;
+          outflowSuccessCharge += charge;
+        } else if (st === 'pending' || st === 'processing') {
+          outflowPendingAmount += amt;
+          outflowPendingCount++;
+          outflowPendingCharge += charge;
+        } else {
+          outflowFailedAmount += amt;
+          outflowFailedCount++;
+        }
+      });
+    } else {
+      billLogs.forEach((log) => {
+        const status = parseBillLogStatus(log);
+        const { amount, charge } = parseBillLogValues(log);
 
-    // 3. User Wallet Balance
+        if (status === 'success') {
+          outflowSuccessAmount += amount;
+          outflowSuccessCount++;
+          outflowSuccessCharge += charge;
+        } else if (status === 'pending') {
+          outflowPendingAmount += amount;
+          outflowPendingCount++;
+          outflowPendingCharge += charge;
+        } else {
+          outflowFailedAmount += amount;
+          outflowFailedCount++;
+        }
+      });
+    }
+
+    // 3. User Wallet Balance for selected wallet
     let totalUserBalance = 0;
     if (selectedAgentId === 'all') {
       agents.forEach((ag) => {
-        totalUserBalance += Number(ag.wallet_balance || 0);
+        if (selectedWallet === 'payout') {
+          totalUserBalance += Number(ag.payout_wallet_balance || 0);
+        } else if (selectedWallet === 'cspl') {
+          totalUserBalance += Number(ag.cspl_wallet_balance || 0);
+        } else {
+          totalUserBalance += Number(ag.wallet_balance || 0);
+        }
       });
     } else {
       const ag = agentMap[selectedAgentId];
-      totalUserBalance = Number(ag?.wallet_balance || 0);
+      if (selectedWallet === 'payout') {
+        totalUserBalance = Number(ag?.payout_wallet_balance || 0);
+      } else if (selectedWallet === 'cspl') {
+        totalUserBalance = Number(ag?.cspl_wallet_balance || 0);
+      } else {
+        totalUserBalance = Number(ag?.wallet_balance || 0);
+      }
     }
 
-    // 4. Accounting Hisab Equation
+    // 4. Accounting Reconciliation Equation
     // Total Inflow = Approved Fund
-    // Total Outflow = Bill Payment Amount + Total Charge
-    const totalOutflow = billSuccessAmount + billSuccessCharge;
+    // Total Outflow = Successful Outflow Amount + Total Charges/Fees
+    const totalOutflow = outflowSuccessAmount + outflowSuccessCharge;
     const expectedRemaining = approvedFundAmount - totalOutflow;
     const difference = totalUserBalance - expectedRemaining;
 
@@ -428,23 +562,23 @@ export default function B2BAdminUserHisab() {
       pendingFundAmount,
       pendingFundCount,
 
-      billSuccessAmount,
-      billSuccessCount,
-      billSuccessCharge,
+      outflowSuccessAmount,
+      outflowSuccessCount,
+      outflowSuccessCharge,
 
-      billPendingAmount,
-      billPendingCount,
-      billPendingCharge,
+      outflowPendingAmount,
+      outflowPendingCount,
+      outflowPendingCharge,
 
-      billFailedAmount,
-      billFailedCount,
+      outflowFailedAmount,
+      outflowFailedCount,
 
       totalUserBalance,
       totalOutflow,
       expectedRemaining,
       difference
     };
-  }, [fundRequests, billLogs, agents, selectedAgentId, agentMap]);
+  }, [currentWalletFunds, billLogs, payoutTransactions, agents, selectedAgentId, selectedWallet, agentMap]);
 
   // -------------------------------------------------------------
   // COMBINED CHRONOLOGICAL TRANSACTIONS LIST
@@ -452,8 +586,8 @@ export default function B2BAdminUserHisab() {
   const combinedEntries: CombinedEntry[] = useMemo(() => {
     const list: CombinedEntry[] = [];
 
-    // Add Fund Requests
-    fundRequests.forEach((req) => {
+    // Add Fund Requests for current wallet
+    currentWalletFunds.forEach((req) => {
       const ag = agentMap[req.agent_id];
       const agName = ag ? [ag.first_name, ag.last_name].filter(Boolean).join(' ') || 'B2B User' : 'Unknown User';
       const agLogin = ag?.b2b_login_id || ag?.mobile || 'N/A';
@@ -468,6 +602,8 @@ export default function B2BAdminUserHisab() {
         ? `${req.b2b_admin_bank_accounts.bank_name || ''} - ${req.b2b_admin_bank_accounts.account_name || ''}`.trim()
         : '';
 
+      const walletLabel = selectedWallet === 'payout' ? 'Payout Top-up' : selectedWallet === 'cspl' ? 'CSPL Top-up' : 'BBPS Top-up';
+
       list.push({
         id: `fund-${req.id}`,
         date: req.created_at,
@@ -476,7 +612,7 @@ export default function B2BAdminUserHisab() {
         agent_login: agLogin,
         type: 'fund',
         reference: req.utr_number ? `UTR: ${req.utr_number}` : `Req ID: #${req.id.slice(0, 8)}`,
-        details: bankInfo || 'Wallet Fund Request',
+        details: bankInfo ? `${bankInfo} (${walletLabel})` : `${walletLabel} Deposit`,
         amount: amt,
         charge: 0,
         netImpact: amt, // credit
@@ -485,52 +621,101 @@ export default function B2BAdminUserHisab() {
       });
     });
 
-    // Add Bill Logs
-    billLogs.forEach((log) => {
-      const ag = agentMap[log.agent_id];
-      const agName = ag ? [ag.first_name, ag.last_name].filter(Boolean).join(' ') || 'B2B User' : 'Unknown User';
-      const agLogin = ag?.b2b_login_id || ag?.mobile || 'N/A';
+    if (selectedWallet === 'payout') {
+      // Add Payout Transactions
+      payoutTransactions.forEach((tx) => {
+        const ag = agentMap[tx.agent_id];
+        const agName = ag ? [ag.first_name, ag.last_name].filter(Boolean).join(' ') || 'B2B User' : 'Unknown User';
+        const agLogin = ag?.b2b_login_id || ag?.mobile || 'N/A';
 
-      const req = log.request_payload || {};
-      const res = log.response_payload || {};
-      const status = parseBillLogStatus(log);
-      const { amount, charge } = parseBillLogValues(log);
+        const amt = Number(tx.amount || 0);
+        const charge = Number(tx.charge || (Number(tx.base_charge || 0) + Number(tx.gst_amount || 0)) || 0);
+        const st = (tx.status || '').toLowerCase();
 
-      const txnId = res?.transaction_id || req?.transaction_id || req?.client_transaction_id || log.id;
-      const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId || '';
-      const refText = bbpsTxnId ? `BBPS Ref: ${bbpsTxnId}` : `Txn ID: ${txnId ? String(txnId).slice(0, 14) : log.id.slice(0, 8)}`;
+        let mappedStatus: 'success' | 'pending' | 'failed' = 'failed';
+        if (st === 'success' || st === 'approved') mappedStatus = 'success';
+        else if (st === 'pending' || st === 'processing') mappedStatus = 'pending';
 
-      const billerInfo = req?.billerId ? `Biller: ${req.billerId}` : 'Bill Payment';
-      const mobileInfo = req?.mobile ? `Mob: ${req.mobile}` : '';
-      const detailText = [billerInfo, mobileInfo].filter(Boolean).join(' | ');
+        const accMasked = tx.account_number ? `••••${String(tx.account_number).slice(-4)}` : '';
+        const refParts = [
+          `Order: ${tx.order_id}`,
+          tx.utr ? `UTR: ${tx.utr}` : null
+        ].filter(Boolean).join(' | ');
 
-      list.push({
-        id: `bill-${log.id}`,
-        date: log.created_at,
-        agent_id: log.agent_id,
-        agent_name: agName,
-        agent_login: agLogin,
-        type: 'bill',
-        reference: refText,
-        details: detailText,
-        amount: amount,
-        charge: charge,
-        netImpact: -(amount + charge), // debit
-        status: status,
-        rawStatus: status.toUpperCase()
+        const detailParts = [
+          tx.beneficiary_name ? `To: ${tx.beneficiary_name}` : null,
+          accMasked ? `A/C: ${accMasked}` : null,
+          tx.ifsc_code ? `IFSC: ${tx.ifsc_code}` : null,
+          tx.bank_name || tx.transfer_mode || 'IMPS',
+          tx.is_refunded ? '⚡ Auto-Refunded' : null
+        ].filter(Boolean).join(' • ');
+
+        list.push({
+          id: `payout-${tx.id}`,
+          date: tx.created_at,
+          agent_id: tx.agent_id,
+          agent_name: agName,
+          agent_login: agLogin,
+          type: 'payout',
+          reference: refParts,
+          details: detailParts,
+          amount: amt,
+          charge: charge,
+          netImpact: mappedStatus === 'success' ? -(amt + charge) : mappedStatus === 'pending' ? -(amt + charge) : 0,
+          status: mappedStatus,
+          rawStatus: tx.is_refunded ? 'REFUNDED' : tx.status.toUpperCase(),
+          isRefunded: tx.is_refunded
+        });
       });
-    });
+    } else {
+      // Add Bill Logs
+      billLogs.forEach((log) => {
+        const ag = agentMap[log.agent_id];
+        const agName = ag ? [ag.first_name, ag.last_name].filter(Boolean).join(' ') || 'B2B User' : 'Unknown User';
+        const agLogin = ag?.b2b_login_id || ag?.mobile || 'N/A';
+
+        const req = log.request_payload || {};
+        const res = log.response_payload || {};
+        const status = parseBillLogStatus(log);
+        const { amount, charge } = parseBillLogValues(log);
+
+        const txnId = res?.transaction_id || req?.transaction_id || req?.client_transaction_id || log.id;
+        const bbpsTxnId = res?.billPayResponse?.txnRefId || res?.ExtBillPayResponse?.txnRefId || res?.txnRefId || '';
+        const refText = bbpsTxnId ? `BBPS Ref: ${bbpsTxnId}` : `Txn ID: ${txnId ? String(txnId).slice(0, 14) : log.id.slice(0, 8)}`;
+
+        const billerInfo = req?.billerId ? `Biller: ${req.billerId}` : selectedWallet === 'cspl' ? 'CSPL Fast Bill' : 'BBPS Bill';
+        const mobileInfo = req?.mobile ? `Mob: ${req.mobile}` : '';
+        const detailText = [billerInfo, mobileInfo].filter(Boolean).join(' | ');
+
+        list.push({
+          id: `bill-${log.id}`,
+          date: log.created_at,
+          agent_id: log.agent_id,
+          agent_name: agName,
+          agent_login: agLogin,
+          type: 'bill',
+          reference: refText,
+          details: detailText,
+          amount: amount,
+          charge: charge,
+          netImpact: status === 'success' || status === 'pending' ? -(amount + charge) : 0, // debit
+          status: status,
+          rawStatus: status.toUpperCase()
+        });
+      });
+    }
 
     // Sort descending by date
     list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     return list;
-  }, [fundRequests, billLogs, agentMap]);
+  }, [currentWalletFunds, billLogs, payoutTransactions, agentMap, selectedWallet]);
 
   // Filtered entries for table
   const filteredEntries = useMemo(() => {
     return combinedEntries.filter((item) => {
       // Type Filter
-      if (typeFilter !== 'all' && item.type !== typeFilter) return false;
+      if (typeFilter === 'fund' && item.type !== 'fund') return false;
+      if (typeFilter === 'debit' && item.type === 'fund') return false;
 
       // Status Filter
       if (statusFilter !== 'all' && item.status !== statusFilter) return false;
@@ -568,33 +753,36 @@ export default function B2BAdminUserHisab() {
           ? 'All Users'
           : `${agentMap[selectedAgentId]?.first_name || ''} (${agentMap[selectedAgentId]?.b2b_login_id || ''})`;
 
+      const walletTitle = selectedWallet === 'payout' ? 'INSTANT PAYOUT' : selectedWallet === 'cspl' ? 'CSPL FAST BILL' : 'BBPS BILL PAYMENT';
+
       // 1. Summary Sheet
       const summaryData = [
-        ['B2B USER HISAB & RECONCILIATION REPORT'],
+        [`B2B ${walletTitle} HISAB & RECONCILIATION REPORT`],
         ['Generated At', format(new Date(), 'dd-MMM-yyyy hh:mm a')],
+        ['Wallet Type', walletTitle],
         ['Selected User', selectedAgentName],
         ['Date Filter', dateFilter.toUpperCase()],
         [],
         ['SUMMARY METRICS', 'AMOUNT (INR)', 'COUNT / REMARKS'],
         ['Approve Fund Total Amount', summaryStats.approvedFundAmount, `${summaryStats.approvedFundCount} Requests Approved`],
         ['Pending Fund Amount', summaryStats.pendingFundAmount, `${summaryStats.pendingFundCount} Requests Pending`],
-        ['Bill Payment Total Amount (Success)', summaryStats.billSuccessAmount, `${summaryStats.billSuccessCount} Bills Paid`],
-        ['Total Service Charges Deducted', summaryStats.billSuccessCharge, 'Charges from Successful Bills'],
-        ['Total Spent Outflow (Bills + Charges)', summaryStats.totalOutflow, ''],
-        ['Current User Wallet Balance', summaryStats.totalUserBalance, 'Live Balance in Wallet'],
+        [selectedWallet === 'payout' ? 'Payout Transfers Total Amount (Success)' : 'Bill Payment Total Amount (Success)', summaryStats.outflowSuccessAmount, `${summaryStats.outflowSuccessCount} Transferred / Paid`],
+        [selectedWallet === 'payout' ? 'Total Payout Fees & GST Deducted' : 'Total Service Charges Deducted', summaryStats.outflowSuccessCharge, 'Charges / Fees'],
+        ['Total Spent Outflow (Transfers/Bills + Charges)', summaryStats.totalOutflow, ''],
+        [`Current Live User Balance (${walletTitle})`, summaryStats.totalUserBalance, 'Live Balance in Target Wallet'],
         ['Expected Wallet Balance (Fund - Outflow)', summaryStats.expectedRemaining, ''],
         ['Reconciliation Difference', summaryStats.difference, summaryStats.difference === 0 ? '100% Matched' : 'Discrepancy / Prior Balance']
       ];
 
       // 2. Transaction Records Sheet
       const txData = [
-        ['#', 'Date & Time', 'User Name', 'Login ID', 'Type', 'Reference ID', 'Details / Biller', 'Amount (INR)', 'Charge (INR)', 'Net Impact (INR)', 'Status'],
+        ['#', 'Date & Time', 'User Name', 'Login ID', 'Type', 'Reference / Order ID', 'Details / Beneficiary', 'Amount (INR)', 'Charge/Fee (INR)', 'Net Impact (INR)', 'Status'],
         ...filteredEntries.map((row, idx) => [
           idx + 1,
           format(new Date(row.date), 'dd/MM/yyyy hh:mm a'),
           row.agent_name,
           row.agent_login,
-          row.type === 'fund' ? 'Fund In (Credit)' : 'Bill Out (Debit)',
+          row.type === 'fund' ? 'Fund Top-up (Credit)' : selectedWallet === 'payout' ? 'Payout Out (Debit)' : 'Bill Out (Debit)',
           row.reference,
           row.details,
           row.amount,
@@ -611,7 +799,7 @@ export default function B2BAdminUserHisab() {
       XLSX.utils.book_append_sheet(wb, wsSummary, 'Hisab Summary');
       XLSX.utils.book_append_sheet(wb, wsTx, 'Transactions Ledger');
 
-      const fileName = `B2B_Hisab_${selectedAgentId === 'all' ? 'All_Users' : agentMap[selectedAgentId]?.b2b_login_id || 'User'}_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`;
+      const fileName = `B2B_${selectedWallet.toUpperCase()}_Hisab_${selectedAgentId === 'all' ? 'All_Users' : agentMap[selectedAgentId]?.b2b_login_id || 'User'}_${format(new Date(), 'yyyyMMdd_HHmm')}.xlsx`;
       XLSX.writeFile(wb, fileName);
     } catch (err) {
       console.error('Failed to export Excel:', err);
@@ -634,11 +822,11 @@ export default function B2BAdminUserHisab() {
               <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
                 User Hisab & Reconciliation
                 <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-0.5 rounded-full font-medium">
-                  Single Screen Ledger
+                  Multi-Wallet Ledger
                 </span>
               </h1>
               <p className="text-slate-400 text-sm mt-0.5">
-                Reconcile approved funds, bill payments, service charges, and live wallet balances from a single dashboard.
+                Reconcile approved funds, bank payouts, bill payments, slab charges, and live wallet balances from a single dashboard.
               </p>
             </div>
           </div>
@@ -671,12 +859,74 @@ export default function B2BAdminUserHisab() {
       </div>
 
       {/* ============================================================ */}
+      {/* 🧭 WALLET SELECTION TABS: BBPS | PAYOUT | CSPL              */}
+      {/* ============================================================ */}
+      <div className="flex flex-wrap items-center gap-3 p-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
+        <button
+          onClick={() => setSelectedWallet('bbps')}
+          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
+            selectedWallet === 'bbps'
+              ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30 border border-emerald-400/40 ring-2 ring-emerald-500/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent'
+          }`}
+        >
+          <div className={`p-1.5 rounded-lg ${selectedWallet === 'bbps' ? 'bg-white/20 text-white' : 'bg-emerald-500/10 text-emerald-400'}`}>
+            <Receipt className="h-4 w-4" />
+          </div>
+          <span>BBPS Utility Wallet</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+            selectedWallet === 'bbps' ? 'bg-white/25 text-white' : 'bg-emerald-500/15 text-emerald-400'
+          }`}>
+            Bill Pay
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSelectedWallet('payout')}
+          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
+            selectedWallet === 'payout'
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30 border border-purple-400/40 ring-2 ring-purple-500/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent'
+          }`}
+        >
+          <div className={`p-1.5 rounded-lg ${selectedWallet === 'payout' ? 'bg-white/20 text-white' : 'bg-purple-500/10 text-purple-400'}`}>
+            <Send className="h-4 w-4" />
+          </div>
+          <span>Instant Payout Wallet</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+            selectedWallet === 'payout' ? 'bg-white/25 text-white' : 'bg-purple-500/15 text-purple-400'
+          }`}>
+            Bank IMPS / Hisab
+          </span>
+        </button>
+
+        <button
+          onClick={() => setSelectedWallet('cspl')}
+          className={`flex-1 sm:flex-initial flex items-center justify-center gap-2.5 px-5 py-3 rounded-xl font-bold text-sm transition-all duration-200 cursor-pointer ${
+            selectedWallet === 'cspl'
+              ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40 ring-2 ring-blue-500/20'
+              : 'text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent'
+          }`}
+        >
+          <div className={`p-1.5 rounded-lg ${selectedWallet === 'cspl' ? 'bg-white/20 text-white' : 'bg-blue-500/10 text-blue-400'}`}>
+            <Zap className="h-4 w-4" />
+          </div>
+          <span>CSPL Fast Bill Wallet</span>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+            selectedWallet === 'cspl' ? 'bg-white/25 text-white' : 'bg-blue-500/15 text-blue-400'
+          }`}>
+            Fast Bill
+          </span>
+        </button>
+      </div>
+
+      {/* ============================================================ */}
       {/* 🔍 FILTERS BAR (USER DROPDOWN & DATE-TIME FILTERS)           */}
       {/* ============================================================ */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
         <div className="flex items-center gap-2 text-slate-300 font-semibold text-sm border-b border-slate-800/80 pb-3">
           <Filter className="h-4 w-4 text-indigo-400" />
-          <span>Filters: User / Agent & Date-Time Range</span>
+          <span>Filters: User / Agent & Date-Time Range ({selectedWallet === 'payout' ? 'Payout Wallet' : selectedWallet === 'cspl' ? 'CSPL Wallet' : 'BBPS Wallet'})</span>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
@@ -695,13 +945,19 @@ export default function B2BAdminUserHisab() {
                 <option value="all">🌐 All B2B Agents - Total {agents.length}</option>
                 {agents.map((ag) => {
                   const name = [ag.first_name, ag.last_name].filter(Boolean).join(' ') || 'User';
-                  const bal = Number(ag.wallet_balance || 0).toLocaleString('en-IN', {
+                  const activeBal = selectedWallet === 'payout'
+                    ? ag.payout_wallet_balance
+                    : selectedWallet === 'cspl'
+                    ? ag.cspl_wallet_balance
+                    : ag.wallet_balance;
+
+                  const bal = Number(activeBal || 0).toLocaleString('en-IN', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
                   });
                   return (
                     <option key={ag.id} value={ag.id}>
-                      {name} ({ag.b2b_login_id || ag.mobile || ag.id.slice(0, 6)}) — Wallet: ₹{bal}
+                      {name} ({ag.b2b_login_id || ag.mobile || ag.id.slice(0, 6)}) — {selectedWallet === 'payout' ? 'Payout' : selectedWallet === 'cspl' ? 'CSPL' : 'BBPS'}: ₹{bal}
                     </option>
                   );
                 })}
@@ -753,16 +1009,22 @@ export default function B2BAdminUserHisab() {
             <div>
               <span className="text-[11px] text-slate-400 uppercase font-semibold block">Total Records</span>
               <span className="text-lg font-bold text-white">
-                {fundRequests.length + billLogs.length}{' '}
+                {currentWalletFunds.length + (selectedWallet === 'payout' ? payoutTransactions.length : billLogs.length)}{' '}
                 <span className="text-xs text-slate-400 font-normal">
-                  ({fundRequests.length} Fund + {billLogs.length} Bills)
+                  ({currentWalletFunds.length} Fund + {selectedWallet === 'payout' ? payoutTransactions.length + ' Payouts' : billLogs.length + ' Bills'})
                 </span>
               </span>
             </div>
             <div className="text-right">
-              <span className="text-[11px] text-slate-400 uppercase font-semibold block">Status</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-medium">
-                Live Data
+              <span className="text-[11px] text-slate-400 uppercase font-semibold block">Wallet Mode</span>
+              <span className={`text-xs px-2.5 py-0.5 rounded font-semibold border ${
+                selectedWallet === 'payout'
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                  : selectedWallet === 'cspl'
+                  ? 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+              }`}>
+                {selectedWallet === 'payout' ? 'Payout Live' : selectedWallet === 'cspl' ? 'CSPL Live' : 'BBPS Live'}
               </span>
             </div>
           </div>
@@ -798,7 +1060,7 @@ export default function B2BAdminUserHisab() {
       </div>
 
       {/* ============================================================ */}
-      {/* 📊 ALL 4 MAIN CARDS + HISAB TALLY STATUS CARD                */}
+      {/* 📊 ALL 4 MAIN CARDS (ADAPTIVE TO BBPS / PAYOUT / CSPL)        */}
       {/* ============================================================ */}
       {loading ? (
         <div className="h-44 flex flex-col items-center justify-center bg-slate-900/40 border border-slate-800 rounded-2xl">
@@ -813,7 +1075,7 @@ export default function B2BAdminUserHisab() {
               <div className="bg-emerald-500/15 p-3 rounded-xl border border-emerald-500/30 text-emerald-400">
                 <ArrowDownLeft className="h-6 w-6" />
               </div>
-              <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-semibold">
+              <span className="text-xs bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full font-semibold">
                 {summaryStats.approvedFundCount} Approved
               </span>
             </div>
@@ -831,66 +1093,66 @@ export default function B2BAdminUserHisab() {
             </div>
           </div>
 
-          {/* CARD 2: BILL PAYMENT TOTAL AMOUNT */}
-          <div className="bg-gradient-to-br from-blue-950/40 to-slate-900 border border-blue-500/30 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-blue-500/50 transition">
+          {/* CARD 2: OUTFLOW TOTAL AMOUNT (PAYOUT TRANSFERS OR BILL PAYMENTS) */}
+          <div className={`bg-gradient-to-br ${selectedWallet === 'payout' ? 'from-purple-950/40 border-purple-500/30 hover:border-purple-500/50' : 'from-blue-950/40 border-blue-500/30 hover:border-blue-500/50'} to-slate-900 border rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group transition`}>
             <div className="flex items-center justify-between mb-3">
-              <div className="bg-blue-500/15 p-3 rounded-xl border border-blue-500/30 text-blue-400">
-                <Receipt className="h-6 w-6" />
+              <div className={`p-3 rounded-xl border ${selectedWallet === 'payout' ? 'bg-purple-500/15 border-purple-500/30 text-purple-400' : 'bg-blue-500/15 border-blue-500/30 text-blue-400'}`}>
+                {selectedWallet === 'payout' ? <Send className="h-6 w-6" /> : <Receipt className="h-6 w-6" />}
               </div>
-              <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-semibold">
-                {summaryStats.billSuccessCount} Success
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold ${selectedWallet === 'payout' ? 'bg-purple-500/20 text-purple-300' : 'bg-blue-500/20 text-blue-300'}`}>
+                {summaryStats.outflowSuccessCount} Success
               </span>
             </div>
-            <p className="text-xs font-extrabold text-blue-400 uppercase tracking-wider mb-1">
-              Bill Payment Total Amount
+            <p className={`text-xs font-extrabold uppercase tracking-wider mb-1 ${selectedWallet === 'payout' ? 'text-purple-400' : 'text-blue-400'}`}>
+              {selectedWallet === 'payout' ? 'Payout Transfers Total Amount' : 'Bill Payment Total Amount'}
             </p>
             <p className="text-2xl font-black text-white tracking-tight">
-              ₹{summaryStats.billSuccessAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹{summaryStats.outflowSuccessAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <div className="mt-3 pt-2.5 border-t border-blue-500/20 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Pending / Failed Bills:</span>
+            <div className={`mt-3 pt-2.5 border-t flex items-center justify-between text-[11px] text-slate-400 ${selectedWallet === 'payout' ? 'border-purple-500/20' : 'border-blue-500/20'}`}>
+              <span>{selectedWallet === 'payout' ? 'Pending / Failed Payouts:' : 'Pending / Failed Bills:'}</span>
               <span className="text-slate-300 font-medium">
-                {summaryStats.billPendingCount} Pending | {summaryStats.billFailedCount} Failed
+                {summaryStats.outflowPendingCount} Pending | {summaryStats.outflowFailedCount} Failed
               </span>
             </div>
           </div>
 
-          {/* CARD 3: CHARGE TOTAL AMOUNT */}
-          <div className="bg-gradient-to-br from-purple-950/40 to-slate-900 border border-purple-500/30 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-purple-500/50 transition">
+          {/* CARD 3: CHARGES / FEES TOTAL AMOUNT */}
+          <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-indigo-500/50 transition">
             <div className="flex items-center justify-between mb-3">
-              <div className="bg-purple-500/15 p-3 rounded-xl border border-purple-500/30 text-purple-400">
-                <DollarSign className="h-6 w-6" />
+              <div className="bg-indigo-500/15 p-3 rounded-xl border border-indigo-500/30 text-indigo-400">
+                {selectedWallet === 'payout' ? <Percent className="h-6 w-6" /> : <DollarSign className="h-6 w-6" />}
               </div>
-              <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded-full font-semibold">
-                Service Charges
+              <span className="text-xs bg-indigo-500/20 text-indigo-300 px-2.5 py-0.5 rounded-full font-semibold">
+                {selectedWallet === 'payout' ? 'Slab Fees + GST' : 'Service Charges'}
               </span>
             </div>
-            <p className="text-xs font-extrabold text-purple-400 uppercase tracking-wider mb-1">
-              Charge Total Amount
+            <p className="text-xs font-extrabold text-indigo-400 uppercase tracking-wider mb-1">
+              {selectedWallet === 'payout' ? 'Payout Fees & GST Amount' : 'Charge Total Amount'}
             </p>
             <p className="text-2xl font-black text-white tracking-tight">
-              ₹{summaryStats.billSuccessCharge.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              ₹{summaryStats.outflowSuccessCharge.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
-            <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex items-center justify-between text-[11px] text-slate-400">
-              <span>Bills + Charges Total Spent:</span>
-              <span className="text-purple-300 font-semibold">
+            <div className="mt-3 pt-2.5 border-t border-indigo-500/20 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Total Spent Outflow:</span>
+              <span className="text-indigo-300 font-semibold">
                 ₹{summaryStats.totalOutflow.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
           </div>
 
-          {/* CARD 4: TOTAL USER BALANCE */}
+          {/* CARD 4: TOTAL USER BALANCE (TARGET WALLET) */}
           <div className="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-amber-500/50 transition">
             <div className="flex items-center justify-between mb-3">
               <div className="bg-amber-500/15 p-3 rounded-xl border border-amber-500/30 text-amber-400">
                 <Wallet className="h-6 w-6" />
               </div>
-              <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-semibold">
+              <span className="text-xs bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full font-semibold">
                 {selectedAgentId === 'all' ? 'All Agents' : 'Selected Agent'}
               </span>
             </div>
             <p className="text-xs font-extrabold text-amber-400 uppercase tracking-wider mb-1">
-              Total User Balance
+              {selectedWallet === 'payout' ? 'Total Payout Balance' : selectedWallet === 'cspl' ? 'Total CSPL Balance' : 'Total BBPS Balance'}
             </p>
             <p className="text-2xl font-black text-white tracking-tight">
               ₹{summaryStats.totalUserBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -915,10 +1177,12 @@ export default function B2BAdminUserHisab() {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  Accounting Reconciliation Equation
+                  Accounting Reconciliation Equation ({selectedWallet === 'payout' ? 'Instant Payout' : selectedWallet === 'cspl' ? 'CSPL Fast Bill' : 'BBPS Utility'})
                 </h3>
                 <p className="text-xs text-slate-400">
-                  Approved Fund - (Bill Payment + Service Charge) = Expected Wallet Balance
+                  {selectedWallet === 'payout'
+                    ? 'Approved Payout Fund - (Payout Transfers + Slab Fees & GST) = Expected Payout Wallet'
+                    : 'Approved Fund - (Bill Payment + Service Charge) = Expected Wallet Balance'}
                 </p>
               </div>
             </div>
@@ -930,16 +1194,16 @@ export default function B2BAdminUserHisab() {
               </span>
               <span className="text-slate-400 font-bold">-</span>
               <span className="text-slate-500 font-bold">(</span>
-              <span className="text-blue-400 font-semibold" title="Bill Payment Total">
-                Bill: ₹{summaryStats.billSuccessAmount.toLocaleString('en-IN')}
+              <span className={`font-semibold ${selectedWallet === 'payout' ? 'text-purple-400' : 'text-blue-400'}`} title={selectedWallet === 'payout' ? 'Payout Transfers Total' : 'Bill Payment Total'}>
+                {selectedWallet === 'payout' ? 'Payout' : 'Bill'}: ₹{summaryStats.outflowSuccessAmount.toLocaleString('en-IN')}
               </span>
               <span className="text-slate-400 font-bold">+</span>
-              <span className="text-purple-400 font-semibold" title="Service Charges Total">
-                Charge: ₹{summaryStats.billSuccessCharge.toLocaleString('en-IN')}
+              <span className="text-indigo-400 font-semibold" title="Charges/Fees Total">
+                {selectedWallet === 'payout' ? 'Fee/GST' : 'Charge'}: ₹{summaryStats.outflowSuccessCharge.toLocaleString('en-IN')}
               </span>
               <span className="text-slate-500 font-bold">)</span>
               <span className="text-slate-400 font-bold">=</span>
-              <span className="text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20" title="Remaining balance after deducting bills and charges from fund">
+              <span className="text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20" title="Remaining expected balance in wallet">
                 Expected Wallet: ₹{summaryStats.expectedRemaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -982,7 +1246,7 @@ export default function B2BAdminUserHisab() {
       )}
 
       {/* ============================================================ */}
-      {/* 📋 COMBINED TRANSACTIONS TABLE (NO TABS, ALL ON SAME PAGE)    */}
+      {/* 📋 COMBINED TRANSACTIONS TABLE                               */}
       {/* ============================================================ */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
         {/* TABLE CONTROLS BAR */}
@@ -990,12 +1254,14 @@ export default function B2BAdminUserHisab() {
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               Combined Transactions Ledger
-              <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full font-medium">
+              <span className="text-xs bg-slate-800 text-slate-300 px-2.5 py-0.5 rounded-full font-medium">
                 {filteredEntries.length} Records
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Chronological ledger of all fund deposits and bill payment deductions
+              {selectedWallet === 'payout'
+                ? 'Chronological ledger of payout fund deposits and bank transfer outflows'
+                : 'Chronological ledger of all fund deposits and bill payment deductions'}
             </p>
           </div>
 
@@ -1007,7 +1273,7 @@ export default function B2BAdminUserHisab() {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search UTR, Txn, Mobile..."
+                placeholder="Search UTR, Order, A/C, IFSC..."
                 className="bg-slate-950 border border-slate-700 text-white rounded-xl pl-9 pr-3.5 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 w-52 sm:w-60"
               />
             </div>
@@ -1024,13 +1290,13 @@ export default function B2BAdminUserHisab() {
                 onClick={() => setTypeFilter('fund')}
                 className={`px-3 py-1.5 rounded-lg transition font-medium ${typeFilter === 'fund' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
               >
-                📥 Fund
+                📥 Fund In
               </button>
               <button
-                onClick={() => setTypeFilter('bill')}
-                className={`px-3 py-1.5 rounded-lg transition font-medium ${typeFilter === 'bill' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}
+                onClick={() => setTypeFilter('debit')}
+                className={`px-3 py-1.5 rounded-lg transition font-medium ${typeFilter === 'debit' ? (selectedWallet === 'payout' ? 'bg-purple-600 text-white shadow' : 'bg-blue-600 text-white shadow') : 'text-slate-400 hover:text-white'}`}
               >
-                📤 Bills
+                {selectedWallet === 'payout' ? '⚡ Payout Out' : '📤 Bills Out'}
               </button>
             </div>
 
@@ -1043,7 +1309,7 @@ export default function B2BAdminUserHisab() {
               <option value="all">All Status</option>
               <option value="success">Success / Approved</option>
               <option value="pending">Pending</option>
-              <option value="failed">Failed / Rejected</option>
+              <option value="failed">Failed / Refunded</option>
             </select>
           </div>
         </div>
@@ -1056,9 +1322,9 @@ export default function B2BAdminUserHisab() {
                 <th className="px-4 py-3.5">Date & Time</th>
                 <th className="px-4 py-3.5">User / Agent</th>
                 <th className="px-4 py-3.5">Type</th>
-                <th className="px-4 py-3.5">Reference & Details</th>
+                <th className="px-4 py-3.5">{selectedWallet === 'payout' ? 'Order / UTR & Beneficiary' : 'Reference & Details'}</th>
                 <th className="px-4 py-3.5 text-right">Amount</th>
-                <th className="px-4 py-3.5 text-right">Charge</th>
+                <th className="px-4 py-3.5 text-right">{selectedWallet === 'payout' ? 'Fee + GST' : 'Charge'}</th>
                 <th className="px-4 py-3.5 text-right">Net Impact</th>
                 <th className="px-4 py-3.5 text-center">Status</th>
               </tr>
@@ -1070,13 +1336,14 @@ export default function B2BAdminUserHisab() {
                     <div className="flex flex-col items-center justify-center gap-2">
                       <Search className="h-8 w-8 text-slate-600" />
                       <p className="font-semibold text-sm">No transactions found</p>
-                      <p className="text-xs text-slate-500">Try adjusting your filters or search query.</p>
+                      <p className="text-xs text-slate-500">Try adjusting your filters or date range.</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 paginatedEntries.map((row) => {
                   const isFund = row.type === 'fund';
+                  const isPayout = row.type === 'payout';
                   const isSuccess = row.status === 'success';
                   const isPending = row.status === 'pending';
 
@@ -1107,7 +1374,12 @@ export default function B2BAdminUserHisab() {
                         {isFund ? (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-semibold text-[11px]">
                             <ArrowDownLeft className="h-3 w-3" />
-                            Fund Credit
+                            Fund In
+                          </span>
+                        ) : isPayout ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 font-semibold text-[11px]">
+                            <Send className="h-3 w-3" />
+                            Payout Out
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 font-semibold text-[11px]">
@@ -1118,11 +1390,11 @@ export default function B2BAdminUserHisab() {
                       </td>
 
                       {/* Reference & Details */}
-                      <td className="px-4 py-3 max-w-[240px]">
-                        <div className="font-mono text-slate-200 truncate font-medium" title={row.reference}>
+                      <td className="px-4 py-3 max-w-[260px]">
+                        <div className="font-mono text-slate-200 truncate font-medium text-[11px]" title={row.reference}>
                           {row.reference}
                         </div>
-                        <div className="text-[11px] text-slate-400 truncate" title={row.details}>
+                        <div className="text-[11px] text-slate-400 truncate mt-0.5" title={row.details}>
                           {row.details}
                         </div>
                       </td>
@@ -1137,7 +1409,7 @@ export default function B2BAdminUserHisab() {
                       {/* Charge */}
                       <td className="px-4 py-3 text-right whitespace-nowrap font-mono">
                         {row.charge > 0 ? (
-                          <span className="text-purple-400 font-semibold">
+                          <span className={isPayout ? 'text-indigo-400 font-semibold' : 'text-purple-400 font-semibold'}>
                             ₹{row.charge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </span>
                         ) : (
@@ -1151,9 +1423,13 @@ export default function B2BAdminUserHisab() {
                           <span className="text-emerald-400">
                             +₹{row.netImpact.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                           </span>
-                        ) : (
+                        ) : row.netImpact < 0 ? (
                           <span className="text-rose-400">
                             -₹{Math.abs(row.netImpact).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 line-through text-[11px]">
+                            ₹0.00 (Refunded)
                           </span>
                         )}
                       </td>
@@ -1173,7 +1449,7 @@ export default function B2BAdminUserHisab() {
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400 border border-rose-500/25 font-semibold text-[10px]">
                             <XCircle className="h-3 w-3" />
-                            {isFund ? 'Rejected' : 'Failed'}
+                            {row.isRefunded ? 'Auto-Refunded' : (isFund ? 'Rejected' : 'Failed')}
                           </span>
                         )}
                       </td>
@@ -1199,7 +1475,7 @@ export default function B2BAdminUserHisab() {
               <option value={100}>100 per page</option>
             </select>
             <span>
-              Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredEntries.length)} of {filteredEntries.length} records
+              Showing {filteredEntries.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, filteredEntries.length)} of {filteredEntries.length} records
             </span>
           </div>
 
@@ -1207,7 +1483,7 @@ export default function B2BAdminUserHisab() {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 disabled:opacity-40 transition"
+              className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 disabled:opacity-40 transition cursor-pointer"
               title="Previous Page"
             >
               <ChevronLeft className="h-4 w-4" />
@@ -1218,7 +1494,7 @@ export default function B2BAdminUserHisab() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage >= totalPages}
-              className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 disabled:opacity-40 transition"
+              className="p-1.5 rounded-lg border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 disabled:opacity-40 transition cursor-pointer"
               title="Next Page"
             >
               <ChevronRight className="h-4 w-4" />
