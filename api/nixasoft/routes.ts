@@ -8,7 +8,7 @@ import {
   executeNixasoftVerification,
   PayoutSlab
 } from '../../services/nixasoft_payout.js';
-import { firePayoutWebhook } from '../b2b/controller.js';
+import { firePayoutWebhook, atomicRefundB2BPayout } from '../b2b/controller.js';
 import { createClient } from '@supabase/supabase-js';
 import ws from 'ws';
 
@@ -829,22 +829,9 @@ router.post('/callback', async (req, res) => {
           console.error('[Nixasoft Callback] Failed to dispatch B2B success webhook:', hookErr.message);
         }
       } else if (normStatus === 'FAILED') {
-        if (b2bTx.status !== 'failed') {
-          await supabaseAdmin.rpc('add_b2b_payout_wallet', {
-            p_agent_id: b2bTx.agent_id,
-            p_amount: b2bTx.total_deducted
-          });
-
-          const failReason = description || 'Transaction Failed';
-          await supabaseAdmin
-            .from('b2b_payout_transactions')
-            .update({
-              status: 'failed',
-              error_message: failReason,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', b2bTx.id);
-
+        const failReason = description || 'Transaction Failed';
+        const refundResult = await atomicRefundB2BPayout(b2bTx.order_id, failReason);
+        if (refundResult.success) {
           try {
             let targetWebhook = b2bTx.request_payload?.webhook_url || b2bTx.request_payload?.callback_url;
             if (!targetWebhook) {
@@ -876,6 +863,8 @@ router.post('/callback', async (req, res) => {
           } catch (hookErr: any) {
             console.error('[Nixasoft Callback] Failed to dispatch B2B failure webhook:', hookErr.message);
           }
+        } else {
+          console.log(`[Nixasoft Callback] Refund skipped for order ${b2bTx.order_id}: ${refundResult.message}`);
         }
       }
       return res.json({ success: true, message: 'B2B Callback processed successfully' });

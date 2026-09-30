@@ -1793,6 +1793,122 @@ export const firePayoutWebhook = (webhookUrl: string | null | undefined, agentId
 };
 
 /**
+ * Atomic Payout Refund Guard
+ * Prevents race conditions and double refunds across API failures, Nixasoft Webhook callbacks, and Background Cron reconciliations.
+ * Guarantees that a payout is refunded ONCE and ONLY ONCE.
+ */
+export const atomicRefundB2BPayout = async (
+  orderId: string, 
+  failReason: string = 'Bank transaction declined',
+  responsePayload: any = null
+): Promise<{ success: boolean; alreadyRefunded: boolean; message: string; refundedAmount?: number; agentId?: string }> => {
+  if (!orderId) {
+    return { success: false, alreadyRefunded: false, message: 'Missing order_id' };
+  }
+
+  // 1. Try atomic PostgreSQL RPC if deployed
+  try {
+    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('refund_b2b_payout_atomic', {
+      p_order_id: orderId,
+      p_reason: failReason
+    });
+
+    if (!rpcErr && rpcRes) {
+      if (rpcRes.success) {
+        console.log(`[Atomic Refund Guard] Successfully refunded order ${orderId} via RPC: ₹${rpcRes.refund_amount}`);
+        return { 
+          success: true, 
+          alreadyRefunded: false, 
+          message: 'Refunded successfully',
+          refundedAmount: Number(rpcRes.refund_amount || 0),
+          agentId: rpcRes.agent_id
+        };
+      }
+      if (rpcRes.already_processed) {
+        console.warn(`[Atomic Refund Guard] Blocked duplicate refund for order ${orderId}. Current status: ${rpcRes.current_status}`);
+        return { success: false, alreadyRefunded: true, message: rpcRes.message };
+      }
+    }
+  } catch (err: any) {
+    // RPC may not be present in DB yet, fallback below
+  }
+
+  // 2. Atomic Fallback: Conditional update directly on postgres
+  // CRITICAL: We atomically update status from 'pending' -> 'failed'
+  // If another thread (webhook callback or cron) already transitioned it to 'failed',
+  // this update will match ZERO rows and return empty array!
+  const updateData: any = {
+    status: 'failed',
+    error_message: failReason,
+    is_refunded: true,
+    refunded_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+  if (responsePayload) {
+    updateData.response_payload = responsePayload;
+  }
+
+  let updatedTxs: any[] | null = null;
+  let updateErr: any = null;
+
+  const primaryUpdate = await supabaseAdmin
+    .from('b2b_payout_transactions')
+    .update(updateData)
+    .eq('order_id', orderId)
+    .eq('status', 'pending')
+    .select('id, agent_id, total_deducted');
+
+  updatedTxs = primaryUpdate.data;
+  updateErr = primaryUpdate.error;
+
+  // Fallback if is_refunded / refunded_at columns not yet in DB schema cache
+  if (updateErr && (updateErr.message?.includes('is_refunded') || updateErr.code === 'PGRST204')) {
+    delete updateData.is_refunded;
+    delete updateData.refunded_at;
+    const fallbackUpdate = await supabaseAdmin
+      .from('b2b_payout_transactions')
+      .update(updateData)
+      .eq('order_id', orderId)
+      .eq('status', 'pending')
+      .select('id, agent_id, total_deducted');
+    updatedTxs = fallbackUpdate.data;
+    updateErr = fallbackUpdate.error;
+  }
+
+  if (updateErr) {
+    console.error(`[Atomic Refund Guard] Error during conditional update for ${orderId}:`, updateErr.message);
+    return { success: false, alreadyRefunded: false, message: updateErr.message };
+  }
+
+  if (!updatedTxs || updatedTxs.length === 0) {
+    console.warn(`[Atomic Refund Guard] Blocked duplicate refund for order ${orderId}. Transaction is not pending or was already processed.`);
+    return { 
+      success: false, 
+      alreadyRefunded: true, 
+      message: 'Transaction already resolved. Double refund prevented!' 
+    };
+  }
+
+  const tx = updatedTxs[0];
+  const refundAmount = Number(tx.total_deducted || 0);
+
+  // Credit agent payout wallet ONCE and ONLY ONCE
+  await supabaseAdmin.rpc('add_b2b_payout_wallet', {
+    p_agent_id: tx.agent_id,
+    p_amount: refundAmount
+  });
+
+  console.log(`[Atomic Refund Guard] Successfully refunded ₹${refundAmount} to agent ${tx.agent_id} for order ${orderId}`);
+  return {
+    success: true,
+    alreadyRefunded: false,
+    message: 'Refund processed successfully',
+    refundedAmount: refundAmount,
+    agentId: tx.agent_id
+  };
+};
+
+/**
  * Execute B2B Instant Payout Transfer
  * Endpoint: POST /api/b2b/payout/transfer
  */
@@ -2189,20 +2305,7 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         });
       } else if (liveCheck && liveCheck.statuscode === 'TXF') {
         const failReason = liveCheck.message || 'Bank transaction declined';
-        await supabaseAdmin.rpc('add_b2b_payout_wallet', {
-          p_agent_id: agentId,
-          p_amount: totalDeduction
-        });
-
-        await supabaseAdmin
-          .from('b2b_payout_transactions')
-          .update({
-            status: 'failed',
-            error_message: failReason,
-            response_payload: liveCheck,
-            updated_at: new Date().toISOString()
-          })
-          .eq('order_id', orderId);
+        await atomicRefundB2BPayout(orderId, failReason, liveCheck);
 
         firePayoutWebhook(targetWebhookUrl, agentId, {
           event: 'PAYOUT_STATUS_UPDATE',
@@ -2291,23 +2394,10 @@ export const transferPayout = async (req: Request, res: Response): Promise<any> 
         }
       });
     } else {
-      // FAILED -> AUTO REFUND!
+      // FAILED -> ATOMIC AUTO REFUND!
       const failReason = payoutResult.message || 'Bank transaction declined';
 
-      await supabaseAdmin.rpc('add_b2b_payout_wallet', {
-        p_agent_id: agentId,
-        p_amount: totalDeduction
-      });
-
-      await supabaseAdmin
-        .from('b2b_payout_transactions')
-        .update({
-          status: 'failed',
-          error_message: failReason,
-          response_payload: payoutResult,
-          updated_at: new Date().toISOString()
-        })
-        .eq('order_id', orderId);
+      await atomicRefundB2BPayout(orderId, failReason, payoutResult);
 
       // Log to b2b_api_logs
       await supabaseAdmin.from('b2b_api_logs').insert({
@@ -2442,23 +2532,10 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
               });
             }
           } else if (liveStatus.statuscode === 'TXF') {
-            // Auto refund if failed
-            await supabaseAdmin.rpc('add_b2b_payout_wallet', {
-              p_agent_id: agentId,
-              p_amount: tx.total_deducted
-            });
-
-            await supabaseAdmin
-              .from('b2b_payout_transactions')
-              .update({
-                status: 'failed',
-                error_message: liveStatus.message || 'Transaction failed after status inquiry',
-                response_payload: liveStatus,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', tx.id);
+            const failReason = liveStatus.message || 'Transaction failed after status inquiry';
+            await atomicRefundB2BPayout(tx.order_id, failReason, liveStatus);
             tx.status = 'failed';
-            tx.error_message = liveStatus.message;
+            tx.error_message = failReason;
 
             if (cred?.webhook_url) {
               firePayoutWebhook(cred.webhook_url, agentId, {
@@ -2467,7 +2544,7 @@ export const getPayoutStatus = async (req: Request, res: Response): Promise<any>
                 client_order_id: tx.client_order_id || tx.request_payload?.client_order_id || null,
                 utr: null,
                 status: 'failed',
-                failure_reason: liveStatus.message || 'Transaction failed after status inquiry',
+                failure_reason: failReason,
                 amount: Number(tx.amount),
                 fee: Number(tx.charge || tx.fee || 0),
                 refunded_to_payout_wallet: true,
@@ -2600,22 +2677,10 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
             console.warn('[B2B checkPayoutStatusAdmin] Webhook dispatch warning:', hookErr);
           }
         } else if (liveStatus.statuscode === 'TXF') {
-          await supabaseAdmin.rpc('add_b2b_payout_wallet', {
-            p_agent_id: tx.agent_id,
-            p_amount: tx.total_deducted
-          });
-
-          await supabaseAdmin
-            .from('b2b_payout_transactions')
-            .update({
-              status: 'failed',
-              error_message: liveStatus.message || 'Transaction failed after status inquiry',
-              response_payload: liveStatus,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', tx.id);
+          const failReason = liveStatus.message || 'Transaction failed after status inquiry';
+          await atomicRefundB2BPayout(tx.order_id, failReason, liveStatus);
           tx.status = 'failed';
-          tx.error_message = liveStatus.message;
+          tx.error_message = failReason;
 
           // Dispatch Webhook to Agent
           try {
@@ -2638,11 +2703,11 @@ export const checkPayoutStatusAdmin = async (req: Request, res: Response): Promi
               base_fee: Number(tx.request_payload?.base_fee || tx.base_charge || Math.round((Number(tx.charge ?? tx.fee ?? 0) / 1.18) * 100) / 100),
               gst: Number(tx.request_payload?.gst_amount || tx.gst_amount || Math.round((Number(tx.charge ?? tx.fee ?? 0) - (Number(tx.charge ?? tx.fee ?? 0) / 1.18)) * 100) / 100),
               fee: Number(tx.charge ?? tx.fee ?? 0),
-              total_deducted: Number(tx.total_deducted),
+              refunded_to_payout_wallet: true,
+              failure_reason: failReason,
               beneficiary_name: tx.beneficiary_name,
               account_number: tx.account_number,
               ifsc_code: tx.ifsc_code,
-              failure_reason: liveStatus.message,
               timestamp: new Date().toISOString()
             });
           } catch (hookErr) {
@@ -3221,12 +3286,14 @@ export const payCsplBill = async (req: Request, res: Response) => {
         refunded = true;
       } else {
         // Fallback refund update
-        await supabaseAdmin.rpc('add_b2b_cspl_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction }).catch(async () => {
+        try {
+          await supabaseAdmin.rpc('add_b2b_cspl_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
+        } catch {
           const { data: cData } = await supabaseAdmin.from('b2b_api_credentials').select('cspl_wallet_balance').eq('id', agentId).single();
           if (cData) {
             await supabaseAdmin.from('b2b_api_credentials').update({ cspl_wallet_balance: (parseFloat(cData.cspl_wallet_balance || '0') + totalDeduction) }).eq('id', agentId);
           }
-        });
+        }
         refunded = true;
       }
 

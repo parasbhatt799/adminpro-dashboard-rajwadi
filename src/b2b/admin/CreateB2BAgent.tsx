@@ -714,7 +714,7 @@ export default function CreateB2BAgent() {
 
           <button
             onClick={() => {
-              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '', isBbpsEnabled: true, isPayoutEnabled: false });
+              setFormData({ firstName: '', lastName: '', mobile: '', address: '', b2bLoginId: '', b2bPassword: '', chargePerBill: '', developerCharge: '0', ownerCharge: '0', fixedDepositAmount: '0', agentTag: '', isBbpsEnabled: true, isPayoutEnabled: false, isCsplEnabled: false });
               setView('create');
             }}
             className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-indigo-700 transition-colors shadow-sm whitespace-nowrap cursor-pointer active:scale-95"
