@@ -131,6 +131,7 @@ export default function B2BAdminUserHisab() {
 
   // Raw data
   const [fundRequests, setFundRequests] = useState<FundRequestItem[]>([]);
+  const [allTimeApprovedFund, setAllTimeApprovedFund] = useState<number>(0);
   const [billLogs, setBillLogs] = useState<BillLogItem[]>([]);
   const [payoutTransactions, setPayoutTransactions] = useState<PayoutTxItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -286,7 +287,33 @@ export default function B2BAdminUserHisab() {
 
       setFundRequests(allFunds);
 
-      // 2. Fetch Transactions based on selectedWallet
+      // Query all-time approved funds for this wallet to give clear context when dateFilter is active
+      try {
+        let lifetimeQ = supabase
+          .from('b2b_fund_requests')
+          .select('amount')
+          .eq('status', 'approved');
+
+        if (selectedWallet === 'payout') {
+          lifetimeQ = lifetimeQ.eq('wallet_type', 'payout');
+        } else if (selectedWallet === 'cspl') {
+          lifetimeQ = lifetimeQ.eq('wallet_type', 'cspl');
+        } else {
+          lifetimeQ = lifetimeQ.or('wallet_type.eq.bbps,wallet_type.is.null');
+        }
+
+        if (selectedAgentId !== 'all') {
+          lifetimeQ = lifetimeQ.eq('agent_id', selectedAgentId);
+        }
+
+        const { data: lifetimeFunds } = await lifetimeQ;
+        if (lifetimeFunds) {
+          const sum = lifetimeFunds.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+          setAllTimeApprovedFund(sum);
+        }
+      } catch (err) {
+        console.error('Error fetching lifetime funds:', err);
+      }
       if (selectedWallet === 'payout') {
         // Fetch from b2b_payout_transactions
         let allPayouts: PayoutTxItem[] = [];
@@ -994,7 +1021,7 @@ export default function B2BAdminUserHisab() {
               <div className="absolute right-3.5 top-3 pointer-events-none text-slate-400 text-xs">▼</div>
             </div>
             <p className="text-[11px] text-slate-400 mt-1">
-              {dateFilter === 'today' && "Today's transactions from 12:00 AM to now"}
+              {dateFilter === 'today' && "Today's transactions from 12:00 AM to now (Use 'All Time' or '7 Days' to include earlier wallet funds)"}
               {dateFilter === 'yesterday' && "All transactions from yesterday"}
               {dateFilter === '7days' && "All transactions from the last 7 days"}
               {dateFilter === '30days' && "All transactions from the last 30 days"}
@@ -1085,6 +1112,20 @@ export default function B2BAdminUserHisab() {
             <p className="text-2xl font-black text-white tracking-tight">
               ₹{summaryStats.approvedFundAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
+
+            {dateFilter !== 'all' && (
+              <div className="mt-2 text-[11px] text-emerald-300/90 flex items-center justify-between bg-emerald-950/60 px-2.5 py-1 rounded-lg border border-emerald-500/25">
+                <span>All-Time: <strong className="text-white font-mono">₹{allTimeApprovedFund.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</strong></span>
+                <button
+                  onClick={() => setDateFilter('all')}
+                  className="text-[10px] bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 hover:text-white px-2 py-0.5 rounded font-semibold transition cursor-pointer"
+                  title="Switch date filter to All Time History to view all approved funds"
+                >
+                  View All Time
+                </button>
+              </div>
+            )}
+
             <div className="mt-3 pt-2.5 border-t border-emerald-500/20 flex items-center justify-between text-[11px] text-slate-400">
               <span>Pending Requests:</span>
               <span className="text-amber-400 font-semibold">
