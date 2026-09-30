@@ -3084,7 +3084,137 @@ export const payCsplBill = async (req: Request, res: Response) => {
       });
     }
 
-    // 3. Calculate Charges
+    // 3. Parse input parameters
+    let paramArray: any[] = [];
+    if (Array.isArray(customerParams)) {
+      paramArray = customerParams.map((p: any) => ({
+        paramName: String(p.paramName || p.name || '').trim(),
+        paramValue: String(p.paramValue || p.value || '').trim()
+      })).filter(p => p.paramName);
+    } else if (typeof customerParams === 'object' && customerParams !== null) {
+      paramArray = Object.entries(customerParams).map(([name, value]) => ({
+        paramName: String(name).trim(),
+        paramValue: String(value).trim()
+      }));
+    }
+
+    // 4. Resolve billDetails / billerResponse from request, recent logs, or auto-fetch
+    const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || billDetails?.data || req.body?.data || {};
+    let fetchedBillerResponse = req.body?.billerResponse || billDetails?.billerResponse || rawData?.billerResponse;
+    let fetchedAdditionalInfo = req.body?.additionalInfo || billDetails?.additionalInfo || rawData?.additionalInfo;
+    let fetchRequestId = req.body?.requestId || req.body?.refid || billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
+    let fetchedBillAmount = billDetails?.billAmount || rawData?.billAmount;
+    let fetchedDueDate = req.body?.dueDate || billDetails?.dueDate || fetchedBillerResponse?.dueDate || rawData?.dueDate;
+    let fetchedBillDate = req.body?.billDate || billDetails?.billDate || fetchedBillerResponse?.billDate || rawData?.billDate;
+    let fetchedBillNumber = req.body?.billNumber || billDetails?.billNumber || fetchedBillerResponse?.billNumber || rawData?.billNumber;
+    let fetchedBillPeriod = req.body?.billPeriod || billDetails?.billPeriod || fetchedBillerResponse?.billPeriod || rawData?.billPeriod;
+    let fetchedCustomerName = customerName || req.body?.customerName || billDetails?.customerName || fetchedBillerResponse?.customerName || rawData?.customerName;
+
+    // If billerResponse is missing, check recent fetch log from b2b_api_logs for this agent & biller within last 30 minutes
+    if (!fetchedBillerResponse) {
+      try {
+        const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        const { data: recentFetchLogs } = await supabaseAdmin
+          .from('b2b_api_logs')
+          .select('response_payload, request_payload')
+          .eq('agent_id', agentId)
+          .eq('endpoint', '/api/b2b/cspl/fetch-bill')
+          .gte('created_at', thirtyMinAgo)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        if (recentFetchLogs && recentFetchLogs.length > 0) {
+          for (const log of recentFetchLogs) {
+            const reqP = log.request_payload;
+            const resP = log.response_payload;
+            if (String(reqP?.billerId || '').trim() === String(billerId).trim()) {
+              const fetchD = resP?.data || resP;
+              if (fetchD?.billerResponse) {
+                fetchedBillerResponse = fetchD.billerResponse;
+                fetchedAdditionalInfo = fetchedAdditionalInfo || fetchD.additionalInfo;
+                fetchRequestId = fetchRequestId || fetchD.refid || fetchD.requestId || resP?.refid;
+                fetchedDueDate = fetchedDueDate || fetchD.billerResponse?.dueDate;
+                fetchedBillDate = fetchedBillDate || fetchD.billerResponse?.billDate;
+                fetchedBillNumber = fetchedBillNumber || fetchD.billerResponse?.billNumber;
+                fetchedBillPeriod = fetchedBillPeriod || fetchD.billerResponse?.billPeriod;
+                fetchedCustomerName = fetchedCustomerName || fetchD.billerResponse?.customerName;
+                fetchedBillAmount = fetchedBillAmount || fetchD.billerResponse?.billAmount;
+                break;
+              }
+            }
+          }
+        }
+      } catch (logLookupErr) {
+        console.warn('[B2B CSPL fetch log lookup error]', logLookupErr);
+      }
+    }
+
+    // If still missing billerResponse, attempt an on-the-fly fetch for billers requiring fetch
+    if (!fetchedBillerResponse) {
+      try {
+        const autoFetchData = await camlenioBbps.fetchBill({
+          billerId: String(billerId).trim(),
+          customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
+          customerEmail: "",
+          inputParams: paramArray
+        });
+        const fetchD = autoFetchData?.data || autoFetchData;
+        if (fetchD?.billerResponse) {
+          fetchedBillerResponse = fetchD.billerResponse;
+          fetchedAdditionalInfo = fetchedAdditionalInfo || fetchD.additionalInfo;
+          fetchRequestId = fetchRequestId || fetchD.refid || fetchD.requestId || autoFetchData?.refid;
+          fetchedDueDate = fetchedDueDate || fetchD.billerResponse?.dueDate;
+          fetchedBillDate = fetchedBillDate || fetchD.billerResponse?.billDate;
+          fetchedBillNumber = fetchedBillNumber || fetchD.billerResponse?.billNumber;
+          fetchedBillPeriod = fetchedBillPeriod || fetchD.billerResponse?.billPeriod;
+          fetchedCustomerName = fetchedCustomerName || fetchD.billerResponse?.customerName;
+          fetchedBillAmount = fetchedBillAmount || fetchD.billerResponse?.billAmount;
+        }
+      } catch (autoFetchErr) {
+        console.warn('[B2B CSPL auto-fetch error]', autoFetchErr);
+      }
+    }
+
+    // Parse and validate additionalInfo (such as Minimum Amount Due / Maximum Permissible Amount)
+    let addInfoList: any[] = [];
+    if (Array.isArray(fetchedAdditionalInfo)) {
+      addInfoList = fetchedAdditionalInfo;
+    } else if (fetchedAdditionalInfo && Array.isArray(fetchedAdditionalInfo.info)) {
+      addInfoList = fetchedAdditionalInfo.info;
+    }
+
+    let minAmountDue: number | null = null;
+    let maxPermissibleAmount: number | null = null;
+    if (Array.isArray(addInfoList)) {
+      for (const info of addInfoList) {
+        const name = String(info.infoName || info.name || '').toLowerCase();
+        const val = parseFloat(String(info.infoValue || info.value || '').replace(/,/g, ''));
+        if (!isNaN(val) && val > 0) {
+          if (name.includes('minimum amount') || name.includes('min amount') || name.includes('min due')) {
+            minAmountDue = val;
+          }
+          if (name.includes('maximum permissible') || name.includes('max amount')) {
+            maxPermissibleAmount = val;
+          }
+        }
+      }
+    }
+
+    if (minAmountDue !== null && parsedAmount < minAmountDue) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Payment amount ₹${parsedAmount.toLocaleString('en-IN')} is below the Minimum Amount Due of ₹${minAmountDue.toLocaleString('en-IN')} required by ${billerName || 'biller'}.`
+      });
+    }
+
+    if (maxPermissibleAmount !== null && parsedAmount > maxPermissibleAmount) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Payment amount ₹${parsedAmount.toLocaleString('en-IN')} exceeds the Maximum Permissible Amount of ₹${maxPermissibleAmount.toLocaleString('en-IN')} for this biller.`
+      });
+    }
+
+    // 5. Calculate Charges
     let baseChargePerBill = parseFloat(agentData.charge_per_bill?.toString() || '0');
     let baseDeveloperCharge = parseFloat(agentData.developer_charge?.toString() || '0');
     let baseOwnerCharge = parseFloat(agentData.owner_charge?.toString() || '0');
@@ -3100,7 +3230,7 @@ export const payCsplBill = async (req: Request, res: Response) => {
     const chargePerBill = developerCharge + ownerCharge;
     const totalDeduction = parsedAmount + chargePerBill;
 
-    // 4. Check & Deduct CSPL Wallet Balance
+    // 6. Check & Deduct CSPL Wallet Balance
     const currentCsplBal = parseFloat(agentData.cspl_wallet_balance?.toString() || '0');
     if (currentCsplBal < totalDeduction) {
       return res.status(400).json({
@@ -3140,41 +3270,28 @@ export const payCsplBill = async (req: Request, res: Response) => {
       });
     }
 
-    // 5. Generate Transaction ID
+    // 7. Generate Transaction ID
     const csplTxnId = `CSPL_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
     const finalClientTxnId = (client_transaction_id || csplTxnId).trim();
 
-    // 6. Build CSPL Payload
-    const rawData = billDetails?.rawFetchData?.data || billDetails?.rawFetchData || {};
-    const fetchedBillerResponse = billDetails?.billerResponse || rawData?.billerResponse;
-    const fetchRequestId = billDetails?.fetchRequestId || billDetails?.billerResponse?.requestId || rawData?.requestId || billDetails?.rawFetchData?.refid || rawData?.refid;
+    // 8. Build CSPL Payload
     const csplRequestId = fetchRequestId || ("CSPL" + Date.now().toString() + Math.floor(Math.random() * 1000).toString());
-
-    let paramArray: any[] = [];
-    if (Array.isArray(customerParams)) {
-      paramArray = customerParams.map((p: any) => ({
-        paramName: String(p.paramName || p.name || '').trim(),
-        paramValue: String(p.paramValue || p.value || '').trim()
-      })).filter(p => p.paramName);
-    } else if (typeof customerParams === 'object' && customerParams !== null) {
-      paramArray = Object.entries(customerParams).map(([name, value]) => ({
-        paramName: String(name).trim(),
-        paramValue: String(value).trim()
-      }));
-    }
-
     const rawCat = billDetails?.catname || billDetails?.categoryName || (billerName && billerName.toLowerCase().includes("card") ? "Credit Card" : billerName) || "Credit Card";
     const cleanCatName = String(rawCat).replace(/[^a-zA-Z0-9 ]/g, "").trim() || "Credit Card";
 
     const custBillAmountInPaise = Math.round(parsedAmount * 100);
-    const fetchedAmountInPaise = billDetails?.billAmount
-      ? Math.round(Number(billDetails.billAmount) * 100)
-      : (fetchedBillerResponse?.billAmount ? Number(fetchedBillerResponse.billAmount) : custBillAmountInPaise);
+    let fetchedAmountInPaise = custBillAmountInPaise;
+    if (fetchedBillerResponse?.billAmount) {
+      fetchedAmountInPaise = Number(fetchedBillerResponse.billAmount);
+    } else if (fetchedBillAmount) {
+      const rawBA = Number(fetchedBillAmount);
+      fetchedAmountInPaise = rawBA > 1000000 ? rawBA : Math.round(rawBA * 100);
+    }
 
     const csplPayload: any = {
       requestId: csplRequestId,
       customerMobile: (customerMobile || "9999999999").replace(/[^0-9]/g, '').slice(-10) || "9999999999",
-      customerName: customerName || billDetails?.customerName || fetchedBillerResponse?.customerName || "BBPS Customer",
+      customerName: fetchedCustomerName || "BBPS Customer",
       catname: cleanCatName,
       billerId: String(billerId).trim(),
       billamount: fetchedAmountInPaise || custBillAmountInPaise,
@@ -3182,8 +3299,26 @@ export const payCsplBill = async (req: Request, res: Response) => {
       inputParams: paramArray
     };
 
+    if (fetchedDueDate) csplPayload.dueDate = fetchedDueDate;
+    if (fetchedBillDate) csplPayload.billDate = fetchedBillDate;
+    if (fetchedBillNumber && fetchedBillNumber !== 'NA') csplPayload.billNumber = fetchedBillNumber;
+    if (fetchedBillPeriod && fetchedBillPeriod !== 'NA') csplPayload.billPeriod = fetchedBillPeriod;
+
     if (fetchedBillerResponse) {
       csplPayload.billerResponse = fetchedBillerResponse;
+    }
+
+    if (Array.isArray(addInfoList) && addInfoList.length > 0) {
+      const cleanAddInfo = addInfoList
+        .map((item: any) => ({
+          infoName: String(item?.infoName || item?.name || '').trim(),
+          infoValue: String(item?.infoValue || item?.value || '').trim()
+        }))
+        .filter(item => item.infoName && item.infoValue);
+
+      if (cleanAddInfo.length > 0) {
+        csplPayload.additionalInfo = cleanAddInfo;
+      }
     }
 
     // Insert pending log in b2b_api_logs
