@@ -3,16 +3,22 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// BillAvenue DMT Credentials (UAT Defaults for Usepay Fintech Solution Pvt Ltd)
+// Clean credential helper
+const cleanEnv = (val?: string) => (val || '').replace(/['"]/g, '').trim();
+
+const isDmtProd = cleanEnv(process.env.DMT_ENV).toLowerCase() === 'production' || 
+  cleanEnv(process.env.BILLAVENUE_ENV).toLowerCase() === 'production' && process.env.DMT_ENV !== 'staging';
+
+// BillAvenue DMT Credentials (Dynamic from environment, with UAT Defaults)
 export const DMT_CONFIG = {
-  INSTITUTE_ID: process.env.DMT_INSTITUTE_ID || 'UF01',
-  ACCESS_CODE: process.env.DMT_ACCESS_CODE || 'AVVA15FZ56VG89FFEB',
-  WORKING_KEY: process.env.DMT_WORKING_KEY || '57259B1F76AEAB4E809A959D5E69322A',
-  AGENT_ID: process.env.DMT_AGENT_ID || 'UF01UF01513515340681',
-  IS_PROD: process.env.DMT_ENV === 'production',
+  INSTITUTE_ID: cleanEnv(process.env.DMT_INSTITUTE_ID) || (isDmtProd ? cleanEnv(process.env.BILLAVENUE_INSTITUTE_ID) : 'UF01') || 'UF01',
+  ACCESS_CODE: cleanEnv(process.env.DMT_ACCESS_CODE) || (isDmtProd ? cleanEnv(process.env.BILLAVENUE_ACCESS_CODE) : 'AVVA15FZ56VG89FFEB') || 'AVVA15FZ56VG89FFEB',
+  WORKING_KEY: cleanEnv(process.env.DMT_WORKING_KEY) || (isDmtProd ? cleanEnv(process.env.BILLAVENUE_WORKING_KEY) : '57259B1F76AEAB4E809A959D5E69322A') || '57259B1F76AEAB4E809A959D5E69322A',
+  AGENT_ID: cleanEnv(process.env.DMT_AGENT_ID) || (isDmtProd ? cleanEnv(process.env.BILLAVENUE_AGENT_ID) : 'UF01UF01513515340681') || 'UF01UF01513515340681',
+  IS_PROD: isDmtProd,
   VERSION: '1.1',
-  // Sandbox mode: if enabled or if BillAvenue rejects due to IP not whitelisted, gracefully simulate
-  ALLOW_SANDBOX_FALLBACK: true
+  // Sandbox mode fallback: disabled in production by default unless explicitly allowed
+  ALLOW_SANDBOX_FALLBACK: process.env.DMT_ALLOW_FALLBACK === 'true' || (!isDmtProd && process.env.DMT_ALLOW_FALLBACK !== 'false')
 };
 
 const BASE_URL = DMT_CONFIG.IS_PROD 

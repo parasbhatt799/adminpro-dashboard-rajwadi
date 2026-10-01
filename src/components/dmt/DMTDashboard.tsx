@@ -215,6 +215,9 @@ export default function DMTDashboard({ userId, adminView = false, isTester }: DM
         if (data.isEnabled !== undefined) {
           setIsDmtServiceEnabled(Boolean(data.isEnabled));
         }
+        if (data.environment === 'production') {
+          setSearchMobile((prev) => (prev === '9920010041' ? '' : prev));
+        }
       }
     } catch (e) {}
   };
@@ -701,11 +704,15 @@ export default function DMTDashboard({ userId, adminView = false, isTester }: DM
                 <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   BillAvenue DMT v1.9.3
                 </span>
-                <span className="px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/30">
-                  UAT Sandbox Environment
+                <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border ${
+                  config?.environment === 'production'
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                    : 'bg-blue-500/20 text-blue-300 border-blue-500/30'
+                }`}>
+                  {config?.environment === 'production' ? '🟢 Live Production' : '🧪 UAT Sandbox Environment'}
                 </span>
                 <span className="px-2.5 py-1 rounded-md text-xs font-mono bg-white/10 text-white border border-white/20">
-                  Agent ID: UF01
+                  Agent ID: {config?.agentId || config?.instituteId || 'UF01'}
                 </span>
               </div>
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
@@ -755,7 +762,9 @@ export default function DMTDashboard({ userId, adminView = false, isTester }: DM
               {/* Live Deposit Balance Card */}
               <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/15 flex items-center justify-between gap-6 shrink-0">
                 <div>
-                  <p className="text-xs text-slate-300 uppercase tracking-wider font-semibold">BillAvenue UAT Deposit</p>
+                  <p className="text-xs text-slate-300 uppercase tracking-wider font-semibold">
+                    BillAvenue {config?.environment === 'production' ? 'Live' : 'UAT'} Deposit
+                  </p>
                   <p className="text-2xl font-black text-white mt-0.5">₹{depositBalance}</p>
                   <p className="text-[11px] text-emerald-400 font-medium">Usepay Fintech Solution Pvt Ltd</p>
                 </div>

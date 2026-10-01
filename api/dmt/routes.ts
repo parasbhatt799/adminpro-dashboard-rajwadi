@@ -19,8 +19,10 @@ router.get('/config', async (req, res) => {
       success: true,
       isEnabled,
       instituteId: dmtService.DMT_CONFIG.INSTITUTE_ID,
+      agentId: dmtService.DMT_CONFIG.AGENT_ID,
       accessCode: dmtService.DMT_CONFIG.ACCESS_CODE,
       environment: dmtService.DMT_CONFIG.IS_PROD ? 'production' : 'staging_uat',
+      isProd: dmtService.DMT_CONFIG.IS_PROD,
       version: dmtService.DMT_CONFIG.VERSION,
       channels: ['ARTL', 'FINO'],
       allowSandboxFallback: dmtService.DMT_CONFIG.ALLOW_SANDBOX_FALLBACK
