@@ -423,7 +423,9 @@ export async function payBill(
     paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
   } else if (modeUpper === 'DEBIT CARD' || modeUpper === 'CREDIT CARD' || modeUpper === 'PREPAID CARD') {
     paymentAccountInfo = `1234|UsePay`;
-   // BillAvenue Specification Document v2.8.7 (Page 23 - Remitter Info & Page 34 - XML Schema):
+  }
+
+  // BillAvenue Specification Document v2.8.7 (Page 23 - Remitter Info & Page 34 - XML Schema):
   // 1. The PaymentRefId tag is mandatory for all transactions, regardless of amount or Category.
   // 2. The Payment Account Info tag is mandatory for all transactions (for Cash: "Cash Payment").
   // 3. For transactions > ₹50,000, Remitter Name is also mandatory.
