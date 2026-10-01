@@ -423,34 +423,24 @@ export async function payBill(
     paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
   } else if (modeUpper === 'DEBIT CARD' || modeUpper === 'CREDIT CARD' || modeUpper === 'PREPAID CARD') {
     paymentAccountInfo = `1234|UsePay`;
-  }
-
-  // BillAvenue Specification Document v2.8.7 (Page 23 - Remitter Info):
-  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of the amount or Category.
-  // 2. The AIs should pass the new <infoName>Payment Account Info</infoName> tag for all transactions
-  //    irrespective of the amount (no less than or more than 50k segregation). For Cash: "Cash Payment".
-  // 3. For ALL transactions, following Remitter Info tags are mandatory:
-  //    - Remitter Name
-  //    - PaymentRefId
-  //    - Payment Mode (exact casing 'Payment Mode')
-  //    - Payment Account Info (for Cash: 'Cash Payment')
+   // BillAvenue Specification Document v2.8.7 (Page 23 - Remitter Info & Page 34 - XML Schema):
+  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of amount or Category.
+  // 2. The Payment Account Info tag is mandatory for all transactions (for Cash: "Cash Payment").
+  // 3. For transactions > ₹50,000, Remitter Name is also mandatory.
+  // 4. Do NOT pass "Payment Mode" inside <paymentInfo> as it is defined in <paymentMethod><paymentMode>, not infoName.
   const paymentInfoXml = `    <paymentInfo>
-        <info>
-            <infoName>Remitter Name</infoName>
-            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
-        </info>
         <info>
             <infoName>PaymentRefId</infoName>
             <infoValue>${escapeXml(paymentRefId)}</infoValue>
         </info>
         <info>
-            <infoName>Payment Mode</infoName>
-            <infoValue>${escapeXml(effectivePaymentMode)}</infoValue>
-        </info>
-        <info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>
+        </info>${amount > 50000 ? `
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
+        </info>` : ''}
     </paymentInfo>`;
 
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -477,12 +467,12 @@ export async function payBill(
         <custConvFee>0</custConvFee>
         ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
     </amountInfo>
+${paymentInfoXml}
     <paymentMethod>
         <paymentMode>${effectivePaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
-${paymentInfoXml}
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
         <initChannel>${initChannel}</initChannel>
