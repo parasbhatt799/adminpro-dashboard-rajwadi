@@ -912,12 +912,12 @@ export const payBill = async (req: Request, res: Response) => {
     const parsedAmount = parseFloat(amount);
     const selectedMode = (paymentMode || 'Cash').trim();
 
-    // Check RBI/BillAvenue rule: Cash payment of >= 50,000 requires PAN card
-    if (parsedAmount >= 50000 && selectedMode.toUpperCase() === 'CASH' && !finalPan) {
-      console.error(`[B2B PayBill - ERROR] PAN Card missing for transaction >= ₹50,000 with Cash mode`);
+    // Check RBI/BillAvenue rule: Transactions > 50,000 with AGT channel require PAN card
+    if (parsedAmount > 50000 && !finalPan) {
+      console.error(`[B2B PayBill - ERROR] PAN Card missing for transaction > ₹50,000`);
       return res.status(400).json({
         status: 'error',
-        message: 'PAN Card (customerPan / pan) is mandatory for Cash bill payments of ₹50,000 or above as per RBI guidelines. Alternatively, pass paymentMode as "UPI" or "Internet Banking".'
+        message: 'PAN Card (customerPan / pan) is mandatory for bill payments exceeding ₹50,000 as per RBI/NBBL BillAvenue guidelines.'
       });
     }
 
@@ -1105,15 +1105,16 @@ export const payBill = async (req: Request, res: Response) => {
         formattedParams,
         mobile,
         parsedAmount,
-        selectedMode, // paymentMode (Agent typically uses Cash/Wallet, or custom mode like UPI/Debit Card)
+        'Cash', // Channel AGT: NBBL specification disabled all modes apart from Cash
         'N', // quickPay
         undefined, // ccf1
         { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails
-        undefined, // remitterName
+        req.body.remitterName || undefined, // remitterName
         'AGT', // initChannel
         billavenueRequestId, // fetchRequestId / explicitRequestId
         billavenueAgentId,
-        finalPan || undefined // customerPan
+        finalPan || undefined, // customerPan
+        customTxnId // customPaymentRefId (AI's Txn Id for tracing)
       );
       console.log(`[B2B PayBill - BILLAVENUE SUCCESS] Response received:`, JSON.stringify(apiResponse.json));
     } catch (payErr: any) {

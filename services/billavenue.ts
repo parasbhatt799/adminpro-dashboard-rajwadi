@@ -370,7 +370,7 @@ export async function payBill(
   customerParams: Record<string, string>,
   customerMobile: string,
   amount: number,
-  paymentMode: string = 'UPI',
+  paymentMode: string = 'Cash',
   quickPay: string = 'N',
   ccf1?: number, // CCF1 + GST in paisa
   billDetails?: any,
@@ -378,28 +378,81 @@ export async function payBill(
   initChannel: string = 'AGT',
   fetchRequestId?: string,
   billavenueAgentId?: string,
-  customerPan?: string
+  customerPan?: string,
+  customPaymentRefId?: string
 ): Promise<any> {
   const finalAgentId = billavenueAgentId || AGENT_ID;
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
-  const paymentRefId = generateRequestId();
-  const nameOfRemitter = remitterName || 'UsePay Customer';
 
-  let paymentAccountInfo = 'Cash Payment';
-  const mode = paymentMode.trim().toUpperCase();
-  if (mode === 'UPI' || mode === 'BHARAT QR') {
-    paymentAccountInfo = `${customerMobile}@upi`;
-  } else if (mode === 'WALLET') {
-    paymentAccountInfo = `UsePay|${customerMobile}`;
-  } else if (mode === 'INTERNET BANKING') {
-    paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
-  } else if (mode === 'DEBIT CARD' || mode === 'CREDIT CARD' || mode === 'PREPAID CARD') {
-    paymentAccountInfo = `1234|UsePay`;
-  } else if (mode === 'CASH') {
-    paymentAccountInfo = 'Cash Payment';
+  // NBBL AGT Channel Rule II: Apart from Cash, all other modes are disabled for AGT channel
+  const effectiveChannel = (initChannel || 'AGT').trim().toUpperCase();
+  let effectivePaymentMode = (paymentMode || 'Cash').trim();
+  if (effectiveChannel === 'AGT') {
+    effectivePaymentMode = 'Cash';
+  }
+
+  // PaymentRefId: Min length- 4 characters, Max length- 80 characters.
+  // Should contain AI's Txn Id for tracing later.
+  let paymentRefId = (customPaymentRefId || fetchRequestId || generateRequestId()).toString().trim();
+  if (paymentRefId.length < 4) paymentRefId = generateRequestId();
+  if (paymentRefId.length > 80) paymentRefId = paymentRefId.substring(0, 80);
+
+  // NBBL AGT Channel PaymentInfo Guidelines:
+  // 1. PaymentRefId tag is mandatory for all transactions, regardless of amount or category.
+  // 2. For transactions > ₹50,000, the following Remitter Info tags are mandatory:
+  //    - Remitter Name: Min 1 char, Max 200 chars
+  //    - PaymentRefId: Min 4 chars, Max 80 chars
+  //    - Payment Mode (exact casing 'Payment Mode')
+  //    - Payment Account Info (for Cash: "Cash Payment")
+  // 3. The previous implementation where these tags were mandatory irrespective of amount is NULL & VOID.
+  //    Sending extra remitter tags for amounts <= ₹50,000 causes E267 "Invalid payment info for given payment mode".
+  let paymentInfoXml = '';
+  if (amount > 50000) {
+    const nameOfRemitter = (remitterName && remitterName.trim().length >= 1)
+      ? remitterName.trim().substring(0, 200)
+      : 'UsePay Customer';
+
+    let paymentAccountInfo = 'Cash Payment';
+    const modeUpper = effectivePaymentMode.toUpperCase();
+    if (modeUpper === 'CASH') {
+      paymentAccountInfo = 'Cash Payment';
+    } else if (modeUpper === 'UPI' || modeUpper === 'BHARAT QR') {
+      paymentAccountInfo = `${customerMobile}@upi`;
+    } else if (modeUpper === 'WALLET') {
+      paymentAccountInfo = `UsePay|${customerMobile}`;
+    } else if (modeUpper === 'INTERNET BANKING') {
+      paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
+    } else if (modeUpper === 'DEBIT CARD' || modeUpper === 'CREDIT CARD' || modeUpper === 'PREPAID CARD') {
+      paymentAccountInfo = `1234|UsePay`;
+    }
+
+    paymentInfoXml = `    <paymentInfo>
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
+        </info>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Mode</infoName>
+            <infoValue>${escapeXml(effectivePaymentMode)}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
+        </info>
+    </paymentInfo>`;
   } else {
-    paymentAccountInfo = 'USSD Payment';
+    // For transactions <= ₹50,000: ONLY PaymentRefId tag is required
+    paymentInfoXml = `    <paymentInfo>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+    </paymentInfo>`;
   }
 
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -427,28 +480,11 @@ export async function payBill(
         ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
     </amountInfo>
     <paymentMethod>
-        <paymentMode>${paymentMode}</paymentMode>
+        <paymentMode>${effectivePaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
-    <paymentInfo>
-        <info>
-            <infoName>Remitter Name</infoName>
-            <infoValue>${nameOfRemitter}</infoValue>
-        </info>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${paymentRefId}</infoValue>
-        </info>
-        <info>
-            <infoName>Payment Account Info</infoName>
-            <infoValue>${paymentAccountInfo}</infoValue>
-        </info>
-        <info>
-            <infoName>Payment mode</infoName>
-            <infoValue>${paymentMode}</infoValue>
-        </info>
-    </paymentInfo>
+${paymentInfoXml}
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
         <initChannel>${initChannel}</initChannel>

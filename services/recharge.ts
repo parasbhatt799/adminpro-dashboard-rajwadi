@@ -155,26 +155,14 @@ export async function rechargeMobile(
         <custConvFee>0</custConvFee>
     </amountInfo>
     <paymentMethod>
-        <paymentMode>UPI</paymentMode>
+        <paymentMode>Cash</paymentMode>
         <quickPay>Y</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
     <paymentInfo>
         <info>
-            <infoName>Remitter Name</infoName>
-            <infoValue>${nameOfRemitter}</infoValue>
-        </info>
-        <info>
             <infoName>PaymentRefId</infoName>
             <infoValue>${paymentRefId}</infoValue>
-        </info>
-        <info>
-            <infoName>Payment Account Info</infoName>
-            <infoValue>${mobile}@upi</infoValue>
-        </info>
-        <info>
-            <infoName>Payment mode</infoName>
-            <infoValue>UPI</infoValue>
         </info>
     </paymentInfo>
     <agentDeviceInfo>

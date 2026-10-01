@@ -3173,7 +3173,10 @@ async function startServer() {
         quickPay,
         ccf1,
         billDetails,
-        fetchRequestId
+        fetchRequestId,
+        customerPan,
+        pan,
+        clientTxnId
       } = req.body;
 
       if (!userId || !billerId || !customerParams || !customerMobile || !amount) {
@@ -3301,11 +3304,18 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // If channel is AGT (Agent), BBPS often rejects modes like UPI, Net Banking, etc.
-      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash' or 'Wallet' to BBPS.
-      let finalPaymentMode = paymentMode || 'UPI';
-      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
+      // NBBL AGT Channel Rule II: Apart from Cash, all other modes are disabled for AGT channel
+      let finalPaymentMode = paymentMode || 'Cash';
+      if (initChannel === 'AGT') {
         finalPaymentMode = 'Cash';
+      }
+
+      const finalPan = (customerPan || pan || '').trim();
+      if (paymentAmount > 50000 && !finalPan) {
+        return res.status(400).json({
+          status: "ERROR",
+          message: "PAN Card is mandatory for bill payments exceeding ₹50,000 as per RBI/NBBL BillAvenue guidelines."
+        });
       }
 
       // 3. Call BillAvenue pay API
@@ -3322,7 +3332,10 @@ async function startServer() {
           billDetails,
           user.name || 'Valued Customer',
           initChannel,
-          fetchRequestId
+          fetchRequestId,
+          undefined,
+          finalPan || undefined,
+          clientTxnId
         );
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);
