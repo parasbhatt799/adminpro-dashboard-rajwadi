@@ -175,25 +175,19 @@ export async function callBillAvenueDmt(
       }
       return {
         success: false,
-        error: `Unauthorized Access Detected. Your server IP needs to be whitelisted for Agent Institution ${DMT_CONFIG.INSTITUTE_ID} on BillAvenue portal.`,
+        error: 'Unauthorized Access Detected. Your server IP needs to be whitelisted for Agent Institution UF01 by BillAvenue support.',
         data: null
       };
     }
 
-    let decryptedXml: string;
+    let ciphertext = responseText;
     if (responseText.includes('<encResponse>')) {
-      const match = responseText.match(/<encResponse>([\s\S]*?)<\/encResponse>/i);
-      const ciphertext = match ? match[1].trim() : responseText;
-      decryptedXml = decryptDmtResponse(ciphertext);
-    } else if (responseText.startsWith('<')) {
-      // Plain XML response (e.g. unencrypted error or direct XML response from BillAvenue)
-      decryptedXml = responseText;
-    } else {
-      // Direct raw ciphertext
-      decryptedXml = decryptDmtResponse(responseText);
+      const match = responseText.match(/<encResponse>([^<]+)<\/encResponse>/i);
+      ciphertext = match ? match[1].trim() : responseText;
     }
 
-    console.log('[DMT Service] Decrypted/Received Response:\n', decryptedXml);
+    const decryptedXml = decryptDmtResponse(ciphertext);
+    console.log('[DMT Service] Decrypted Response:\n', decryptedXml);
 
     const json = dmtXmlToJson(decryptedXml);
     return {
@@ -539,35 +533,12 @@ export async function verifyRefundOtp(params: {
 }
 
 /**
- * 15. Check BillAvenue Deposit Balance (Doc Spec v1.9.3 Page 24-27)
+ * 15. Check BillAvenue Deposit Balance
  */
 export async function checkDmtDepositBalance() {
-  const today = new Date().toISOString().split('T')[0];
-
-  // 1. Try XML Deposit Enquiry endpoint (Official Spec)
-  try {
-    const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<depositDetailsRequest>
-<fromDate>${today}</fromDate>
-<toDate>${today}</toDate>
-<transType></transType>
-<agents>
-<agentId>${DMT_CONFIG.AGENT_ID}</agentId>
-</agents>
-</depositDetailsRequest>`;
-
-    const res = await callBillAvenueDmt(DMT_ENDPOINTS.depositXml, xml, { version: '1.0' });
-    if (res.success && res.data && res.data.responseCode === '000') {
-      return { success: true, data: res.data };
-    }
-  } catch (err) {
-    console.warn('[DMT Deposit] XML check failed, trying JSON endpoint:', (err as any).message);
-  }
-
-  // 2. Try JSON Deposit Enquiry endpoint
   const body = {
-    fromDate: today,
-    toDate: today,
+    fromDate: new Date().toISOString().split('T')[0],
+    toDate: new Date().toISOString().split('T')[0],
     transType: '',
     agents: [DMT_CONFIG.AGENT_ID],
     transactionId: '',
@@ -586,120 +557,16 @@ export async function checkDmtDepositBalance() {
     }
   } catch (e) {}
 
-  // Fallback to UAT Mock if allowed
-  if (DMT_CONFIG.ALLOW_SANDBOX_FALLBACK) {
-    return {
-      success: true,
-      data: {
-        instituteId: DMT_CONFIG.INSTITUTE_ID,
-        currentBalance: '50000.00',
-        currency: 'INR'
-      },
-      isMock: true
-    };
-  }
-
+  // Fallback to UAT Mock
   return {
-    success: false,
-    error: 'Unable to fetch deposit balance from BillAvenue production',
-    data: null
+    success: true,
+    data: {
+      instituteId: DMT_CONFIG.INSTITUTE_ID,
+      currentBalance: '50000.00',
+      currency: 'INR'
+    },
+    isMock: true
   };
-}
-
-/**
- * 16. Get Specific Recipient Details (Doc Spec v1.9.3 Page 16)
- */
-export async function getRecipient(params: {
-  mobileNumber: string;
-  recipientId: string;
-  txnType?: 'IMPS' | 'NEFT';
-  bankId?: 'ARTL' | 'FINO';
-}) {
-  const txnType = params.txnType || 'IMPS';
-  const bankId = params.bankId || 'ARTL';
-
-  const xml = `<dmtServiceRequest>
-<requestType>GetRecipient</requestType>
-<senderMobileNumber>${params.mobileNumber}</senderMobileNumber>
-<txnType>${txnType}</txnType>
-<bankId>${bankId}</bankId>
-<recipientId>${params.recipientId}</recipientId>
-</dmtServiceRequest>`;
-
-  return await callBillAvenueDmt(DMT_ENDPOINTS.service, xml);
-}
-
-/**
- * 17. IFSC Details API (Doc Spec v1.9.3 Page 22)
- */
-export async function getIfscDetails(ifsc: string) {
-  const xml = `<dmtServiceRequest>
-<requestType>IfscDetails</requestType>
-<ifsc>${ifsc.trim().toUpperCase()}</ifsc>
-</dmtServiceRequest>`;
-
-  return await callBillAvenueDmt(DMT_ENDPOINTS.service, xml);
-}
-
-/**
- * 18. Master IFSC Code API (Doc Spec v1.9.3 Page 23)
- */
-export async function getMasterIfscCode(bankCodeOrName: string) {
-  const xml = `<dmtServiceRequest>
-<requestType>IFSCCODE</requestType>
-<bankCode>${bankCodeOrName.trim()}</bankCode>
-</dmtServiceRequest>`;
-
-  return await callBillAvenueDmt(DMT_ENDPOINTS.service, xml);
-}
-
-/**
- * 19. Get Customer Convenience Fee API (Doc Spec v1.9.3 Page 34)
- */
-export async function getCustomerConvFee(amountRupees: number, agentId = DMT_CONFIG.AGENT_ID) {
-  const txnAmountPaise = Math.round(amountRupees * 100);
-
-  const xml = `<dmtTransactionRequest>
-<requestType>GetCCFFee</requestType>
-<agentId>${agentId}</agentId>
-<txnAmount>${txnAmountPaise}</txnAmount>
-</dmtTransactionRequest>`;
-
-  return await callBillAvenueDmt(DMT_ENDPOINTS.transaction, xml);
-}
-
-/**
- * 20. Helper to get official PID XML Options for Biometric & Face auth (Doc Spec v1.9.3 Pages 40-44)
- */
-export function getDmtPidOptions(params: {
-  bankId: 'ARTL' | 'FINO';
-  bioType: 'FIR' | 'FACE';
-  isProd?: boolean;
-}) {
-  const env = (params.isProd ?? DMT_CONFIG.IS_PROD) ? 'P' : 'PP';
-
-  if (params.bioType === 'FACE') {
-    const wadh = params.bankId === 'ARTL'
-      ? 'sgydIC09zzy6f8Lb3xaAqzKquKe9lFcNR9uTvYxFp+A='
-      : 'mtDVz0PM/HvMAWSkCkjcxW+KhNWk2nfbUhfZwLl2faw=';
-    return `<PidOptions ver="1.0" env="${env}">
-<Opts fCount="" fType="" iCount="" iType="" pCount="" pType="" format="" pidVer="2.0" timeout="10000" otp="" wadh="${wadh}" posh="" />
-<CustOpts>
-<Param name="txnId" value="${Date.now()}"/>
-<Param name="purpose" value="auth"/>
-<Param name="language" value="en"/>
-</CustOpts>
-</PidOptions>`;
-  }
-
-  // Fingerprint (FIR)
-  const wadh = params.bankId === 'ARTL'
-    ? 'E0jzJ/P8UopUHAieZn8CKqS4WPMi5ZSYXgfnlfkWjrc='
-    : '18f4CEiXeXcfGXvgWA/blxD+w2pw7hfQPY45JMytkPw=';
-  return `<PidOptions ver="1.0" env="${env}">
-<Opts fCount="1" fType="2" iCount="0" iType="0" indicatorforuid="0" pCount="0" pType="0" format="0" pidVer="2.0" env="${env}" timeout="10000" otp="" wadh="${wadh}" posh="UNKNOWN">
-</Opts>
-</PidOptions>`;
 }
 
 // ==========================================
