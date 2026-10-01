@@ -1114,14 +1114,14 @@ export default function B2BAdminStatement() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-                Account Statements (ખાતાવહી)
+                Account Statements
               </h1>
               <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
                 B2B Admin
               </span>
             </div>
             <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
-              BBPS Bill, CSPL Bill અને Payout વૉલેટના લાઈવ હિસાબ, Opening/Closing Balance અને પાસબુક
+              Real-time Ledger Passbook, Opening/Closing Balances & Audit Trail for BBPS, CSPL and Payout
             </p>
           </div>
         </div>
@@ -1287,13 +1287,13 @@ export default function B2BAdminStatement() {
               onChange={(e) => setDateFilter(e.target.value as any)}
               className="w-full bg-slate-950 border border-slate-800 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition"
             >
-              <option value="today">Today (આજે)</option>
-              <option value="yesterday">Yesterday (ગઈકાલે)</option>
-              <option value="7days">Last 7 Days (છેલ્લા ૭ દિવસ)</option>
-              <option value="30days">Last 30 Days (છેલ્લા ૩૦ દિવસ)</option>
-              <option value="thisMonth">This Month (આ મહિને)</option>
-              <option value="custom">Custom Range (તારીખ પસંદ કરો)</option>
-              <option value="all">All Time (શરૂઆતથી અત્યાર સુધી)</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="7days">Last 7 Days</option>
+              <option value="30days">Last 30 Days</option>
+              <option value="thisMonth">This Month</option>
+              <option value="custom">Custom Range</option>
+              <option value="all">All Time</option>
             </select>
           </div>
 
@@ -1309,8 +1309,8 @@ export default function B2BAdminStatement() {
               className="w-full bg-slate-950 border border-slate-800 text-white text-sm rounded-xl px-3 py-2.5 focus:outline-none focus:border-indigo-500 transition"
             >
               <option value="all">All Entries (Credit & Debit)</option>
-              <option value="credit">Credits Only (જમા - Fund & Refund)</option>
-              <option value="debit">Debits Only (ઉધાર - Bill & Payout)</option>
+              <option value="credit">Credits Only (Funds & Refunds)</option>
+              <option value="debit">Debits Only (Bills & Payouts)</option>
             </select>
           </div>
 
@@ -1378,7 +1378,7 @@ export default function B2BAdminStatement() {
             ₹{summaryMetrics.openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span>તારીખ પહેલાંનું બેલેન્સ</span>
+            <span>Balance prior to period</span>
           </div>
           <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-slate-800/30 rounded-full blur-xl group-hover:bg-slate-800/50 transition-all" />
         </div>
@@ -1386,7 +1386,7 @@ export default function B2BAdminStatement() {
         {/* Card 2: Total Credit (Inflow) */}
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl relative overflow-hidden group">
           <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-emerald-400">Total Credit (જમા)</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-emerald-400">Total Credit (Cr)</span>
             <div className="p-1 rounded bg-emerald-500/10 text-emerald-400">
               <ArrowDownLeft className="w-3.5 h-3.5" />
             </div>
@@ -1395,7 +1395,7 @@ export default function B2BAdminStatement() {
             +₹{summaryMetrics.totalCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span>ફંડ એપ્રૂવલ & રીફંડ</span>
+            <span>Fund Approvals & Refunds</span>
           </div>
           <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all" />
         </div>
@@ -1403,7 +1403,7 @@ export default function B2BAdminStatement() {
         {/* Card 3: Total Debit (Outflow) */}
         <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl relative overflow-hidden group">
           <div className="flex items-center justify-between text-slate-400 mb-1">
-            <span className="text-xs font-medium uppercase tracking-wider text-rose-400">Total Debit (ઉધાર)</span>
+            <span className="text-xs font-medium uppercase tracking-wider text-rose-400">Total Debit (Dr)</span>
             <div className="p-1 rounded bg-rose-500/10 text-rose-400">
               <ArrowUpRight className="w-3.5 h-3.5" />
             </div>
@@ -1412,7 +1412,7 @@ export default function B2BAdminStatement() {
             -₹{summaryMetrics.totalDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span>બિલ પે & પેઆઉટ ખર્ચ</span>
+            <span>Bills Paid & Transfers</span>
           </div>
           <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-rose-500/10 rounded-full blur-xl group-hover:bg-rose-500/20 transition-all" />
         </div>
@@ -1427,7 +1427,7 @@ export default function B2BAdminStatement() {
             ₹{summaryMetrics.totalCharges.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
           </div>
           <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-            <span>સર્વિસ ફી & GST</span>
+            <span>Platform Fees & GST</span>
           </div>
           <div className="absolute -bottom-6 -right-6 w-20 h-20 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all" />
         </div>
