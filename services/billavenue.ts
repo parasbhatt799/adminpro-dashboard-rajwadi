@@ -407,27 +407,34 @@ export async function payBill(
   //    - Payment Account Info (for Cash: "Cash Payment")
   // 3. The previous implementation where these tags were mandatory irrespective of amount is NULL & VOID.
   //    Sending extra remitter tags for amounts <= ₹50,000 causes E267 "Invalid payment info for given payment mode".
-  let paymentInfoXml = '';
-  if (amount > 50000) {
-    const nameOfRemitter = (remitterName && remitterName.trim().length >= 1)
-      ? remitterName.trim().substring(0, 200)
-      : 'UsePay Customer';
+  const nameOfRemitter = (remitterName && remitterName.trim().length >= 1 && remitterName !== 'UsePay Customer')
+    ? remitterName.trim().substring(0, 200)
+    : (billDetails?.rawBillerResponse?.customerName || billDetails?.customerName || 'Valued Customer').toString().trim().substring(0, 200);
 
-    let paymentAccountInfo = 'Cash Payment';
-    const modeUpper = effectivePaymentMode.toUpperCase();
-    if (modeUpper === 'CASH') {
-      paymentAccountInfo = 'Cash Payment';
-    } else if (modeUpper === 'UPI' || modeUpper === 'BHARAT QR') {
-      paymentAccountInfo = `${customerMobile}@upi`;
-    } else if (modeUpper === 'WALLET') {
-      paymentAccountInfo = `UsePay|${customerMobile}`;
-    } else if (modeUpper === 'INTERNET BANKING') {
-      paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
-    } else if (modeUpper === 'DEBIT CARD' || modeUpper === 'CREDIT CARD' || modeUpper === 'PREPAID CARD') {
-      paymentAccountInfo = `1234|UsePay`;
-    }
+  let paymentAccountInfo = 'Cash Payment';
+  const modeUpper = effectivePaymentMode.toUpperCase();
+  if (modeUpper === 'CASH') {
+    paymentAccountInfo = 'Cash Payment';
+  } else if (modeUpper === 'UPI' || modeUpper === 'BHARAT QR') {
+    paymentAccountInfo = `${customerMobile}@upi`;
+  } else if (modeUpper === 'WALLET') {
+    paymentAccountInfo = `UsePay|${customerMobile}`;
+  } else if (modeUpper === 'INTERNET BANKING') {
+    paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
+  } else if (modeUpper === 'DEBIT CARD' || modeUpper === 'CREDIT CARD' || modeUpper === 'PREPAID CARD') {
+    paymentAccountInfo = `1234|UsePay`;
+  }
 
-    paymentInfoXml = `    <paymentInfo>
+  // BillAvenue Specification Document v2.8.7 (Page 23 - Remitter Info):
+  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of the amount or Category.
+  // 2. The AIs should pass the new <infoName>Payment Account Info</infoName> tag for all transactions
+  //    irrespective of the amount (no less than or more than 50k segregation). For Cash: "Cash Payment".
+  // 3. For ALL transactions, following Remitter Info tags are mandatory:
+  //    - Remitter Name
+  //    - PaymentRefId
+  //    - Payment Mode (exact casing 'Payment Mode')
+  //    - Payment Account Info (for Cash: 'Cash Payment')
+  const paymentInfoXml = `    <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
             <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
@@ -445,15 +452,6 @@ export async function payBill(
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
         </info>
     </paymentInfo>`;
-  } else {
-    // For transactions <= ₹50,000: ONLY PaymentRefId tag is required
-    paymentInfoXml = `    <paymentInfo>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
-    </paymentInfo>`;
-  }
 
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>

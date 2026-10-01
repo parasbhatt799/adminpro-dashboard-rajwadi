@@ -1109,7 +1109,7 @@ export const payBill = async (req: Request, res: Response) => {
         'N', // quickPay
         undefined, // ccf1
         { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails
-        req.body.remitterName || undefined, // remitterName
+        req.body.remitterName || rawBillerResp?.customerName || billerResponseInfo?.customerName || undefined, // remitterName
         'AGT', // initChannel
         billavenueRequestId, // fetchRequestId / explicitRequestId
         billavenueAgentId,
