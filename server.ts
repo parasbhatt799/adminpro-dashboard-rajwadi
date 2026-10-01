@@ -3335,7 +3335,7 @@ async function startServer() {
           fetchRequestId,
           undefined,
           finalPan || undefined,
-          clientTxnId
+          fetchRequestId || clientTxnId
         );
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);

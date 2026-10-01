@@ -1114,7 +1114,7 @@ export const payBill = async (req: Request, res: Response) => {
         billavenueRequestId, // fetchRequestId / explicitRequestId
         billavenueAgentId,
         finalPan || undefined, // customerPan
-        customTxnId // customPaymentRefId (AI's Txn Id for tracing)
+        billavenueRequestId // customPaymentRefId (Pass requestId as PaymentRefId as requested)
       );
       console.log(`[B2B PayBill - BILLAVENUE SUCCESS] Response received:`, JSON.stringify(apiResponse.json));
     } catch (payErr: any) {
