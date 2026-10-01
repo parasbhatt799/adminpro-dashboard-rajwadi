@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Link } from 'react-router-dom';
-import { LayoutDashboard, UserPlus, LogOut, Terminal, Wallet, Book, Activity, Landmark, ArrowUpRight, MessageSquare, Calculator, Zap } from 'lucide-react';
+import { LayoutDashboard, UserPlus, LogOut, Terminal, Wallet, Book, Activity, Landmark, ArrowUpRight, MessageSquare, Calculator, Zap, Receipt } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface B2BAdminSidebarProps {
@@ -13,11 +13,12 @@ const menuItems = [
   { id: 'dashboard', label: 'B2B Dashboard', icon: LayoutDashboard, path: '/b2b/admin/dashboard' },
   { id: 'create-agent', label: 'B2B Agents', icon: UserPlus, path: '/b2b/admin/create-agent' },
   { id: 'fund-requests', label: 'Fund Requests', icon: Wallet, path: '/b2b/admin/fund-requests' },
-  { id: 'api-logs', label: 'Developer API Logs', icon: Terminal, path: '/b2b/admin/api-logs' },
+  { id: 'statement', label: 'Account Statements', icon: Receipt, path: '/b2b/admin/statement' },
+  { id: 'user-hisab', label: 'User Reconciliation', icon: Calculator, path: '/b2b/admin/user-hisab' },
   { id: 'bill-history', label: 'BBPS Bill History', icon: Activity, path: '/b2b/admin/bill-history' },
   { id: 'cspl-history', label: 'CSPL Bill History', icon: Zap, path: '/b2b/admin/cspl-history' },
   { id: 'payout-history', label: 'Payout History', icon: ArrowUpRight, path: '/b2b/admin/payout-history' },
-  { id: 'user-hisab', label: 'User Reconciliation', icon: Calculator, path: '/b2b/admin/user-hisab' },
+  { id: 'api-logs', label: 'Developer API Logs', icon: Terminal, path: '/b2b/admin/api-logs' },
   { id: 'revenue-withdrawals', label: 'Revenue Withdrawals', icon: ArrowUpRight, path: '/b2b/admin/withdrawals' },
   { id: 'bank-accounts', label: 'Bank Accounts', icon: Landmark, path: '/b2b/admin/bank-accounts' },
   { id: 'whatsapp-bot', label: 'WhatsApp Bot', icon: MessageSquare, path: '/b2b/admin/whatsapp' },

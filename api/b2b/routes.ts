@@ -21,7 +21,8 @@ import {
   fetchCsplBill,
   payCsplBill,
   checkCsplStatus,
-  checkCsplStatusAdmin
+  checkCsplStatusAdmin,
+  verifyWithdrawalPinAdmin
 } from './controller';
 
 const router = Router();
@@ -38,20 +39,21 @@ router.use((req, res, next) => {
   next();
 });
 
-// Admin/Global route to trigger status check (does not require agent auth)
+// Admin/Global routes (do not require agent API key auth)
 router.get('/admin/status/:transaction_id', checkStatusAdmin);
 router.get('/admin/payout/status/:order_id', checkPayoutStatusAdmin);
 router.get('/admin/cspl/status/:transaction_id', checkCsplStatusAdmin);
 router.get('/cspl/status/:transaction_id', checkCsplStatusAdmin);
 router.post('/admin/payout/resend-webhook', resendPayoutWebhookAdmin);
 router.post('/admin/agent/test-webhook', testAgentWebhookAdmin);
+router.post('/admin/verify-withdrawal-pin', verifyWithdrawalPinAdmin);
 
-// Bypass B2B Auth Middleware for admin whatsapp endpoints
-router.use('/admin/whatsapp', (req, res, next) => {
+// Bypass B2B Auth Middleware for any other admin endpoints (e.g., whatsapp or root server handlers)
+router.use('/admin', (req, res, next) => {
   next('router');
 });
 
-// Apply B2B Auth Middleware to all B2B routes
+// Apply B2B Auth Middleware to all B2B partner/agent routes
 router.use(b2bAuthMiddleware);
 
 // Get Wallet Balance (Returns BBPS and Payout balances)

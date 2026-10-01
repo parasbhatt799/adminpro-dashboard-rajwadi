@@ -3562,5 +3562,53 @@ export const checkCsplStatusAdmin = async (req: Request, res: Response): Promise
   return checkCsplStatus(req, res);
 };
 
+/**
+ * 6. Verify B2B Admin Withdrawal Security PIN (Admin only - does not require agent API key)
+ */
+export const verifyWithdrawalPinAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { adminId, pin } = req.body;
+    if (!pin || typeof pin !== 'string') {
+      return res.status(400).json({ success: false, message: "Security PIN is required" });
+    }
 
+    const cleanPin = pin.trim();
 
+    let query = supabaseAdmin.from('admin_profiles').select('id, withdrawal_pin, is_b2b_admin, role');
+
+    if (adminId) {
+      query = query.eq('id', adminId);
+    } else {
+      query = query.or('is_b2b_admin.eq.true,role.eq.admin');
+    }
+
+    const { data: admins, error } = await query;
+    if (error) {
+      console.error('[Verify Withdrawal PIN Error]:', error);
+      return res.status(500).json({ success: false, message: "Failed to verify PIN due to database error" });
+    }
+
+    if (!admins || admins.length === 0) {
+      return res.status(404).json({ success: false, message: "Admin profile not found" });
+    }
+
+    const matched = admins.find(a => a.withdrawal_pin && a.withdrawal_pin.toString().trim() === cleanPin);
+    if (matched) {
+      return res.json({ success: true, message: "PIN verified successfully" });
+    }
+
+    const hasConfiguredPin = admins.some(a => a.withdrawal_pin && a.withdrawal_pin.toString().trim().length > 0);
+    if (!hasConfiguredPin) {
+      return res.status(400).json({
+        success: false,
+        notConfigured: true,
+        message: "Withdrawal PIN is not set in the database. Please update 'withdrawal_pin' in the admin_profiles table."
+      });
+    }
+
+    return res.status(401).json({ success: false, message: "Incorrect Security PIN. Access denied." });
+  } catch (error: any) {
+    console.error("[Verify Withdrawal PIN Server Error]:", error);
+    return res.status(500).json({ success: false, message: error.message || "Internal server error" });
+  }
+};
