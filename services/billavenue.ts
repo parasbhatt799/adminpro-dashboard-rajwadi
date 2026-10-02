@@ -385,11 +385,11 @@ export async function payBill(
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
 
-  // High-value check (>= 50,000 requires PAN as per NBBL / RBI guidelines)
-  const isHighValue = amount >= 50000;
+  // High-value check strictly for amount > 50,000 as confirmed by BillAvenue
+  const isHighValue = amount > 50000;
   const pan = customerPan ? customerPan.trim().toUpperCase() : '';
   if (isHighValue && !pan) {
-    throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
+    throw new Error('Customer PAN is mandatory for Cash transactions above ₹50,000 as per NBBL / RBI guidelines.');
   }
 
   const paymentRefId = generateRequestId();
@@ -407,7 +407,6 @@ export async function payBill(
     ? resolvedCustomerName.substring(0, 200)
     : (remitterName || 'UsePay Customer');
 
-  const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
 
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -415,7 +414,14 @@ export async function payBill(
     <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>${isHighValue && pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
+        <customerMobile>${customerMobile}</customerMobile>${isHighValue ? `
+        <REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>
+        <customerEmail />
+        <customerAdhaar />
+        <customerPan>${escapeXml(pan)}</customerPan>` : `
+        <customerEmail />
+        <customerAdhaar />
+        <customerPan />`}
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
@@ -443,9 +449,13 @@ export async function payBill(
     </paymentMethod>
     <paymentInfo>
         <info>
+            <infoName>Remarks</infoName>
+            <infoValue>Cash</infoValue>
+        </info>${isHighValue ? `
+        <info>
             <infoName>Payment Account Info</infoName>
-            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>
+            <infoValue>Cash Payment</infoValue>
+        </info>` : ''}
     </paymentInfo>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>

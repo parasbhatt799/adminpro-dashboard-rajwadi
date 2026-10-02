@@ -1179,10 +1179,18 @@ export const payBill = async (req: Request, res: Response) => {
       rawResponseReason === 'successful' || 
       rawResponseReason === 'success';
 
+    // Validation error check: Any explicit error starting with 'E' (like E267, E030, etc.) is a validation failure, NOT pending.
+    const isValidationError = !isSuccess && (
+      errorCode.startsWith('E') ||
+      (errorObj && errorCode && errorCode !== 'PWB001' && errorCode !== 'PNR001')
+    );
+
     const isPending = 
-      !isSuccess && (
+      !isSuccess && 
+      !isValidationError && (
+        (hasCC01 && txnStatus !== 'FAILED' && txnStatus !== 'FAILURE' && txnStatus !== 'REJECTED') ||
         rawResponseCode === '999' || 
-        rawResponseCode === '001' ||
+        (rawResponseCode === '001' && hasCC01) ||
         rawResponseCode.toLowerCase() === 'pending' ||
         rawResponseReason === 'awaited' || 
         rawResponseReason === 'pending' ||
@@ -1192,8 +1200,7 @@ export const payBill = async (req: Request, res: Response) => {
         errorCode === 'PWB001' || 
         errorCode === 'TIMEOUT' ||
         errorMessage.toLowerCase().includes('in progress') ||
-        errorMessage.toLowerCase().includes('check the status after some time') ||
-        (hasCC01 && txnStatus !== 'FAILED' && txnStatus !== 'FAILURE' && txnStatus !== 'REJECTED')
+        errorMessage.toLowerCase().includes('check the status after some time')
       );
 
     let finalStatus = 'pending';
