@@ -384,14 +384,8 @@ export async function payBill(
   const channel = (initChannel || 'AGT').trim().toUpperCase();
   const isAgtChannel = channel === 'AGT';
 
-  // Under ₹50,000: pass paymentMode as 'UPI'
-  // ₹50,000 and above: pass 'Cash' (or provided mode)
-  let finalPaymentMode = paymentMode ? paymentMode.trim() : 'Cash';
-  if (amount < 50000) {
-    finalPaymentMode = 'UPI';
-  } else if (isAgtChannel) {
-    finalPaymentMode = 'Cash';
-  }
+  // Rule II: For payment channel AGT, apart from Cash, all other modes are disabled.
+  const finalPaymentMode = isAgtChannel ? 'Cash' : (paymentMode ? paymentMode.trim() : 'Cash');
 
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
@@ -538,7 +532,59 @@ export async function payBill(
   // 9. inputParams
   // 10. paymentInfo
   // 11. paymentMethod
-  let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  let xml = '';
+  if (!isHighValue) {
+    // Under ₹50,000: Exact format matching user specification and verified successful ₹1 transaction:
+    xml = `<?xml version="1.0" encoding="UTF-8"?>
+<billPaymentRequest>
+    <agentId>${finalAgentId}</agentId>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <customerInfo>
+        <customerMobile>${customerMobile}</customerMobile>
+        <customerEmail></customerEmail>
+        <customerAdhaar></customerAdhaar>
+        <customerPan></customerPan>
+    </customerInfo>
+    <billerId>${billerId}</billerId>
+    <inputParams>
+        ${Object.entries(customerParams)
+      .map(
+        ([name, val]) => `
+        <input>
+            <paramName>${escapeXml(name)}</paramName>
+            <paramValue>${escapeXml(val)}</paramValue>
+        </input>`
+      )
+      .join('')}
+    </inputParams>${billerResponseXml}${additionalInfoXml}
+    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
+    <amountInfo>
+        <amount>${amountInPaise}</amount>
+        <currency>356</currency>
+        <custConvFee>0</custConvFee>
+        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
+        <amountTags></amountTags>
+    </amountInfo>
+    <paymentMethod>
+        <paymentMode>Cash</paymentMode>
+        <quickPay>${quickPay}</quickPay>
+        <splitPay>N</splitPay>
+    </paymentMethod>
+    <paymentInfo>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>Cash Payment</infoValue>
+        </info>
+    </paymentInfo>
+</billPaymentRequest>`;
+  } else {
+    // ₹50,000 and above: 4 Remitter tags + mandatory PAN (verified successful for ₹50,001):
+    xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
@@ -575,6 +621,7 @@ ${paymentInfoXml}
     </agentDeviceInfo>
     <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}${additionalInfoXml}
 </billPaymentRequest>`;
+  }
 
   return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
 }

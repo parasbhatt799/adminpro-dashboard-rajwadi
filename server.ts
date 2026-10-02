@@ -3307,12 +3307,9 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // Under ₹50,000: pass paymentMode as 'UPI'
-      // ₹50,000 and above: pass 'Cash' (or specified mode)
+      // For payment channel AGT, apart from Cash, all other modes are disabled.
       let finalPaymentMode = paymentMode || 'Cash';
-      if (paymentAmount < 50000) {
-        finalPaymentMode = 'UPI';
-      } else if (initChannel === 'AGT') {
+      if (initChannel === 'AGT') {
         finalPaymentMode = 'Cash';
       }
 
