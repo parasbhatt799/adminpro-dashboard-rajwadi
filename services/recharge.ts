@@ -134,7 +134,7 @@ export async function rechargeMobile(
 ): Promise<any> {
   const amountInPaise = Math.round(amount * 100);
   const paymentRefId = generateRequestId();
-  const nameOfRemitter = remitterName || 'UsePay Customer';
+  const nameOfRemitter = (remitterName || '').trim() || 'Customer';
 
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>

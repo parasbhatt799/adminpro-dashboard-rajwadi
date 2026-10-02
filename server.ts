@@ -3333,7 +3333,7 @@ async function startServer() {
           quickPay || 'N',
           ccf1 !== undefined ? Number(ccf1) : undefined,
           billDetails,
-          remitterName || user.name || 'Valued Customer',
+          remitterName || billDetails?.customerName || billDetails?.rawBillerResponse?.customerName || user.name || undefined,
           initChannel,
           fetchRequestId,
           undefined,

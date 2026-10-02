@@ -896,7 +896,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
 export const payBill = async (req: Request, res: Response) => {
   try {
 
-    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo, paymentMode, pan, customerPan, remitterName } = req.body;
+    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo, paymentMode, pan, customerPan, remitterName, remitter_name, customerName, customer_name } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
     const finalPan = (customerPan || pan || '').trim();
@@ -1099,7 +1099,19 @@ export const payBill = async (req: Request, res: Response) => {
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
-      console.log(`[B2B PayBill - BILLAVENUE REQ] Calling billavenue.payBill with amount ${parsedAmount}, initChannel AGT, PAN: ${finalPan || 'None'}, ReqID: ${billavenueRequestId}...`);
+      const resolvedRemitterName = (
+        remitterName ||
+        remitter_name ||
+        customerName ||
+        customer_name ||
+        rawBillerResp?.customerName ||
+        rawBillerResp?.RespCustomerName ||
+        billerResponseInfo?.customerName ||
+        billerResponseInfo?.RespCustomerName ||
+        ''
+      ).trim();
+
+      console.log(`[B2B PayBill - BILLAVENUE REQ] Calling billavenue.payBill with amount ${parsedAmount}, initChannel AGT, Remitter: ${resolvedRemitterName || 'N/A'}, PAN: ${finalPan || 'None'}, ReqID: ${billavenueRequestId}...`);
       apiResponse = await billAvenue.payBill(
         billerId,
         formattedParams,
@@ -1109,7 +1121,7 @@ export const payBill = async (req: Request, res: Response) => {
         'N', // quickPay
         undefined, // ccf1
         { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails
-        remitterName || undefined, // remitterName
+        resolvedRemitterName || undefined, // remitterName
         'AGT', // initChannel
         billavenueRequestId, // fetchRequestId / explicitRequestId
         billavenueAgentId,

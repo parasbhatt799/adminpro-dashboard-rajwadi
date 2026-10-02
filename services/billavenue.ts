@@ -412,7 +412,28 @@ export async function payBill(
   // Rule 2.a: Remitter Name (person making Payment): Min length- 1 character, Max length- 200 characters
   let nameOfRemitter = (remitterName || '').trim();
   if (!nameOfRemitter) {
-    nameOfRemitter = 'UsePay Customer';
+    const custName =
+      billDetails?.customerName ||
+      billDetails?.rawBillerResponse?.customerName ||
+      billDetails?.rawBillerResponse?.RespCustomerName ||
+      billDetails?.rawBillerResponse?.customer_name ||
+      billDetails?.RespCustomerName;
+    if (custName && typeof custName === 'string' && custName.trim() && custName.trim().toUpperCase() !== 'N/A') {
+      nameOfRemitter = custName.trim();
+    }
+  }
+  if (!nameOfRemitter && customerParams) {
+    for (const [key, value] of Object.entries(customerParams)) {
+      if (typeof value === 'string' && /customer\s*name|account\s*holder\s*name|remitter\s*name|^name$/i.test(key)) {
+        if (value.trim() && value.trim().toUpperCase() !== 'N/A') {
+          nameOfRemitter = value.trim();
+          break;
+        }
+      }
+    }
+  }
+  if (!nameOfRemitter) {
+    nameOfRemitter = 'Customer';
   }
   if (nameOfRemitter.length > 200) {
     nameOfRemitter = nameOfRemitter.substring(0, 200);
