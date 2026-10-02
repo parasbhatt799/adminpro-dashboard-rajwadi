@@ -428,10 +428,12 @@ export async function payBill(
       )
       .join('')}
     </inputParams>
+    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
     <amountInfo>
         <amount>${amountInPaise}</amount>
         <currency>356</currency>
         <custConvFee>0</custConvFee>
+        <amountTags></amountTags>
         ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
     </amountInfo>
     <paymentMethod>
@@ -441,20 +443,8 @@ export async function payBill(
     </paymentMethod>
     <paymentInfo>
         <info>
-            <infoName>Remitter Name</infoName>
-            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
-        </info>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
-        ${isHighValue ? `<info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>
-        ` : ''}<info>
-            <infoName>Payment mode</infoName>
-            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
     <agentDeviceInfo>
