@@ -3307,17 +3307,20 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // For payment channel AGT, apart from Cash, all other modes are disabled.
+      // Under ₹50,000: pass paymentMode as 'UPI'
+      // ₹50,000 and above: pass 'Cash' (or specified mode)
       let finalPaymentMode = paymentMode || 'Cash';
-      if (initChannel === 'AGT') {
+      if (paymentAmount < 50000) {
+        finalPaymentMode = 'UPI';
+      } else if (initChannel === 'AGT') {
         finalPaymentMode = 'Cash';
       }
 
-      // Check mandatory PAN rule for Cash > ₹50,000
-      if (paymentAmount > 50000 && finalPaymentMode.toUpperCase() === 'CASH' && !finalPan) {
+      // Check mandatory PAN rule for Cash >= ₹50,000
+      if (paymentAmount >= 50000 && finalPaymentMode.toUpperCase() === 'CASH' && !finalPan) {
         return res.status(400).json({
           status: 'ERROR',
-          message: 'PAN Card is mandatory for Cash bill payments exceeding ₹50,000 as per NBBL guidelines.'
+          message: 'PAN Card is mandatory for Cash bill payments of ₹50,000 or above as per NBBL guidelines.'
         });
       }
 

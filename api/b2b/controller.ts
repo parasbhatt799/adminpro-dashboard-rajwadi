@@ -910,7 +910,10 @@ export const payBill = async (req: Request, res: Response) => {
     }
 
     const parsedAmount = parseFloat(amount);
-    const selectedMode = (paymentMode || 'Cash').trim();
+    let selectedMode = (paymentMode || 'Cash').trim();
+    if (parsedAmount < 50000) {
+      selectedMode = 'UPI';
+    }
 
     // Check RBI/BillAvenue rule: Cash payment of >= 50,000 requires PAN card
     if (parsedAmount >= 50000 && selectedMode.toUpperCase() === 'CASH' && !finalPan) {

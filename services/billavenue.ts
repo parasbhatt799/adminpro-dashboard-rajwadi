@@ -384,19 +384,25 @@ export async function payBill(
   const channel = (initChannel || 'AGT').trim().toUpperCase();
   const isAgtChannel = channel === 'AGT';
 
-  // Rule II: For payment channel AGT, apart from Cash, all other modes are disabled.
-  const finalPaymentMode = isAgtChannel ? 'Cash' : (paymentMode ? paymentMode.trim() : 'Cash');
+  // Under ₹50,000: pass paymentMode as 'UPI'
+  // ₹50,000 and above: pass 'Cash' (or provided mode)
+  let finalPaymentMode = paymentMode ? paymentMode.trim() : 'Cash';
+  if (amount < 50000) {
+    finalPaymentMode = 'UPI';
+  } else if (isAgtChannel) {
+    finalPaymentMode = 'Cash';
+  }
 
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
 
-  // Existing Implementation I: For amounts > 50,000 and payment mode = CASH, providing a PAN is mandatory
-  const isHighValue = amount > 50000;
+  // Existing Implementation I: For amounts >= 50,000 and payment mode = CASH, providing a PAN is mandatory
+  const isHighValue = amount >= 50000;
   const isCash = finalPaymentMode.toUpperCase() === 'CASH';
-  const pan = customerPan ? customerPan.trim().toUpperCase() : '';
+  const pan = (isHighValue && customerPan) ? customerPan.trim().toUpperCase() : '';
 
   if (isHighValue && isCash && !pan) {
-    throw new Error('Customer PAN is mandatory for Cash transactions exceeding ₹50,000 as per NBBL / RBI guidelines.');
+    throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
   const paymentRefId = generateRequestId();
@@ -432,15 +438,16 @@ export async function payBill(
   }
 
   // Rule 2.d: Payment Account Info: Min length- 4 characters, Max length- 200 characters.
-  // Sr 1: Cash -> Enter, “Cash Payment” -> Sample value: Cash Payment
+  // Cash -> "Cash Payment", UPI -> VPA (mobile@upi)
   let paymentAccountInfo = 'Cash Payment';
   const mode = finalPaymentMode.toUpperCase();
+  const cleanMobile = customerMobile.replace(/\D/g, '').slice(-10) || customerMobile;
   if (mode === 'CASH') {
     paymentAccountInfo = 'Cash Payment';
   } else if (mode === 'UPI' || mode === 'BHARAT QR') {
-    paymentAccountInfo = `${customerMobile}@upi`;
+    paymentAccountInfo = `${cleanMobile}@upi`;
   } else if (mode === 'WALLET') {
-    paymentAccountInfo = `UsePay|${customerMobile}`;
+    paymentAccountInfo = `UsePay|${cleanMobile}`;
   } else if (mode === 'INTERNET BANKING') {
     paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
   } else if (mode === 'DEBIT CARD' || mode === 'CREDIT CARD' || mode === 'PREPAID CARD') {
