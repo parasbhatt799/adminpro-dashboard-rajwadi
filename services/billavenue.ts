@@ -392,14 +392,17 @@ export async function payBill(
     throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
-  const paymentRefId = generateRequestId();
-  // For AGT channel Cash mode:
-  // If customer PAN is provided, we can use the customer's remitter name.
-  // Otherwise, BBPS requires the registered Agent Institution remitter identity ('UsePay Customer'),
-  // else it rejects with E267: 'Invalid payment info for given payment mode'.
-  const nameOfRemitter = (pan && remitterName && remitterName.trim() && remitterName.trim() !== 'Customer') 
-    ? remitterName.trim() 
-    : 'UsePay Customer';
+  const paymentRefId = (fetchRequestId && fetchRequestId.trim()) ? fetchRequestId.trim() : generateRequestId();
+  const nameOfRemitter = (
+    (remitterName && remitterName.trim() && remitterName.trim() !== 'Customer') 
+      ? remitterName.trim() 
+      : (
+          billDetails?.rawBillerResponse?.customerName ||
+          billDetails?.rawBillerResponse?.RespCustomerName ||
+          billDetails?.customerName ||
+          'UsePay Customer'
+        )
+  ).trim();
 
   const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
@@ -499,7 +502,7 @@ export async function payBill(
   xml += `
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
 }
 
 /**
