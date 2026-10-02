@@ -3174,9 +3174,9 @@ async function startServer() {
         ccf1,
         billDetails,
         fetchRequestId,
-        customerPan,
         pan,
-        clientTxnId
+        customerPan,
+        remitterName
       } = req.body;
 
       if (!userId || !billerId || !customerParams || !customerMobile || !amount) {
@@ -3187,6 +3187,9 @@ async function startServer() {
       if (isNaN(paymentAmount) || paymentAmount <= 0) {
         return res.status(400).json({ status: "ERROR", message: "Invalid amount specified." });
       }
+
+      // Check PAN requirement for Cash > ₹50,000
+      const finalPan = (customerPan || pan || '').trim();
 
       // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
@@ -3304,17 +3307,17 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // NBBL AGT Channel Rule II: Apart from Cash, all other modes are disabled for AGT channel
+      // For payment channel AGT, apart from Cash, all other modes are disabled.
       let finalPaymentMode = paymentMode || 'Cash';
       if (initChannel === 'AGT') {
         finalPaymentMode = 'Cash';
       }
 
-      const finalPan = (customerPan || pan || '').trim();
-      if (paymentAmount > 50000 && !finalPan) {
+      // Check mandatory PAN rule for Cash > ₹50,000
+      if (paymentAmount > 50000 && finalPaymentMode.toUpperCase() === 'CASH' && !finalPan) {
         return res.status(400).json({
-          status: "ERROR",
-          message: "PAN Card is mandatory for bill payments exceeding ₹50,000 as per RBI/NBBL BillAvenue guidelines."
+          status: 'ERROR',
+          message: 'PAN Card is mandatory for Cash bill payments exceeding ₹50,000 as per NBBL guidelines.'
         });
       }
 
@@ -3330,12 +3333,11 @@ async function startServer() {
           quickPay || 'N',
           ccf1 !== undefined ? Number(ccf1) : undefined,
           billDetails,
-          user.name || 'Valued Customer',
+          remitterName || user.name || 'Valued Customer',
           initChannel,
           fetchRequestId,
           undefined,
-          finalPan || undefined,
-          fetchRequestId || clientTxnId
+          finalPan || undefined
         );
       } catch (payApiError: any) {
         console.warn(`[BillAvenue Proxy] Pay failed, checking if staging mock is possible for ${billerId}:`, payApiError.message);

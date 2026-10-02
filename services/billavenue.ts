@@ -205,8 +205,7 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
     return {
       requestId,
       rawXml: decryptedXml,
-      json: jsonResult,
-      rawRequestXml: xmlPayload
+      json: jsonResult
     };
   } catch (error: any) {
     console.error('[BillAvenue Service] API call failed:', error);
@@ -379,78 +378,114 @@ export async function payBill(
   initChannel: string = 'AGT',
   fetchRequestId?: string,
   billavenueAgentId?: string,
-  customerPan?: string,
-  customPaymentRefId?: string
+  customerPan?: string
 ): Promise<any> {
   const finalAgentId = billavenueAgentId || AGENT_ID;
+  const channel = (initChannel || 'AGT').trim().toUpperCase();
+  const isAgtChannel = channel === 'AGT';
+
+  // Rule II: For payment channel AGT, apart from Cash, all other modes are disabled.
+  const finalPaymentMode = isAgtChannel ? 'Cash' : (paymentMode ? paymentMode.trim() : 'Cash');
+
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
 
-  // NBBL AGT Channel Rule II: Apart from Cash, all other modes are disabled for AGT channel
-  const effectiveChannel = (initChannel || 'AGT').trim().toUpperCase();
-  let effectivePaymentMode = (paymentMode || 'Cash').trim();
-  if (effectiveChannel === 'AGT') {
-    effectivePaymentMode = 'Cash';
+  // Existing Implementation I: For amounts > 50,000 and payment mode = CASH, providing a PAN is mandatory
+  const isHighValue = amount > 50000;
+  const isCash = finalPaymentMode.toUpperCase() === 'CASH';
+  const pan = customerPan ? customerPan.trim().toUpperCase() : '';
+
+  if (isHighValue && isCash && !pan) {
+    throw new Error('Customer PAN is mandatory for Cash transactions exceeding ₹50,000 as per NBBL / RBI guidelines.');
   }
 
-  // PaymentRefId: Min length- 4 characters, Max length- 80 characters.
-  // Should contain AI's Txn Id for tracing later.
-  let paymentRefId = (customPaymentRefId || fetchRequestId || generateRequestId()).toString().trim();
-  if (paymentRefId.length < 4) paymentRefId = generateRequestId();
-  if (paymentRefId.length > 80) paymentRefId = paymentRefId.substring(0, 80);
+  // Rule 2.b: PaymentRefId: Min length- 4 characters, Max length- 80 characters.
+  // Should contain: AI’s Txn Id: for uniquely tracing the transaction later.
+  // Rule 1: The PaymentRefId tag is mandatory for all transactions, regardless of the amount or category.
+  let paymentRefId = (fetchRequestId && fetchRequestId.trim()) ? fetchRequestId.trim() : generateRequestId();
+  if (paymentRefId.length < 4) {
+    paymentRefId = generateRequestId();
+  } else if (paymentRefId.length > 80) {
+    paymentRefId = paymentRefId.substring(0, 80);
+  }
 
-  const nameOfRemitter = (remitterName && remitterName.trim().length >= 1 && remitterName !== 'UsePay Customer')
-    ? remitterName.trim().substring(0, 200)
-    : (billDetails?.rawBillerResponse?.customerName || billDetails?.customerName || 'Valued Customer').toString().trim().substring(0, 200);
+  // Rule 2.a: Remitter Name (person making Payment): Min length- 1 character, Max length- 200 characters
+  let nameOfRemitter = (remitterName || '').trim();
+  if (!nameOfRemitter) {
+    nameOfRemitter = 'UsePay Customer';
+  }
+  if (nameOfRemitter.length > 200) {
+    nameOfRemitter = nameOfRemitter.substring(0, 200);
+  }
 
+  // Rule 2.d: Payment Account Info: Min length- 4 characters, Max length- 200 characters.
+  // Sr 1: Cash -> Enter, “Cash Payment” -> Sample value: Cash Payment
   let paymentAccountInfo = 'Cash Payment';
-  const modeUpper = effectivePaymentMode.toUpperCase();
-  if (modeUpper === 'CASH') {
+  const mode = finalPaymentMode.toUpperCase();
+  if (mode === 'CASH') {
     paymentAccountInfo = 'Cash Payment';
-  } else if (modeUpper === 'UPI' || modeUpper === 'BHARAT QR') {
+  } else if (mode === 'UPI' || mode === 'BHARAT QR') {
     paymentAccountInfo = `${customerMobile}@upi`;
-  } else if (modeUpper === 'WALLET') {
+  } else if (mode === 'WALLET') {
     paymentAccountInfo = `UsePay|${customerMobile}`;
-  } else if (modeUpper === 'INTERNET BANKING') {
+  } else if (mode === 'INTERNET BANKING') {
     paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
-  } else if (modeUpper === 'DEBIT CARD' || modeUpper === 'CREDIT CARD' || modeUpper === 'PREPAID CARD') {
+  } else if (mode === 'DEBIT CARD' || mode === 'CREDIT CARD' || mode === 'PREPAID CARD') {
     paymentAccountInfo = `1234|UsePay`;
+  } else {
+    paymentAccountInfo = 'Cash Payment';
   }
 
-  let paymentInfoXml = `    <paymentInfo>
-        <info>
-            <infoName>Payment Account Info</infoName>
-            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>${amount > 50000 ? `
+  if (paymentAccountInfo.length < 4) {
+    paymentAccountInfo = 'Cash Payment';
+  } else if (paymentAccountInfo.length > 200) {
+    paymentAccountInfo = paymentAccountInfo.substring(0, 200);
+  }
+
+  // Build <paymentInfo> block:
+  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of the amount or category.
+  // 2. Irrespective of Payment Mode, for transactions > ₹50,000, the following Remitter Info tags are mandatory (for all Categories including CCBP):
+  //    a. Remitter Name (person making Payment): Min length- 1 char, Max length- 200 chars
+  //    b. PaymentRefId: Min length- 4 chars, Max length- 80 chars
+  //    c. Payment Mode
+  //    d. Payment Account Info: Min length- 4 chars, Max length- 200 chars
+  // 3. The previous implementation of CCBP where the above tags were mandatory irrespective of amount is NULL and VOID now.
+  let paymentInfoXml = '';
+  if (isHighValue) {
+    paymentInfoXml = `    <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
             <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
         </info>
         <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+        <info>
             <infoName>Payment Mode</infoName>
-            <infoValue>${escapeXml(effectivePaymentMode)}</infoValue>
-        </info>` : ''}
+            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
+        </info>
     </paymentInfo>`;
+  } else {
+    paymentInfoXml = `    <paymentInfo>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+    </paymentInfo>`;
+  }
 
-  // In BillAvenue's verified sample, billerAdhoc is 'false' for fetch-based bills
-  const effectiveBillerAdhoc = quickPay === 'Y' ? 'true' : 'false';
-
-  let xml = `<?xml version="1.0" encoding="UTF-8"?>
+  let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <billerAdhoc>${effectiveBillerAdhoc}</billerAdhoc>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>
-        <customerEmail></customerEmail>
-        <customerAdhaar></customerAdhaar>
-        <customerPan>${customerPan ? escapeXml(customerPan.toUpperCase()) : ''}</customerPan>
-    </customerInfo>
     <billerId>${billerId}</billerId>
+    <customerInfo>
+        <customerMobile>${customerMobile}</customerMobile>${pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
+    </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
       .map(
@@ -461,27 +496,50 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>`;
+    </inputParams>
+    <amountInfo>
+        <amount>${amountInPaise}</amount>
+        <currency>356</currency>
+        <custConvFee>0</custConvFee>
+        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
+    </amountInfo>
+    <paymentMethod>
+        <paymentMode>${finalPaymentMode}</paymentMode>
+        <quickPay>${quickPay}</quickPay>
+        <splitPay>N</splitPay>
+    </paymentMethod>
+${paymentInfoXml}
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>`;
 
   if (quickPay !== 'Y' && billDetails) {
-    const raw = billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object' ? billDetails.rawBillerResponse : {};
     const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
-    const bAmt = raw.billAmount || fetchedAmountInPaise;
-    const bDate = raw.billDate || (billDetails.billDate && billDetails.billDate !== 'N/A' ? billDetails.billDate : '');
-    const bNum = raw.billNumber || (billDetails.billNumber && billDetails.billNumber !== 'N/A' ? billDetails.billNumber : 'NA');
-    const bPeriod = raw.billPeriod || (billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? billDetails.billPeriod : 'NA');
-    const cName = raw.customerName || (billDetails.customerName && billDetails.customerName !== 'N/A' ? billDetails.customerName : '');
-    const dDate = raw.dueDate || (billDetails.dueDate && billDetails.dueDate !== 'N/A' ? billDetails.dueDate : '');
+    xml += `\n    <billerResponse>`;
 
-    xml += `
-    <billerResponse>
-        <billAmount>${escapeXml(String(bAmt))}</billAmount>
-        ${bDate ? `<billDate>${escapeXml(String(bDate))}</billDate>` : ''}
-        <billNumber>${escapeXml(String(bNum))}</billNumber>
-        <billPeriod>${escapeXml(String(bPeriod))}</billPeriod>
-        ${cName ? `<customerName>${escapeXml(String(cName))}</customerName>` : ''}
-        ${dDate ? `<dueDate>${escapeXml(String(dDate))}</dueDate>` : ''}
-    </billerResponse>`;
+    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
+      const raw = { ...billDetails.rawBillerResponse };
+      // Do NOT override raw.billAmount. BBPS requires the billerResponse block to be passed
+      // EXACTLY as received from the fetch call. The actual payment amount is in <amountInfo>.
+
+      for (const [key, value] of Object.entries(raw)) {
+        if (value !== null && value !== undefined && typeof value !== 'object') {
+          xml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
+        }
+      }
+    } else {
+      xml += `
+        <billAmount>${fetchedAmountInPaise}</billAmount>
+        ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
+        ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
+        ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
+        ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
+        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
+    }
+    xml += `\n    </billerResponse>`;
   }
 
   if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo)) {
@@ -500,23 +558,9 @@ export async function payBill(
   }
 
   xml += `
-    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
-    <amountInfo>
-        <amount>${amountInPaise}</amount>
-        <currency>356</currency>
-        <custConvFee>0</custConvFee>
-        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
-        <amountTags></amountTags>
-    </amountInfo>
-    <paymentMethod>
-        <paymentMode>${effectivePaymentMode}</paymentMode>
-        <quickPay>${quickPay}</quickPay>
-        <splitPay>N</splitPay>
-    </paymentMethod>
-${paymentInfoXml}
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
 }
 
 /**

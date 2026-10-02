@@ -896,7 +896,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
 export const payBill = async (req: Request, res: Response) => {
   try {
 
-    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo, paymentMode, pan, customerPan } = req.body;
+    const { billerId, amount, customerParams, mobile, billerResponseInfo, fetchRequestId, additionalInfo, paymentMode, pan, customerPan, remitterName } = req.body;
     const agentId = (req as any).agentId;
     const billavenueAgentId = (req as any).billavenueAgentId;
     const finalPan = (customerPan || pan || '').trim();
@@ -912,12 +912,12 @@ export const payBill = async (req: Request, res: Response) => {
     const parsedAmount = parseFloat(amount);
     const selectedMode = (paymentMode || 'Cash').trim();
 
-    // Check RBI/BillAvenue rule: Transactions > 50,000 with AGT channel require PAN card
-    if (parsedAmount > 50000 && !finalPan) {
-      console.error(`[B2B PayBill - ERROR] PAN Card missing for transaction > ₹50,000`);
+    // Check RBI/BillAvenue rule: Cash payment of >= 50,000 requires PAN card
+    if (parsedAmount >= 50000 && selectedMode.toUpperCase() === 'CASH' && !finalPan) {
+      console.error(`[B2B PayBill - ERROR] PAN Card missing for transaction >= ₹50,000 with Cash mode`);
       return res.status(400).json({
         status: 'error',
-        message: 'PAN Card (customerPan / pan) is mandatory for bill payments exceeding ₹50,000 as per RBI/NBBL BillAvenue guidelines.'
+        message: 'PAN Card (customerPan / pan) is mandatory for Cash bill payments of ₹50,000 or above as per RBI guidelines. Alternatively, pass paymentMode as "UPI" or "Internet Banking".'
       });
     }
 
@@ -1096,21 +1096,6 @@ export const payBill = async (req: Request, res: Response) => {
       }
     }
 
-    // Query biller metadata to get actual billerAdhoc setting
-    let billerAdhocSetting: string | undefined = undefined;
-    try {
-      const { data: bData } = await supabaseAdmin
-        .from('billavenue_billers')
-        .select('metadata')
-        .eq('biller_id', billerId)
-        .maybeSingle();
-      if (bData?.metadata?.billerAdhoc) {
-        billerAdhocSetting = String(bData.metadata.billerAdhoc).toLowerCase();
-      }
-    } catch (bErr) {
-      console.warn('[B2B PayBill] Could not fetch biller metadata:', bErr);
-    }
-
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
@@ -1120,20 +1105,15 @@ export const payBill = async (req: Request, res: Response) => {
         formattedParams,
         mobile,
         parsedAmount,
-        'Cash', // Channel AGT: NBBL specification disabled all modes apart from Cash
+        selectedMode, // paymentMode (Agent typically uses Cash/Wallet, or custom mode like UPI/Debit Card)
         'N', // quickPay
         undefined, // ccf1
-        { 
-          rawBillerResponse: rawBillerResp, 
-          additionalInfo: formattedAdditionalInfo,
-          billerAdhoc: billerAdhocSetting
-        }, // billDetails
-        req.body.remitterName || rawBillerResp?.customerName || billerResponseInfo?.customerName || undefined, // remitterName
+        { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails
+        remitterName || undefined, // remitterName
         'AGT', // initChannel
         billavenueRequestId, // fetchRequestId / explicitRequestId
         billavenueAgentId,
-        finalPan || undefined, // customerPan
-        billavenueRequestId // customPaymentRefId (Pass requestId as PaymentRefId as requested)
+        finalPan || undefined // customerPan
       );
       console.log(`[B2B PayBill - BILLAVENUE SUCCESS] Response received:`, JSON.stringify(apiResponse.json));
     } catch (payErr: any) {
@@ -1236,8 +1216,7 @@ export const payBill = async (req: Request, res: Response) => {
           api_txn_id: bbpsuTxnId,
           client_transaction_id: customTxnId,
           bbps_txn_ref_id: bbpsuTxnId,
-          requestId: billavenueRequestId,
-          debug_outgoing_xml: apiResponse?.rawRequestXml
+          requestId: billavenueRequestId 
         }
       };
       // Only log the charge as deducted and credit profit if payment is successful
@@ -1255,7 +1234,6 @@ export const payBill = async (req: Request, res: Response) => {
 
     return res.status(httpStatusCode).json({
       status: finalStatus,
-      build_version: "20261002_agt_v2",
       message: finalStatus === 'success' 
         ? 'Bill Paid successfully' 
         : (finalStatus === 'pending' ? 'Transaction initiated, currently pending at biller' : (errorMessage || 'Payment failed')),
