@@ -1179,10 +1179,17 @@ export const payBill = async (req: Request, res: Response) => {
       rawResponseReason === 'successful' || 
       rawResponseReason === 'success';
 
+    const isExplicitError = 
+      txnStatus === 'FAILED' || 
+      txnStatus === 'FAILURE' || 
+      txnStatus === 'REJECTED' || 
+      rawResponseReason === 'failure' || 
+      (Boolean(errorCode) && errorCode !== 'PNR001' && errorCode !== 'PWB001' && errorCode !== 'TIMEOUT' && !errorCode.startsWith('00'));
+
     const isPending = 
-      !isSuccess && (
+      !isSuccess && 
+      !isExplicitError && (
         rawResponseCode === '999' || 
-        rawResponseCode === '001' ||
         rawResponseCode.toLowerCase() === 'pending' ||
         rawResponseReason === 'awaited' || 
         rawResponseReason === 'pending' ||

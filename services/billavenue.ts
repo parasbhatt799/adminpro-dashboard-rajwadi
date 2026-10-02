@@ -392,9 +392,13 @@ export async function payBill(
     throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
+  // BillAvenue AGT channel with Cash mode requires a valid 10-character PAN in <customerPan>.
+  // If not provided by customer (for under 50k), fall back to corporate registered PAN.
+  const effectivePan = pan || (process.env.BILLAVENUE_DEFAULT_PAN || 'AAECU1832F').trim().toUpperCase();
+
   const paymentRefId = (fetchRequestId && fetchRequestId.trim()) ? fetchRequestId.trim() : generateRequestId();
   const nameOfRemitter = (
-    (remitterName && remitterName.trim() && remitterName.trim() !== 'Customer') 
+    (remitterName && remitterName.trim() && remitterName.trim().toLowerCase() !== 'customer') 
       ? remitterName.trim() 
       : (
           billDetails?.rawBillerResponse?.customerName ||
@@ -450,19 +454,11 @@ export async function payBill(
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
+    <billerId>${billerId}</billerId>
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>
-        <customerEmail></customerEmail>
-        <customerAdhaar></customerAdhaar>
-        <customerPan>${pan ? escapeXml(pan) : ''}</customerPan>
+        <customerPan>${escapeXml(effectivePan)}</customerPan>
     </customerInfo>
-    <billerId>${billerId}</billerId>
     <inputParams>
         ${Object.entries(customerParams)
       .map(
@@ -473,7 +469,7 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>${billerResponseXml}${additionalInfoXml}
+    </inputParams>
     <amountInfo>
         <amount>${amountInPaise}</amount>
         <currency>356</currency>
@@ -503,6 +499,12 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}${additionalInfoXml}
 </billPaymentRequest>`;
 
   return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
