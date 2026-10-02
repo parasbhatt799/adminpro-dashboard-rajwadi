@@ -398,15 +398,6 @@ export async function payBill(
   if (paymentRefId.length < 4) paymentRefId = generateRequestId();
   if (paymentRefId.length > 80) paymentRefId = paymentRefId.substring(0, 80);
 
-  // NBBL AGT Channel PaymentInfo Guidelines:
-  // 1. PaymentRefId tag is mandatory for all transactions, regardless of amount or category.
-  // 2. For transactions > ₹50,000, the following Remitter Info tags are mandatory:
-  //    - Remitter Name: Min 1 char, Max 200 chars
-  //    - PaymentRefId: Min 4 chars, Max 80 chars
-  //    - Payment Mode (exact casing 'Payment Mode')
-  //    - Payment Account Info (for Cash: "Cash Payment")
-  // 3. The previous implementation where these tags were mandatory irrespective of amount is NULL & VOID.
-  //    Sending extra remitter tags for amounts <= ₹50,000 causes E267 "Invalid payment info for given payment mode".
   const nameOfRemitter = (remitterName && remitterName.trim().length >= 1 && remitterName !== 'UsePay Customer')
     ? remitterName.trim().substring(0, 200)
     : (billDetails?.rawBillerResponse?.customerName || billDetails?.customerName || 'Valued Customer').toString().trim().substring(0, 200);
@@ -425,12 +416,22 @@ export async function payBill(
     paymentAccountInfo = `1234|UsePay`;
   }
 
-  // BillAvenue Specification Document v2.8.7 (Page 23 - Remitter Info & Page 34 - XML Schema):
-  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of amount or Category.
-  // 2. The Payment Account Info tag is mandatory for all transactions (for Cash: "Cash Payment").
-  // 3. For transactions > ₹50,000, Remitter Name is also mandatory.
-  // 4. Do NOT pass "Payment Mode" inside <paymentInfo> as it is defined in <paymentMethod><paymentMode>, not infoName.
-  const paymentInfoXml = `    <paymentInfo>
+  // NBBL AGT Channel PaymentInfo Guidelines:
+  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of the amount or category.
+  // 2. Irrespective of Payment Mode, for transactions > ₹50,000, the following Remitter Info tags are mandatory:
+  //    a. Remitter Name (person making Payment): Min length- 1, Max length- 200
+  //    b. PaymentRefId: Min length- 4, Max length- 80 (Contains AI's Txn Id)
+  //    c. Payment Mode (or Payment mode)
+  //    d. Payment Account Info: Min length- 4, Max length- 200 (For Cash: "Cash Payment")
+  // 3. The previous implementation of CCBP where the above tags were mandatory irrespective of amount is NULL and VOID now.
+  //    -> For transactions <= ₹50,000, ONLY PaymentRefId is passed. Passing Payment Account Info causes E267 "Invalid payment info for given payment mode".
+  let paymentInfoXml = '';
+  if (amount > 50000) {
+    paymentInfoXml = `    <paymentInfo>
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
+        </info>
         <info>
             <infoName>PaymentRefId</infoName>
             <infoValue>${escapeXml(paymentRefId)}</infoValue>
@@ -438,16 +439,21 @@ export async function payBill(
         <info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>${amount > 50000 ? `
-        <info>
-            <infoName>Remitter Name</infoName>
-            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
         </info>
         <info>
             <infoName>Payment Mode</infoName>
             <infoValue>${escapeXml(effectivePaymentMode)}</infoValue>
-        </info>` : ''}
+        </info>
     </paymentInfo>`;
+  } else {
+    // For transactions <= ₹50,000: ONLY PaymentRefId tag is mandatory
+    paymentInfoXml = `    <paymentInfo>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+    </paymentInfo>`;
+  }
 
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
@@ -473,12 +479,12 @@ export async function payBill(
         <custConvFee>0</custConvFee>
         ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
     </amountInfo>
-${paymentInfoXml}
     <paymentMethod>
         <paymentMode>${effectivePaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
+${paymentInfoXml}
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
         <initChannel>${initChannel}</initChannel>
