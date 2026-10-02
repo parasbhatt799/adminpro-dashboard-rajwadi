@@ -402,9 +402,8 @@ export async function payBill(
     ''
   ).trim();
 
-  // Sanitize masked customer names (e.g. JXSXNXXXHXAXAXBXAX) for remitter name
-  const isMasked = /X{2,}/i.test(resolvedCustomerName) || (resolvedCustomerName.split('X').length - 1) >= 4;
-  const nameOfRemitter = (!isMasked && resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer')
+  // Actual customer / remitter name as required by BillAvenue
+  const nameOfRemitter = (resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer')
     ? resolvedCustomerName.substring(0, 200)
     : (remitterName || 'UsePay Customer');
 
@@ -443,20 +442,8 @@ export async function payBill(
     <REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>
     <paymentInfo>
         <info>
-            <infoName>Remitter Name</infoName>
-            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
-        </info>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
-        ${isHighValue ? `<info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>
-        ` : ''}<info>
-            <infoName>Payment mode</infoName>
-            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
     <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
