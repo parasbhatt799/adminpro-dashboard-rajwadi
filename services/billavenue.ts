@@ -393,12 +393,17 @@ export async function payBill(
   }
 
   const paymentRefId = generateRequestId();
-  // For AGT channel Cash mode:
-  // If customer PAN is provided, we can use the customer's remitter name.
-  // Otherwise, BBPS requires the registered Agent Institution remitter identity ('UsePay Customer'),
-  // else it rejects with E267: 'Invalid payment info for given payment mode'.
-  const nameOfRemitter = (pan && remitterName && remitterName.trim() && remitterName.trim() !== 'Customer') 
-    ? remitterName.trim() 
+  // Resolve genuine customer remitter name (Rule 2.a: 1-200 chars)
+  const resolvedCustomerName = (
+    remitterName ||
+    billDetails?.rawBillerResponse?.customerName ||
+    billDetails?.rawBillerResponse?.RespCustomerName ||
+    billDetails?.customerName ||
+    ''
+  ).trim();
+
+  const nameOfRemitter = (resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer') 
+    ? resolvedCustomerName.substring(0, 200) 
     : 'UsePay Customer';
 
   const paymentAccountInfo = 'Cash Payment';
@@ -409,7 +414,7 @@ export async function payBill(
     <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>${pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
+        <customerMobile>${customerMobile}</customerMobile>${isHighValue && pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
@@ -433,8 +438,6 @@ export async function payBill(
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
-    <REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>
-    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
     <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
