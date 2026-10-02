@@ -28,7 +28,7 @@ const ENDPOINTS = {
 const IV = Buffer.from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
 
 // Helper to escape XML special characters
-function escapeXml(unsafe: string): string {
+export function escapeXml(unsafe: string): string {
   if (!unsafe) return '';
   return String(unsafe).replace(/[<>&'"]/g, function (c) {
     switch (c) {
@@ -442,17 +442,10 @@ export async function payBill(
     paymentAccountInfo = paymentAccountInfo.substring(0, 200);
   }
 
-  // Build <paymentInfo> block:
-  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of the amount or category.
-  // 2. Irrespective of Payment Mode, for transactions > ₹50,000, the following Remitter Info tags are mandatory (for all Categories including CCBP):
-  //    a. Remitter Name (person making Payment): Min length- 1 char, Max length- 200 chars
-  //    b. PaymentRefId: Min length- 4 chars, Max length- 80 chars
-  //    c. Payment Mode
-  //    d. Payment Account Info: Min length- 4 chars, Max length- 200 chars
-  // 3. The previous implementation of CCBP where the above tags were mandatory irrespective of amount is NULL and VOID now.
-  let paymentInfoXml = '';
-  if (isHighValue) {
-    paymentInfoXml = `    <paymentInfo>
+  // Build <paymentInfo> block according to BillAvenue Doc v2.8.7 (Page 23):
+  // "For ALL transactions, following Remitter Info tags are mandatory:
+  //  Remitter Name, PaymentRefId, Payment Account Info, Payment mode (no less than or more than 50k segregation)"
+  const paymentInfoXml = `    <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
             <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
@@ -462,27 +455,85 @@ export async function payBill(
             <infoValue>${escapeXml(paymentRefId)}</infoValue>
         </info>
         <info>
-            <infoName>Payment Mode</infoName>
-            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
-        </info>
-        <info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
         </info>
-    </paymentInfo>`;
-  } else {
-    paymentInfoXml = `    <paymentInfo>
         <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+            <infoName>Payment mode</infoName>
+            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>`;
+
+  // 1. additionalInfo block (Page 33 sample: first tag if present)
+  let additionalInfoXml = '';
+  if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo) && billDetails.additionalInfo.length > 0) {
+    additionalInfoXml = `
+    <additionalInfo>
+        ${billDetails.additionalInfo
+        .map(
+          (info: any) => `
+        <info>
+            <infoName>${escapeXml(info.infoName)}</infoName>
+            <infoValue>${escapeXml(info.infoValue)}</infoValue>
+        </info>`
+        )
+        .join('')}
+    </additionalInfo>`;
   }
 
+  // 2. billerResponse block
+  let billerResponseXml = '';
+  if (quickPay !== 'Y' && billDetails) {
+    const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
+    billerResponseXml = `\n    <billerResponse>`;
+
+    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
+      const raw = { ...billDetails.rawBillerResponse };
+      for (const [key, value] of Object.entries(raw)) {
+        if (value !== null && value !== undefined && typeof value !== 'object') {
+          billerResponseXml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
+        }
+      }
+    } else {
+      billerResponseXml += `
+        <billAmount>${fetchedAmountInPaise}</billAmount>
+        ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
+        ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
+        ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
+        ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
+        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
+    }
+    billerResponseXml += `\n    </billerResponse>`;
+  }
+
+  // Exact tag sequence matching BillAvenue v2.8.7 sample (Page 33-35):
+  // 1. additionalInfo (if present)
+  // 2. agentDeviceInfo
+  // 3. agentId
+  // 4. amountInfo
+  // 5. billerId
+  // 6. billerAdhoc
+  // 7. billerResponse (if present)
+  // 8. customerInfo
+  // 9. inputParams
+  // 10. paymentInfo
+  // 11. paymentMethod
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<billPaymentRequest>
+<billPaymentRequest>${additionalInfoXml}
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
     <agentId>${finalAgentId}</agentId>
+    <amountInfo>
+        <amount>${amountInPaise}</amount>
+        <currency>356</currency>
+        <custConvFee>0</custConvFee>
+        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
+    </amountInfo>
     <billerId>${billerId}</billerId>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>${pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
     </customerInfo>
@@ -497,67 +548,12 @@ export async function payBill(
       )
       .join('')}
     </inputParams>
-    <amountInfo>
-        <amount>${amountInPaise}</amount>
-        <currency>356</currency>
-        <custConvFee>0</custConvFee>
-        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
-    </amountInfo>
+${paymentInfoXml}
     <paymentMethod>
         <paymentMode>${finalPaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
-${paymentInfoXml}
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>`;
-
-  if (quickPay !== 'Y' && billDetails) {
-    const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
-    xml += `\n    <billerResponse>`;
-
-    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
-      const raw = { ...billDetails.rawBillerResponse };
-      // Do NOT override raw.billAmount. BBPS requires the billerResponse block to be passed
-      // EXACTLY as received from the fetch call. The actual payment amount is in <amountInfo>.
-
-      for (const [key, value] of Object.entries(raw)) {
-        if (value !== null && value !== undefined && typeof value !== 'object') {
-          xml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
-        }
-      }
-    } else {
-      xml += `
-        <billAmount>${fetchedAmountInPaise}</billAmount>
-        ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
-        ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
-        ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
-        ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
-        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
-    }
-    xml += `\n    </billerResponse>`;
-  }
-
-  if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo)) {
-    xml += `
-    <additionalInfo>
-        ${billDetails.additionalInfo
-        .map(
-          (info: any) => `
-        <info>
-            <infoName>${info.infoName}</infoName>
-            <infoValue>${info.infoValue}</infoValue>
-        </info>`
-        )
-        .join('')}
-    </additionalInfo>`;
-  }
-
-  xml += `
 </billPaymentRequest>`;
 
   return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);

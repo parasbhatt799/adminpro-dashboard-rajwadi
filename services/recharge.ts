@@ -1,4 +1,4 @@
-import { callBillAvenueApi, generateRequestId } from './billavenue.js';
+import { callBillAvenueApi, generateRequestId, escapeXml } from './billavenue.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -138,8 +138,19 @@ export async function rechargeMobile(
 
   const xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>AGT</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
     <agentId>${AGENT_ID}</agentId>
+    <amountInfo>
+        <amount>${amountInPaise}</amount>
+        <currency>356</currency>
+        <custConvFee>0</custConvFee>
+    </amountInfo>
     <billerId>${billerId}</billerId>
+    <billerAdhoc>true</billerAdhoc>
     <customerInfo>
         <customerMobile>${mobile}</customerMobile>
     </customerInfo>
@@ -149,32 +160,33 @@ export async function rechargeMobile(
             <paramValue>${mobile}</paramValue>
         </input>
     </inputParams>
-    <amountInfo>
-        <amount>${amountInPaise}</amount>
-        <currency>356</currency>
-        <custConvFee>0</custConvFee>
-    </amountInfo>
+    <paymentInfo>
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
+        </info>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>Cash Payment</infoValue>
+        </info>
+        <info>
+            <infoName>Payment mode</infoName>
+            <infoValue>Cash</infoValue>
+        </info>
+    </paymentInfo>
     <paymentMethod>
         <paymentMode>Cash</paymentMode>
         <quickPay>Y</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
-    <paymentInfo>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${paymentRefId}</infoValue>
-        </info>
-    </paymentInfo>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>AGT</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <billerAdhoc>true</billerAdhoc>
     ${planId ? `<planId>${planId}</planId>` : ''}
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(RECHARGE_ENDPOINTS.pay, xml);
+  return callBillAvenueApi(RECHARGE_ENDPOINTS.pay, xml, paymentRefId);
 }
 
 /**
