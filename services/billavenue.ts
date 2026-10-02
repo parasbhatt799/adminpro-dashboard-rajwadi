@@ -407,13 +407,62 @@ export async function payBill(
   const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
 
+  let billerResponseXml = '';
+  if (quickPay !== 'Y' && billDetails) {
+    const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
+    billerResponseXml = `\n    <billerResponse>`;
+
+    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
+      const raw = { ...billDetails.rawBillerResponse };
+      for (const [key, value] of Object.entries(raw)) {
+        if (value !== null && value !== undefined && typeof value !== 'object') {
+          billerResponseXml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
+        }
+      }
+    } else {
+      billerResponseXml += `
+        <billAmount>${fetchedAmountInPaise}</billAmount>
+        ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
+        ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
+        ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
+        ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
+        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
+    }
+    billerResponseXml += `\n    </billerResponse>`;
+  }
+
+  let additionalInfoXml = '';
+  if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo) && billDetails.additionalInfo.length > 0) {
+    additionalInfoXml = `
+    <additionalInfo>
+        ${billDetails.additionalInfo
+        .map(
+          (info: any) => `
+        <info>
+            <infoName>${escapeXml(info.infoName)}</infoName>
+            <infoValue>${escapeXml(info.infoValue)}</infoValue>
+        </info>`
+        )
+        .join('')}
+    </additionalInfo>`;
+  }
+
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <billerId>${billerId}</billerId>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>${pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
+        <customerMobile>${customerMobile}</customerMobile>
+        <customerEmail></customerEmail>
+        <customerAdhaar></customerAdhaar>
+        <customerPan>${pan ? escapeXml(pan) : ''}</customerPan>
     </customerInfo>
+    <billerId>${billerId}</billerId>
     <inputParams>
         ${Object.entries(customerParams)
       .map(
@@ -424,7 +473,7 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>
+    </inputParams>${billerResponseXml}${additionalInfoXml}
     <amountInfo>
         <amount>${amountInPaise}</amount>
         <currency>356</currency>
@@ -454,52 +503,6 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>`;
-
-  if (quickPay !== 'Y' && billDetails) {
-    const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
-    xml += `\n    <billerResponse>`;
-
-    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
-      const raw = { ...billDetails.rawBillerResponse };
-      for (const [key, value] of Object.entries(raw)) {
-        if (value !== null && value !== undefined && typeof value !== 'object') {
-          xml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
-        }
-      }
-    } else {
-      xml += `
-        <billAmount>${fetchedAmountInPaise}</billAmount>
-        ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
-        ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
-        ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
-        ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
-        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
-    }
-    xml += `\n    </billerResponse>`;
-  }
-
-  if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo)) {
-    xml += `
-    <additionalInfo>
-        ${billDetails.additionalInfo
-        .map(
-          (info: any) => `
-        <info>
-            <infoName>${escapeXml(info.infoName)}</infoName>
-            <infoValue>${escapeXml(info.infoValue)}</infoValue>
-        </info>`
-        )
-        .join('')}
-    </additionalInfo>`;
-  }
-
-  xml += `
 </billPaymentRequest>`;
 
   return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
