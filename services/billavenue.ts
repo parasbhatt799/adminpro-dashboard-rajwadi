@@ -412,10 +412,11 @@ export async function payBill(
 
   // PAN resolution:
   // - >= 50,000: Customer PAN is strictly mandatory (checked above).
-  // - < 50,000: If user provided a PAN, use it. If not, use the verified Individual PAN (AMLPV6510D)
-  //   so that BillAvenue's Cash mode validation always succeeds across all amounts.
-  const effectivePan = pan || (process.env.BILLAVENUE_DEFAULT_INDIVIDUAL_PAN || 'AMLPV6510D').trim().toUpperCase();
-  const panXml = `\n        <customerPan>${escapeXml(effectivePan)}</customerPan>`;
+  // - < 50,000: Customer PAN is optional per RBI / BBPS guidelines. Include only if provided.
+  const effectivePan = isHighValue
+    ? (pan || (process.env.BILLAVENUE_DEFAULT_INDIVIDUAL_PAN || 'AMLPV6510D').trim().toUpperCase())
+    : (pan || '').trim().toUpperCase();
+  const panXml = effectivePan ? `\n        <customerPan>${escapeXml(effectivePan)}</customerPan>` : '';
 
   const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
@@ -460,6 +461,15 @@ export async function payBill(
     </additionalInfo>`;
   }
 
+  // BillAvenue Technical Support rule:
+  // "You need to pass the existing Payment Info Tags as you use to do.
+  //  If the Amount is greater than 50k, then it is mandatory to pass Payment Account Info
+  //  along with the existing Payment Info Tags.
+  //  REMITTER NAME: <REMITTER_NAME>remitter name</REMITTER_NAME>
+  //  PAYMENT RED ID: <paymentRefId>114870618867</paymentRefId>"
+  const remitterNameTag = isHighValue ? `\n    <REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>` : '';
+  const paymentRefIdTag = `\n    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>`;
+
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
@@ -488,7 +498,7 @@ export async function payBill(
         <paymentMode>${finalPaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
-    </paymentMethod>
+    </paymentMethod>${remitterNameTag}${paymentRefIdTag}
     <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
@@ -497,11 +507,11 @@ export async function payBill(
         <info>
             <infoName>PaymentRefId</infoName>
             <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
+        </info>${isHighValue ? `
         <info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>
+        </info>` : ''}
         <info>
             <infoName>Payment mode</infoName>
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
