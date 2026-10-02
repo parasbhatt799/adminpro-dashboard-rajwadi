@@ -463,12 +463,10 @@ export async function payBill(
     paymentAccountInfo = paymentAccountInfo.substring(0, 200);
   }
 
-  // Build <paymentInfo> block:
-  // For amount > ₹50,000, send the 4 mandatory Remitter Info tags (Remitter Name, PaymentRefId, Payment Account Info, Payment mode).
-  // For amount <= ₹50,000, do not send <paymentInfo> tag at all.
-  let paymentInfoXml = '';
-  if (isHighValue) {
-    paymentInfoXml = `\n    <paymentInfo>
+  // 4 Remitter Info tags for Cash payment:
+  // ₹1 to ₹49,999: 4 Remitter Info tags (Remitter Name, PaymentRefId, Payment Account Info, Payment mode)
+  // ₹50,000+: 4 Remitter Info tags + PAN card (customerPan)
+  const paymentInfoXml = `    <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
             <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
@@ -486,7 +484,6 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>`;
-  }
 
   // 1. additionalInfo block (Page 33 sample: first tag if present)
   let additionalInfoXml = '';
@@ -571,7 +568,8 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>${paymentInfoXml}
+    </inputParams>
+${paymentInfoXml}
     <paymentMethod>
         <paymentMode>${finalPaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>

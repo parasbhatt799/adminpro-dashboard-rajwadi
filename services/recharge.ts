@@ -160,6 +160,24 @@ export async function rechargeMobile(
             <paramValue>${mobile}</paramValue>
         </input>
     </inputParams>
+    <paymentInfo>
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
+        </info>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>Cash Payment</infoValue>
+        </info>
+        <info>
+            <infoName>Payment mode</infoName>
+            <infoValue>Cash</infoValue>
+        </info>
+    </paymentInfo>
     <paymentMethod>
         <paymentMode>Cash</paymentMode>
         <quickPay>Y</quickPay>
