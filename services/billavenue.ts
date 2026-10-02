@@ -442,8 +442,20 @@ export async function payBill(
     <REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>
     <paymentInfo>
         <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
+        </info>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+        <info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment mode</infoName>
+            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
     <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
