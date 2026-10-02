@@ -399,15 +399,7 @@ export async function payBill(
     throw new Error('Customer PAN is mandatory for Cash transactions exceeding ₹50,000 as per NBBL / RBI guidelines.');
   }
 
-  // Rule 2.b: PaymentRefId: Min length- 4 characters, Max length- 80 characters.
-  // Should contain: AI’s Txn Id: for uniquely tracing the transaction later.
-  // Rule 1: The PaymentRefId tag is mandatory for all transactions, regardless of the amount or category.
-  let paymentRefId = (fetchRequestId && fetchRequestId.trim()) ? fetchRequestId.trim() : generateRequestId();
-  if (paymentRefId.length < 4) {
-    paymentRefId = generateRequestId();
-  } else if (paymentRefId.length > 80) {
-    paymentRefId = paymentRefId.substring(0, 80);
-  }
+  const paymentRefId = generateRequestId();
 
   // Rule 2.a: Remitter Name (person making Payment): Min length- 1 character, Max length- 200 characters
   let nameOfRemitter = (remitterName || '').trim();
@@ -540,21 +532,9 @@ export async function payBill(
   // 10. paymentInfo
   // 11. paymentMethod
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<billPaymentRequest>${additionalInfoXml}
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
+<billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <amountInfo>
-        <amount>${amountInPaise}</amount>
-        <currency>356</currency>
-        <custConvFee>0</custConvFee>
-        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
-    </amountInfo>
     <billerId>${billerId}</billerId>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}
     <customerInfo>
         <customerMobile>${customerMobile}</customerMobile>${pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
     </customerInfo>
@@ -569,15 +549,27 @@ export async function payBill(
       )
       .join('')}
     </inputParams>
-${paymentInfoXml}
+    <amountInfo>
+        <amount>${amountInPaise}</amount>
+        <currency>356</currency>
+        <custConvFee>0</custConvFee>
+        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
+    </amountInfo>
     <paymentMethod>
         <paymentMode>${finalPaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
+${paymentInfoXml}
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}${additionalInfoXml}
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
 }
 
 /**
