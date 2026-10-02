@@ -1217,7 +1217,8 @@ export const payBill = async (req: Request, res: Response) => {
           api_txn_id: bbpsuTxnId,
           client_transaction_id: customTxnId,
           bbps_txn_ref_id: bbpsuTxnId,
-          requestId: billavenueRequestId 
+          requestId: billavenueRequestId,
+          debug_outgoing_xml: apiResponse?.rawRequestXml
         }
       };
       // Only log the charge as deducted and credit profit if payment is successful
@@ -1235,6 +1236,7 @@ export const payBill = async (req: Request, res: Response) => {
 
     return res.status(httpStatusCode).json({
       status: finalStatus,
+      build_version: "20261002_agt_v2",
       message: finalStatus === 'success' 
         ? 'Bill Paid successfully' 
         : (finalStatus === 'pending' ? 'Transaction initiated, currently pending at biller' : (errorMessage || 'Payment failed')),

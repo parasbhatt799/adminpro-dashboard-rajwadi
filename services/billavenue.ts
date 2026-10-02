@@ -205,7 +205,8 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
     return {
       requestId,
       rawXml: decryptedXml,
-      json: jsonResult
+      json: jsonResult,
+      rawRequestXml: xmlPayload
     };
   } catch (error: any) {
     console.error('[BillAvenue Service] API call failed:', error);
@@ -416,15 +417,11 @@ export async function payBill(
     paymentAccountInfo = `1234|UsePay`;
   }
 
-  // NBBL AGT Channel PaymentInfo Guidelines:
-  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of the amount or category.
-  // 2. Irrespective of Payment Mode, for transactions > ₹50,000, the following Remitter Info tags are mandatory:
-  //    a. Remitter Name (person making Payment): Min length- 1, Max length- 200
-  //    b. PaymentRefId: Min length- 4, Max length- 80 (Contains AI's Txn Id)
-  //    c. Payment Mode (or Payment mode)
-  //    d. Payment Account Info: Min length- 4, Max length- 200 (For Cash: "Cash Payment")
-  // 3. The previous implementation of CCBP where the above tags were mandatory irrespective of amount is NULL and VOID now.
-  //    -> For transactions <= ₹50,000, ONLY PaymentRefId is passed. Passing Payment Account Info causes E267 "Invalid payment info for given payment mode".
+  // NBBL AGT Channel PaymentInfo Guidelines & Doc v2.8.7 Page 23:
+  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of amount or category.
+  // 2. The Payment Account Info tag is mandatory for all transactions (for Cash: "Cash Payment").
+  // 3. For transactions > ₹50,000, Remitter Name and Payment Mode are also mandatory.
+  // 4. For transactions <= ₹50,000, Remitter Name and Payment Mode are omitted.
   let paymentInfoXml = '';
   if (amount > 50000) {
     paymentInfoXml = `    <paymentInfo>
@@ -446,11 +443,15 @@ export async function payBill(
         </info>
     </paymentInfo>`;
   } else {
-    // For transactions <= ₹50,000: ONLY PaymentRefId tag is mandatory
+    // For transactions <= ₹50,000: PaymentRefId and Payment Account Info ("Cash Payment")
     paymentInfoXml = `    <paymentInfo>
         <info>
             <infoName>PaymentRefId</infoName>
             <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
         </info>
     </paymentInfo>`;
   }
