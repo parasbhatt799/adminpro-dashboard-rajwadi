@@ -440,17 +440,26 @@ export async function payBill(
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
-    ${isHighValue ? `<REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>\n    ` : ''}<paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
+    <REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>
     <paymentInfo>
+        <info>
+            <infoName>Remitter Name</infoName>
+            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
+        </info>
+        <info>
+            <infoName>PaymentRefId</infoName>
+            <infoValue>${escapeXml(paymentRefId)}</infoValue>
+        </info>
         ${isHighValue ? `<info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
         </info>
         ` : ''}<info>
-            <infoName>Cash Payment</infoName>
-            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
+            <infoName>Payment mode</infoName>
+            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
+    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
         <initChannel>${initChannel}</initChannel>
