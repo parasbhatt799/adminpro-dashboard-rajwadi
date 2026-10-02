@@ -3188,9 +3188,6 @@ async function startServer() {
         return res.status(400).json({ status: "ERROR", message: "Invalid amount specified." });
       }
 
-      // Check PAN requirement for Cash > ₹50,000
-      const finalPan = (customerPan || pan || '').trim();
-
       // 1. Fetch user's current wallet balance and service charge settings
       const { data: user, error: userError } = await supabaseAdmin
         .from("users_profiles")
@@ -3307,20 +3304,19 @@ async function startServer() {
         console.warn('Failed to load biller info for pay channel mapping, defaulting to AGT:', dbErr);
       }
 
-      // Rule II: For AGT channel, payment mode is Cash
-      let finalPaymentMode = 'Cash';
-
-      // Check mandatory PAN rule for Cash >= ₹50,000
-      if (paymentAmount >= 50000 && !finalPan) {
-        return res.status(400).json({
-          status: 'ERROR',
-          message: 'PAN Card is mandatory for Cash bill payments of ₹50,000 or above as per NBBL guidelines.'
-        });
+      // If channel is AGT (Agent), BBPS often rejects modes like UPI, Net Banking, etc.
+      // Since the agent is deducting their B2B wallet, it is standard to send 'Cash' or 'Wallet' to BBPS.
+      let finalPaymentMode = paymentMode || 'UPI';
+      if (initChannel === 'AGT' && finalPaymentMode !== 'Wallet') {
+        finalPaymentMode = 'Cash';
       }
 
       // 3. Call BillAvenue pay API
       let apiResponse;
       try {
+        const finalPan = (customerPan || pan || '').trim();
+        const resolvedRemitter = remitterName || billDetails?.customerName || billDetails?.rawBillerResponse?.customerName || user.name || 'Valued Customer';
+
         apiResponse = await billAvenue.payBill(
           billerId,
           customerParams,
@@ -3330,7 +3326,7 @@ async function startServer() {
           quickPay || 'N',
           ccf1 !== undefined ? Number(ccf1) : undefined,
           billDetails,
-          remitterName || billDetails?.customerName || billDetails?.rawBillerResponse?.customerName || user.name || undefined,
+          resolvedRemitter,
           initChannel,
           fetchRequestId,
           undefined,
@@ -3808,9 +3804,9 @@ async function startServer() {
       }
 
       if (!finalTrackValue) {
-        return res.status(400).json({ 
-          success: false, 
-          message: "Could not find a valid BillAvenue Reference ID (CC01...) or Request ID for this transaction." 
+        return res.status(400).json({
+          success: false,
+          message: "Could not find a valid BillAvenue Reference ID (CC01...) or Request ID for this transaction."
         });
       }
 
