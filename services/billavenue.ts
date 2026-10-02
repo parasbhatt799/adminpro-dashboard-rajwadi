@@ -463,11 +463,12 @@ export async function payBill(
     paymentAccountInfo = paymentAccountInfo.substring(0, 200);
   }
 
-  // Build <paymentInfo> block according to BillAvenue Doc v2.8.7 (Page 23):
-  // "The AIs should pass the new <infoName>Payment Account Info</infoName> tag for all the transactions irrespective of the amount (no less than or more than 50k segregation).
-  //  For ALL transactions, following Remitter Info tags are mandatory:
-  //  Remitter Name, PaymentRefId, Payment Account Info, Payment mode"
-  const paymentInfoXml = `    <paymentInfo>
+  // Build <paymentInfo> block:
+  // For amount > ₹50,000, send the 4 mandatory Remitter Info tags (Remitter Name, PaymentRefId, Payment Account Info, Payment mode).
+  // For amount <= ₹50,000, do not send <paymentInfo> tag at all.
+  let paymentInfoXml = '';
+  if (isHighValue) {
+    paymentInfoXml = `\n    <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
             <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
@@ -485,6 +486,7 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>`;
+  }
 
   // 1. additionalInfo block (Page 33 sample: first tag if present)
   let additionalInfoXml = '';
@@ -569,8 +571,7 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>
-${paymentInfoXml}
+    </inputParams>${paymentInfoXml}
     <paymentMethod>
         <paymentMode>${finalPaymentMode}</paymentMode>
         <quickPay>${quickPay}</quickPay>
