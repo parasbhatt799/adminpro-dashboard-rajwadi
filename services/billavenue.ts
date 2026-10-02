@@ -402,9 +402,11 @@ export async function payBill(
     ''
   ).trim();
 
-  const nameOfRemitter = (resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer') 
-    ? resolvedCustomerName.substring(0, 200) 
-    : 'UsePay Customer';
+  // Sanitize masked customer names (e.g. JXSXNXXXHXAXAXBXAX) for remitter name
+  const isMasked = /X{2,}/i.test(resolvedCustomerName) || (resolvedCustomerName.split('X').length - 1) >= 4;
+  const nameOfRemitter = (!isMasked && resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer')
+    ? resolvedCustomerName.substring(0, 200)
+    : (remitterName || 'UsePay Customer');
 
   const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
@@ -438,22 +440,15 @@ export async function payBill(
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
+    ${isHighValue ? `<REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>\n    ` : ''}<paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
     <paymentInfo>
-        <info>
-            <infoName>Remitter Name</infoName>
-            <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
-        </info>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
-        <info>
+        ${isHighValue ? `<info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
         </info>
-        <info>
-            <infoName>Payment mode</infoName>
-            <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
+        ` : ''}<info>
+            <infoName>Cash Payment</infoName>
+            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
         </info>
     </paymentInfo>
     <agentDeviceInfo>
