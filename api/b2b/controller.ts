@@ -1096,6 +1096,21 @@ export const payBill = async (req: Request, res: Response) => {
       }
     }
 
+    // Query biller metadata to get actual billerAdhoc setting
+    let billerAdhocSetting: string | undefined = undefined;
+    try {
+      const { data: bData } = await supabaseAdmin
+        .from('billavenue_billers')
+        .select('metadata')
+        .eq('biller_id', billerId)
+        .maybeSingle();
+      if (bData?.metadata?.billerAdhoc) {
+        billerAdhocSetting = String(bData.metadata.billerAdhoc).toLowerCase();
+      }
+    } catch (bErr) {
+      console.warn('[B2B PayBill] Could not fetch biller metadata:', bErr);
+    }
+
     // 2. Call BillAvenue Pay API
     let apiResponse;
     try {
@@ -1108,7 +1123,11 @@ export const payBill = async (req: Request, res: Response) => {
         'Cash', // Channel AGT: NBBL specification disabled all modes apart from Cash
         'N', // quickPay
         undefined, // ccf1
-        { rawBillerResponse: rawBillerResp, additionalInfo: formattedAdditionalInfo }, // billDetails
+        { 
+          rawBillerResponse: rawBillerResp, 
+          additionalInfo: formattedAdditionalInfo,
+          billerAdhoc: billerAdhocSetting
+        }, // billDetails
         req.body.remitterName || rawBillerResp?.customerName || billerResponseInfo?.customerName || undefined, // remitterName
         'AGT', // initChannel
         billavenueRequestId, // fetchRequestId / explicitRequestId

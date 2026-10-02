@@ -432,10 +432,16 @@ export async function payBill(
         </info>` : ''}
     </paymentInfo>`;
 
+  const effectiveBillerAdhoc = (
+    billDetails?.billerAdhoc || 
+    billDetails?.rawBillerResponse?.billerAdhoc || 
+    (quickPay === 'Y' ? 'true' : 'false')
+  ).toString().toLowerCase();
+
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>
+    <billerAdhoc>${effectiveBillerAdhoc}</billerAdhoc>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
         <initChannel>${initChannel}</initChannel>
@@ -466,8 +472,9 @@ export async function payBill(
 
     if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
       const raw = { ...billDetails.rawBillerResponse };
-      // Do NOT override raw.billAmount. BBPS requires the billerResponse block to be passed
-      // EXACTLY as received from the fetch call. The actual payment amount is in <amountInfo>.
+      // Ensure billNumber and billPeriod default to NA if not present, matching BillAvenue specification
+      if (!raw.billNumber) raw.billNumber = 'NA';
+      if (!raw.billPeriod) raw.billPeriod = 'NA';
 
       for (const [key, value] of Object.entries(raw)) {
         if (value !== null && value !== undefined && typeof value !== 'object') {
@@ -478,8 +485,8 @@ export async function payBill(
       xml += `
         <billAmount>${fetchedAmountInPaise}</billAmount>
         ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
-        ${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? `<billNumber>${billDetails.billNumber}</billNumber>` : ''}
-        ${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? `<billPeriod>${billDetails.billPeriod}</billPeriod>` : ''}
+        <billNumber>${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? billDetails.billNumber : 'NA'}</billNumber>
+        <billPeriod>${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? billDetails.billPeriod : 'NA'}</billPeriod>
         ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
         ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
     }
