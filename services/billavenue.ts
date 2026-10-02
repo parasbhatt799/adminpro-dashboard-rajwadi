@@ -398,8 +398,7 @@ export async function payBill(
   const effectivePan = pan || (process.env.BILLAVENUE_DEFAULT_INDIVIDUAL_PAN || 'AMLPV6510D').trim().toUpperCase();
   const panXml = `\n        <customerPan>${escapeXml(effectivePan)}</customerPan>`;
 
-  // PaymentRefId must be a freshly generated unique ID for the underlying payment instrument ref
-  const paymentRefId = generateRequestId();
+  const paymentRefId = (fetchRequestId && fetchRequestId.trim()) ? fetchRequestId.trim() : generateRequestId();
   const nameOfRemitter = (
     (remitterName && remitterName.trim() && remitterName.trim().toLowerCase() !== 'customer') 
       ? remitterName.trim() 
@@ -457,10 +456,19 @@ export async function payBill(
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <billerId>${billerId}</billerId>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>${panXml}
+        <customerMobile>${customerMobile}</customerMobile>
+        <customerEmail></customerEmail>
+        <customerAdhaar></customerAdhaar>
+        <customerPan>${escapeXml(effectivePan)}</customerPan>
     </customerInfo>
+    <billerId>${billerId}</billerId>
     <inputParams>
         ${Object.entries(customerParams)
       .map(
@@ -471,7 +479,7 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>
+    </inputParams>${billerResponseXml}${additionalInfoXml}
     <amountInfo>
         <amount>${amountInPaise}</amount>
         <currency>356</currency>
@@ -501,15 +509,9 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}${additionalInfoXml}
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId || paymentRefId);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
 }
 
 /**
