@@ -384,23 +384,25 @@ export async function payBill(
   const channel = (initChannel || 'AGT').trim().toUpperCase();
   const isAgtChannel = channel === 'AGT';
 
-  // Under ₹50,000: pass paymentMode as 'UPI' with mobile VPA (per BillAvenue rules)
-  // ₹50,000 and above: pass 'Cash' with mandatory PAN card (which succeeded for ₹50,001)
-  const isHighValue = amount >= 50000;
-  const finalPaymentMode = isHighValue ? (isAgtChannel ? 'Cash' : (paymentMode ? paymentMode.trim() : 'Cash')) : 'UPI';
+  // Rule II: Always use Cash mode for AGT channel
+  const finalPaymentMode = 'Cash';
 
   // Amount converted to paise as required
   const amountInPaise = Math.round(amount * 100);
 
   // Existing Implementation I: For amounts >= 50,000 and payment mode = CASH, providing a PAN is mandatory
-  const isCash = finalPaymentMode.toUpperCase() === 'CASH';
+  const isHighValue = amount >= 50000;
+  const isCash = true;
   const pan = (isHighValue && customerPan) ? customerPan.trim().toUpperCase() : '';
 
-  if (isHighValue && isCash && !pan) {
+  if (isHighValue && !pan) {
     throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
-  const paymentRefId = generateRequestId();
+  // PaymentRefId: Must match the transaction requestId passed to the Pay API URL
+  let paymentRefId = (fetchRequestId || generateRequestId()).toString().trim();
+  if (paymentRefId.length < 4) paymentRefId = generateRequestId();
+  if (paymentRefId.length > 80) paymentRefId = paymentRefId.substring(0, 80);
 
   // Rule 2.a: Remitter Name (person making Payment): Min length- 1 character, Max length- 200 characters
   let nameOfRemitter = (remitterName || '').trim();
@@ -433,29 +435,8 @@ export async function payBill(
   }
 
   // Rule 2.d: Payment Account Info: Min length- 4 characters, Max length- 200 characters.
-  // Cash -> "Cash Payment", UPI -> VPA (mobile@upi)
-  let paymentAccountInfo = 'Cash Payment';
-  const mode = finalPaymentMode.toUpperCase();
-  const cleanMobile = customerMobile.replace(/\D/g, '').slice(-10) || customerMobile;
-  if (mode === 'CASH') {
-    paymentAccountInfo = 'Cash Payment';
-  } else if (mode === 'UPI' || mode === 'BHARAT QR') {
-    paymentAccountInfo = `${cleanMobile}@upi`;
-  } else if (mode === 'WALLET') {
-    paymentAccountInfo = `UsePay|${cleanMobile}`;
-  } else if (mode === 'INTERNET BANKING') {
-    paymentAccountInfo = `INTB${Date.now()}|INTB${Date.now()}`;
-  } else if (mode === 'DEBIT CARD' || mode === 'CREDIT CARD' || mode === 'PREPAID CARD') {
-    paymentAccountInfo = `1234|UsePay`;
-  } else {
-    paymentAccountInfo = 'Cash Payment';
-  }
-
-  if (paymentAccountInfo.length < 4) {
-    paymentAccountInfo = 'Cash Payment';
-  } else if (paymentAccountInfo.length > 200) {
-    paymentAccountInfo = paymentAccountInfo.substring(0, 200);
-  }
+  // For Cash mode, sample value is "Cash Payment"
+  const paymentAccountInfo = 'Cash Payment';
 
   // 4 Remitter Info tags for Cash payment:
   // ₹1 to ₹49,999: 4 Remitter Info tags (Remitter Name, PaymentRefId, Payment Account Info, Payment mode)
@@ -571,7 +552,7 @@ ${paymentInfoXml}
     <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}${additionalInfoXml}
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
 }
 
 /**

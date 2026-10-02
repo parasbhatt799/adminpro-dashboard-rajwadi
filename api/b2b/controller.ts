@@ -910,17 +910,14 @@ export const payBill = async (req: Request, res: Response) => {
     }
 
     const parsedAmount = parseFloat(amount);
-    let selectedMode = (paymentMode || 'Cash').trim();
-    if (parsedAmount < 50000) {
-      selectedMode = 'UPI';
-    }
+    const selectedMode = 'Cash';
 
     // Check RBI/BillAvenue rule: Cash payment of >= 50,000 requires PAN card
-    if (parsedAmount >= 50000 && selectedMode.toUpperCase() === 'CASH' && !finalPan) {
+    if (parsedAmount >= 50000 && !finalPan) {
       console.error(`[B2B PayBill - ERROR] PAN Card missing for transaction >= ₹50,000 with Cash mode`);
       return res.status(400).json({
         status: 'error',
-        message: 'PAN Card (customerPan / pan) is mandatory for Cash bill payments of ₹50,000 or above as per RBI guidelines. Alternatively, pass paymentMode as "UPI" or "Internet Banking".'
+        message: 'PAN Card (customerPan / pan) is mandatory for Cash bill payments of ₹50,000 or above as per RBI guidelines.'
       });
     }
 
