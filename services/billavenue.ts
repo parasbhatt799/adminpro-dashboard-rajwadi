@@ -432,11 +432,8 @@ export async function payBill(
         </info>` : ''}
     </paymentInfo>`;
 
-  const effectiveBillerAdhoc = (
-    billDetails?.billerAdhoc || 
-    billDetails?.rawBillerResponse?.billerAdhoc || 
-    (quickPay === 'Y' ? 'true' : 'false')
-  ).toString().toLowerCase();
+  // In BillAvenue's verified sample, billerAdhoc is 'false' for fetch-based bills
+  const effectiveBillerAdhoc = quickPay === 'Y' ? 'true' : 'false';
 
   let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <billPaymentRequest>
@@ -467,30 +464,24 @@ export async function payBill(
     </inputParams>`;
 
   if (quickPay !== 'Y' && billDetails) {
+    const raw = billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object' ? billDetails.rawBillerResponse : {};
     const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
-    xml += `\n    <billerResponse>`;
+    const bAmt = raw.billAmount || fetchedAmountInPaise;
+    const bDate = raw.billDate || (billDetails.billDate && billDetails.billDate !== 'N/A' ? billDetails.billDate : '');
+    const bNum = raw.billNumber || (billDetails.billNumber && billDetails.billNumber !== 'N/A' ? billDetails.billNumber : 'NA');
+    const bPeriod = raw.billPeriod || (billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? billDetails.billPeriod : 'NA');
+    const cName = raw.customerName || (billDetails.customerName && billDetails.customerName !== 'N/A' ? billDetails.customerName : '');
+    const dDate = raw.dueDate || (billDetails.dueDate && billDetails.dueDate !== 'N/A' ? billDetails.dueDate : '');
 
-    if (billDetails.rawBillerResponse && typeof billDetails.rawBillerResponse === 'object') {
-      const raw = { ...billDetails.rawBillerResponse };
-      // Ensure billNumber and billPeriod default to NA if not present, matching BillAvenue specification
-      if (!raw.billNumber) raw.billNumber = 'NA';
-      if (!raw.billPeriod) raw.billPeriod = 'NA';
-
-      for (const [key, value] of Object.entries(raw)) {
-        if (value !== null && value !== undefined && typeof value !== 'object') {
-          xml += `\n        <${key}>${escapeXml(String(value))}</${key}>`;
-        }
-      }
-    } else {
-      xml += `
-        <billAmount>${fetchedAmountInPaise}</billAmount>
-        ${billDetails.billDate && billDetails.billDate !== 'N/A' ? `<billDate>${billDetails.billDate}</billDate>` : ''}
-        <billNumber>${billDetails.billNumber && billDetails.billNumber !== 'N/A' ? billDetails.billNumber : 'NA'}</billNumber>
-        <billPeriod>${billDetails.billPeriod && billDetails.billPeriod !== 'N/A' ? billDetails.billPeriod : 'NA'}</billPeriod>
-        ${billDetails.customerName && billDetails.customerName !== 'N/A' ? `<customerName>${billDetails.customerName}</customerName>` : ''}
-        ${billDetails.dueDate && billDetails.dueDate !== 'N/A' ? `<dueDate>${billDetails.dueDate}</dueDate>` : ''}`;
-    }
-    xml += `\n    </billerResponse>`;
+    xml += `
+    <billerResponse>
+        <billAmount>${escapeXml(String(bAmt))}</billAmount>
+        ${bDate ? `<billDate>${escapeXml(String(bDate))}</billDate>` : ''}
+        <billNumber>${escapeXml(String(bNum))}</billNumber>
+        <billPeriod>${escapeXml(String(bPeriod))}</billPeriod>
+        ${cName ? `<customerName>${escapeXml(String(cName))}</customerName>` : ''}
+        ${dDate ? `<dueDate>${escapeXml(String(dDate))}</dueDate>` : ''}
+    </billerResponse>`;
   }
 
   if (quickPay !== 'Y' && billDetails?.additionalInfo && Array.isArray(billDetails.additionalInfo)) {
