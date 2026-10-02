@@ -1228,7 +1228,8 @@ export const payBill = async (req: Request, res: Response) => {
           api_txn_id: bbpsuTxnId,
           client_transaction_id: customTxnId,
           bbps_txn_ref_id: bbpsuTxnId,
-          requestId: billavenueRequestId 
+          requestId: billavenueRequestId,
+          debug_outgoing_xml: apiResponse?.sentXml || undefined
         }
       };
       // Only log the charge as deducted and credit profit if payment is successful

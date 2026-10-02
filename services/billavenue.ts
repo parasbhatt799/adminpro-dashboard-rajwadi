@@ -205,7 +205,8 @@ export async function callBillAvenueApi(url: string, xmlPayload: string, explici
     return {
       requestId,
       rawXml: decryptedXml,
-      json: jsonResult
+      json: jsonResult,
+      sentXml: xmlPayload
     };
   } catch (error: any) {
     console.error('[BillAvenue Service] API call failed:', error);
@@ -392,9 +393,13 @@ export async function payBill(
   }
 
   const paymentRefId = generateRequestId();
-  const nameOfRemitter = (remitterName && remitterName.trim() && remitterName.trim() !== 'Customer') 
+  // For AGT channel Cash mode:
+  // If customer PAN is provided, we can use the customer's remitter name.
+  // Otherwise, BBPS requires the registered Agent Institution remitter identity ('UsePay Customer'),
+  // else it rejects with E267: 'Invalid payment info for given payment mode'.
+  const nameOfRemitter = (pan && remitterName && remitterName.trim() && remitterName.trim() !== 'Customer') 
     ? remitterName.trim() 
-    : (billDetails?.rawBillerResponse?.customerName || billDetails?.customerName || 'UsePay Customer');
+    : 'UsePay Customer';
 
   const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
