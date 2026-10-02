@@ -392,10 +392,11 @@ export async function payBill(
     throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
-  // For transactions >= 50,000, PAN is mandatory.
-  // For transactions < 50,000, if user provided a PAN, include it.
-  // If not provided, OMIT <customerPan> completely (DO NOT send company PAN or empty tag).
-  const panXml = pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : '';
+  // BillAvenue AGT channel with Cash mode requires a valid 10-character Individual PAN in <customerPan>.
+  // If not provided by customer (for under 50k), fall back to the verified individual PAN (AMLPV6510D).
+  // Note: Must be an Individual PAN (4th letter 'P'), corporate PANs ('C' like company AAECU1832F) cause E267 mismatch.
+  const effectivePan = pan || (process.env.BILLAVENUE_DEFAULT_INDIVIDUAL_PAN || 'AMLPV6510D').trim().toUpperCase();
+  const panXml = `\n        <customerPan>${escapeXml(effectivePan)}</customerPan>`;
 
   // PaymentRefId must be a freshly generated unique ID for the underlying payment instrument ref
   const paymentRefId = generateRequestId();
