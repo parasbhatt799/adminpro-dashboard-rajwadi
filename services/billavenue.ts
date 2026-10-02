@@ -392,23 +392,21 @@ export async function payBill(
     throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
-  // BillAvenue AGT channel with Cash mode requires a valid 10-character Individual PAN in <customerPan>.
-  // If not provided by customer (for under 50k), fall back to the verified individual PAN (AMLPV6510D).
-  // Note: Must be an Individual PAN (4th letter 'P'), corporate PANs ('C' like company AAECU1832F) cause E267 mismatch.
-  const effectivePan = pan || (process.env.BILLAVENUE_DEFAULT_INDIVIDUAL_PAN || 'AMLPV6510D').trim().toUpperCase();
-  const panXml = `\n        <customerPan>${escapeXml(effectivePan)}</customerPan>`;
+  // A fresh, unique transaction reference for the payment instrument
+  const paymentRefId = generateRequestId();
 
-  const paymentRefId = (fetchRequestId && fetchRequestId.trim()) ? fetchRequestId.trim() : generateRequestId();
-  const nameOfRemitter = (
-    (remitterName && remitterName.trim() && remitterName.trim().toLowerCase() !== 'customer') 
-      ? remitterName.trim() 
-      : (
-          billDetails?.rawBillerResponse?.customerName ||
-          billDetails?.rawBillerResponse?.RespCustomerName ||
-          billDetails?.customerName ||
-          'UsePay Customer'
-        )
+  // Resolve genuine customer remitter name (required for >50k to prevent E030, and valid for all)
+  const resolvedCustomerName = (
+    remitterName ||
+    billDetails?.rawBillerResponse?.customerName ||
+    billDetails?.rawBillerResponse?.RespCustomerName ||
+    billDetails?.customerName ||
+    ''
   ).trim();
+
+  const nameOfRemitter = (resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer')
+    ? resolvedCustomerName
+    : 'UsePay Customer';
 
   const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
@@ -456,19 +454,10 @@ export async function payBill(
   let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>
-        <customerEmail></customerEmail>
-        <customerAdhaar></customerAdhaar>
-        <customerPan>${escapeXml(effectivePan)}</customerPan>
-    </customerInfo>
     <billerId>${billerId}</billerId>
+    <customerInfo>
+        <customerMobile>${customerMobile}</customerMobile>${pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : ''}
+    </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
       .map(
@@ -479,7 +468,7 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>${billerResponseXml}${additionalInfoXml}
+    </inputParams>
     <amountInfo>
         <amount>${amountInPaise}</amount>
         <currency>356</currency>
@@ -509,9 +498,15 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}${additionalInfoXml}
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
 }
 
 /**
