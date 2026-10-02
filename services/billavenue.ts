@@ -392,11 +392,13 @@ export async function payBill(
     throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
-  // BillAvenue AGT channel with Cash mode requires a valid 10-character PAN in <customerPan>.
-  // If not provided by customer (for under 50k), fall back to corporate registered PAN.
-  const effectivePan = pan || (process.env.BILLAVENUE_DEFAULT_PAN || 'AAECU1832F').trim().toUpperCase();
+  // For transactions >= 50,000, PAN is mandatory.
+  // For transactions < 50,000, if user provided a PAN, include it.
+  // If not provided, OMIT <customerPan> completely (DO NOT send company PAN or empty tag).
+  const panXml = pan ? `\n        <customerPan>${escapeXml(pan)}</customerPan>` : '';
 
-  const paymentRefId = (fetchRequestId && fetchRequestId.trim()) ? fetchRequestId.trim() : generateRequestId();
+  // PaymentRefId must be a freshly generated unique ID for the underlying payment instrument ref
+  const paymentRefId = generateRequestId();
   const nameOfRemitter = (
     (remitterName && remitterName.trim() && remitterName.trim().toLowerCase() !== 'customer') 
       ? remitterName.trim() 
@@ -456,8 +458,7 @@ export async function payBill(
     <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>
-        <customerPan>${escapeXml(effectivePan)}</customerPan>
+        <customerMobile>${customerMobile}</customerMobile>${panXml}
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
@@ -507,7 +508,7 @@ export async function payBill(
     <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>${billerResponseXml}${additionalInfoXml}
 </billPaymentRequest>`;
 
-  return callBillAvenueApi(ENDPOINTS.pay, xml, paymentRefId);
+  return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId || paymentRefId);
 }
 
 /**
