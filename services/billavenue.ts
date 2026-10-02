@@ -392,25 +392,37 @@ export async function payBill(
     throw new Error('Customer PAN is mandatory for Cash transactions of ₹50,000 or above as per NBBL / RBI guidelines.');
   }
 
-  // BillAvenue AGT channel Cash mode requires a valid 10-character Individual PAN in customerInfo.
-  // Fall back to verified individual PAN (AMLPV6510D) if not supplied for sub-50k test amounts.
-  const effectivePan = pan || (process.env.BILLAVENUE_DEFAULT_INDIVIDUAL_PAN || 'AMLPV6510D').trim().toUpperCase();
-
   // A fresh, unique transaction reference for the payment instrument
   const paymentRefId = generateRequestId();
 
-  // Resolve genuine customer remitter name (required for >50k to prevent E030, and valid for all)
-  const resolvedCustomerName = (
-    remitterName ||
-    billDetails?.rawBillerResponse?.customerName ||
-    billDetails?.rawBillerResponse?.RespCustomerName ||
-    billDetails?.customerName ||
-    ''
-  ).trim();
+  // BBPS AGT Cash Mode Rules:
+  // 1. Amount >= ₹50,000: RBI & BBPS mandate customer KYC.
+  //    - <Remitter Name> MUST be the genuine customer name (matches cardholder / PAN).
+  //    - <customerPan> is MANDATORY.
+  // 2. Amount < ₹50,000: Counter retail collection identity.
+  //    - <Remitter Name> MUST be the registered Agent Institution counter identity ('UsePay Customer').
+  //    - <customerPan> MUST NOT be passed (passing individual names or PAN causes E267: 'Invalid payment info for given payment mode').
+  let nameOfRemitter = 'UsePay Customer';
+  let panXml = '';
 
-  const nameOfRemitter = (resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer')
-    ? resolvedCustomerName
-    : 'UsePay Customer';
+  if (isHighValue) {
+    const resolvedCustomerName = (
+      remitterName ||
+      billDetails?.rawBillerResponse?.customerName ||
+      billDetails?.rawBillerResponse?.RespCustomerName ||
+      billDetails?.customerName ||
+      ''
+    ).trim();
+
+    nameOfRemitter = (resolvedCustomerName && resolvedCustomerName.toLowerCase() !== 'customer')
+      ? resolvedCustomerName
+      : (remitterName || 'UsePay Customer');
+    
+    panXml = `\n        <customerPan>${escapeXml(pan)}</customerPan>`;
+  } else {
+    nameOfRemitter = 'UsePay Customer';
+    panXml = '';
+  }
 
   const paymentAccountInfo = 'Cash Payment';
   const finalPaymentMode = 'Cash';
@@ -460,8 +472,7 @@ export async function payBill(
     <agentId>${finalAgentId}</agentId>
     <billerId>${billerId}</billerId>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>
-        <customerPan>${escapeXml(effectivePan)}</customerPan>
+        <customerMobile>${customerMobile}</customerMobile>${panXml}
     </customerInfo>
     <inputParams>
         ${Object.entries(customerParams)
