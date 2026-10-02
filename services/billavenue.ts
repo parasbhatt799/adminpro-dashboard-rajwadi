@@ -463,14 +463,11 @@ export async function payBill(
     paymentAccountInfo = paymentAccountInfo.substring(0, 200);
   }
 
-  // NBBL Guidelines & BillAvenue Rules:
-  // 1. PaymentRefId tag is mandatory for ALL transactions regardless of amount or category.
-  // 2. For transactions > ₹50,000: Remitter Name, PaymentRefId, Payment Account Info, Payment mode are mandatory.
-  // 3. For transactions <= ₹50,000: The old CCBP rule is null and void; only PaymentRefId is expected.
-  //    (Passing extra payment info tags for <= ₹50,000 causes E267 "Invalid payment info for given payment mode").
-  let paymentInfoXml = '';
-  if (isHighValue) {
-    paymentInfoXml = `    <paymentInfo>
+  // Build <paymentInfo> block according to BillAvenue Doc v2.8.7 (Page 23):
+  // "The AIs should pass the new <infoName>Payment Account Info</infoName> tag for all the transactions irrespective of the amount (no less than or more than 50k segregation).
+  //  For ALL transactions, following Remitter Info tags are mandatory:
+  //  Remitter Name, PaymentRefId, Payment Account Info, Payment mode"
+  const paymentInfoXml = `    <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
             <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
@@ -488,14 +485,6 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>`;
-  } else {
-    paymentInfoXml = `    <paymentInfo>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
-    </paymentInfo>`;
-  }
 
   // 1. additionalInfo block (Page 33 sample: first tag if present)
   let additionalInfoXml = '';
