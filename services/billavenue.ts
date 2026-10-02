@@ -417,52 +417,37 @@ export async function payBill(
     paymentAccountInfo = `1234|UsePay`;
   }
 
-  // NBBL AGT Channel PaymentInfo Guidelines & Doc v2.8.7 Page 23:
-  // 1. The PaymentRefId tag is mandatory for all transactions, regardless of amount or category.
-  // 2. The Payment Account Info tag is mandatory for all transactions (for Cash: "Cash Payment").
-  // 3. For transactions > ₹50,000, Remitter Name and Payment Mode are also mandatory.
-  // 4. For transactions <= ₹50,000, Remitter Name and Payment Mode are omitted.
-  let paymentInfoXml = '';
-  if (amount > 50000) {
-    paymentInfoXml = `    <paymentInfo>
+  let paymentInfoXml = `    <paymentInfo>
+        <info>
+            <infoName>Payment Account Info</infoName>
+            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
+        </info>${amount > 50000 ? `
         <info>
             <infoName>Remitter Name</infoName>
             <infoValue>${escapeXml(nameOfRemitter)}</infoValue>
         </info>
         <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
-        <info>
-            <infoName>Payment Account Info</infoName>
-            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>
-        <info>
             <infoName>Payment Mode</infoName>
             <infoValue>${escapeXml(effectivePaymentMode)}</infoValue>
-        </info>
+        </info>` : ''}
     </paymentInfo>`;
-  } else {
-    // For transactions <= ₹50,000: PaymentRefId and Payment Account Info ("Cash Payment")
-    paymentInfoXml = `    <paymentInfo>
-        <info>
-            <infoName>PaymentRefId</infoName>
-            <infoValue>${escapeXml(paymentRefId)}</infoValue>
-        </info>
-        <info>
-            <infoName>Payment Account Info</infoName>
-            <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
-        </info>
-    </paymentInfo>`;
-  }
 
-  let xml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  let xml = `<?xml version="1.0" encoding="UTF-8"?>
 <billPaymentRequest>
     <agentId>${finalAgentId}</agentId>
-    <billerId>${billerId}</billerId>
+    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>
+    <agentDeviceInfo>
+        <ip>127.0.0.1</ip>
+        <initChannel>${initChannel}</initChannel>
+        <mac>01-23-45-67-89-ab</mac>
+    </agentDeviceInfo>
     <customerInfo>
-        <customerMobile>${customerMobile}</customerMobile>${customerPan ? `\n        <customerPan>${escapeXml(customerPan.toUpperCase())}</customerPan>` : ''}
+        <customerMobile>${customerMobile}</customerMobile>
+        <customerEmail></customerEmail>
+        <customerAdhaar></customerAdhaar>
+        <customerPan>${customerPan ? escapeXml(customerPan.toUpperCase()) : ''}</customerPan>
     </customerInfo>
+    <billerId>${billerId}</billerId>
     <inputParams>
         ${Object.entries(customerParams)
       .map(
@@ -473,25 +458,7 @@ export async function payBill(
         </input>`
       )
       .join('')}
-    </inputParams>
-    <amountInfo>
-        <amount>${amountInPaise}</amount>
-        <currency>356</currency>
-        <custConvFee>0</custConvFee>
-        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
-    </amountInfo>
-    <paymentMethod>
-        <paymentMode>${effectivePaymentMode}</paymentMode>
-        <quickPay>${quickPay}</quickPay>
-        <splitPay>N</splitPay>
-    </paymentMethod>
-${paymentInfoXml}
-    <agentDeviceInfo>
-        <ip>127.0.0.1</ip>
-        <initChannel>${initChannel}</initChannel>
-        <mac>01-23-45-67-89-ab</mac>
-    </agentDeviceInfo>
-    <billerAdhoc>${quickPay === 'Y' ? 'true' : 'false'}</billerAdhoc>`;
+    </inputParams>`;
 
   if (quickPay !== 'Y' && billDetails) {
     const fetchedAmountInPaise = billDetails.billAmount ? Math.round(Number(billDetails.billAmount) * 100) : amountInPaise;
@@ -535,6 +502,20 @@ ${paymentInfoXml}
   }
 
   xml += `
+    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
+    <amountInfo>
+        <amount>${amountInPaise}</amount>
+        <currency>356</currency>
+        <custConvFee>0</custConvFee>
+        ${ccf1 !== undefined && !isNaN(ccf1) ? `<CCF1>${ccf1}</CCF1>` : ''}
+        <amountTags></amountTags>
+    </amountInfo>
+    <paymentMethod>
+        <paymentMode>${effectivePaymentMode}</paymentMode>
+        <quickPay>${quickPay}</quickPay>
+        <splitPay>N</splitPay>
+    </paymentMethod>
+${paymentInfoXml}
 </billPaymentRequest>`;
 
   return callBillAvenueApi(ENDPOINTS.pay, xml, fetchRequestId);
