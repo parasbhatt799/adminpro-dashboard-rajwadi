@@ -439,7 +439,6 @@ export async function payBill(
         <quickPay>${quickPay}</quickPay>
         <splitPay>N</splitPay>
     </paymentMethod>
-    <REMITTER_NAME>${escapeXml(nameOfRemitter)}</REMITTER_NAME>
     <paymentInfo>
         <info>
             <infoName>Remitter Name</infoName>
@@ -458,7 +457,6 @@ export async function payBill(
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
     </paymentInfo>
-    <paymentRefId>${escapeXml(paymentRefId)}</paymentRefId>
     <agentDeviceInfo>
         <ip>127.0.0.1</ip>
         <initChannel>${initChannel}</initChannel>
