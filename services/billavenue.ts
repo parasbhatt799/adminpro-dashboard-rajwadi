@@ -448,11 +448,11 @@ export async function payBill(
             <infoName>PaymentRefId</infoName>
             <infoValue>${escapeXml(paymentRefId)}</infoValue>
         </info>
-        <info>
+        ${isHighValue ? `<info>
             <infoName>Payment Account Info</infoName>
             <infoValue>${escapeXml(paymentAccountInfo)}</infoValue>
         </info>
-        <info>
+        ` : ''}<info>
             <infoName>Payment mode</infoName>
             <infoValue>${escapeXml(finalPaymentMode)}</infoValue>
         </info>
