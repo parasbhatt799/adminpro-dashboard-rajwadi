@@ -1414,7 +1414,7 @@ export default function B2BAPIDocumentation() {
               </div>
 
               <CodeBlock 
-                title="Sample Request Body"
+                title="Sample Request Body (< ₹50,000 Standard Bill)"
                 section="cspl_pay_req"
                 code={`{
   "billerId": "SBIC00000NATDN",
@@ -1426,6 +1426,31 @@ export default function B2BAPIDocumentation() {
   "customerMobile": "8140428671",
   "customerName": "JIGNESHBHAI VANANI",
   "client_transaction_id": "CLIENT_TXN_998811",
+  "billDetails": {
+    "billerResponse": { ... },
+    "additionalInfo": [ ... ]
+  }
+}`}
+              />
+
+              <CodeBlock 
+                title="Sample Request Body (>= ₹50,000 High-Value with Mandatory KYC Tags)"
+                section="cspl_pay_req_high_value"
+                code={`{
+  "billerId": "IDFC00000NATFQ",
+  "amount": 60000.00,
+  "customerParams": {
+    "Last 4 digits of Primary Credit Card Number": "1234",
+    "Registered Mobile Number": "9998314311"
+  },
+  "customerMobile": "9998314311",
+  "customerName": "Test User",
+  "remitterName": "Ramesh Kumar",
+  "customerPan": "ABCDE1234F",
+  "customerEmail": "ramesh@example.com",
+  "customerAadhaar": "",
+  "amountTags": "",
+  "client_transaction_id": "CLIENT_TXN_998812",
   "billDetails": {
     "billerResponse": { ... },
     "additionalInfo": [ ... ]

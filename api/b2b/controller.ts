@@ -3223,7 +3223,14 @@ export const payCsplBill = async (req: Request, res: Response) => {
       addInfoList = fetchedAdditionalInfo.info;
     }
 
-
+    // Check RBI / NPCI compliance rule: Transactions >= ₹50,000 require PAN card
+    const effectivePan = (customerPan || pan || req.body?.panNumber || '').trim().toUpperCase();
+    if (parsedAmount >= 50000 && !effectivePan) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'PAN Card (customerPan / pan) is mandatory for Credit Card / CSPL bill payments of ₹50,000 or above as per RBI/NPCI guidelines.'
+      });
+    }
 
     // 5. Calculate Charges
     let baseChargePerBill = parseFloat(agentData.charge_per_bill?.toString() || '0');
