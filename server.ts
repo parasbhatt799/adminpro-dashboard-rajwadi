@@ -3814,6 +3814,57 @@ async function startServer() {
         finalTrackType = String(finalTrackValue).startsWith("CC01") ? "TRANS_REF_ID" : "REQUEST_ID";
       }
 
+      const isCspl = sub?.service_type === 'CSPL BBPS' || sub?.metadata?.gateway === 'CSPL' || !!sub?.metadata?.csplResponse;
+
+      if (isCspl) {
+        console.log(`[CSPL Manual Status] Checking CSPL status with trackValue: ${finalTrackValue} for submission ${submissionId || 'N/A'}`);
+        try {
+          const queryPayload: any = {
+            requestId: finalTrackValue,
+            refid: finalTrackValue,
+            txnid: finalTrackValue,
+            transactionId: finalTrackValue,
+            billerId: sub?.provider
+          };
+
+          // Also attach stored request IDs if available
+          if (sub?.metadata?.requestId) queryPayload.originalRequestId = sub.metadata.requestId;
+          if (sub?.metadata?.fetchRequestId) queryPayload.fetchRequestId = sub.metadata.fetchRequestId;
+
+          const liveRes = await camlenioBbps.checkStatus(queryPayload);
+          if (liveRes) {
+            const respCode = liveRes?.responseCode || liveRes?.data?.responseCode;
+            const respStatus = (liveRes?.status || liveRes?.data?.status || '').toUpperCase();
+            const isSuccess = respCode === '000' || respStatus === 'SUCCESS' || respStatus === 'SUCCESSFUL';
+            const isFailed = respCode === '205' || respStatus === 'FAILED' || respStatus === 'FAILURE' || respStatus === 'REJECTED';
+
+            const newStatus: 'approved' | 'rejected' | 'pending' = isSuccess ? 'approved' : (isFailed ? 'rejected' : 'pending');
+            const txnReferenceId = liveRes?.data?.txnRefId || liveRes?.txnRefId || liveRes?.refid || finalTrackValue;
+
+            if (sub) {
+              await supabaseAdmin.from("bbps_submissions").update({
+                status: newStatus,
+                rejection_reason: txnReferenceId,
+                metadata: {
+                  ...(sub.metadata || {}),
+                  csplStatusCheck: liveRes,
+                  checkedAt: new Date().toISOString()
+                }
+              }).eq("id", sub.id);
+            }
+
+            return res.json({
+              success: true,
+              status: newStatus,
+              message: `CSPL status verified as ${newStatus.toUpperCase()}!`,
+              data: liveRes
+            });
+          }
+        } catch (csplErr: any) {
+          console.error('[CSPL Manual Status Check Error]', csplErr);
+        }
+      }
+
       console.log(`[BillAvenue Manual Status] Checking ${finalTrackType}: ${finalTrackValue} for submission ${submissionId || 'N/A'}`);
       const response = await billAvenue.getTransactionStatus(finalTrackValue, finalTrackType);
 
