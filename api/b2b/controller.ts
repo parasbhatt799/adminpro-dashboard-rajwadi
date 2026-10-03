@@ -3604,11 +3604,22 @@ export const checkCsplStatus = async (req: Request, res: Response) => {
     // If transaction is still PENDING, attempt real-time status inquiry with CSPL / Camlenio
     if (isPending) {
       try {
-        const csplReqId = reqPayload.transaction_id || reqPayload.requestId || reqPayload.client_transaction_id || resPayload.transaction_id || log.id;
+        const csplReqId = reqPayload.transaction_id || reqPayload.requestId || reqPayload.csplPayload?.requestId || resPayload.transaction_id || log.id;
+        const clientTxnId = reqPayload.client_transaction_id || resPayload.client_transaction_id;
+        const refId = reqPayload.refid || reqPayload.csplPayload?.refid || resPayload.refid || resPayload.txnid;
+        const billerId = reqPayload.billerId || reqPayload.csplPayload?.billerId;
+
         const queryPayload: any = {
           requestId: csplReqId,
-          billerId: reqPayload.billerId || reqPayload.csplPayload?.billerId
+          refid: refId || csplReqId,
+          txnid: refId || csplReqId,
+          transactionId: csplReqId,
+          billerId: billerId
         };
+        if (clientTxnId) {
+          queryPayload.client_transaction_id = clientTxnId;
+          queryPayload.client_ref_id = clientTxnId;
+        }
 
         const liveRes = await camlenioBbps.checkStatus(queryPayload);
         if (liveRes) {
