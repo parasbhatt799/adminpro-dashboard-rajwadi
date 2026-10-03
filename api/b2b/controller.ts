@@ -3591,17 +3591,86 @@ export const checkCsplStatus = async (req: Request, res: Response) => {
 
     const resPayload = log.response_payload || {};
     const reqPayload = log.request_payload || {};
-    const rawStatus = (log.payment_status || resPayload.payment_status || resPayload.status || '').toLowerCase();
-    const responseCode = String(resPayload.responseCode || resPayload.data?.responseCode || '').trim();
-    const isSuccess =
+    let rawStatus = (log.payment_status || resPayload.payment_status || resPayload.status || '').toLowerCase();
+    let responseCode = String(resPayload.responseCode || resPayload.data?.responseCode || '').trim();
+    let isSuccess =
       rawStatus === 'success' ||
       rawStatus === 'successful' ||
       responseCode === '000' ||
       (log.status_code === 200 && rawStatus !== 'failed' && rawStatus !== 'error');
 
-    const isPending = rawStatus === 'pending' || (log.status_code === 202 && !isSuccess);
+    let isPending = rawStatus === 'pending' || (log.status_code === 202 && !isSuccess);
+
+    // If transaction is still PENDING, attempt real-time status inquiry with CSPL / Camlenio
+    if (isPending) {
+      try {
+        const csplReqId = reqPayload.transaction_id || reqPayload.requestId || reqPayload.client_transaction_id || resPayload.transaction_id || log.id;
+        const queryPayload: any = {
+          requestId: csplReqId,
+          billerId: reqPayload.billerId || reqPayload.csplPayload?.billerId
+        };
+
+        const liveRes = await camlenioBbps.checkStatus(queryPayload);
+        if (liveRes) {
+          const liveCode = String(liveRes.responseCode || liveRes.data?.responseCode || '').trim();
+          const liveStatus = String(liveRes.status || liveRes.payment_status || liveRes.data?.status || '').toLowerCase();
+
+          if (liveCode === '000' || liveStatus === 'success' || liveStatus === 'successful') {
+            isSuccess = true;
+            isPending = false;
+            rawStatus = 'success';
+
+            // Update log in database to SUCCESS!
+            await supabaseAdmin
+              .from('b2b_api_logs')
+              .update({
+                status_code: 200,
+                payment_status: 'success',
+                response_payload: {
+                  ...resPayload,
+                  ...liveRes,
+                  payment_status: 'success',
+                  status: 'SUCCESS',
+                  live_synced_at: new Date().toISOString()
+                }
+              })
+              .eq('id', log.id);
+
+            // Credit admin profit if owner charge was pending
+            const ownerCharge = Number(log.owner_charge || reqPayload.ownerCharge || 0);
+            if (ownerCharge > 0) {
+              try {
+                await supabaseAdmin.rpc('add_admin_balance', { p_amount: ownerCharge });
+              } catch (_) {}
+            }
+          } else if (liveStatus === 'failed' || liveStatus === 'failure' || liveCode === '001') {
+            isSuccess = false;
+            isPending = false;
+            rawStatus = 'failed';
+
+            await supabaseAdmin
+              .from('b2b_api_logs')
+              .update({
+                status_code: 400,
+                payment_status: 'failed',
+                response_payload: {
+                  ...resPayload,
+                  ...liveRes,
+                  payment_status: 'failed',
+                  status: 'FAILED',
+                  live_synced_at: new Date().toISOString()
+                }
+              })
+              .eq('id', log.id);
+          }
+        }
+      } catch (liveErr) {
+        console.warn('[CSPL Live Status Check Warning]:', liveErr);
+      }
+    }
+
     const finalStatus = isSuccess ? 'SUCCESS' : isPending ? 'PENDING' : 'FAILED';
-    const message = resPayload.message || resPayload.responseReason || (isSuccess ? 'Transaction Successful' : 'Transaction Failed');
+    const message = resPayload.message || resPayload.responseReason || (isSuccess ? 'Transaction Successful' : isPending ? 'Transaction is Pending at CSPL' : 'Transaction Failed');
 
     res.json({
       status: 'success',
@@ -3630,6 +3699,86 @@ export const checkCsplStatus = async (req: Request, res: Response) => {
  */
 export const checkCsplStatusAdmin = async (req: Request, res: Response): Promise<any> => {
   return checkCsplStatus(req, res);
+};
+
+/**
+ * 5.1 Admin Manual Update CSPL Bill Status (Success / Failed)
+ */
+export const updateCsplStatusAdmin = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { logId, status, message, utr } = req.body;
+    if (!logId || !status) {
+      return res.status(400).json({ status: 'error', message: 'logId and status are required' });
+    }
+
+    const newStatus = String(status).toLowerCase();
+    if (!['success', 'failed'].includes(newStatus)) {
+      return res.status(400).json({ status: 'error', message: 'Invalid status. Must be success or failed' });
+    }
+
+    const { data: log, error: logErr } = await supabaseAdmin
+      .from('b2b_api_logs')
+      .select('*')
+      .eq('id', logId)
+      .single();
+
+    if (logErr || !log) {
+      return res.status(404).json({ status: 'error', message: 'Log entry not found' });
+    }
+
+    const resPayload = log.response_payload || {};
+    const reqPayload = log.request_payload || {};
+
+    if (newStatus === 'success') {
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({
+          status_code: 200,
+          payment_status: 'success',
+          response_payload: {
+            ...resPayload,
+            payment_status: 'success',
+            status: 'SUCCESS',
+            responseCode: '000',
+            message: message || 'Transaction Verified & Marked as SUCCESS by Admin',
+            manual_verified_by_admin: true,
+            admin_utr: utr || undefined,
+            updated_at: new Date().toISOString()
+          }
+        })
+        .eq('id', logId);
+
+      // Credit admin profit if owner charge was pending
+      const ownerCharge = Number(log.owner_charge || reqPayload.ownerCharge || 0);
+      if (ownerCharge > 0) {
+        try {
+          await supabaseAdmin.rpc('add_admin_balance', { p_amount: ownerCharge });
+        } catch (_) {}
+      }
+
+      return res.json({ status: 'success', message: 'Transaction status updated to SUCCESS' });
+    } else {
+      await supabaseAdmin
+        .from('b2b_api_logs')
+        .update({
+          status_code: 400,
+          payment_status: 'failed',
+          response_payload: {
+            ...resPayload,
+            payment_status: 'failed',
+            status: 'FAILED',
+            message: message || 'Marked as FAILED by Admin',
+            updated_at: new Date().toISOString()
+          }
+        })
+        .eq('id', logId);
+
+      return res.json({ status: 'success', message: 'Transaction status updated to FAILED' });
+    }
+  } catch (err: any) {
+    console.error('[updateCsplStatusAdmin Error]', err);
+    res.status(500).json({ status: 'error', message: err.message || 'Failed to update status' });
+  }
 };
 
 /**

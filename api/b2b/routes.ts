@@ -22,6 +22,7 @@ import {
   payCsplBill,
   checkCsplStatus,
   checkCsplStatusAdmin,
+  updateCsplStatusAdmin,
   verifyWithdrawalPinAdmin
 } from './controller';
 
@@ -44,6 +45,7 @@ router.get('/admin/status/:transaction_id', checkStatusAdmin);
 router.get('/admin/payout/status/:order_id', checkPayoutStatusAdmin);
 router.get('/admin/cspl/status/:transaction_id', checkCsplStatusAdmin);
 router.get('/cspl/status/:transaction_id', checkCsplStatusAdmin);
+router.post('/admin/cspl/update-status', updateCsplStatusAdmin);
 router.post('/admin/payout/resend-webhook', resendPayoutWebhookAdmin);
 router.post('/admin/agent/test-webhook', testAgentWebhookAdmin);
 router.post('/admin/verify-withdrawal-pin', verifyWithdrawalPinAdmin);

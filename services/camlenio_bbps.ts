@@ -69,3 +69,19 @@ export async function fetchBill(payload: any) {
 export async function payBill(payload: any) {
   return callBbpsApi('/api/v1/bbps/billpay', payload);
 }
+
+// 4. Check Transaction Status API
+export async function checkStatus(payload: any) {
+  // Camlenio supports status check by requestId/txnRefId/clientRef
+  const endpoints = ['/api/v1/bbps/status', '/api/v1/bbps/billstatus', '/api/v1/bbps/transaction-status'];
+  let lastErr: any = null;
+  for (const ep of endpoints) {
+    try {
+      const res = await callBbpsApi(ep, payload);
+      if (res) return res;
+    } catch (e: any) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error('Failed to query Camlenio BBPS status');
+}

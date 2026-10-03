@@ -1182,6 +1182,79 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                 {JSON.stringify(selectedLog.response_payload, null, 2)}
               </pre>
             </div>
+
+            {/* Admin Manual Action Bar */}
+            {isAdmin && (
+              <div className="pt-2 border-t border-slate-700/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span className="text-[11px] text-slate-400">
+                  Admin Control: If this bill is verified as paid at CSPL, you can manually update it to Success:
+                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to mark this transaction as SUCCESS? Admin profit will be credited.')) return;
+                      try {
+                        const API_URL = import.meta.env.VITE_API_URL || '';
+                        const res = await fetch(`${API_URL}/api/v1/b2b/admin/cspl/update-status`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            logId: selectedLog.id,
+                            status: 'success',
+                            message: 'Transaction verified as SUCCESS at CSPL'
+                          })
+                        });
+                        const d = await res.json();
+                        if (d.status === 'success') {
+                          alert('Transaction updated to SUCCESS!');
+                          setSelectedLog(null);
+                          await fetchLogs(true);
+                        } else {
+                          alert(`Error: ${d.message}`);
+                        }
+                      } catch (e: any) {
+                        alert(`Failed: ${e.message}`);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs cursor-pointer shadow transition-all"
+                  >
+                    Mark as Success
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!confirm('Are you sure you want to mark this transaction as FAILED?')) return;
+                      try {
+                        const API_URL = import.meta.env.VITE_API_URL || '';
+                        const res = await fetch(`${API_URL}/api/v1/b2b/admin/cspl/update-status`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            logId: selectedLog.id,
+                            status: 'failed',
+                            message: 'Marked as FAILED by Admin'
+                          })
+                        });
+                        const d = await res.json();
+                        if (d.status === 'success') {
+                          alert('Transaction updated to FAILED!');
+                          setSelectedLog(null);
+                          await fetchLogs(true);
+                        } else {
+                          alert(`Error: ${d.message}`);
+                        }
+                      } catch (e: any) {
+                        alert(`Failed: ${e.message}`);
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-rose-600/80 hover:bg-rose-600 text-white font-bold rounded-lg text-xs cursor-pointer transition-all"
+                  >
+                    Mark as Failed
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </Modal>
       )}
