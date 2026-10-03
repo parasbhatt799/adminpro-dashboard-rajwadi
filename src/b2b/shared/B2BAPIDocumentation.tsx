@@ -24,6 +24,13 @@ export default function B2BAPIDocumentation() {
   const [isPayoutEnabled, setIsPayoutEnabled] = useState(false);
   const [isCsplEnabled, setIsCsplEnabled] = useState(false);
   const [activeService, setActiveService] = useState<'bbps' | 'payout' | 'cspl'>('bbps');
+  const [docFundWallet, setDocFundWallet] = useState<'bbps' | 'payout' | 'cspl'>('bbps');
+
+  useEffect(() => {
+    if (activeService === 'cspl') setDocFundWallet('cspl');
+    else if (activeService === 'payout') setDocFundWallet('payout');
+    else setDocFundWallet('bbps');
+  }, [activeService]);
 
   const copyToClipboard = (text: string, section: string) => {
     navigator.clipboard.writeText(text);
@@ -330,11 +337,35 @@ export default function B2BAPIDocumentation() {
 
         y = checkPageBreak(y, 85);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(10);
         doc.setTextColor(79, 70, 229);
-        doc.text('2.6 POST /fund-request - Submit BBPS Wallet Top-up', 14, y);
+        doc.text('2.6 POST /fund-request - Submit BBPS Wallet Top-up (wallet_type: "bbps")', 14, y);
         y += 4;
         y = drawCodeBlock('Sample Request Body', `{\n  "amount": 50000,\n  "utr_number": "UTR9876543210",\n  "wallet_type": "bbps",\n  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567"\n}`, y);
+      } else if (activeService === 'cspl') {
+        // PURE CSPL SECTIONS IN PDF
+        y = checkPageBreak(y, 90);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(59, 130, 246);
+        doc.text('2.2 POST /cspl/fetch-bill - Fetch Customer Bill Details', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "mobile": "9898971274",\n  "customerParams": [{ "name": "Consumer Number", "value": "12345678901" }]\n}`, y);
+
+        y = checkPageBreak(y, 110);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(59, 130, 246);
+        doc.text('2.3 POST /cspl/pay-bill - Execute Sub-second Bill Payment', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "amount": 1500.00,\n  "mobile": "9898971274",\n  "client_transaction_id": "TXN_CSPL_20261003_001",\n  "customerParams": [{ "name": "Consumer Number", "value": "12345678901" }]\n}`, y);
+
+        y = checkPageBreak(y, 85);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(59, 130, 246);
+        doc.text('2.4 POST /fund-request - Submit CSPL Wallet Top-up (wallet_type: "cspl")', 14, y);
+        y += 4;
+        y = drawCodeBlock('Sample Request Body', `{\n  "amount": 50000,\n  "utr_number": "UTR9876543210",\n  "wallet_type": "cspl",\n  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567"\n}`, y);
       } else {
         // PURE PAYOUT SECTIONS IN PDF
         y = checkPageBreak(y, 110);
@@ -358,7 +389,7 @@ export default function B2BAPIDocumentation() {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         doc.setTextColor(147, 51, 234);
-        doc.text('2.4 POST /fund-request - Submit Payout Wallet Top-up', 14, y);
+        doc.text('2.4 POST /fund-request - Submit Payout Wallet Top-up (wallet_type: "payout")', 14, y);
         y += 4;
         y = drawCodeBlock('Sample Request Body', `{\n  "amount": 50000,\n  "utr_number": "UTR9876543210",\n  "wallet_type": "payout",\n  "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567"\n}`, y);
       }
@@ -1535,8 +1566,8 @@ export default function B2BAPIDocumentation() {
           </div>
 
           {/* POST /fund-request */}
-          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+          <div className="bg-slate-800/80 rounded-2xl border border-slate-700 p-6 shadow-xl space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-700/80 pb-3 gap-2">
               <h3 className="text-lg font-bold text-white flex items-center gap-3">
                 <span className="bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-md text-xs uppercase font-extrabold tracking-wider">POST</span>
                 /fund-request
@@ -1545,23 +1576,162 @@ export default function B2BAPIDocumentation() {
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              Submit a wallet fund request electronically to credit funds into your <strong>{isPayout ? 'Payout Wallet' : 'BBPS Wallet'}</strong> (pass <code>wallet_type: "{isPayout ? 'payout' : 'bbps'}"</code>). Your request will be queued in <code>pending</code> status for B2B Admin verification and approval.
+              Submit a wallet fund request electronically to top up your balance. Your request will be queued in <code className="text-amber-400 font-mono">pending</code> status for B2B Admin verification and approval.
             </p>
 
-            <CodeBlock 
-              title="Sample Request Body"
-              section="fund_req_body"
-              code={`{
+            {/* Crucial Multi-Service Wallet Type Guide Card */}
+            <div className="bg-gradient-to-r from-slate-900 to-indigo-950/40 border border-indigo-500/30 rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 animate-pulse"></span>
+                <span className="text-xs font-bold text-white uppercase tracking-wider">
+                  Target Wallet Selection Guide (<code className="text-indigo-300 lowercase font-mono">wallet_type</code>)
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Our platform manages separate, secure wallets for different services. In your API request, specify <code className="text-indigo-300 font-bold font-mono">wallet_type</code> to ensure funds are added to the desired service wallet:
+              </p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                {/* CSPL Fast Bill Wallet Card */}
+                <div 
+                  onClick={() => setDocFundWallet('cspl')}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    docFundWallet === 'cspl' 
+                      ? 'bg-blue-950/60 border-blue-500 ring-2 ring-blue-500/30 shadow-lg' 
+                      : 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-blue-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                      CSPL Fast Bill
+                    </span>
+                    <span className="text-[10px] font-mono font-bold bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/30">
+                      "cspl"
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-tight">
+                    For Instant Sub-second Bill Payment API (<code className="text-blue-300">/cspl/pay-bill</code>).
+                  </p>
+                  <div className="mt-2.5 text-[11px] font-mono text-blue-400 font-semibold bg-blue-950/80 px-2 py-1 rounded border border-blue-500/20">
+                    "wallet_type": "cspl"
+                  </div>
+                </div>
+
+                {/* BBPS Utility Wallet Card */}
+                <div 
+                  onClick={() => setDocFundWallet('bbps')}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    docFundWallet === 'bbps' 
+                      ? 'bg-emerald-950/60 border-emerald-500 ring-2 ring-emerald-500/30 shadow-lg' 
+                      : 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                      BBPS Utility
+                    </span>
+                    <span className="text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                      "bbps"
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-tight">
+                    For Standard BillAvenue Utility Payments (<code className="text-emerald-300">/pay-bill</code>).
+                  </p>
+                  <div className="mt-2.5 text-[11px] font-mono text-emerald-400 font-semibold bg-emerald-950/80 px-2 py-1 rounded border border-emerald-500/20">
+                    "wallet_type": "bbps"
+                  </div>
+                </div>
+
+                {/* Payout Wallet Card */}
+                <div 
+                  onClick={() => setDocFundWallet('payout')}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
+                    docFundWallet === 'payout' 
+                      ? 'bg-purple-950/60 border-purple-500 ring-2 ring-purple-500/30 shadow-lg' 
+                      : 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                      Bank Payout
+                    </span>
+                    <span className="text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded border border-purple-500/30">
+                      "payout"
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-300 leading-tight">
+                    For 24x7 IMPS / NEFT Instant Transfers (<code className="text-purple-300">/payout/transfer</code>).
+                  </p>
+                  <div className="mt-2.5 text-[11px] font-mono text-purple-400 font-semibold bg-purple-950/80 px-2 py-1 rounded border border-purple-500/20">
+                    "wallet_type": "payout"
+                  </div>
+                </div>
+              </div>
+
+              {/* Warning note */}
+              <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-[11px] text-amber-200/90 flex items-start gap-2.5 mt-2">
+                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong>Important Notice:</strong> If you use both CSPL and BBPS services, please make sure your software passes <code className="text-white font-bold bg-slate-900 px-1.5 py-0.5 rounded font-mono">"wallet_type": "cspl"</code> when transferring money for CSPL. If you pass <code className="text-white font-bold bg-slate-900 px-1.5 py-0.5 rounded font-mono">"wallet_type": "bbps"</code> (or omit it), the deposit will be added to your <strong>BBPS Wallet</strong> instead.
+                </div>
+              </div>
+            </div>
+
+            {/* Request Body with active selection tab */}
+            <div className="space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <span className="text-xs font-bold text-slate-200">
+                  Sample Request Body: <span className="text-indigo-400">{docFundWallet === 'cspl' ? 'CSPL Fast Bill Wallet' : docFundWallet === 'payout' ? 'Payout Wallet' : 'BBPS Utility Wallet'}</span>
+                </span>
+                <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-700 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setDocFundWallet('cspl')}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg cursor-pointer transition-all ${
+                      docFundWallet === 'cspl' ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    CSPL ("cspl")
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDocFundWallet('bbps')}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg cursor-pointer transition-all ${
+                      docFundWallet === 'bbps' ? 'bg-emerald-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    BBPS ("bbps")
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDocFundWallet('payout')}
+                    className={`px-3 py-1 text-xs font-bold rounded-lg cursor-pointer transition-all ${
+                      docFundWallet === 'payout' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'
+                    }`}
+                  >
+                    Payout ("payout")
+                  </button>
+                </div>
+              </div>
+
+              <CodeBlock 
+                title={`Sample Request Body - ${docFundWallet.toUpperCase()} Wallet Top-up`}
+                section="fund_req_body"
+                code={`{
   "amount": 50000,
   "utr_number": "UTR9876543210",
-  "wallet_type": "${isPayout ? 'payout' : 'bbps'}",
+  "wallet_type": "${docFundWallet}", // "cspl" | "bbps" | "payout"
   "admin_bank_account_id": "a98e21bc-1234-4567-89ab-cdef01234567",
   "proof_url": "https://example.com/payment_receipt.jpg"
 }`}
-            />
+              />
+            </div>
 
             <CodeBlock 
-              title="Sample Success Response (201 Created)"
+              title={`Sample Success Response (201 Created) - ${docFundWallet.toUpperCase()}`}
               section="fund_req_res"
               code={`{
   "status": "success",
@@ -1570,7 +1740,7 @@ export default function B2BAPIDocumentation() {
     "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
     "amount": 50000,
     "utr_number": "UTR9876543210",
-    "wallet_type": "${isPayout ? 'payout' : 'bbps'}",
+    "wallet_type": "${docFundWallet}",
     "status": "pending",
     "submitted_at": "2026-08-15T00:33:00.000Z"
   }
@@ -1580,8 +1750,13 @@ export default function B2BAPIDocumentation() {
             <ParamTable params={[
               { name: "amount", type: "Number", required: true, desc: "Amount in INR (₹) requested to credit to your account." },
               { name: "utr_number", type: "String", required: true, desc: "Unique Bank Transaction Reference / UTR Number." },
-              { name: "wallet_type", type: "String", required: false, desc: `Target wallet destination: '${isPayout ? 'payout' : 'bbps'}'.` },
-              { name: "admin_bank_account_id", type: "String", required: false, desc: "Optional ID of the Admin Bank Account where money was deposited." },
+              { 
+                name: "wallet_type", 
+                type: "String", 
+                required: true, 
+                desc: "Target wallet destination. Allowed values: 'cspl' (CSPL Fast Bill Wallet), 'bbps' (Standard BBPS Utility Wallet), or 'payout' (Bank Payout Wallet). Crucial: Pass 'cspl' for CSPL, 'bbps' for BBPS, and 'payout' for Payout." 
+              },
+              { name: "admin_bank_account_id", type: "String", required: false, desc: "Optional ID of the Admin Bank Account where money was deposited (from GET /admin-bank-accounts)." },
               { name: "proof_url", type: "String", required: false, desc: "Optional URL linking to payment receipt or transaction screenshot." }
             ]} />
           </div>
@@ -1609,7 +1784,7 @@ export default function B2BAPIDocumentation() {
     "request_id": "88a912bc-9430-4e2b-8a2b-103bc4a9192b",
     "amount": 50000,
     "utr_number": "UTR9876543210",
-    "wallet_type": "${isPayout ? 'payout' : 'bbps'}",
+    "wallet_type": "${docFundWallet}",
     "status": "approved",
     "created_at": "2026-08-15T00:33:00.000Z"
   }
