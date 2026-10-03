@@ -4,11 +4,77 @@ import {
   Zap, Clock, CheckCircle2, XCircle, Search, RefreshCw, 
   Calendar, IndianRupee, Hash, X, Filter, ChevronLeft, 
   ChevronRight, ChevronDown, User, Building2, Receipt, Copy, Download, 
-  FileSpreadsheet, FileText, Smartphone, ArrowRightLeft, Eye, Check
+  FileSpreadsheet, FileText, Smartphone, ArrowRightLeft, Eye, Check, CreditCard
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
 import Modal from '../../components/Modal';
+
+export const extractCustomerMobile = (req: any): string => {
+  if (!req) return 'N/A';
+  if (req.customerMobile) return String(req.customerMobile);
+  if (req.mobile) return String(req.mobile);
+  if (req.mobileNumber) return String(req.mobileNumber);
+  if (req.customer_mobile) return String(req.customer_mobile);
+  if (req.csplPayload?.customerMobile) return String(req.csplPayload.customerMobile);
+  if (req.customerParams && typeof req.customerParams === 'object') {
+    for (const [k, v] of Object.entries(req.customerParams)) {
+      if (k.toLowerCase().includes('mobile') || k.toLowerCase().includes('phone')) {
+        if (v) return String(v);
+      }
+    }
+  }
+  if (Array.isArray(req.csplPayload?.inputParams)) {
+    const p = req.csplPayload.inputParams.find((x: any) => 
+      x.paramName?.toLowerCase().includes('mobile') || x.paramName?.toLowerCase().includes('phone')
+    );
+    if (p?.paramValue) return String(p.paramValue);
+  }
+  return 'N/A';
+};
+
+export const extractCardOrConsumerNumber = (req: any): string => {
+  if (!req) return 'N/A';
+  if (req.cardNumber) return String(req.cardNumber);
+  if (req.card_number) return String(req.card_number);
+  if (req.consumerNumber) return String(req.consumerNumber);
+  if (req.consumer_number) return String(req.consumer_number);
+
+  if (req.customerParams && typeof req.customerParams === 'object') {
+    // 1. Look for explicit card field
+    for (const [k, v] of Object.entries(req.customerParams)) {
+      if (k.toLowerCase().includes('card')) {
+        if (v) return String(v);
+      }
+    }
+    // 2. Look for consumer, account, or ca number
+    for (const [k, v] of Object.entries(req.customerParams)) {
+      const kl = k.toLowerCase();
+      if ((kl.includes('consumer') || kl.includes('account') || kl.includes('ca number')) && !kl.includes('mobile')) {
+        if (v) return String(v);
+      }
+    }
+    // 3. Fallback to any non-mobile field
+    for (const [k, v] of Object.entries(req.customerParams)) {
+      const kl = k.toLowerCase();
+      if (!kl.includes('mobile') && !kl.includes('phone') && !kl.includes('email')) {
+        if (v) return String(v);
+      }
+    }
+  }
+
+  if (Array.isArray(req.csplPayload?.inputParams)) {
+    const cardParam = req.csplPayload.inputParams.find((p: any) => p.paramName?.toLowerCase().includes('card'));
+    if (cardParam?.paramValue) return String(cardParam.paramValue);
+
+    const nonMobile = req.csplPayload.inputParams.find((p: any) => 
+      !p.paramName?.toLowerCase().includes('mobile') && !p.paramName?.toLowerCase().includes('phone')
+    );
+    if (nonMobile?.paramValue) return String(nonMobile.paramValue);
+  }
+
+  return 'N/A';
+};
 
 interface B2BAPICsplHistoryProps {
   isAdmin: boolean;
@@ -379,14 +445,17 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
       if (searchTerm.trim()) {
         const term = searchTerm.trim().toLowerCase();
         const info = agentMap[log.agent_id];
+        const cardOrConsumer = extractCardOrConsumerNumber(req);
+        const mobile = extractCustomerMobile(req);
         const searchString = `
           ${log.agent_id || ''}
           ${info?.b2b_login_id || ''}
           ${info?.name || ''}
           ${req.billerId || ''}
           ${req.billerName || ''}
-          ${req.mobile || ''}
-          ${req.consumerNumber || ''}
+          ${mobile}
+          ${cardOrConsumer}
+          ${req.customerName || ''}
           ${txnId}
           ${csplTxnId}
           ${bbpsRef}
@@ -477,7 +546,9 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
           ...(isAdmin ? { 'B2B Login ID': agentInfo?.b2b_login_id || log.agent_id, 'Agent Name': agentInfo?.name || '' } : {}),
           'Biller ID': req.billerId || 'N/A',
           'Biller Name': req.billerName || '',
-          'Mobile / Consumer': req.mobile || req.consumerNumber || 'N/A',
+          'Card / Consumer No': extractCardOrConsumerNumber(req),
+          'Customer Mobile': extractCustomerMobile(req),
+          'Customer Name': req.customerName || '',
           'Bill Amount (₹)': Number(req.amount || 0),
           'Charge (₹)': Number(log.charge_deducted || req.chargeDeducted || 0),
           ...(isAdmin ? {
@@ -534,7 +605,8 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
 
         row.push(
           req.billerId || 'N/A',
-          req.mobile || req.consumerNumber || 'N/A',
+          extractCardOrConsumerNumber(req),
+          extractCustomerMobile(req),
           `Rs. ${Number(req.amount || 0).toFixed(2)}`,
           `Rs. ${Number(log.charge_deducted || req.chargeDeducted || 0).toFixed(2)}`,
           req.transaction_id || res.transaction_id || log.id?.slice(0, 10),
@@ -546,7 +618,7 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
 
       const headers = ['#', 'Date & Time'];
       if (isAdmin) headers.push('Agent');
-      headers.push('Biller ID', 'Consumer / Mobile', 'Amount', 'Charge', 'Txn ID', 'Status');
+      headers.push('Biller ID', 'Card / Consumer', 'Mobile', 'Amount', 'Charge', 'Txn ID', 'Status');
 
       autoTable(doc, {
         startY: 28,
@@ -947,7 +1019,8 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                   <th className="px-4 py-3.5">Date & Time</th>
                   {isAdmin && <th className="px-4 py-3.5 text-blue-400">B2B Agent</th>}
                   <th className="px-4 py-3.5">Biller Details</th>
-                  <th className="px-4 py-3.5">Consumer / Mobile</th>
+                  <th className="px-4 py-3.5 text-purple-400">Card / Consumer No</th>
+                  <th className="px-4 py-3.5 text-emerald-400">Customer Mobile</th>
                   <th className="px-4 py-3.5">Bill Amount</th>
                   <th className="px-4 py-3.5 text-amber-400">Charge</th>
                   {isAdmin && <th className="px-4 py-3.5 text-cyan-400">Dev Fee</th>}
@@ -968,6 +1041,8 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                   const ownerChargeVal = !isSuccess ? 0 : Number(log.owner_charge || req.ownerCharge || Math.max(0, chargeVal - devChargeVal));
                   const txnId = req.transaction_id || res.transaction_id || log.id;
                   const clientTxnId = req.client_transaction_id || res.client_transaction_id;
+                  const cardOrConsumer = extractCardOrConsumerNumber(req);
+                  const mobile = extractCustomerMobile(req);
 
                   return (
                     <tr key={log.id} className="hover:bg-slate-700/25 transition-colors">
@@ -1003,17 +1078,25 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                         </div>
                       </td>
 
-                      {/* Consumer / Mobile */}
+                      {/* Card / Consumer No */}
                       <td className="px-4 py-3.5">
-                        <div className="font-mono text-xs text-white">
-                          {req.mobile || req.consumerNumber || 'N/A'}
+                        <div className="font-mono text-xs font-semibold text-purple-300 flex items-center gap-1.5">
+                          <CreditCard className="w-3.5 h-3.5 text-purple-400 shrink-0" />
+                          <span>{cardOrConsumer}</span>
                         </div>
-                        {req.consumerNumber && req.mobile && (
-                          <div className="text-[10px] text-slate-500 flex items-center gap-1 mt-0.5">
-                            <Smartphone className="w-3 h-3 text-slate-500" />
-                            {req.mobile}
+                        {req.customerName && (
+                          <div className="text-[10px] text-slate-400 truncate max-w-[130px] mt-0.5">
+                            {req.customerName}
                           </div>
                         )}
+                      </td>
+
+                      {/* Customer Mobile */}
+                      <td className="px-4 py-3.5">
+                        <div className="font-mono text-xs font-semibold text-emerald-300 flex items-center gap-1.5">
+                          <Smartphone className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          <span>{mobile}</span>
+                        </div>
                       </td>
 
                       {/* Bill Amount */}
@@ -1191,9 +1274,25 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
                 <span className="text-blue-400 font-mono">{selectedLog.request_payload?.billerId || 'N/A'}</span>
               </div>
               <div>
-                <span className="text-[10px] text-slate-500 uppercase block font-semibold">Consumer Number</span>
-                <span className="text-white font-mono">{selectedLog.request_payload?.consumerNumber || selectedLog.request_payload?.mobile || 'N/A'}</span>
+                <span className="text-[10px] text-slate-500 uppercase block font-semibold">Card / Consumer No</span>
+                <span className="text-purple-300 font-mono font-semibold flex items-center gap-1 mt-0.5">
+                  <CreditCard className="w-3.5 h-3.5 text-purple-400" />
+                  {extractCardOrConsumerNumber(selectedLog.request_payload)}
+                </span>
               </div>
+              <div>
+                <span className="text-[10px] text-slate-500 uppercase block font-semibold">Customer Mobile</span>
+                <span className="text-emerald-300 font-mono font-semibold flex items-center gap-1 mt-0.5">
+                  <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                  {extractCustomerMobile(selectedLog.request_payload)}
+                </span>
+              </div>
+              {selectedLog.request_payload?.customerName && (
+                <div className="col-span-2">
+                  <span className="text-[10px] text-slate-500 uppercase block font-semibold">Customer Name</span>
+                  <span className="text-white font-medium">{selectedLog.request_payload.customerName}</span>
+                </div>
+              )}
             </div>
 
             {/* Request Payload JSON */}
