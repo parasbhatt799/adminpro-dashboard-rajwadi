@@ -3059,9 +3059,21 @@ export const payCsplBill = async (req: Request, res: Response) => {
       customerParams,
       customerMobile,
       customerName,
+      remitterName: reqRemitterName,
+      remitter_name,
+      customerEmail: reqCustomerEmail,
+      customerPan: reqCustomerPan,
+      pan,
+      customerAadhaar,
+      amountTags: reqAmountTags,
       billDetails,
       client_transaction_id
     } = req.body;
+
+    let remitterName = reqRemitterName || remitter_name || '';
+    let customerEmail = reqCustomerEmail || '';
+    let customerPan = reqCustomerPan || pan || '';
+    let amountTags = reqAmountTags !== undefined ? reqAmountTags : null;
 
     if (!billerId || !amount || !customerParams) {
       return res.status(400).json({ status: 'error', message: 'billerId, amount, and customerParams are required' });
@@ -3159,6 +3171,10 @@ export const payCsplBill = async (req: Request, res: Response) => {
                 fetchedBillPeriod = fetchedBillPeriod || fetchD.billerResponse?.billPeriod;
                 fetchedCustomerName = fetchedCustomerName || fetchD.billerResponse?.customerName;
                 fetchedBillAmount = fetchedBillAmount || fetchD.billerResponse?.billAmount;
+                if (!remitterName && fetchD?.remitterName) remitterName = fetchD.remitterName;
+                if (!customerEmail && fetchD?.customerEmail) customerEmail = fetchD.customerEmail;
+                if (!customerPan && fetchD?.customerPan) customerPan = fetchD.customerPan;
+                if (!amountTags && fetchD?.amountTags) amountTags = fetchD.amountTags;
                 break;
               }
             }
@@ -3189,6 +3205,10 @@ export const payCsplBill = async (req: Request, res: Response) => {
           fetchedBillPeriod = fetchedBillPeriod || fetchD.billerResponse?.billPeriod;
           fetchedCustomerName = fetchedCustomerName || fetchD.billerResponse?.customerName;
           fetchedBillAmount = fetchedBillAmount || fetchD.billerResponse?.billAmount;
+          if (!remitterName && fetchD?.remitterName) remitterName = fetchD.remitterName;
+          if (!customerEmail && fetchD?.customerEmail) customerEmail = fetchD.customerEmail;
+          if (!customerPan && fetchD?.customerPan) customerPan = fetchD.customerPan;
+          if (!amountTags && fetchD?.amountTags) amountTags = fetchD.amountTags;
         }
       } catch (autoFetchErr) {
         console.warn('[B2B CSPL auto-fetch error]', autoFetchErr);
@@ -3316,6 +3336,29 @@ export const payCsplBill = async (req: Request, res: Response) => {
       if (cleanAddInfo.length > 0) {
         csplPayload.additionalInfo = cleanAddInfo;
       }
+    }
+
+    // Remitter & KYC fields for high value transactions (>= 50,000) or general CSPL requirements
+    const resolvedRemitterName = (
+      remitterName ||
+      remitter_name ||
+      customerName ||
+      fetchedCustomerName ||
+      "Remitter"
+    ).trim();
+    if (resolvedRemitterName) csplPayload.remitterName = resolvedRemitterName;
+
+    const resolvedEmail = (customerEmail || req.body?.email || "").trim();
+    if (resolvedEmail) csplPayload.customerEmail = resolvedEmail;
+
+    const finalPan = (customerPan || pan || req.body?.panNumber || "").trim().toUpperCase();
+    if (finalPan) csplPayload.customerPan = finalPan;
+
+    const finalAadhaar = (customerAadhaar || req.body?.aadhaar || "").trim();
+    if (finalAadhaar) csplPayload.customerAadhaar = finalAadhaar;
+
+    if (amountTags !== undefined && amountTags !== null) {
+      csplPayload.amountTags = amountTags;
     }
 
     // Insert pending log in b2b_api_logs
