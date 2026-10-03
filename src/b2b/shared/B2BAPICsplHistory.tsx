@@ -256,7 +256,36 @@ export default function B2BAPICsplHistory({ isAdmin, agentId }: B2BAPICsplHistor
         await fetchLogs(true);
         const currentStatus = data.data?.status || data.data?.payment_status || 'CHECKED';
         const msg = data.data?.message ? ` (${data.data.message})` : '';
-        alert(`Transaction Status: ${currentStatus}${msg}`);
+
+        if (currentStatus === 'PENDING' && isAdmin) {
+          const makeSuccess = window.confirm(
+            `Transaction Status: PENDING\n\nજો CSPL / Camlenio પોર્ટલ પર આ બિલ Success થઈ ગયું હોય, તો શું તમે આ એન્ટ્રીને SUCCESS તરીકે કન્ફર્મ કરવા માંગો છો?\n(એડમિન પ્રોફિટ આપમેળે ક્રેડિટ થઈ જશે)`
+          );
+          if (makeSuccess) {
+            try {
+              const updateRes = await fetch(`${API_URL}/api/v1/b2b/admin/cspl/update-status`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  logId: log.id,
+                  status: 'success',
+                  message: 'Verified as SUCCESS by Admin via Camlenio'
+                })
+              });
+              const updateJson = await updateRes.json();
+              if (updateJson.status === 'success') {
+                alert('સફળતાપૂર્વક SUCCESS થઈ ગયું છે!');
+                await fetchLogs(true);
+              } else {
+                alert(`Error: ${updateJson.message}`);
+              }
+            } catch (uErr: any) {
+              alert(`Update failed: ${uErr.message}`);
+            }
+          }
+        } else {
+          alert(`Transaction Status: ${currentStatus}${msg}`);
+        }
       } else {
         const errorText = data?.message || data?.error || 'Unable to check status online.';
         alert(`Status Check: ${errorText}`);
