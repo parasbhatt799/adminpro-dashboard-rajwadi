@@ -194,7 +194,11 @@ export const fetchBill = async (req: Request, res: Response) => {
         request_ip: (req as any).clientIp || req.ip,
         request_payload: req.body,
         status_code: 200,
-        response_payload: finalJsonResponse
+        response_payload: {
+          requestId: response.requestId,
+          fetchRequestId: response.requestId,
+          ...finalJsonResponse
+        }
       });
 
     const finalResponseCode = finalJsonResponse?.billFetchResponse?.responseCode;
@@ -209,6 +213,7 @@ export const fetchBill = async (req: Request, res: Response) => {
       data: {
         responseCode: finalResponseCode,
         requestId: response.requestId,
+        fetchRequestId: response.requestId,
         ...finalJsonResponse,
         billerResponse: {
           ...billerResp,
@@ -1025,7 +1030,37 @@ export const payBill = async (req: Request, res: Response) => {
     const bbpsuTxnId = `BBPSU${Math.floor(1000000000 + Math.random() * 9000000000)}`;
     const clientTxnId = (req.body.client_transaction_id || req.body.client_order_id || req.body.clientTxnId || '').trim();
     const customTxnId = clientTxnId || bbpsuTxnId;
-    const billavenueRequestId = fetchRequestId || billAvenue.generateRequestId();
+
+    let resolvedFetchRequestId = (fetchRequestId || req.body.requestId || '').trim();
+
+    // Auto-recovery fallback: If agent omitted fetchRequestId, auto-find it from recent /fetch-bill log
+    if (!resolvedFetchRequestId) {
+      try {
+        const { data: recentFetchLog } = await supabaseAdmin
+          .from('b2b_api_logs')
+          .select('response_payload')
+          .eq('agent_id', agentId)
+          .eq('endpoint', '/api/b2b/fetch-bill')
+          .contains('request_payload', { billerId })
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const autoReqId = recentFetchLog?.response_payload?.requestId 
+          || recentFetchLog?.response_payload?.fetchRequestId 
+          || recentFetchLog?.response_payload?.data?.requestId
+          || recentFetchLog?.response_payload?.data?.fetchRequestId;
+
+        if (autoReqId) {
+          console.log(`[B2B PayBill - AUTO RECOVERY] Auto-recovered fetchRequestId: ${autoReqId} from recent fetch-bill log for biller ${billerId}`);
+          resolvedFetchRequestId = autoReqId;
+        }
+      } catch (autoReqErr) {
+        console.warn('[B2B PayBill] Could not auto-recover fetchRequestId:', autoReqErr);
+      }
+    }
+
+    const billavenueRequestId = resolvedFetchRequestId || billAvenue.generateRequestId();
 
     // Log the transaction attempt in b2b_api_logs
     const { data: logData, error: logError } = await supabaseAdmin
