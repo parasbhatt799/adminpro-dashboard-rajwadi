@@ -960,19 +960,20 @@ export default function B2BAPIDocumentation() {
               <div className="relative z-10">
                 <h4 className="font-semibold text-white text-xs mb-2">Request Payload Parameters:</h4>
                 <ParamTable params={[
-                  { name: "billerId", type: "String", required: true, desc: "Target Biller ID (e.g., 'DGVCL0000GUJ01', 'SBIC00000NATDN')." },
+                  { name: "billerId", type: "String", required: true, desc: "Target Biller ID (e.g., 'DGVCL0000GUJ01', 'ICIC00000NATSI', 'SBIC00000NATDN')." },
                   { name: "amount", type: "Number", required: true, desc: "Amount to be paid in Rupees (e.g. 1500.00). Pass full bill amount or custom partial amount." },
                   { name: "mobile", type: "String", required: true, desc: "10-digit customer mobile number." },
                   { name: "paymentMode", type: "String", required: false, desc: "Payment mode: 'Cash', 'UPI', 'Internet Banking', 'Debit Card', 'Credit Card'. Default: 'Cash'." },
                   { name: "client_transaction_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency & tracing." },
+                  { name: "fetchRequestId", type: "String", required: false, desc: "Fetch Request ID received from /fetch-bill (MANDATORY for billers with fetch requirement to bind payment and avoid E210 error)." },
                   { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } matching required biller parameters." },
-                  { name: "customerPan", type: "String", required: false, desc: "Customer 10-digit PAN Card (MANDATORY for Cash payments >= ₹50,000)." },
-                  { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact billerResponse object returned by /fetch-bill." }
+                  { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact data.billerResponse object returned by /fetch-bill (MANDATORY for fetch billers like Credit Card, Electricity, etc. to prevent E210 error)." },
+                  { name: "customerPan", type: "String", required: false, desc: "Customer 10-digit PAN Card (MANDATORY for Cash payments >= ₹50,000 as per RBI guidelines)." }
                 ]} />
               </div>
 
               <CodeBlock 
-                title="Complete Request Payload Example"
+                title="Complete Request Payload Example (Full Payload)"
                 section="pay_req_full"
                 code={`{
   "billerId": "DGVCL0000GUJ01",
@@ -980,6 +981,7 @@ export default function B2BAPIDocumentation() {
   "mobile": "9898971274",
   "paymentMode": "UPI",
   "client_transaction_id": "TXN_ORD_20260814_001",
+  "fetchRequestId": "FETCH_REQ_987654321",
   "customerParams": [
     { "name": "Consumer Number", "value": "12345678901" }
   ],
@@ -2123,7 +2125,7 @@ var_dump($result);
           <>
             {activeLang === 'curl' && (
               <CodeBlock 
-                title="cURL Request Example (/pay-bill)"
+                title="cURL Request Example (/pay-bill - Complete Payload)"
                 section="code_curl"
                 code={`curl -X POST "${baseUrl}/api/v1/b2b/pay-bill" \\
   -H "x-api-key: pub_live_your_key_here" \\
@@ -2135,30 +2137,47 @@ var_dump($result);
     "mobile": "9898971274",
     "paymentMode": "UPI",
     "client_transaction_id": "TXN_ORD_98431",
+    "fetchRequestId": "FETCH_REQ_987654321",
     "customerParams": [
       { "name": "Consumer Number", "value": "12345678901" }
-    ]
+    ],
+    "billerResponseInfo": {
+      "customerName": "AJAY KALATHIYA",
+      "billAmount": "150000",
+      "billDate": "2026-08-10",
+      "dueDate": "2026-08-30"
+    }
   }'`}
               />
             )}
 
             {activeLang === 'nodejs' && (
               <CodeBlock 
-                title="Node.js Integration Example (Axios - Bill Payment)"
+                title="Node.js Integration Example (Axios - Complete Bill Payment)"
                 section="code_nodejs"
                 code={`const axios = require('axios');
 
 async function payBill() {
   try {
+    // Full Payload for /pay-bill
+    // Tip: fetchRequestId and billerResponseInfo are obtained directly from /fetch-bill response
     const response = await axios.post('${baseUrl}/api/v1/b2b/pay-bill', {
       billerId: 'DGVCL0000GUJ01',
       amount: 1500.00,
       mobile: '9898971274',
       paymentMode: 'UPI',
       client_transaction_id: 'TXN_ORD_98431',
+      fetchRequestId: 'FETCH_REQ_987654321', // Pass data.requestId / data.fetchRequestId from /fetch-bill
       customerParams: [
         { name: 'Consumer Number', value: '12345678901' }
-      ]
+      ],
+      // MANDATORY for fetch-requirement billers to prevent Error E210 (No fetch data found)
+      billerResponseInfo: {
+        customerName: 'AJAY KALATHIYA',
+        billAmount: '150000',
+        billDate: '2026-08-10',
+        dueDate: '2026-08-30'
+      }
     }, {
       headers: {
         'x-api-key': 'pub_live_your_key_here',
@@ -2168,7 +2187,9 @@ async function payBill() {
     });
 
     console.log('Payment Status:', response.data.payment_status);
-    console.log('Txn Ref ID:', response.data.data?.ExtBillPayResponse?.txnRefId);
+    console.log('Transaction ID:', response.data.transaction_id);
+    console.log('Txn Ref ID:', response.data.data?.ExtBillPayResponse?.txnRefId || response.data.bbps_txn_ref_id);
+    console.log('Response Details:', response.data);
   } catch (error) {
     console.error('Payment Error:', error.response?.data || error.message);
   }
@@ -2180,7 +2201,7 @@ payBill();`}
 
             {activeLang === 'python' && (
               <CodeBlock 
-                title="Python Integration Example (Requests - Bill Payment)"
+                title="Python Integration Example (Requests - Complete Bill Payment)"
                 section="code_python"
                 code={`import requests
 
@@ -2191,37 +2212,56 @@ headers = {
     "Content-Type": "application/json"
 }
 
+# Complete Payload (Pass fetchRequestId & billerResponseInfo from /fetch-bill)
 payload = {
     "billerId": "DGVCL0000GUJ01",
     "amount": 1500.00,
     "mobile": "9898971274",
     "paymentMode": "UPI",
     "client_transaction_id": "TXN_ORD_98431",
+    "fetchRequestId": "FETCH_REQ_987654321", # Received from /fetch-bill
     "customerParams": [
         {"name": "Consumer Number", "value": "12345678901"}
-    ]
+    ],
+    # MANDATORY for fetch-enabled billers to avoid E210 error
+    "billerResponseInfo": {
+        "customerName": "AJAY KALATHIYA",
+        "billAmount": "150000",
+        "billDate": "2026-08-10",
+        "dueDate": "2026-08-30"
+    }
 }
 
 response = requests.post(url, json=payload, headers=headers)
+print("HTTP Status:", response.status_code)
 print("Payment Result:", response.json())`}
               />
             )}
 
             {activeLang === 'php' && (
               <CodeBlock 
-                title="PHP Integration Example (cURL - Bill Payment)"
+                title="PHP Integration Example (cURL - Complete Bill Payment)"
                 section="code_php"
                 code={`<?php
 $ch = curl_init("${baseUrl}/api/v1/b2b/pay-bill");
 
+// Complete Payload with all parameters
 $payload = json_encode([
     "billerId" => "DGVCL0000GUJ01",
     "amount" => 1500.00,
     "mobile" => "9898971274",
     "paymentMode" => "UPI",
     "client_transaction_id" => "TXN_ORD_98431",
+    "fetchRequestId" => "FETCH_REQ_987654321", // Received from /fetch-bill
     "customerParams" => [
         ["name" => "Consumer Number", "value" => "12345678901"]
+    ],
+    // MANDATORY for fetch-enabled billers to avoid E210 error
+    "billerResponseInfo" => [
+        "customerName" => "AJAY KALATHIYA",
+        "billAmount" => "150000",
+        "billDate" => "2026-08-10",
+        "dueDate" => "2026-08-30"
     ]
 ]);
 

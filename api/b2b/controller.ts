@@ -1080,7 +1080,39 @@ export const payBill = async (req: Request, res: Response) => {
     } else {
       formattedParams = customerParams;
     }
-    let rawBillerResp = { ...billerResponseInfo };
+    let rawBillerResp = { ...(billerResponseInfo || {}) };
+
+    // Auto-recovery fallback: If partner agent omits billerResponseInfo, auto-recover it from recent fetch-bill log to prevent E210 error
+    if (Object.keys(rawBillerResp).length === 0) {
+      try {
+        let fetchLogQuery = supabaseAdmin
+          .from('b2b_api_logs')
+          .select('response_payload')
+          .eq('agent_id', agentId)
+          .eq('endpoint', '/api/b2b/fetch-bill')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (fetchRequestId) {
+          fetchLogQuery = fetchLogQuery.or(`request_payload->>fetchRequestId.eq.${fetchRequestId},response_payload->>requestId.eq.${fetchRequestId},response_payload->>fetchRequestId.eq.${fetchRequestId},response_payload->data->>requestId.eq.${fetchRequestId},response_payload->data->>fetchRequestId.eq.${fetchRequestId}`);
+        } else {
+          fetchLogQuery = fetchLogQuery.contains('request_payload', { billerId });
+        }
+
+        const { data: recentFetch } = await fetchLogQuery.maybeSingle();
+        const autoFetched = recentFetch?.response_payload?.data?.billerResponse 
+          || recentFetch?.response_payload?.billFetchResponse?.billerResponse
+          || recentFetch?.response_payload?.billerResponse;
+
+        if (autoFetched && Object.keys(autoFetched).length > 0) {
+          console.log(`[B2B PayBill - AUTO RECOVERY] Auto-populated missing billerResponseInfo from recent fetch-bill log for biller ${billerId}:`, JSON.stringify(autoFetched));
+          rawBillerResp = { ...autoFetched };
+        }
+      } catch (autoErr) {
+        console.warn('[B2B PayBill] Could not auto-recover billerResponseInfo:', autoErr);
+      }
+    }
+
     if (rawBillerResp.billAmount && String(rawBillerResp.billAmount).includes('.')) {
       rawBillerResp.billAmount = String(Math.round(Number(rawBillerResp.billAmount) * 100));
     }
