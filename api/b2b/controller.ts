@@ -59,9 +59,21 @@ export const getBillers = async (req: Request, res: Response) => {
       .from('billavenue_billers')
       .select('*', { count: 'exact' });
 
-    if (category_id) {
-      // If category_id is a number, we might need to map it, but assuming it's the category name
-      query = query.eq('category', category_id);
+    const rawCategory = category_id || req.query.category;
+    if (rawCategory) {
+      let categoryFilter = String(rawCategory).trim();
+      // If category_id is a numeric ID (e.g. 5), map it to category_name from settings
+      if (!isNaN(Number(categoryFilter)) && Number(categoryFilter) > 0) {
+        const { data: catRecord } = await supabaseAdmin
+          .from('biller_categories_settings')
+          .select('category_name')
+          .eq('id', parseInt(categoryFilter, 10))
+          .single();
+        if (catRecord?.category_name) {
+          categoryFilter = catRecord.category_name;
+        }
+      }
+      query = query.ilike('category', categoryFilter);
     }
     if (state) {
       // In BillAvenue billers state may be stored in coverage or state column, assuming 'state' or ilike logic if present
