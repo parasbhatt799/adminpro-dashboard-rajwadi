@@ -957,6 +957,49 @@ export default function B2BAPIDocumentation() {
                 Execute the bill payment. Validates agent BBPS wallet balance, deducts funds, and processes payment via BBPS gateway.
               </p>
 
+              {/* Critical Rule Callout: How fetchRequestId works */}
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 text-xs text-amber-200 space-y-3 relative z-10">
+                <div className="flex items-center gap-2.5 font-bold text-amber-300 text-sm">
+                  <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
+                  <span>Important: 2-Step Flow for Bill Payment (Avoiding Error E210)</span>
+                </div>
+                <p className="text-slate-300 leading-relaxed text-xs">
+                  For all billers that require bill fetch (Credit Cards, Electricity, Gas, Water), BBPS mandates linking the payment to the fetched bill session. <strong>Both <code>fetchRequestId</code> and <code>billerResponseInfo</code> are returned directly by our API in Step 1.</strong>
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-200">
+                  <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-700 space-y-1.5">
+                    <div className="font-bold text-indigo-400 flex items-center gap-1.5 text-xs">
+                      <span className="w-5 h-5 rounded-full bg-indigo-500/20 text-indigo-300 inline-flex items-center justify-center text-[10px] font-bold">1</span>
+                      Step 1: Call <code>POST /api/v1/b2b/fetch-bill</code>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Our API fetches the bill and returns:
+                    </p>
+                    <ul className="list-disc list-inside text-[11px] text-slate-300 space-y-0.5">
+                      <li><code className="text-amber-300 font-semibold">data.requestId</code> &rarr; (Your <code>fetchRequestId</code>)</li>
+                      <li><code className="text-amber-300 font-semibold">data.billerResponse</code> &rarr; (Your <code>billerResponseInfo</code>)</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-700 space-y-1.5">
+                    <div className="font-bold text-emerald-400 flex items-center gap-1.5 text-xs">
+                      <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-300 inline-flex items-center justify-center text-[10px] font-bold">2</span>
+                      Step 2: Call <code>POST /api/v1/b2b/pay-bill</code>
+                    </div>
+                    <p className="text-[11px] text-slate-400">
+                      Pass both values into your payment request:
+                    </p>
+                    <ul className="list-disc list-inside text-[11px] text-slate-300 space-y-0.5">
+                      <li><code>&quot;fetchRequestId&quot;: data.requestId</code></li>
+                      <li><code>&quot;billerResponseInfo&quot;: data.billerResponse</code></li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="bg-slate-950/70 p-3 rounded-xl border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed">
+                  ⚠️ <strong>Note on <code>fetchRequestId</code>:</strong> This ID is provided directly by our API in the <code>/fetch-bill</code> response. Do NOT generate a random string; passing an unknown ID or omitting it causes gateway error: <em>&quot;E210: No fetch data found for given ref id.&quot;</em>
+                </div>
+              </div>
+
               <div className="relative z-10">
                 <h4 className="font-semibold text-white text-xs mb-2">Request Payload Parameters:</h4>
                 <ParamTable params={[
@@ -1871,6 +1914,16 @@ export default function B2BAPIDocumentation() {
             PHP (cURL)
           </button>
         </div>
+
+        {!isCspl && !isPayout && (
+          <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3.5 text-xs text-indigo-200 flex items-start gap-3">
+            <Sparkles className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
+            <div>
+              <strong className="text-white block mb-0.5">Where do <code>fetchRequestId</code> & <code>billerResponseInfo</code> come from?</strong>
+              <span>They are provided directly in the HTTP response of <code>/api/v1/b2b/fetch-bill</code> (as <code>data.requestId</code> and <code>data.billerResponse</code>). Simply pass them straight into <code>/pay-bill</code> as demonstrated below.</span>
+            </div>
+          </div>
+        )}
 
         {isCspl ? (
           <>
