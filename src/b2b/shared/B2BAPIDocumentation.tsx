@@ -323,7 +323,7 @@ export default function B2BAPIDocumentation() {
         doc.setTextColor(79, 70, 229);
         doc.text('2.4 POST /pay-bill - Execute Bill Payment', 14, y);
         y += 4;
-        y = drawCodeBlock('Sample Request Body', `{\n  "billerId": "DGVCL0000GUJ01",\n  "amount": 1500.00,\n  "mobile": "9898971274",\n  "paymentMode": "UPI",\n  "client_transaction_id": "TXN_ORD_20260814_001",\n  "customerParams": [{ "name": "Consumer Number", "value": "12345678901" }]\n}`, y);
+        y = drawCodeBlock('Sample Request Body (Full Payload with Session Bindings)', `{\n  "billerId": "ICIC00000NATSI",\n  "amount": 1500.00,\n  "mobile": "7228800953",\n  "paymentMode": "Cash",\n  "client_transaction_id": "CC9NXTP8ZVY8RRX5TQOTW",\n  "fetchRequestId": "0KoJpY5Y1oPJ8DySzNIMj1jZXy662791751",\n  "customerParams": [{ "name": "Last 4 digits of Credit Card Number", "value": "1005" }, { "name": "Registered Mobile Number", "value": "7228800953" }],\n  "billerResponseInfo": { "customerName": "BURHANUDDIN MITHAIWALA", "billAmount": "134910.00", "billDate": "2026-10-02", "dueDate": "2026-10-20" },\n  "additionalInfo": [{ "infoName": "Minimum Amount Due", "infoValue": "6750.00" }, { "infoName": "Current Outstanding Amount", "infoValue": "134910.00" }]\n}`, y);
         y = drawCodeBlock('Sample Success Response (200 OK)', `{\n  "status": "success",\n  "payment_status": "success",\n  "message": "Bill Paid successfully",\n  "transaction_id": "BBPSU1283118228",\n  "charge_deducted": 10.00\n}`, y);
         y = drawCodeBlock('Sample Pending Response (202 Accepted)', `{\n  "status": "pending",\n  "payment_status": "pending",\n  "message": "Transaction initiated, currently pending at biller",\n  "transaction_id": "BBPSU1283118228"\n}`, y);
 
@@ -957,14 +957,14 @@ export default function B2BAPIDocumentation() {
                 Execute the bill payment. Validates agent BBPS wallet balance, deducts funds, and processes payment via BBPS gateway.
               </p>
 
-              {/* Critical Rule Callout: How fetchRequestId works */}
+              {/* Critical Rule Callout: How fetchRequestId & additionalInfo work */}
               <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-5 text-xs text-amber-200 space-y-3 relative z-10">
                 <div className="flex items-center gap-2.5 font-bold text-amber-300 text-sm">
                   <AlertCircle className="h-5 w-5 text-amber-400 shrink-0" />
-                  <span>Important: 2-Step Flow for Bill Payment (Avoiding Error E210)</span>
+                  <span>Important: 2-Step Flow for Bill Payment (Avoiding Errors E210 & E212)</span>
                 </div>
                 <p className="text-slate-300 leading-relaxed text-xs">
-                  For all billers that require bill fetch (Credit Cards, Electricity, Gas, Water), BBPS mandates linking the payment to the fetched bill session. <strong>Both <code>fetchRequestId</code> and <code>billerResponseInfo</code> are returned directly by our API in Step 1.</strong>
+                  For all billers that require bill fetch (Credit Cards, Electricity, Gas, Water, etc.), BBPS mandates linking the payment to the fetched bill session. <strong><code>fetchRequestId</code>, <code>billerResponseInfo</code>, and <code>additionalInfo</code> are returned directly by our API in Step 1.</strong>
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-200">
                   <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-700 space-y-1.5">
@@ -978,6 +978,7 @@ export default function B2BAPIDocumentation() {
                     <ul className="list-disc list-inside text-[11px] text-slate-300 space-y-0.5">
                       <li><code className="text-amber-300 font-semibold">data.requestId</code> &rarr; (Your <code>fetchRequestId</code>)</li>
                       <li><code className="text-amber-300 font-semibold">data.billerResponse</code> &rarr; (Your <code>billerResponseInfo</code>)</li>
+                      <li><code className="text-amber-300 font-semibold">data.additionalInfo</code> &rarr; (Your <code>additionalInfo</code>, if present)</li>
                     </ul>
                   </div>
 
@@ -987,53 +988,78 @@ export default function B2BAPIDocumentation() {
                       Step 2: Call <code>POST /api/v1/b2b/pay-bill</code>
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Pass both values into your payment request:
+                      Pass all 3 values directly into your payment request:
                     </p>
                     <ul className="list-disc list-inside text-[11px] text-slate-300 space-y-0.5">
                       <li><code>&quot;fetchRequestId&quot;: data.requestId</code></li>
                       <li><code>&quot;billerResponseInfo&quot;: data.billerResponse</code></li>
+                      <li><code>&quot;additionalInfo&quot;: data.additionalInfo</code></li>
                     </ul>
                   </div>
                 </div>
-                <div className="bg-slate-950/70 p-3 rounded-xl border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed">
-                  ⚠️ <strong>Note on <code>fetchRequestId</code>:</strong> This ID is provided directly by our API in the <code>/fetch-bill</code> response. Do NOT generate a random string; passing an unknown ID or omitting it causes gateway error: <em>&quot;E210: No fetch data found for given ref id.&quot;</em>
+
+                <div className="space-y-2 pt-1">
+                  <div className="bg-slate-950/70 p-3 rounded-xl border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed">
+                    ⚠️ <strong>Error E210 Prevention (&quot;No fetch data found for given ref id&quot;):</strong> This error occurs when <code>fetchRequestId</code> or <code>billerResponseInfo</code> is missing, altered, or expired. Always pass <code>data.requestId</code> and <code>data.billerResponse</code> as received from <code>/fetch-bill</code>.
+                  </div>
+                  <div className="bg-slate-950/70 p-3 rounded-xl border border-amber-500/20 text-[11px] text-amber-300/90 leading-relaxed">
+                    ⚠️ <strong>Error E212 Prevention (&quot;additionalInfo value mismatch&quot;):</strong> When paying Credit Cards or utility billers where <code>/fetch-bill</code> returns an <code>additionalInfo</code> array (e.g. Minimum Amount Due, Outstanding Amount), you <strong>MUST</strong> pass that exact <code>additionalInfo</code> array in <code>/pay-bill</code>. Omitting it causes BBPS Error <code>E212</code>!
+                  </div>
                 </div>
               </div>
 
               <div className="relative z-10">
                 <h4 className="font-semibold text-white text-xs mb-2">Request Payload Parameters:</h4>
                 <ParamTable params={[
-                  { name: "billerId", type: "String", required: true, desc: "Target Biller ID (e.g., 'DGVCL0000GUJ01', 'ICIC00000NATSI', 'SBIC00000NATDN')." },
-                  { name: "amount", type: "Number", required: true, desc: "Amount to be paid in Rupees (e.g. 1500.00). Pass full bill amount or custom partial amount." },
+                  { name: "billerId", type: "String", required: true, desc: "Target Biller ID (e.g., 'ICIC00000NATSI', 'DGVCL0000GUJ01', 'SBIC00000NATDN')." },
+                  { name: "amount", type: "Number", required: true, desc: "Amount to be paid in Rupees (e.g. 1500.00). Can be full bill amount or partial amount within allowed biller limits." },
                   { name: "mobile", type: "String", required: true, desc: "10-digit customer mobile number." },
                   { name: "paymentMode", type: "String", required: false, desc: "Payment mode: 'Cash', 'UPI', 'Internet Banking', 'Debit Card', 'Credit Card'. Default: 'Cash'." },
                   { name: "client_transaction_id", type: "String", required: false, desc: "Your system's unique transaction/order ID for idempotency & tracing." },
-                  { name: "fetchRequestId", type: "String", required: false, desc: "Fetch Request ID received from /fetch-bill (MANDATORY for billers with fetch requirement to bind payment and avoid E210 error)." },
+                  { name: "fetchRequestId", type: "String", required: false, desc: "Session Request ID (data.requestId) received from /fetch-bill (MANDATORY for fetch billers to avoid E210 error)." },
                   { name: "customerParams", type: "Array of Objects", required: true, desc: "Array of { name, value } matching required biller parameters." },
                   { name: "billerResponseInfo", type: "Object", required: false, desc: "Pass exact data.billerResponse object returned by /fetch-bill (MANDATORY for fetch billers like Credit Card, Electricity, etc. to prevent E210 error)." },
+                  { name: "additionalInfo", type: "Array of Objects", required: false, desc: "Pass exact data.additionalInfo array returned by /fetch-bill (MANDATORY for Credit Cards and billers returning additionalInfo to prevent E212 mismatch error)." },
                   { name: "customerPan", type: "String", required: false, desc: "Customer 10-digit PAN Card (MANDATORY for Cash payments >= ₹50,000 as per RBI guidelines)." }
                 ]} />
               </div>
 
               <CodeBlock 
-                title="Complete Request Payload Example (Full Payload)"
+                title="Complete Request Payload Example (Full Payload - Ready to Copy)"
                 section="pay_req_full"
                 code={`{
-  "billerId": "DGVCL0000GUJ01",
+  "billerId": "ICIC00000NATSI",
   "amount": 1500.00,
-  "mobile": "9898971274",
-  "paymentMode": "UPI",
-  "client_transaction_id": "TXN_ORD_20260814_001",
-  "fetchRequestId": "FETCH_REQ_987654321",
+  "mobile": "7228800953",
+  "paymentMode": "Cash",
+  "client_transaction_id": "CC9NXTP8ZVY8RRX5TQOTW",
+  "fetchRequestId": "0KoJpY5Y1oPJ8DySzNIMj1jZXy662791751",
   "customerParams": [
-    { "name": "Consumer Number", "value": "12345678901" }
+    {
+      "name": "Last 4 digits of Credit Card Number",
+      "value": "1005"
+    },
+    {
+      "name": "Registered Mobile Number",
+      "value": "7228800953"
+    }
   ],
   "billerResponseInfo": {
-    "customerName": "AJAY KALATHIYA",
-    "billAmount": "150000",
-    "billDate": "2026-08-10",
-    "dueDate": "2026-08-30"
-  }
+    "customerName": "BURHANUDDIN MITHAIWALA",
+    "billAmount": "134910.00",
+    "billDate": "2026-10-02",
+    "dueDate": "2026-10-20"
+  },
+  "additionalInfo": [
+    {
+      "infoName": "Minimum Amount Due",
+      "infoValue": "6750.00"
+    },
+    {
+      "infoName": "Current Outstanding Amount",
+      "infoValue": "134910.00"
+    }
+  ]
 }`}
               />
 
@@ -1919,8 +1945,8 @@ export default function B2BAPIDocumentation() {
           <div className="bg-indigo-950/40 border border-indigo-500/30 rounded-xl p-3.5 text-xs text-indigo-200 flex items-start gap-3">
             <Sparkles className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
             <div>
-              <strong className="text-white block mb-0.5">Where do <code>fetchRequestId</code> & <code>billerResponseInfo</code> come from?</strong>
-              <span>They are provided directly in the HTTP response of <code>/api/v1/b2b/fetch-bill</code> (as <code>data.requestId</code> and <code>data.billerResponse</code>). Simply pass them straight into <code>/pay-bill</code> as demonstrated below.</span>
+              <strong className="text-white block mb-0.5">Where do <code>fetchRequestId</code>, <code>billerResponseInfo</code> & <code>additionalInfo</code> come from?</strong>
+              <span>They are provided directly in the HTTP response of <code>/api/v1/b2b/fetch-bill</code> (as <code>data.requestId</code>, <code>data.billerResponse</code>, and <code>data.additionalInfo</code>). Simply pass them straight into <code>/pay-bill</code> as demonstrated below.</span>
             </div>
           </div>
         )}
@@ -2185,21 +2211,26 @@ var_dump($result);
   -H "x-secret-key: sec_live_your_secret_here" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "billerId": "DGVCL0000GUJ01",
+    "billerId": "ICIC00000NATSI",
     "amount": 1500.00,
-    "mobile": "9898971274",
-    "paymentMode": "UPI",
-    "client_transaction_id": "TXN_ORD_98431",
-    "fetchRequestId": "FETCH_REQ_987654321",
+    "mobile": "7228800953",
+    "paymentMode": "Cash",
+    "client_transaction_id": "CC9NXTP8ZVY8RRX5TQOTW",
+    "fetchRequestId": "0KoJpY5Y1oPJ8DySzNIMj1jZXy662791751",
     "customerParams": [
-      { "name": "Consumer Number", "value": "12345678901" }
+      { "name": "Last 4 digits of Credit Card Number", "value": "1005" },
+      { "name": "Registered Mobile Number", "value": "7228800953" }
     ],
     "billerResponseInfo": {
-      "customerName": "AJAY KALATHIYA",
-      "billAmount": "150000",
-      "billDate": "2026-08-10",
-      "dueDate": "2026-08-30"
-    }
+      "customerName": "BURHANUDDIN MITHAIWALA",
+      "billAmount": "134910.00",
+      "billDate": "2026-10-02",
+      "dueDate": "2026-10-20"
+    },
+    "additionalInfo": [
+      { "infoName": "Minimum Amount Due", "infoValue": "6750.00" },
+      { "infoName": "Current Outstanding Amount", "infoValue": "134910.00" }
+    ]
   }'`}
               />
             )}
@@ -2213,24 +2244,30 @@ var_dump($result);
 async function payBill() {
   try {
     // Full Payload for /pay-bill
-    // Tip: fetchRequestId and billerResponseInfo are obtained directly from /fetch-bill response
+    // Tip: fetchRequestId, billerResponseInfo, and additionalInfo are obtained directly from /fetch-bill response
     const response = await axios.post('${baseUrl}/api/v1/b2b/pay-bill', {
-      billerId: 'DGVCL0000GUJ01',
+      billerId: 'ICIC00000NATSI',
       amount: 1500.00,
-      mobile: '9898971274',
-      paymentMode: 'UPI',
-      client_transaction_id: 'TXN_ORD_98431',
-      fetchRequestId: 'FETCH_REQ_987654321', // Pass data.requestId / data.fetchRequestId from /fetch-bill
+      mobile: '7228800953',
+      paymentMode: 'Cash',
+      client_transaction_id: 'CC9NXTP8ZVY8RRX5TQOTW',
+      fetchRequestId: '0KoJpY5Y1oPJ8DySzNIMj1jZXy662791751', // Pass data.requestId from /fetch-bill
       customerParams: [
-        { name: 'Consumer Number', value: '12345678901' }
+        { name: 'Last 4 digits of Credit Card Number', value: '1005' },
+        { name: 'Registered Mobile Number', value: '7228800953' }
       ],
       // MANDATORY for fetch-requirement billers to prevent Error E210 (No fetch data found)
       billerResponseInfo: {
-        customerName: 'AJAY KALATHIYA',
-        billAmount: '150000',
-        billDate: '2026-08-10',
-        dueDate: '2026-08-30'
-      }
+        customerName: 'BURHANUDDIN MITHAIWALA',
+        billAmount: '134910.00',
+        billDate: '2026-10-02',
+        dueDate: '2026-10-20'
+      },
+      // MANDATORY for billers with additionalInfo (Credit Card, etc.) to prevent Error E212 (additionalInfo value mismatch)
+      additionalInfo: [
+        { infoName: 'Minimum Amount Due', infoValue: '6750.00' },
+        { infoName: 'Current Outstanding Amount', infoValue: '134910.00' }
+      ]
     }, {
       headers: {
         'x-api-key': 'pub_live_your_key_here',
@@ -2265,24 +2302,30 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# Complete Payload (Pass fetchRequestId & billerResponseInfo from /fetch-bill)
+# Complete Payload (Pass fetchRequestId, billerResponseInfo & additionalInfo from /fetch-bill)
 payload = {
-    "billerId": "DGVCL0000GUJ01",
+    "billerId": "ICIC00000NATSI",
     "amount": 1500.00,
-    "mobile": "9898971274",
-    "paymentMode": "UPI",
-    "client_transaction_id": "TXN_ORD_98431",
-    "fetchRequestId": "FETCH_REQ_987654321", # Received from /fetch-bill
+    "mobile": "7228800953",
+    "paymentMode": "Cash",
+    "client_transaction_id": "CC9NXTP8ZVY8RRX5TQOTW",
+    "fetchRequestId": "0KoJpY5Y1oPJ8DySzNIMj1jZXy662791751", # Received from /fetch-bill (data.requestId)
     "customerParams": [
-        {"name": "Consumer Number", "value": "12345678901"}
+        {"name": "Last 4 digits of Credit Card Number", "value": "1005"},
+        {"name": "Registered Mobile Number", "value": "7228800953"}
     ],
     # MANDATORY for fetch-enabled billers to avoid E210 error
     "billerResponseInfo": {
-        "customerName": "AJAY KALATHIYA",
-        "billAmount": "150000",
-        "billDate": "2026-08-10",
-        "dueDate": "2026-08-30"
-    }
+        "customerName": "BURHANUDDIN MITHAIWALA",
+        "billAmount": "134910.00",
+        "billDate": "2026-10-02",
+        "dueDate": "2026-10-20"
+    },
+    # MANDATORY for billers with additionalInfo (Credit Cards, etc.) to avoid E212 error
+    "additionalInfo": [
+        {"infoName": "Minimum Amount Due", "infoValue": "6750.00"},
+        {"infoName": "Current Outstanding Amount", "infoValue": "134910.00"}
+    ]
 }
 
 response = requests.post(url, json=payload, headers=headers)
@@ -2298,23 +2341,29 @@ print("Payment Result:", response.json())`}
                 code={`<?php
 $ch = curl_init("${baseUrl}/api/v1/b2b/pay-bill");
 
-// Complete Payload with all parameters
+// Complete Payload with all parameters (Avoids E210 & E212)
 $payload = json_encode([
-    "billerId" => "DGVCL0000GUJ01",
+    "billerId" => "ICIC00000NATSI",
     "amount" => 1500.00,
-    "mobile" => "9898971274",
-    "paymentMode" => "UPI",
-    "client_transaction_id" => "TXN_ORD_98431",
-    "fetchRequestId" => "FETCH_REQ_987654321", // Received from /fetch-bill
+    "mobile" => "7228800953",
+    "paymentMode" => "Cash",
+    "client_transaction_id" => "CC9NXTP8ZVY8RRX5TQOTW",
+    "fetchRequestId" => "0KoJpY5Y1oPJ8DySzNIMj1jZXy662791751", // Received from /fetch-bill (data.requestId)
     "customerParams" => [
-        ["name" => "Consumer Number", "value" => "12345678901"]
+        ["name" => "Last 4 digits of Credit Card Number", "value" => "1005"],
+        ["name" => "Registered Mobile Number", "value" => "7228800953"]
     ],
     // MANDATORY for fetch-enabled billers to avoid E210 error
     "billerResponseInfo" => [
-        "customerName" => "AJAY KALATHIYA",
-        "billAmount" => "150000",
-        "billDate" => "2026-08-10",
-        "dueDate" => "2026-08-30"
+        "customerName" => "BURHANUDDIN MITHAIWALA",
+        "billAmount" => "134910.00",
+        "billDate" => "2026-10-02",
+        "dueDate" => "2026-10-20"
+    ],
+    // MANDATORY for billers returning additionalInfo to avoid E212 error
+    "additionalInfo" => [
+        ["infoName" => "Minimum Amount Due", "infoValue" => "6750.00"],
+        ["infoName" => "Current Outstanding Amount", "infoValue" => "134910.00"]
     ]
 ]);
 
