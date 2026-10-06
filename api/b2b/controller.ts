@@ -194,11 +194,7 @@ export const fetchBill = async (req: Request, res: Response) => {
         request_ip: (req as any).clientIp || req.ip,
         request_payload: req.body,
         status_code: 200,
-        response_payload: {
-          requestId: response.requestId,
-          fetchRequestId: response.requestId,
-          ...finalJsonResponse
-        }
+        response_payload: finalJsonResponse
       });
 
     const finalResponseCode = finalJsonResponse?.billFetchResponse?.responseCode;
@@ -213,7 +209,6 @@ export const fetchBill = async (req: Request, res: Response) => {
       data: {
         responseCode: finalResponseCode,
         requestId: response.requestId,
-        fetchRequestId: response.requestId,
         ...finalJsonResponse,
         billerResponse: {
           ...billerResp,
@@ -1030,37 +1025,7 @@ export const payBill = async (req: Request, res: Response) => {
     const bbpsuTxnId = `BBPSU${Math.floor(1000000000 + Math.random() * 9000000000)}`;
     const clientTxnId = (req.body.client_transaction_id || req.body.client_order_id || req.body.clientTxnId || '').trim();
     const customTxnId = clientTxnId || bbpsuTxnId;
-
-    let resolvedFetchRequestId = (fetchRequestId || req.body.requestId || '').trim();
-
-    // Auto-recovery fallback: If agent omitted fetchRequestId, auto-find it from recent /fetch-bill log
-    if (!resolvedFetchRequestId) {
-      try {
-        const { data: recentFetchLog } = await supabaseAdmin
-          .from('b2b_api_logs')
-          .select('response_payload')
-          .eq('agent_id', agentId)
-          .eq('endpoint', '/api/b2b/fetch-bill')
-          .contains('request_payload', { billerId })
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        const autoReqId = recentFetchLog?.response_payload?.requestId 
-          || recentFetchLog?.response_payload?.fetchRequestId 
-          || recentFetchLog?.response_payload?.data?.requestId
-          || recentFetchLog?.response_payload?.data?.fetchRequestId;
-
-        if (autoReqId) {
-          console.log(`[B2B PayBill - AUTO RECOVERY] Auto-recovered fetchRequestId: ${autoReqId} from recent fetch-bill log for biller ${billerId}`);
-          resolvedFetchRequestId = autoReqId;
-        }
-      } catch (autoReqErr) {
-        console.warn('[B2B PayBill] Could not auto-recover fetchRequestId:', autoReqErr);
-      }
-    }
-
-    const billavenueRequestId = resolvedFetchRequestId || billAvenue.generateRequestId();
+    const billavenueRequestId = fetchRequestId || billAvenue.generateRequestId();
 
     // Log the transaction attempt in b2b_api_logs
     const { data: logData, error: logError } = await supabaseAdmin
@@ -1115,39 +1080,7 @@ export const payBill = async (req: Request, res: Response) => {
     } else {
       formattedParams = customerParams;
     }
-    let rawBillerResp = { ...(billerResponseInfo || {}) };
-
-    // Auto-recovery fallback: If partner agent omits billerResponseInfo, auto-recover it from recent fetch-bill log to prevent E210 error
-    if (Object.keys(rawBillerResp).length === 0) {
-      try {
-        let fetchLogQuery = supabaseAdmin
-          .from('b2b_api_logs')
-          .select('response_payload')
-          .eq('agent_id', agentId)
-          .eq('endpoint', '/api/b2b/fetch-bill')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (fetchRequestId) {
-          fetchLogQuery = fetchLogQuery.or(`request_payload->>fetchRequestId.eq.${fetchRequestId},response_payload->>requestId.eq.${fetchRequestId},response_payload->>fetchRequestId.eq.${fetchRequestId},response_payload->data->>requestId.eq.${fetchRequestId},response_payload->data->>fetchRequestId.eq.${fetchRequestId}`);
-        } else {
-          fetchLogQuery = fetchLogQuery.contains('request_payload', { billerId });
-        }
-
-        const { data: recentFetch } = await fetchLogQuery.maybeSingle();
-        const autoFetched = recentFetch?.response_payload?.data?.billerResponse 
-          || recentFetch?.response_payload?.billFetchResponse?.billerResponse
-          || recentFetch?.response_payload?.billerResponse;
-
-        if (autoFetched && Object.keys(autoFetched).length > 0) {
-          console.log(`[B2B PayBill - AUTO RECOVERY] Auto-populated missing billerResponseInfo from recent fetch-bill log for biller ${billerId}:`, JSON.stringify(autoFetched));
-          rawBillerResp = { ...autoFetched };
-        }
-      } catch (autoErr) {
-        console.warn('[B2B PayBill] Could not auto-recover billerResponseInfo:', autoErr);
-      }
-    }
-
+    let rawBillerResp = { ...billerResponseInfo };
     if (rawBillerResp.billAmount && String(rawBillerResp.billAmount).includes('.')) {
       rawBillerResp.billAmount = String(Math.round(Number(rawBillerResp.billAmount) * 100));
     }
