@@ -135,8 +135,15 @@ export const fetchBill = async (req: Request, res: Response) => {
       formattedParams = customerParams;
     }
 
-    // Call BillAvenue Service
     const billavenueAgentId = (req as any).billavenueAgentId;
+    if (!billavenueAgentId || !String(billavenueAgentId).trim()) {
+      return res.status(400).json({
+        status: 'error',
+        message: 'Agent ID is not mapped for your account. Please contact Administrator to map your Agent ID before using BBPS services'
+      });
+    }
+
+    // Call BillAvenue Service
     const response = await billAvenue.fetchBill(billerId, formattedParams, mobile, 'AGT', billavenueAgentId);
 
     const isStaging = process.env.BILLAVENUE_ENV !== 'production';
@@ -915,6 +922,14 @@ export const payBill = async (req: Request, res: Response) => {
 
     console.log(`\n[B2B PayBill - START] Agent: ${agentId}, Biller: ${billerId}, Amount: ${amount}, PAN: ${finalPan || 'N/A'}`);
     console.log(`[B2B PayBill] Request Body:`, JSON.stringify(req.body));
+
+    if (!billavenueAgentId || !String(billavenueAgentId).trim()) {
+      console.error(`[B2B PayBill - ERROR] Agent ID not mapped for agent ${agentId}`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Agent ID is not mapped for your account. Please contact Administrator to map your Agent ID before using BBPS services'
+      });
+    }
 
     if (!billerId || !amount || !customerParams || !mobile) {
       console.error(`[B2B PayBill - ERROR] Missing parameters`);

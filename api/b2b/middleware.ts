@@ -121,7 +121,9 @@ export const b2bAuthMiddleware = async (req: Request, res: Response, next: NextF
     // data is now a JSON object { agent_id, billavenue_agent_id }
     // Attach both to the request
     (req as any).agentId = data.agent_id;
-    (req as any).billavenueAgentId = data.billavenue_agent_id || undefined;
+    (req as any).billavenueAgentId = (data.billavenue_agent_id && typeof data.billavenue_agent_id === 'string' && data.billavenue_agent_id.trim()) 
+      ? data.billavenue_agent_id.trim() 
+      : undefined;
     
     // Also save domain for logging if provided
     (req as any).requestDomain = req.get('origin') || req.hostname;
