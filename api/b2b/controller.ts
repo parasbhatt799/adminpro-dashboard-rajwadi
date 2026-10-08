@@ -1829,6 +1829,7 @@ export const firePayoutWebhook = (webhookUrl: string | null | undefined, agentId
       error_message: err.message
     });
   });
+};
 /**
  * Atomic BBPS Bill Refund Guard
  * Prevents race conditions and double refunds across:
