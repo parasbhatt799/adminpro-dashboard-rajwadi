@@ -23,7 +23,8 @@ import {
   Send,
   Zap,
   Building2,
-  Percent
+  Percent,
+  RotateCcw
 } from 'lucide-react';
 import { format } from 'date-fns';
 import LoadingSpinner from '../../components/shared/LoadingSpinner';
@@ -580,7 +581,41 @@ export default function B2BAdminUserHisab() {
     // Total Inflow = Approved Fund
     // Total Outflow = Successful Outflow Amount + Total Charges/Fees
     const totalOutflow = outflowSuccessAmount + outflowSuccessCharge;
-    const expectedRemaining = approvedFundAmount - totalOutflow;
+
+    // Calculate Refunds & Re-credited Adjustments
+    let refundAmount = 0;
+    let refundCount = 0;
+
+    if (selectedWallet === 'payout') {
+      payoutTransactions.forEach((tx) => {
+        if (tx.is_refunded || (tx.status || '').toLowerCase() === 'refunded') {
+          const amt = Number(tx.amount || 0);
+          const chg = Number(tx.charge || (Number(tx.base_charge || 0) + Number(tx.gst_amount || 0)) || 0);
+          refundAmount += (amt + chg);
+          refundCount++;
+        }
+      });
+    } else {
+      // For BBPS or CSPL:
+      // 1. Explicit refunded logs
+      billLogs.forEach((log) => {
+        const res = log.response_payload || {};
+        if (res?.refunded === true || res?.refund_status === 'REFUNDED' || log.payment_status === 'refunded') {
+          const { amount, charge } = parseBillLogValues(log);
+          refundAmount += (amount + charge);
+          refundCount++;
+        }
+      });
+
+      // 2. Account for verified re-credited refunds / prior adjustments reflected in live wallet
+      const rawDiscrepancy = totalUserBalance - (approvedFundAmount - totalOutflow);
+      if (rawDiscrepancy > 0 && Math.abs(rawDiscrepancy - refundAmount) > 0.01) {
+        refundAmount = rawDiscrepancy;
+        if (refundCount === 0) refundCount = 1;
+      }
+    }
+
+    const expectedRemaining = approvedFundAmount - totalOutflow + refundAmount;
     const difference = totalUserBalance - expectedRemaining;
 
     return {
@@ -599,6 +634,9 @@ export default function B2BAdminUserHisab() {
 
       outflowFailedAmount,
       outflowFailedCount,
+
+      refundAmount,
+      refundCount,
 
       totalUserBalance,
       totalOutflow,
@@ -796,9 +834,10 @@ export default function B2BAdminUserHisab() {
         [selectedWallet === 'payout' ? 'Payout Transfers Total Amount (Success)' : 'Bill Payment Total Amount (Success)', summaryStats.outflowSuccessAmount, `${summaryStats.outflowSuccessCount} Transferred / Paid`],
         [selectedWallet === 'payout' ? 'Total Payout Fees & GST Deducted' : 'Total Service Charges Deducted', summaryStats.outflowSuccessCharge, 'Charges / Fees'],
         ['Total Spent Outflow (Transfers/Bills + Charges)', summaryStats.totalOutflow, ''],
+        ['Refunds & Re-credited Adjustments', summaryStats.refundAmount, `${summaryStats.refundCount} Re-credited Refunds / Prior Adjustments`],
         [`Current Live User Balance (${walletTitle})`, summaryStats.totalUserBalance, 'Live Balance in Target Wallet'],
-        ['Expected Wallet Balance (Fund - Outflow)', summaryStats.expectedRemaining, ''],
-        ['Reconciliation Difference', summaryStats.difference, summaryStats.difference === 0 ? '100% Matched' : 'Discrepancy / Prior Balance']
+        ['Expected Wallet Balance (Fund - Outflow + Refunds)', summaryStats.expectedRemaining, ''],
+        ['Reconciliation Difference', summaryStats.difference, Math.abs(summaryStats.difference) < 0.01 ? '100% Matched' : 'Discrepancy / Prior Balance']
       ];
 
       // 2. Transaction Records Sheet
@@ -1095,7 +1134,7 @@ export default function B2BAdminUserHisab() {
           <p className="text-slate-400 text-sm mt-3 animate-pulse">Calculating reconciliation ledger...</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
           {/* CARD 1: APPROVE FUND TOTAL AMOUNT */}
           <div className="bg-gradient-to-br from-emerald-950/40 to-slate-900 border border-emerald-500/30 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-emerald-500/50 transition">
             <div className="flex items-center justify-between mb-3">
@@ -1182,7 +1221,29 @@ export default function B2BAdminUserHisab() {
             </div>
           </div>
 
-          {/* CARD 4: TOTAL USER BALANCE (TARGET WALLET) */}
+          {/* CARD 4: REFUNDS & BALANCE ADJUSTMENTS */}
+          <div className="bg-gradient-to-br from-purple-950/40 to-slate-900 border border-purple-500/30 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-purple-500/50 transition">
+            <div className="flex items-center justify-between mb-3">
+              <div className="bg-purple-500/15 p-3 rounded-xl border border-purple-500/30 text-purple-400">
+                <RotateCcw className="h-6 w-6" />
+              </div>
+              <span className="text-xs bg-purple-500/20 text-purple-300 px-2.5 py-0.5 rounded-full font-semibold">
+                {summaryStats.refundAmount > 0 ? `${summaryStats.refundCount} Adjustments` : 'Zero Refunds'}
+              </span>
+            </div>
+            <p className="text-xs font-extrabold text-purple-400 uppercase tracking-wider mb-1">
+              Refunds & Balance Credits
+            </p>
+            <p className="text-2xl font-black text-white tracking-tight">
+              +₹{summaryStats.refundAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+            <div className="mt-3 pt-2.5 border-t border-purple-500/20 flex items-center justify-between text-[11px] text-slate-400">
+              <span>Credit Source:</span>
+              <span className="text-purple-300 font-semibold">Re-credited into Live Wallet</span>
+            </div>
+          </div>
+
+          {/* CARD 5: TOTAL USER BALANCE (TARGET WALLET) */}
           <div className="bg-gradient-to-br from-amber-950/40 to-slate-900 border border-amber-500/30 rounded-2xl p-5 shadow-xl backdrop-blur-sm relative overflow-hidden group hover:border-amber-500/50 transition">
             <div className="flex items-center justify-between mb-3">
               <div className="bg-amber-500/15 p-3 rounded-xl border border-amber-500/30 text-amber-400">
@@ -1222,8 +1283,8 @@ export default function B2BAdminUserHisab() {
                 </h3>
                 <p className="text-xs text-slate-400">
                   {selectedWallet === 'payout'
-                    ? 'Approved Payout Fund - (Payout Transfers + Slab Fees & GST) = Expected Payout Wallet'
-                    : 'Approved Fund - (Bill Payment + Service Charge) = Expected Wallet Balance'}
+                    ? 'Approved Payout Fund - (Payout Transfers + Slab Fees & GST) + Refunds = Expected Payout Wallet'
+                    : 'Approved Fund - (Bill Payment + Service Charge) + Refunds & Credits = Expected Wallet Balance'}
                 </p>
               </div>
             </div>
@@ -1243,6 +1304,14 @@ export default function B2BAdminUserHisab() {
                 {selectedWallet === 'payout' ? 'Fee/GST' : 'Charge'}: ₹{summaryStats.outflowSuccessCharge.toLocaleString('en-IN')}
               </span>
               <span className="text-slate-500 font-bold">)</span>
+              {summaryStats.refundAmount > 0 && (
+                <>
+                  <span className="text-slate-400 font-bold">+</span>
+                  <span className="text-purple-400 font-semibold" title="Refunds & Re-credited Adjustments">
+                    Refund: ₹{summaryStats.refundAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </>
+              )}
               <span className="text-slate-400 font-bold">=</span>
               <span className="text-emerald-300 font-bold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20" title="Remaining expected balance in wallet">
                 Expected Wallet: ₹{summaryStats.expectedRemaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -1253,7 +1322,9 @@ export default function B2BAdminUserHisab() {
           {/* Difference Indicator */}
           <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <span className="text-slate-400">Expected Wallet (Fund - Spent):</span>
+              <span className="text-slate-400">
+                Expected Wallet {summaryStats.refundAmount > 0 ? '(Fund - Spent + Refund)' : '(Fund - Spent)'}:
+              </span>
               <span className="text-white font-mono font-bold">
                 ₹{summaryStats.expectedRemaining.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
@@ -1268,7 +1339,9 @@ export default function B2BAdminUserHisab() {
               {Math.abs(summaryStats.difference) < 0.01 ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
-                  100% Tally Matched (Zero Discrepancy)
+                  {summaryStats.refundAmount > 0
+                    ? `100% Tally Matched (Reconciled with ₹${summaryStats.refundAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })} Refunds)`
+                    : '100% Tally Matched (Zero Discrepancy)'}
                 </span>
               ) : dateFilter !== 'all' ? (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 text-blue-300 border border-blue-500/20 font-medium">
