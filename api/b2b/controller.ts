@@ -377,22 +377,8 @@ export const checkStatusAdmin = async (req: Request, res: Response): Promise<any
         || (bpr?.responseCode && bpr?.responseCode !== '000');
 
       if (isFailedOrError) {
-        // If local status is still pending, update DB to failed & refund agent
-        if (log.payment_status === 'pending') {
-          const refundAmount = log.request_payload?.totalDeduction || 0;
-          if (refundAmount > 0) {
-            await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: log.agent_id, p_amount: refundAmount });
-          }
-          await supabaseAdmin
-            .from('b2b_api_logs')
-            .update({ 
-              payment_status: 'failed', 
-              status_code: 500, 
-              charge_deducted: 0,
-              response_payload: { ...log.response_payload, payment_status: 'failed', finalStatus: 'failed', failureReason: errorMsg } 
-            })
-            .eq('id', log.id);
-        }
+        // Atomic Guard: Refunds wallet ONCE and ONLY ONCE
+        await atomicRefundB2BBill(log.id, errorMsg, { failureReason: errorMsg });
 
         return res.json({
           status: 'success',
@@ -683,34 +669,14 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
     if (!trackValue) {
       if (localStatus === 'pending') {
         const refundAmount = reqPayload?.totalDeduction || reqPayload?.amount || 0;
-        let updatedPayload = resPayload;
-        updatedPayload = { 
-          ...updatedPayload, 
-          finalStatus: 'failed', 
-          payment_status: 'failed',
+        const failReason = 'Bill payment failed to reach BillAvenue gateway (No CC01 Ref or Request ID).';
+        await atomicRefundB2BBill(log.id, failReason, {
           transaction_id: apiTxnId,
           api_txn_id: apiTxnId,
           client_transaction_id: clientTxnId,
           bbps_txn_ref_id: apiTxnId,
-          reason: 'Bill payment failed to reach BillAvenue gateway (No CC01 Ref or Request ID).'
-        };
-
-        await supabaseAdmin
-          .from('b2b_api_logs')
-          .update({ 
-            payment_status: 'failed',
-            status_code: 500,
-            charge_deducted: 0,
-            response_payload: updatedPayload
-          })
-          .eq('id', log.id);
-
-        if (refundAmount > 0) {
-          await supabaseAdmin.rpc('add_b2b_wallet_balance', {
-            p_agent_id: log.agent_id,
-            p_amount: refundAmount
-          });
-        }
+          reason: failReason
+        });
 
         return res.json({
           status: 'success',
@@ -721,7 +687,7 @@ export const checkStatus = async (req: Request, res: Response): Promise<any> => 
             bbps_txn_ref_id: apiTxnId,
             current_status: 'failed',
             bbps_status: 'FAILED_GATEWAY_ERROR',
-            message: 'Bill payment failed to connect to biller gateway. Agent wallet has been refunded.',
+            message: 'Bill payment failed to connect to biller gateway. Agent wallet has been refunded safely.',
             refund_status: 'REFUNDED',
             refunded_amount: refundAmount,
             polled_at: new Date().toISOString()
@@ -1157,15 +1123,15 @@ export const payBill = async (req: Request, res: Response) => {
       console.log(`[B2B PayBill - BILLAVENUE SUCCESS] Response received:`, JSON.stringify(apiResponse.json));
     } catch (payErr: any) {
       console.error(`[B2B PayBill - BILLAVENUE ERROR] Pay API failed for agent ${agentId}:`, payErr);
-      // Refund user if API failed completely (Refund total including charge)
-      await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
-      console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to API failure.`);
-
+      // Atomic Refund Guard: Guarantees single refund
       if (logId) {
-        await supabaseAdmin.from('b2b_api_logs').update({
-          status_code: 500,
-          response_payload: { error: payErr.message, transaction_id: customTxnId, requestId: billavenueRequestId }
-        }).eq('id', logId);
+        await atomicRefundB2BBill(logId, payErr.message || 'Payment failed at gateway', {
+          error: payErr.message,
+          transaction_id: customTxnId,
+          requestId: billavenueRequestId
+        });
+      } else {
+        await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
       }
       return res.status(400).json({ 
         status: 'failed', 
@@ -1239,9 +1205,16 @@ export const payBill = async (req: Request, res: Response) => {
       console.log(`[B2B PayBill - PENDING] Transaction ${customTxnId} is PENDING / AWAITED at BillAvenue (Ref: ${txnRefId || 'N/A'}).`);
     } else {
       finalStatus = 'failed';
-      // Initiate refund ONLY when truly FAILED (Refund total including charge)
-      await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
-      console.log(`[B2B PayBill - REFUND] Refunded ₹${totalDeduction} to agent ${agentId} due to FAILED status from BillAvenue.`);
+      // Initiate refund ONLY when truly FAILED (Atomic Refund Guard guarantees single refund)
+      if (logId) {
+        await atomicRefundB2BBill(logId, errorMessage || 'Payment failed at BillAvenue', {
+          ...payJson,
+          finalStatus: 'failed',
+          payment_status: 'failed'
+        });
+      } else {
+        await supabaseAdmin.rpc('add_b2b_wallet_balance', { p_agent_id: agentId, p_amount: totalDeduction });
+      }
     }
 
     console.log(`[B2B PayBill - FINAL STATUS] ${finalStatus.toUpperCase()} for txn ${customTxnId}`);
@@ -1856,6 +1829,142 @@ export const firePayoutWebhook = (webhookUrl: string | null | undefined, agentId
       error_message: err.message
     });
   });
+/**
+ * Atomic BBPS Bill Refund Guard
+ * Prevents race conditions and double refunds across:
+ * 1. API failures (payBill catch & FAILED responses)
+ * 2. Status polling & checkBillStatus
+ * 3. Background cron jobs (billavenue-cron & sync_all_pending_bills)
+ * 4. Admin manual status changes
+ * Guarantees that a bill deduction is refunded ONCE and ONLY ONCE.
+ */
+export const atomicRefundB2BBill = async (
+  logId: string, 
+  failReason: string = 'Bill payment failed at gateway',
+  responsePayloadUpdates: any = null
+): Promise<{ success: boolean; alreadyRefunded: boolean; message: string; refundedAmount?: number; agentId?: string }> => {
+  if (!logId) {
+    return { success: false, alreadyRefunded: false, message: 'Missing logId' };
+  }
+
+  // 1. Try atomic PostgreSQL RPC if deployed
+  try {
+    const { data: rpcRes, error: rpcErr } = await supabaseAdmin.rpc('refund_b2b_bill_atomic', {
+      p_log_id: logId,
+      p_reason: failReason
+    });
+
+    if (!rpcErr && rpcRes) {
+      if (rpcRes.success) {
+        console.log(`[Atomic Bill Refund] Successfully refunded bill log ${logId} via RPC: ₹${rpcRes.refund_amount}`);
+        return { 
+          success: true, 
+          alreadyRefunded: false, 
+          message: 'Refund processed successfully',
+          refundedAmount: Number(rpcRes.refund_amount || 0),
+          agentId: rpcRes.agent_id
+        };
+      }
+      if (rpcRes.already_refunded) {
+        console.warn(`[Atomic Bill Refund] Blocked duplicate refund for log ${logId}. Current status: ${rpcRes.current_status}`);
+        return { success: false, alreadyRefunded: true, message: rpcRes.message };
+      }
+    }
+  } catch (err: any) {
+    // Fallback to conditional atomic DB update below
+  }
+
+  // 2. Fetch the current log first
+  const { data: log, error: fetchErr } = await supabaseAdmin
+    .from('b2b_api_logs')
+    .select('id, agent_id, payment_status, request_payload, response_payload')
+    .eq('id', logId)
+    .single();
+
+  if (fetchErr || !log) {
+    console.error(`[Atomic Bill Refund] Log not found: ${logId}`);
+    return { success: false, alreadyRefunded: false, message: 'Log not found' };
+  }
+
+  // Double Refund Guard: Check if log was already marked failed or refunded
+  const currentStatus = (log.payment_status || '').toLowerCase();
+  const respPayload = log.response_payload || {};
+  const isAlreadyRefunded = 
+    respPayload.refunded === true || 
+    respPayload.is_refunded === true || 
+    respPayload.refund_status === 'REFUNDED' || 
+    (currentStatus === 'failed' && respPayload.finalStatus === 'failed');
+
+  if (isAlreadyRefunded) {
+    console.warn(`[Atomic Bill Refund] Blocked duplicate refund for bill ${logId}. Status: ${currentStatus}, already marked refunded.`);
+    return { 
+      success: false, 
+      alreadyRefunded: true, 
+      message: 'Bill transaction is already refunded. Double refund prevented!' 
+    };
+  }
+
+  const reqPayload = log.request_payload || {};
+  const refundAmount = Number(reqPayload.totalDeduction || reqPayload.amount || 0);
+  if (refundAmount <= 0) {
+    console.error(`[Atomic Bill Refund] Invalid deduction amount for log ${logId}`);
+    return { success: false, alreadyRefunded: false, message: 'Invalid deduction amount' };
+  }
+
+  // 3. Conditional Atomic Update:
+  // Atomically transition from non-failed to failed. Matches 0 rows if already transitioned.
+  const mergedPayload = {
+    ...respPayload,
+    ...(responsePayloadUpdates || {}),
+    payment_status: 'failed',
+    finalStatus: 'failed',
+    refunded: true,
+    is_refunded: true,
+    refunded_amount: refundAmount,
+    refunded_at: new Date().toISOString(),
+    failureReason: failReason
+  };
+
+  const { data: updatedLogs, error: updateErr } = await supabaseAdmin
+    .from('b2b_api_logs')
+    .update({ 
+      payment_status: 'failed', 
+      status_code: 500, 
+      charge_deducted: 0,
+      response_payload: mergedPayload
+    })
+    .eq('id', logId)
+    .neq('payment_status', 'failed')
+    .select('id, agent_id');
+
+  if (updateErr) {
+    console.error(`[Atomic Bill Refund] Error during conditional update for ${logId}:`, updateErr.message);
+    return { success: false, alreadyRefunded: false, message: updateErr.message };
+  }
+
+  if (!updatedLogs || updatedLogs.length === 0) {
+    console.warn(`[Atomic Bill Refund] Blocked duplicate refund for bill ${logId}. Transaction was already marked failed by another process.`);
+    return { 
+      success: false, 
+      alreadyRefunded: true, 
+      message: 'Transaction already resolved or refunded. Double refund prevented!' 
+    };
+  }
+
+  // 4. Guaranteed Single Wallet Credit:
+  await supabaseAdmin.rpc('add_b2b_wallet_balance', {
+    p_agent_id: log.agent_id,
+    p_amount: refundAmount
+  });
+
+  console.log(`[Atomic Bill Refund] Successfully refunded ₹${refundAmount} to agent ${log.agent_id} for bill ${logId}`);
+  return {
+    success: true,
+    alreadyRefunded: false,
+    message: 'Refund processed successfully',
+    refundedAmount: refundAmount,
+    agentId: log.agent_id
+  };
 };
 
 /**
